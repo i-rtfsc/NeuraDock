@@ -1,0 +1,8 @@
+{
+  "name": "apps-root",
+  "private": true,
+  "scripts": {
+    "dev": "cd desktop && npm run dev",
+    "build": "cd desktop && npm run build"
+  }
+}

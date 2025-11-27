@@ -1,0 +1,19 @@
+{
+  "name": "neuradock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev:desktop",
+    "dev:desktop": "cd apps/desktop && npm run tauri:dev",
+    "build": "npm run build:desktop",
+    "build:desktop": "cd apps/desktop && npm run tauri:build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

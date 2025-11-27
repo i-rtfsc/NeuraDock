@@ -1,0 +1,380 @@
+# ============================================================
+# NeuraDock - .gitignore
+# Tauri + React + Rust 桌面应用项目忽略配置
+# ============================================================
+
+# ============================================================
+# 1. Rust / Tauri 后端相关
+# ============================================================
+
+# Cargo 构建产物
+/target
+/src-tauri/target
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock (库项目不提交，应用项目提交)
+# Cargo.lock 应该提交，确保依赖版本一致性
+
+# ============================================================
+# 2. Node.js / React 前端相关
+# ============================================================
+
+# 依赖
+node_modules/
+.pnp
+.pnp.js
+
+# 构建产物
+/dist
+/build
+/.next
+/out
+
+# 生产构建
+dist-ssr
+*.local
+
+# 锁文件 - 项目使用 pnpm，忽略 npm/yarn 锁文件
+package-lock.json
+yarn.lock
+
+# ============================================================
+# 3. Tauri 特定文件
+# ============================================================
+
+# Tauri 构建产物
+src-tauri/target/
+src-tauri/WixTools
+
+# Tauri 配置（如果包含敏感信息）
+# src-tauri/tauri.conf.json 通常要提交
+# 如果有本地配置可以忽略：
+src-tauri/tauri.conf.local.json
+
+# ============================================================
+# 4. 数据库和应用数据
+# ============================================================
+
+# SQLite 数据库文件
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# 应用数据目录（用户数据、缓存等）
+app-data/
+user-data/
+.app-cache/
+
+# ============================================================
+# 5. 日志文件
+# ============================================================
+
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================================
+# 6. 测试相关
+# ============================================================
+
+# 测试覆盖率
+coverage/
+*.lcov
+.nyc_output
+
+# Rust 测试临时文件
+*.profraw
+*.profdata
+
+# Benchmark 结果
+benchmark_results/
+criterion/
+
+# ============================================================
+# 7. 环境变量和配置文件
+# ============================================================
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.secret
+secrets.json
+accounts.json
+
+# ============================================================
+# 8. 操作系统文件
+# ============================================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================================
+# 9. 编辑器和 IDE
+# ============================================================
+
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.code-workspace
+
+# JetBrains IDEs (WebStorm, IntelliJ IDEA, RustRover)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
+*.swp
+*.swo
+*.swn
+.viminfo
+
+# Emacs
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================
+# 10. 临时文件和缓存
+# ============================================================
+
+# 临时文件
+temp/
+tmp/
+*.tmp
+*.temp
+scratch/
+sandbox/
+
+# 缓存
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
+
+# ============================================================
+# 11. 密钥和证书（安全相关）
+# ============================================================
+
+# 私钥和证书
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+
+# Nested node_modules
+**/node_modules/
+
+# Nested Tauri target dirs
+**/src-tauri/target/
+
+# NPM cache and config
+.npm/
+.npmrc
+
+# Cargo local overrides
+.cargo/
+**/.cargo/
+
+# Misc backup/temp artifacts
+*.orig
+*.key
+*.pem
+*.crt
+*.cert
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Tauri 代码签名文件
+*.provisionprofile
+*.mobileprovision
+
+# ============================================================
+# 12. 打包和分发产物
+# ============================================================
+
+# 应用安装包
+*.dmg
+*.pkg
+*.app
+*.exe
+*.msi
+*.AppImage
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# 构建产物
+/bundle
+/src-tauri/target/release/bundle
+
+# ============================================================
+# 13. AI 辅助开发工具配置（项目规范管理）
+# ============================================================
+
+# Claude Code 配置（添加到 .gitignore，团队成员各自维护）
+.claude/
+CLAUDE.md
+AGENTS.md
+
+# openspec 配置（添加到 .gitignore，项目规范管理工具）
+.openspec/
+openspec/
+
+# SpecKit 配置（添加到 .gitignore，项目规范管理工具）
+.specify/
+specs/
+
+# 其他 AI 助手配置
+.cursor/
+.copilot/
+.aider/
+.playwright-mcp
+
+# ============================================================
+# 14. 版本控制
+# ============================================================
+
+# Git
+*.orig
+*.rej
+*.patch
+
+# SVN
+.svn/
+
+# 备份文件
+*.bak
+*.backup
+
+# ============================================================
+# 15. Python / uv 相关
+# ============================================================
+
+# uv 虚拟环境
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# uv 锁文件（应该提交以确保可重现构建）
+# uv.lock 应该提交
+
+# Python 编译文件
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# ============================================================
+# 16. 其他工具和文件
+# ============================================================
+
+# 运行时文件
+*.pid
+*.lock
+*.sock
+
+# 文档生成
+docs/build/
+docs/_build/
+docs/ai/
+
+# Intermediate documentation (generated during development)
+.docs/
+
+# 用户特定脚本
+debug.sh
+temp_*.sh
+*.local.*
+
+# Playwright 测试
+test-results/
+playwright-report/
+playwright/.cache/
+
+# 性能分析
+*.prof
+*.trace
+performance_logs/
+
+design.md
+
+# Monorepo additions
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/schemas/
+apps/desktop/src-tauri/neuradock_dev.db
+apps/**/node_modules/
+out/
+.pnpm-store/
+.next/
+.svelte-kit/
+target/
+# Additional generated artifacts
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/neuradock_dev.db*
+apps/desktop/src-tauri/logs/
+apps/desktop/src-tauri/.cache/
+apps/desktop/src-tauri/*.log
+
+# tauri-specta 自动生成的 TypeScript 绑定
+apps/desktop/src/lib/tauri.ts
+
+# Archive and temporary documentation
+.archive/
