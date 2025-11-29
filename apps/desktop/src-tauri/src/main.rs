@@ -5,13 +5,13 @@ mod domain;
 mod infrastructure;
 mod presentation;
 
-use presentation::state::AppState;
 use presentation::commands::*;
-use tauri::Manager;
-use tauri::{WebviewWindowBuilder, WebviewUrl};
-use tauri_specta::{collect_commands, collect_events, Builder};
+use presentation::state::AppState;
 use specta_typescript::Typescript;
 use std::sync::Arc;
+use tauri::Manager;
+use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri_specta::{collect_commands, collect_events, Builder};
 use tokio::sync::OnceCell;
 
 // Global state cell to ensure initialization completes before use
@@ -49,6 +49,13 @@ async fn main() {
             get_check_in_history,
             get_check_in_stats,
             get_running_jobs,
+            // Check-in Streak commands
+            get_check_in_streak,
+            get_all_check_in_streaks,
+            get_check_in_calendar,
+            get_check_in_trend,
+            get_check_in_day_detail,
+            recalculate_check_in_streaks,
         ])
         .events(collect_events![
             presentation::events::CheckInProgress,
@@ -71,7 +78,7 @@ async fn main() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let handle = app.handle().clone();
-            
+
             // Initialize state asynchronously
             tauri::async_runtime::spawn(async move {
                 eprintln!("Starting app state initialization...");
@@ -86,7 +93,7 @@ async fn main() {
                     }
                 }
             });
-            
+
             builder.mount_events(app);
 
             Ok(())

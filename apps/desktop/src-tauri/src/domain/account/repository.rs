@@ -1,6 +1,6 @@
-use async_trait::async_trait;
-use crate::domain::shared::{AccountId, DomainError};
 use super::Account;
+use crate::domain::shared::{AccountId, DomainError};
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait AccountRepository: Send + Sync {

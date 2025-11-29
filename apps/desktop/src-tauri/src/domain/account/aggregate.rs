@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 
-use crate::domain::shared::{AccountId, ProviderId, DomainError};
 use super::value_objects::Credentials;
+use crate::domain::shared::{AccountId, DomainError, ProviderId};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Account {
@@ -34,11 +34,15 @@ impl Account {
         credentials: Credentials,
     ) -> Result<Self, DomainError> {
         if name.trim().is_empty() {
-            return Err(DomainError::Validation("Account name cannot be empty".to_string()));
+            return Err(DomainError::Validation(
+                "Account name cannot be empty".to_string(),
+            ));
         }
 
         if !credentials.is_valid() {
-            return Err(DomainError::InvalidCredentials("Cookies are required".to_string()));
+            return Err(DomainError::InvalidCredentials(
+                "Cookies are required".to_string(),
+            ));
         }
 
         Ok(Self {
@@ -132,7 +136,9 @@ impl Account {
 
     pub fn update_name(&mut self, name: String) -> Result<(), DomainError> {
         if name.trim().is_empty() {
-            return Err(DomainError::Validation("Account name cannot be empty".to_string()));
+            return Err(DomainError::Validation(
+                "Account name cannot be empty".to_string(),
+            ));
         }
         self.name = name.trim().to_string();
         Ok(())
@@ -140,7 +146,9 @@ impl Account {
 
     pub fn update_credentials(&mut self, credentials: Credentials) -> Result<(), DomainError> {
         if !credentials.is_valid() {
-            return Err(DomainError::InvalidCredentials("Cookies and api_user are required".to_string()));
+            return Err(DomainError::InvalidCredentials(
+                "Cookies and api_user are required".to_string(),
+            ));
         }
         self.credentials = credentials;
         Ok(())
@@ -166,12 +174,21 @@ impl Account {
         self.auto_checkin_minute
     }
 
-    pub fn update_auto_checkin(&mut self, enabled: bool, hour: u8, minute: u8) -> Result<(), DomainError> {
+    pub fn update_auto_checkin(
+        &mut self,
+        enabled: bool,
+        hour: u8,
+        minute: u8,
+    ) -> Result<(), DomainError> {
         if hour > 23 {
-            return Err(DomainError::Validation("Hour must be between 0 and 23".to_string()));
+            return Err(DomainError::Validation(
+                "Hour must be between 0 and 23".to_string(),
+            ));
         }
         if minute > 59 {
-            return Err(DomainError::Validation("Minute must be between 0 and 59".to_string()));
+            return Err(DomainError::Validation(
+                "Minute must be between 0 and 59".to_string(),
+            ));
         }
         self.auto_checkin_enabled = enabled;
         self.auto_checkin_hour = hour;

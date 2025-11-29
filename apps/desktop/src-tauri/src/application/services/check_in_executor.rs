@@ -1,14 +1,14 @@
+use anyhow::{Context, Result};
+use log::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
-use anyhow::{Result, Context};
-use log::{info, warn, error};
 
 use crate::domain::{
     account::{Account, AccountRepository},
     check_in::Provider,
     shared::AccountId,
 };
-use crate::infrastructure::http::{HttpClient, WafBypassService, UserInfo, CheckInResult};
+use crate::infrastructure::http::{CheckInResult, HttpClient, UserInfo, WafBypassService};
 
 /// Check-in result for a single account
 #[derive(Debug, Clone)]
@@ -37,10 +37,7 @@ pub struct CheckInExecutor {
 }
 
 impl CheckInExecutor {
-    pub fn new(
-        account_repo: Arc<dyn AccountRepository>,
-        headless_browser: bool,
-    ) -> Result<Self> {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, headless_browser: bool) -> Result<Self> {
         let http_client = HttpClient::new()?;
         let waf_service = WafBypassService::new(headless_browser);
 
@@ -117,7 +114,10 @@ impl CheckInExecutor {
 
         // Execute check-in if provider requires it
         let check_in_result = if let Some(sign_in_url) = provider.sign_in_url() {
-            info!("[{}] Executing check-in request to: {}", account_name, sign_in_url);
+            info!(
+                "[{}] Executing check-in request to: {}",
+                account_name, sign_in_url
+            );
 
             // Check if the sign_in_url is a page (like /console/token) or an API endpoint
             // Page URLs typically don't contain /api/
@@ -150,12 +150,7 @@ impl CheckInExecutor {
                 // Call API endpoint (JSON response expected)
                 match self
                     .http_client
-                    .execute_check_in(
-                        &sign_in_url,
-                        &cookies,
-                        provider.api_user_key(),
-                        api_user,
-                    )
+                    .execute_check_in(&sign_in_url, &cookies, provider.api_user_key(), api_user)
                     .await
                 {
                     Ok(result) => {
@@ -177,8 +172,11 @@ impl CheckInExecutor {
             }
         } else {
             // No sign_in_url specified - for AgentRouter-like providers, call API endpoints to trigger balance update
-            info!("[{}] Calling API endpoints to trigger balance update...", account_name);
-            
+            info!(
+                "[{}] Calling API endpoints to trigger balance update...",
+                account_name
+            );
+
             // For AgentRouter, call all 4 API endpoints that are triggered during re-login
             let api_endpoints = vec![
                 format!("{}/api/status", provider.domain()),
@@ -186,47 +184,57 @@ impl CheckInExecutor {
                 format!("{}/api/user/self/groups", provider.domain()),
                 format!("{}/api/token/?p=1&size=10", provider.domain()),
             ];
-            
+
             let mut success_count = 0;
             for endpoint in &api_endpoints {
                 match self
                     .http_client
-                    .call_api_endpoint(
-                        endpoint,
-                        &cookies,
-                        provider.api_user_key(),
-                        api_user,
-                    )
+                    .call_api_endpoint(endpoint, &cookies, provider.api_user_key(), api_user)
                     .await
                 {
                     Ok(_) => {
-                        info!("[{}] API endpoint called successfully: {}", account_name, endpoint);
+                        info!(
+                            "[{}] API endpoint called successfully: {}",
+                            account_name, endpoint
+                        );
                         success_count += 1;
                     }
                     Err(e) => {
-                        warn!("[{}] Failed to call API endpoint {} (non-critical): {}", account_name, endpoint, e);
+                        warn!(
+                            "[{}] Failed to call API endpoint {} (non-critical): {}",
+                            account_name, endpoint, e
+                        );
                     }
                 }
             }
-            
+
             info!(
                 "[{}] Check-in completed ({}/{} API endpoints called successfully)",
-                account_name, success_count, api_endpoints.len()
+                account_name,
+                success_count,
+                api_endpoints.len()
             );
             CheckInResult {
                 success: true,
-                message: format!("Check-in completed ({}/{} API calls)", success_count, api_endpoints.len()),
+                message: format!(
+                    "Check-in completed ({}/{} API calls)",
+                    success_count,
+                    api_endpoints.len()
+                ),
             }
         };
 
         // For auto check-in providers (no sign_in_url), fetch balance again to get updated value
         // Always retry for auto check-in providers, even if first call failed
         let final_user_info = if provider.sign_in_url().is_none() {
-            info!("[{}] Fetching updated balance after auto check-in...", account_name);
-            
+            info!(
+                "[{}] Fetching updated balance after auto check-in...",
+                account_name
+            );
+
             // Wait longer for server to process check-in (increased from 500ms to 2s)
             tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
-            
+
             match self
                 .http_client
                 .get_user_info(
@@ -245,7 +253,10 @@ impl CheckInExecutor {
                     Some(updated_info)
                 }
                 Err(e) => {
-                    warn!("[{}] Failed to get updated balance: {}, fallback to initial balance", account_name, e);
+                    warn!(
+                        "[{}] Failed to get updated balance: {}, fallback to initial balance",
+                        account_name, e
+                    );
                     user_info
                 }
             }
@@ -294,7 +305,10 @@ impl CheckInExecutor {
             let provider = match providers.get(provider_id) {
                 Some(p) => p,
                 None => {
-                    warn!("Provider {} not found for account {}", provider_id, account_id);
+                    warn!(
+                        "Provider {} not found for account {}",
+                        provider_id, account_id
+                    );
                     failed_count += 1;
                     continue;
                 }
@@ -342,7 +356,10 @@ impl CheckInExecutor {
         let mut cookies = user_cookies.clone();
 
         if provider.needs_waf_bypass() {
-            info!("[{}] WAF bypass required, getting WAF cookies via Python script...", account_name);
+            info!(
+                "[{}] WAF bypass required, getting WAF cookies via Python script...",
+                account_name
+            );
 
             let waf_cookies = self
                 .waf_service

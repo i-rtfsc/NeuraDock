@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::domain::shared::ProviderId;
@@ -83,7 +83,9 @@ impl Provider {
     }
 
     pub fn sign_in_url(&self) -> Option<String> {
-        self.sign_in_path.as_ref().map(|p| format!("{}{}", self.domain, p))
+        self.sign_in_path
+            .as_ref()
+            .map(|p| format!("{}{}", self.domain, p))
     }
 
     pub fn user_info_url(&self) -> String {

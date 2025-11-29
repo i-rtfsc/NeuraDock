@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::time::Duration;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
 use log::{info, warn};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::time::Duration;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 const REQUIRED_WAF_COOKIES: &[&str] = &["acw_tc", "cdn_sec_tc", "acw_sc__v2"];
@@ -46,16 +46,20 @@ fn find_browser() -> Option<PathBuf> {
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
             // Chrome (Local AppData)
-            format!(r"{}\Google\Chrome\Application\chrome.exe", 
-                    std::env::var("LOCALAPPDATA").unwrap_or_default()),
+            format!(
+                r"{}\Google\Chrome\Application\chrome.exe",
+                std::env::var("LOCALAPPDATA").unwrap_or_default()
+            ),
             // Chromium
             r"C:\Program Files\Chromium\Application\chrome.exe",
             r"C:\Program Files (x86)\Chromium\Application\chrome.exe",
             // Brave
             r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
             r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
-            format!(r"{}\BraveSoftware\Brave-Browser\Application\brave.exe",
-                    std::env::var("LOCALAPPDATA").unwrap_or_default()),
+            format!(
+                r"{}\BraveSoftware\Brave-Browser\Application\brave.exe",
+                std::env::var("LOCALAPPDATA").unwrap_or_default()
+            ),
             // Microsoft Edge
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -82,16 +86,16 @@ fn find_browser() -> Option<PathBuf> {
 #[cfg(target_os = "windows")]
 fn get_chrome_from_registry() -> Result<PathBuf> {
     use std::process::Command;
-    
+
     // Try to get Chrome path from Windows registry
     let output = Command::new("reg")
         .args(&[
             "query",
             r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
-            "/ve"
+            "/ve",
         ])
         .output();
-    
+
     if let Ok(output) = output {
         let output_str = String::from_utf8_lossy(&output.stdout);
         // Parse the registry output to extract the path
@@ -104,7 +108,7 @@ fn get_chrome_from_registry() -> Result<PathBuf> {
             }
         }
     }
-    
+
     Err(anyhow::anyhow!("Chrome not found in registry"))
 }
 
@@ -118,38 +122,64 @@ impl WafBypassService {
     }
 
     /// Get WAF cookies using chromiumoxide (pure Rust)
-    pub async fn get_waf_cookies(&self, login_url: &str, account_name: &str) -> Result<HashMap<String, String>> {
+    pub async fn get_waf_cookies(
+        &self,
+        login_url: &str,
+        account_name: &str,
+    ) -> Result<HashMap<String, String>> {
         const MAX_RETRIES: u32 = 2;
         let mut last_error = None;
-        
+
         for attempt in 0..MAX_RETRIES {
             if attempt > 0 {
-                info!("[{}] Retrying WAF cookie fetch (attempt {}/{})", account_name, attempt + 1, MAX_RETRIES);
+                info!(
+                    "[{}] Retrying WAF cookie fetch (attempt {}/{})",
+                    account_name,
+                    attempt + 1,
+                    MAX_RETRIES
+                );
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
-            
+
             match self.get_waf_cookies_once(login_url, account_name).await {
                 Ok(cookies) => return Ok(cookies),
                 Err(e) => {
-                    warn!("[{}] WAF cookie fetch attempt {} failed: {}", account_name, attempt + 1, e);
+                    warn!(
+                        "[{}] WAF cookie fetch attempt {} failed: {}",
+                        account_name,
+                        attempt + 1,
+                        e
+                    );
                     last_error = Some(e);
                 }
             }
         }
-        
-        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Failed to get WAF cookies after {} attempts", MAX_RETRIES)))
+
+        Err(last_error.unwrap_or_else(|| {
+            anyhow::anyhow!("Failed to get WAF cookies after {} attempts", MAX_RETRIES)
+        }))
     }
-    
+
     /// Internal method to get WAF cookies once
-    async fn get_waf_cookies_once(&self, login_url: &str, account_name: &str) -> Result<HashMap<String, String>> {
-        info!("[{}] Starting browser to get WAF cookies (chromiumoxide)...", account_name);
+    async fn get_waf_cookies_once(
+        &self,
+        login_url: &str,
+        account_name: &str,
+    ) -> Result<HashMap<String, String>> {
+        info!(
+            "[{}] Starting browser to get WAF cookies (chromiumoxide)...",
+            account_name
+        );
 
         // Use unique temporary directory for each session to avoid lock conflicts
         let temp_dir = std::env::temp_dir().join(format!("chromiumoxide-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir)
             .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {}", e))?;
-        
-        info!("[{}] Using temp profile directory: {:?}", account_name, temp_dir);
+
+        info!(
+            "[{}] Using temp profile directory: {:?}",
+            account_name, temp_dir
+        );
 
         // Find available browser
         let browser_path = find_browser()
@@ -158,7 +188,7 @@ impl WafBypassService {
                 log::error!("[{}] {}", account_name, err_msg);
                 anyhow::anyhow!(err_msg)
             })?;
-        
+
         info!("[{}] Using browser at: {:?}", account_name, browser_path);
 
         // Configure browser
@@ -167,27 +197,24 @@ impl WafBypassService {
             .no_sandbox() // Add no-sandbox for compatibility
             .user_data_dir(&temp_dir) // Use unique user data directory
             .chrome_executable(&browser_path); // Use found browser
-        
+
         // Set headless mode
         if !self.headless {
             builder = builder.with_head();
         }
-        
-        let config = builder.build()
-            .map_err(|e| {
-                let err_msg = format!("Failed to build browser config: {}", e);
-                log::error!("[{}] {}", account_name, err_msg);
-                anyhow::anyhow!(err_msg)
-            })?;
+
+        let config = builder.build().map_err(|e| {
+            let err_msg = format!("Failed to build browser config: {}", e);
+            log::error!("[{}] {}", account_name, err_msg);
+            anyhow::anyhow!(err_msg)
+        })?;
 
         info!("[{}] Browser config created, launching...", account_name);
 
         // Launch browser with timeout
-        let launch_result = tokio::time::timeout(
-            Duration::from_secs(30),
-            Browser::launch(config)
-        ).await;
-        
+        let launch_result =
+            tokio::time::timeout(Duration::from_secs(30), Browser::launch(config)).await;
+
         let (mut browser, mut handler) = match launch_result {
             Ok(Ok(browser_handler)) => browser_handler,
             Ok(Err(e)) => {
@@ -216,35 +243,29 @@ impl WafBypassService {
         });
 
         // Create new page
-        let page = browser.new_page("about:blank")
-            .await
-            .map_err(|e| {
-                let err_msg = format!("Failed to create new page: {}", e);
-                log::error!("[{}] {}", account_name, err_msg);
-                anyhow::anyhow!(err_msg)
-            })?;
+        let page = browser.new_page("about:blank").await.map_err(|e| {
+            let err_msg = format!("Failed to create new page: {}", e);
+            log::error!("[{}] {}", account_name, err_msg);
+            anyhow::anyhow!(err_msg)
+        })?;
 
         info!("[{}] New page created", account_name);
 
         // Set user agent
-        page.set_user_agent(USER_AGENT)
-            .await
-            .map_err(|e| {
-                let err_msg = format!("Failed to set user agent: {}", e);
-                log::error!("[{}] {}", account_name, err_msg);
-                anyhow::anyhow!(err_msg)
-            })?;
+        page.set_user_agent(USER_AGENT).await.map_err(|e| {
+            let err_msg = format!("Failed to set user agent: {}", e);
+            log::error!("[{}] {}", account_name, err_msg);
+            anyhow::anyhow!(err_msg)
+        })?;
 
         info!("[{}] Navigating to: {}", account_name, login_url);
 
         // Navigate to login page
-        page.goto(login_url)
-            .await
-            .map_err(|e| {
-                let err_msg = format!("Failed to navigate to login page: {}", e);
-                log::error!("[{}] {}", account_name, err_msg);
-                anyhow::anyhow!(err_msg)
-            })?;
+        page.goto(login_url).await.map_err(|e| {
+            let err_msg = format!("Failed to navigate to login page: {}", e);
+            log::error!("[{}] {}", account_name, err_msg);
+            anyhow::anyhow!(err_msg)
+        })?;
 
         info!("[{}] Page loaded, waiting for WAF cookies...", account_name);
 
@@ -252,15 +273,17 @@ impl WafBypassService {
         tokio::time::sleep(Duration::from_secs(8)).await;
 
         // Get all cookies
-        let cookies = page.get_cookies()
-            .await
-            .map_err(|e| {
-                let err_msg = format!("Failed to get cookies: {}", e);
-                log::error!("[{}] {}", account_name, err_msg);
-                anyhow::anyhow!(err_msg)
-            })?;
+        let cookies = page.get_cookies().await.map_err(|e| {
+            let err_msg = format!("Failed to get cookies: {}", e);
+            log::error!("[{}] {}", account_name, err_msg);
+            anyhow::anyhow!(err_msg)
+        })?;
 
-        info!("[{}] Retrieved {} cookies from browser", account_name, cookies.len());
+        info!(
+            "[{}] Retrieved {} cookies from browser",
+            account_name,
+            cookies.len()
+        );
 
         // Extract WAF cookies
         let mut waf_cookies = HashMap::new();
@@ -268,8 +291,16 @@ impl WafBypassService {
             let cookie_name = &cookie.name;
             let cookie_value = &cookie.value;
 
-            info!("[{}] Cookie found: {} = {}...", account_name, cookie_name,
-                  if cookie_value.len() > 10 { &cookie_value[..10] } else { cookie_value });
+            info!(
+                "[{}] Cookie found: {} = {}...",
+                account_name,
+                cookie_name,
+                if cookie_value.len() > 10 {
+                    &cookie_value[..10]
+                } else {
+                    cookie_value
+                }
+            );
 
             if REQUIRED_WAF_COOKIES.contains(&cookie_name.as_str()) {
                 waf_cookies.insert(cookie_name.clone(), cookie_value.clone());
@@ -277,17 +308,25 @@ impl WafBypassService {
             }
         }
 
-        info!("[{}] Captured {} WAF cookies out of {} required", account_name, waf_cookies.len(), REQUIRED_WAF_COOKIES.len());
+        info!(
+            "[{}] Captured {} WAF cookies out of {} required",
+            account_name,
+            waf_cookies.len(),
+            REQUIRED_WAF_COOKIES.len()
+        );
 
         // Close browser
         if let Err(e) = browser.close().await {
             warn!("[{}] Failed to close browser cleanly: {}", account_name, e);
         }
-        
+
         // Clean up temp directory
         tokio::time::sleep(Duration::from_secs(1)).await; // Give Chrome time to exit
         if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
-            warn!("[{}] Failed to clean up temp directory: {}", account_name, e);
+            warn!(
+                "[{}] Failed to clean up temp directory: {}",
+                account_name, e
+            );
         } else {
             info!("[{}] Cleaned up temp profile directory", account_name);
         }
@@ -299,7 +338,11 @@ impl WafBypassService {
             // Return error instead of empty map
             anyhow::bail!(err_msg);
         } else {
-            info!("[{}] ✓ Successfully got {} WAF cookies", account_name, waf_cookies.len());
+            info!(
+                "[{}] ✓ Successfully got {} WAF cookies",
+                account_name,
+                waf_cookies.len()
+            );
         }
 
         Ok(waf_cookies)
@@ -326,7 +369,7 @@ mod tests {
         let service = WafBypassService::new(true);
         assert!(service.headless);
     }
-    
+
     #[test]
     fn test_browser_detection() {
         let browser = find_browser();

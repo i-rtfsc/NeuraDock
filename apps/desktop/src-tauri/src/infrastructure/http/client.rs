@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use anyhow::{Result, Context};
-use reqwest::{Client, header};
+use anyhow::{Context, Result};
+use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
@@ -85,7 +85,7 @@ impl HttpClient {
             .context("Failed to send user info request")?;
 
         let status = response.status();
-        
+
         if !status.is_success() {
             anyhow::bail!("User info request failed with status: {}", status);
         }
@@ -96,7 +96,11 @@ impl HttpClient {
             .context("Failed to parse user info response")?;
 
         // Debug: Log the full response to understand structure
-        log::info!("User info API response: {}", serde_json::to_string_pretty(&data).unwrap_or_else(|_| "failed to serialize".to_string()));
+        log::info!(
+            "User info API response: {}",
+            serde_json::to_string_pretty(&data)
+                .unwrap_or_else(|_| "failed to serialize".to_string())
+        );
 
         // Check if response has expected structure
         if data["data"].is_null() {
@@ -107,17 +111,14 @@ impl HttpClient {
         let quota_bytes = data["data"]["quota"]
             .as_f64()
             .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'quota' field in API response"))?;
-        let used_quota_bytes = data["data"]["used_quota"]
-            .as_f64()
-            .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'used_quota' field in API response"))?;
+        let used_quota_bytes = data["data"]["used_quota"].as_f64().ok_or_else(|| {
+            anyhow::anyhow!("Missing or invalid 'used_quota' field in API response")
+        })?;
 
         let quota = (quota_bytes / 500000.0 * 100.0).round() / 100.0;
         let used_quota = (used_quota_bytes / 500000.0 * 100.0).round() / 100.0;
 
-        Ok(UserInfo {
-            quota,
-            used_quota,
-        })
+        Ok(UserInfo { quota, used_quota })
     }
 
     /// Execute check-in with retry logic
@@ -130,17 +131,25 @@ impl HttpClient {
     ) -> Result<CheckInResult> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_DELAY_MS: u64 = 1000;
-        
+
         let mut last_error = None;
-        
+
         for attempt in 0..MAX_RETRIES {
             if attempt > 0 {
                 let delay = INITIAL_DELAY_MS * 2u64.pow(attempt - 1);
-                log::info!("Retrying check-in (attempt {}/{}), waiting {}ms...", attempt + 1, MAX_RETRIES, delay);
+                log::info!(
+                    "Retrying check-in (attempt {}/{}), waiting {}ms...",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    delay
+                );
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
-            
-            match self.execute_check_in_once(url, cookies, api_user_key, api_user_value).await {
+
+            match self
+                .execute_check_in_once(url, cookies, api_user_key, api_user_value)
+                .await
+            {
                 Ok(result) => return Ok(result),
                 Err(e) => {
                     log::warn!("Check-in attempt {} failed: {}", attempt + 1, e);
@@ -148,10 +157,11 @@ impl HttpClient {
                 }
             }
         }
-        
-        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Check-in failed after {} attempts", MAX_RETRIES)))
+
+        Err(last_error
+            .unwrap_or_else(|| anyhow::anyhow!("Check-in failed after {} attempts", MAX_RETRIES)))
     }
-    
+
     /// Execute check-in once (internal method)
     async fn execute_check_in_once(
         &self,
@@ -212,32 +222,51 @@ impl HttpClient {
             .context("Failed to send check-in request")?;
 
         let status = response.status();
-        
+
         log::info!("Check-in response status: {}", status);
 
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unable to read response".to_string());
-            log::error!("Check-in request failed with status {}: {}", status, error_text);
-            anyhow::bail!("Check-in request failed with status {}: {}", status, error_text);
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unable to read response".to_string());
+            log::error!(
+                "Check-in request failed with status {}: {}",
+                status,
+                error_text
+            );
+            anyhow::bail!(
+                "Check-in request failed with status {}: {}",
+                status,
+                error_text
+            );
         }
 
         // Parse response
         let text = response.text().await?;
-        
+
         // Log full response for debugging
         log::info!("Check-in response body: {}", text);
 
         // Try to parse as JSON
         if let Ok(data) = serde_json::from_str::<serde_json::Value>(&text) {
-            log::info!("Parsed JSON response: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
-            
+            log::info!(
+                "Parsed JSON response: {}",
+                serde_json::to_string_pretty(&data).unwrap_or_default()
+            );
+
             // Check for success indicators with more detailed logging
             let ret_value = data["ret"].as_i64();
             let code_value = data["code"].as_i64();
             let success_value = data["success"].as_bool();
-            
-            log::info!("Success indicators - ret: {:?}, code: {:?}, success: {:?}", ret_value, code_value, success_value);
-            
+
+            log::info!(
+                "Success indicators - ret: {:?}, code: {:?}, success: {:?}",
+                ret_value,
+                code_value,
+                success_value
+            );
+
             // Updated success check to handle more cases
             let success = ret_value == Some(1)
                 || code_value == Some(0)
@@ -264,14 +293,20 @@ impl HttpClient {
             Ok(CheckInResult { success, message })
         } else {
             log::warn!("Failed to parse as JSON, raw response: {}", text);
-            
+
             // If not JSON, check if response contains "success"
             let success = text.to_lowercase().contains("success");
             let message = if success {
                 "Check-in successful".to_string()
             } else {
-                format!("Check-in failed: Invalid response format. Response: {}", 
-                        if text.len() > 100 { &text[..100] } else { &text })
+                format!(
+                    "Check-in failed: Invalid response format. Response: {}",
+                    if text.len() > 100 {
+                        &text[..100]
+                    } else {
+                        &text
+                    }
+                )
             };
 
             Ok(CheckInResult { success, message })
@@ -285,12 +320,14 @@ impl HttpClient {
         cookies: &HashMap<String, String>,
     ) -> Result<()> {
         log::info!("Visiting login page: {}", url);
-        
+
         // Build headers
         let mut headers = header::HeaderMap::new();
         headers.insert(
             header::ACCEPT,
-            header::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+            header::HeaderValue::from_static(
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            ),
         );
         headers.insert(
             header::ACCEPT_LANGUAGE,
@@ -312,15 +349,16 @@ impl HttpClient {
         }
 
         // Send request (will auto-follow redirects)
-        let response = request
-            .send()
-            .await
-            .context("Failed to visit login page")?;
+        let response = request.send().await.context("Failed to visit login page")?;
 
         let status = response.status();
         let final_url = response.url().to_string();
-        
-        log::info!("Login page visit status: {}, final URL after redirects: {}", status, final_url);
+
+        log::info!(
+            "Login page visit status: {}, final URL after redirects: {}",
+            status,
+            final_url
+        );
 
         if !status.is_success() {
             anyhow::bail!("Failed to visit login page, status: {}", status);
@@ -338,7 +376,7 @@ impl HttpClient {
         api_user_value: &str,
     ) -> Result<()> {
         log::info!("Calling API endpoint: {}", url);
-        
+
         // Build headers
         let mut headers = header::HeaderMap::new();
         headers.insert(
@@ -382,8 +420,15 @@ impl HttpClient {
         log::info!("API endpoint response status: {}", status);
 
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unable to read response".to_string());
-            log::warn!("API endpoint returned non-success status {}: {}", status, error_text);
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unable to read response".to_string());
+            log::warn!(
+                "API endpoint returned non-success status {}: {}",
+                status,
+                error_text
+            );
             // Don't fail, just log warning
         }
 

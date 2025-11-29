@@ -1,7 +1,7 @@
 mod aggregate;
-mod value_objects;
 mod repository;
+mod value_objects;
 
 pub use aggregate::Account;
-pub use value_objects::Credentials;
 pub use repository::AccountRepository;
+pub use value_objects::Credentials;

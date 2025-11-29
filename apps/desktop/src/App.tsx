@@ -6,6 +6,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { Toaster } from './components/ui/toaster';
 import { DashboardPage } from './pages/DashboardPage';
 import { AccountsPage } from './pages/AccountsPage';
+import { CheckInStreaksPage } from './pages/CheckInStreaksPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/accounts" element={<AccountsPage />} />
+              <Route path="/streaks" element={<CheckInStreaksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </MainLayout>

@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::domain::shared::{JobId, AccountId, ProviderId, DomainError};
-use super::value_objects::{CheckInStatus, CheckInResult};
+use super::value_objects::{CheckInResult, CheckInStatus};
+use crate::domain::shared::{AccountId, DomainError, JobId, ProviderId};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CheckInJob {
@@ -82,7 +82,9 @@ impl CheckInJob {
 
     pub fn fail(&mut self, error: String) -> Result<(), DomainError> {
         if self.status != CheckInStatus::Running && self.status != CheckInStatus::Pending {
-            return Err(DomainError::Validation("Job is not in valid state".to_string()));
+            return Err(DomainError::Validation(
+                "Job is not in valid state".to_string(),
+            ));
         }
         self.status = CheckInStatus::Failed;
         self.completed_at = Some(Utc::now());
@@ -92,7 +94,9 @@ impl CheckInJob {
 
     pub fn cancel(&mut self) -> Result<(), DomainError> {
         if self.status == CheckInStatus::Completed || self.status == CheckInStatus::Failed {
-            return Err(DomainError::Validation("Cannot cancel completed job".to_string()));
+            return Err(DomainError::Validation(
+                "Cannot cancel completed job".to_string(),
+            ));
         }
         self.status = CheckInStatus::Cancelled;
         self.completed_at = Some(Utc::now());

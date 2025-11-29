@@ -1,6 +1,6 @@
-use uuid::Uuid;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
 macro_rules! define_id {
     ($name:ident) => {
@@ -39,6 +39,7 @@ define_id!(AccountId);
 define_id!(ProviderId);
 define_id!(JobId);
 define_id!(ChannelId);
+define_id!(StreakId);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DomainError {

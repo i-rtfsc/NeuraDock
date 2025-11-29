@@ -1,12 +1,12 @@
-use tauri::State;
-use std::sync::Arc;
-use std::collections::HashMap;
-use crate::presentation::state::AppState;
+use crate::application::services::CheckInExecutor;
 use crate::application::*;
 use crate::domain::account::{Account, Credentials};
 use crate::domain::check_in::Provider;
 use crate::domain::shared::{AccountId, ProviderId};
-use crate::application::services::CheckInExecutor;
+use crate::presentation::state::AppState;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tauri::State;
 
 /// Get built-in providers
 pub fn get_builtin_providers() -> HashMap<String, Provider> {
@@ -35,7 +35,7 @@ pub fn get_builtin_providers() -> HashMap<String, Provider> {
             "AgentRouter".to_string(),
             "https://agentrouter.org".to_string(),
             "/login".to_string(),
-            None,  // Auto check-in: balance updates when querying user info
+            None, // Auto check-in: balance updates when querying user info
             "/api/user/self".to_string(),
             "new-api-user".to_string(),
             None, // No WAF bypass needed
@@ -56,24 +56,35 @@ pub async fn create_account(
         input.name,
         ProviderId::from_string(&input.provider_id),
         credentials,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // Set auto check-in configuration if provided
     if let Some(enabled) = input.auto_checkin_enabled {
         let hour = input.auto_checkin_hour.unwrap_or(9);
         let minute = input.auto_checkin_minute.unwrap_or(0);
-        account.update_auto_checkin(enabled, hour, minute).map_err(|e| e.to_string())?;
+        account
+            .update_auto_checkin(enabled, hour, minute)
+            .map_err(|e| e.to_string())?;
     }
 
-    state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Reload scheduler to pick up new account
     let providers = get_builtin_providers();
-    if let Err(e) = state.scheduler.reload_schedules(
-        providers,
-        state.account_repo.clone(),
-        state.app_handle.clone()
-    ).await {
+    if let Err(e) = state
+        .scheduler
+        .reload_schedules(
+            providers,
+            state.account_repo.clone(),
+            state.app_handle.clone(),
+        )
+        .await
+    {
         eprintln!("Failed to reload schedules: {}", e);
     }
 
@@ -87,7 +98,8 @@ pub async fn update_account(
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
     let account_id = AccountId::from_string(&input.account_id);
-    let mut account = state.account_repo
+    let mut account = state
+        .account_repo
         .find_by_id(&account_id)
         .await
         .map_err(|e| e.to_string())?
@@ -100,32 +112,52 @@ pub async fn update_account(
     // Update credentials if cookies are provided
     if let Some(cookies) = input.cookies {
         // Use provided api_user or keep the existing one
-        let api_user = input.api_user.unwrap_or_else(|| account.credentials().api_user().to_string());
+        let api_user = input
+            .api_user
+            .unwrap_or_else(|| account.credentials().api_user().to_string());
         let credentials = Credentials::new(cookies, api_user);
-        account.update_credentials(credentials).map_err(|e| e.to_string())?;
+        account
+            .update_credentials(credentials)
+            .map_err(|e| e.to_string())?;
     } else if let Some(api_user) = input.api_user {
         // If only api_user is updated, keep existing cookies
         let cookies = account.credentials().cookies().clone();
         let credentials = Credentials::new(cookies, api_user);
-        account.update_credentials(credentials).map_err(|e| e.to_string())?;
+        account
+            .update_credentials(credentials)
+            .map_err(|e| e.to_string())?;
     }
 
     // Update auto check-in configuration if provided
     if let Some(enabled) = input.auto_checkin_enabled {
-        let hour = input.auto_checkin_hour.unwrap_or(account.auto_checkin_hour());
-        let minute = input.auto_checkin_minute.unwrap_or(account.auto_checkin_minute());
-        account.update_auto_checkin(enabled, hour, minute).map_err(|e| e.to_string())?;
+        let hour = input
+            .auto_checkin_hour
+            .unwrap_or(account.auto_checkin_hour());
+        let minute = input
+            .auto_checkin_minute
+            .unwrap_or(account.auto_checkin_minute());
+        account
+            .update_auto_checkin(enabled, hour, minute)
+            .map_err(|e| e.to_string())?;
     }
 
-    state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Reload scheduler to pick up changes
     let providers = get_builtin_providers();
-    if let Err(e) = state.scheduler.reload_schedules(
-        providers,
-        state.account_repo.clone(),
-        state.app_handle.clone()
-    ).await {
+    if let Err(e) = state
+        .scheduler
+        .reload_schedules(
+            providers,
+            state.account_repo.clone(),
+            state.app_handle.clone(),
+        )
+        .await
+    {
         eprintln!("Failed to reload schedules: {}", e);
     }
 
@@ -139,18 +171,26 @@ pub async fn delete_account(
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
     let id = AccountId::from_string(&account_id);
-    state.account_repo.delete(&id).await.map_err(|e| e.to_string())?;
-    
+    state
+        .account_repo
+        .delete(&id)
+        .await
+        .map_err(|e| e.to_string())?;
+
     // Reload scheduler to remove deleted account's job
     let providers = get_builtin_providers();
-    if let Err(e) = state.scheduler.reload_schedules(
-        providers,
-        state.account_repo.clone(),
-        state.app_handle.clone()
-    ).await {
+    if let Err(e) = state
+        .scheduler
+        .reload_schedules(
+            providers,
+            state.account_repo.clone(),
+            state.app_handle.clone(),
+        )
+        .await
+    {
         eprintln!("Failed to reload schedules: {}", e);
     }
-    
+
     Ok(true)
 }
 
@@ -162,22 +202,31 @@ pub async fn toggle_account(
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
     let id = AccountId::from_string(&account_id);
-    let mut account = state.account_repo
+    let mut account = state
+        .account_repo
         .find_by_id(&id)
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Account not found")?;
 
     account.toggle(enabled);
-    state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Reload scheduler when toggling account
     let providers = get_builtin_providers();
-    if let Err(e) = state.scheduler.reload_schedules(
-        providers,
-        state.account_repo.clone(),
-        state.app_handle.clone()
-    ).await {
+    if let Err(e) = state
+        .scheduler
+        .reload_schedules(
+            providers,
+            state.account_repo.clone(),
+            state.app_handle.clone(),
+        )
+        .await
+    {
         eprintln!("Failed to reload schedules: {}", e);
     }
 
@@ -190,17 +239,22 @@ pub async fn import_account_from_json(
     json_data: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let input: ImportAccountInput = serde_json::from_str(&json_data)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let input: ImportAccountInput =
+        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     let credentials = Credentials::new(input.cookies, input.api_user);
     let account = Account::new(
         input.name,
         ProviderId::from_string(&input.provider),
         credentials,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
-    state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(account.id().as_str().to_string())
 }
@@ -211,8 +265,8 @@ pub async fn import_accounts_batch(
     json_data: String,
     state: State<'_, AppState>,
 ) -> Result<BatchImportResult, String> {
-    let inputs: Vec<ImportAccountInput> = serde_json::from_str(&json_data)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let inputs: Vec<ImportAccountInput> =
+        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     let mut results = Vec::new();
     let mut succeeded = 0;
@@ -273,31 +327,44 @@ pub async fn export_accounts_to_json(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let accounts = if input.account_ids.is_empty() {
-        state.account_repo.find_all().await.map_err(|e| e.to_string())?
+        state
+            .account_repo
+            .find_all()
+            .await
+            .map_err(|e| e.to_string())?
     } else {
         let mut result = Vec::new();
         for id_str in input.account_ids {
             let id = AccountId::from_string(&id_str);
-            if let Some(account) = state.account_repo.find_by_id(&id).await.map_err(|e| e.to_string())? {
+            if let Some(account) = state
+                .account_repo
+                .find_by_id(&id)
+                .await
+                .map_err(|e| e.to_string())?
+            {
                 result.push(account);
             }
         }
         result
     };
 
-    let export_data: Vec<serde_json::Value> = accounts.iter().map(|acc| {
-        let mut data = serde_json::json!({
-            "name": acc.name(),
-            "provider": acc.provider_id().as_str(),
-        });
+    let export_data: Vec<serde_json::Value> = accounts
+        .iter()
+        .map(|acc| {
+            let mut data = serde_json::json!({
+                "name": acc.name(),
+                "provider": acc.provider_id().as_str(),
+            });
 
-        if input.include_credentials {
-            data["cookies"] = serde_json::to_value(acc.credentials().cookies()).unwrap();
-            data["api_user"] = serde_json::Value::String(acc.credentials().api_user().to_string());
-        }
+            if input.include_credentials {
+                data["cookies"] = serde_json::to_value(acc.credentials().cookies()).unwrap();
+                data["api_user"] =
+                    serde_json::Value::String(acc.credentials().api_user().to_string());
+            }
 
-        data
-    }).collect();
+            data
+        })
+        .collect();
 
     serde_json::to_string_pretty(&export_data).map_err(|e| e.to_string())
 }
@@ -311,11 +378,15 @@ pub async fn update_accounts_batch(
     create_if_not_exists: bool,
     state: State<'_, AppState>,
 ) -> Result<BatchUpdateResult, String> {
-    let inputs: Vec<ImportAccountInput> = serde_json::from_str(&json_data)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let inputs: Vec<ImportAccountInput> =
+        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Load all existing accounts for matching
-    let existing_accounts = state.account_repo.find_all().await.map_err(|e| e.to_string())?;
+    let existing_accounts = state
+        .account_repo
+        .find_all()
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut results = Vec::new();
     let mut updated = 0;
@@ -327,9 +398,9 @@ pub async fn update_accounts_batch(
         let provider_id = input.provider.clone();
 
         // Try to find existing account by name + provider
-        let existing = existing_accounts.iter().find(|acc| {
-            acc.name() == input.name && acc.provider_id().as_str() == input.provider
-        });
+        let existing = existing_accounts
+            .iter()
+            .find(|acc| acc.name() == input.name && acc.provider_id().as_str() == input.provider);
 
         match existing {
             Some(acc) => {
@@ -340,7 +411,9 @@ pub async fn update_accounts_batch(
                     input.cookies,
                     input.api_user,
                     &state.account_repo,
-                ).await {
+                )
+                .await
+                {
                     Ok(_) => {
                         updated += 1;
                         results.push(UpdateItemResult {
@@ -405,11 +478,15 @@ pub async fn update_accounts_batch(
     // Reload scheduler if any accounts were updated or created
     if updated > 0 || created > 0 {
         let providers = get_builtin_providers();
-        if let Err(e) = state.scheduler.reload_schedules(
-            providers,
-            state.account_repo.clone(),
-            state.app_handle.clone()
-        ).await {
+        if let Err(e) = state
+            .scheduler
+            .reload_schedules(
+                providers,
+                state.account_repo.clone(),
+                state.app_handle.clone(),
+            )
+            .await
+        {
             eprintln!("Failed to reload schedules: {}", e);
         }
     }
@@ -447,13 +524,17 @@ pub async fn execute_check_in(
     account_id: String,
     state: State<'_, AppState>,
 ) -> Result<ExecuteCheckInResult, String> {
-    log::info!("=== execute_check_in command called for account: {} ===", account_id);
-    
+    log::info!(
+        "=== execute_check_in command called for account: {} ===",
+        account_id
+    );
+
     let providers = get_builtin_providers();
-    
+
     // Get account to determine provider
     let acc_id = AccountId::from_string(&account_id);
-    let account = state.account_repo
+    let account = state
+        .account_repo
         .find_by_id(&acc_id)
         .await
         .map_err(|e| {
@@ -464,36 +545,43 @@ pub async fn execute_check_in(
             log::error!("Account not found: {}", account_id);
             "Account not found".to_string()
         })?;
-    
-    log::info!("Account found: {}, provider: {}", account.name(), account.provider_id().as_str());
-    
+
+    log::info!(
+        "Account found: {}, provider: {}",
+        account.name(),
+        account.provider_id().as_str()
+    );
+
     let provider_id = account.provider_id().as_str();
-    let provider = providers.get(provider_id)
-        .ok_or_else(|| {
-            log::error!("Provider {} not found", provider_id);
-            format!("Provider {} not found", provider_id)
-        })?;
-    
+    let provider = providers.get(provider_id).ok_or_else(|| {
+        log::error!("Provider {} not found", provider_id);
+        format!("Provider {} not found", provider_id)
+    })?;
+
     log::info!("Provider found: {}", provider.name());
-    
+
     // Create executor
-    let executor = CheckInExecutor::new(state.account_repo.clone(), true)
-        .map_err(|e| {
-            log::error!("Failed to create CheckInExecutor: {}", e);
-            e.to_string()
-        })?;
-    
+    let executor = CheckInExecutor::new(state.account_repo.clone(), true).map_err(|e| {
+        log::error!("Failed to create CheckInExecutor: {}", e);
+        e.to_string()
+    })?;
+
     log::info!("Executor created, starting check-in...");
-    
+
     // Execute check-in
-    let result = executor.execute_check_in(&account_id, provider)
+    let result = executor
+        .execute_check_in(&account_id, provider)
         .await
         .map_err(|e| {
             log::error!("Check-in execution failed: {}", e);
             e.to_string()
         })?;
 
-    log::info!("Check-in execution completed: success={}, message={}", result.success, result.message);
+    log::info!(
+        "Check-in execution completed: success={}, message={}",
+        result.success,
+        result.message
+    );
 
     // Convert to DTO and store balance history
     // Note: API returns quota (current balance) and used_quota (total consumed)
@@ -503,36 +591,49 @@ pub async fn execute_check_in(
         BalanceDto {
             current_balance,
             total_consumed,
-            total_income: current_balance + total_consumed,  // Total income = current balance + consumed
+            total_income: current_balance + total_consumed, // Total income = current balance + consumed
         }
     });
 
     // Update account with balance cache and session info
     if let Some(ref balance) = balance_dto {
-        let mut account = state.account_repo
+        let mut account = state
+            .account_repo
             .find_by_id(&acc_id)
             .await
             .map_err(|e| e.to_string())?
             .ok_or("Account not found")?;
 
         // Update balance cache
-        account.update_balance(balance.current_balance, balance.total_consumed, balance.total_income);
+        account.update_balance(
+            balance.current_balance,
+            balance.total_consumed,
+            balance.total_income,
+        );
 
         // Mark check-in time
         account.record_check_in();
 
         // Save updated account
-        state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+        state
+            .account_repo
+            .save(&account)
+            .await
+            .map_err(|e| e.to_string())?;
 
         // Store balance history
         save_balance_history(&account_id, balance, &state).await?;
     }
-    
+
     Ok(ExecuteCheckInResult {
         job_id: account_id,
         success: result.success,
         balance: balance_dto,
-        error: if result.success { None } else { Some(result.message) },
+        error: if result.success {
+            None
+        } else {
+            Some(result.message)
+        },
     })
 }
 
@@ -543,16 +644,17 @@ pub async fn execute_batch_check_in(
     state: State<'_, AppState>,
 ) -> Result<BatchCheckInResult, String> {
     let providers = get_builtin_providers();
-    
+
     // Create executor
-    let executor = CheckInExecutor::new(state.account_repo.clone(), true)
-        .map_err(|e| e.to_string())?;
-    
+    let executor =
+        CheckInExecutor::new(state.account_repo.clone(), true).map_err(|e| e.to_string())?;
+
     // Execute batch check-in
-    let result = executor.execute_batch_check_in(account_ids, &providers)
+    let result = executor
+        .execute_batch_check_in(account_ids, &providers)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     // Convert results to DTOs and store balance history
     let mut results_dto: Vec<ExecuteCheckInResult> = Vec::new();
 
@@ -564,7 +666,7 @@ pub async fn execute_batch_check_in(
             BalanceDto {
                 current_balance,
                 total_consumed,
-                total_income: current_balance + total_consumed,  // Total income = current balance + consumed
+                total_income: current_balance + total_consumed, // Total income = current balance + consumed
             }
         });
 
@@ -573,7 +675,11 @@ pub async fn execute_batch_check_in(
             let acc_id = AccountId::from_string(&r.account_id);
             if let Ok(Some(mut account)) = state.account_repo.find_by_id(&acc_id).await {
                 // Update balance cache
-                account.update_balance(balance.current_balance, balance.total_consumed, balance.total_income);
+                account.update_balance(
+                    balance.current_balance,
+                    balance.total_consumed,
+                    balance.total_income,
+                );
                 account.record_check_in();
 
                 // Save updated account
@@ -583,15 +689,19 @@ pub async fn execute_batch_check_in(
             // Store balance history
             let _ = save_balance_history(&r.account_id, balance, &state).await;
         }
-        
+
         results_dto.push(ExecuteCheckInResult {
             job_id: r.account_id.clone(),
             success: r.success,
             balance: balance_dto,
-            error: if r.success { None } else { Some(r.message.clone()) },
+            error: if r.success {
+                None
+            } else {
+                Some(r.message.clone())
+            },
         });
     }
-    
+
     Ok(BatchCheckInResult {
         total: result.total as i32,
         succeeded: result.success_count as i32,
@@ -602,10 +712,7 @@ pub async fn execute_batch_check_in(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_check_in(
-    job_id: String,
-    state: State<'_, AppState>,
-) -> Result<bool, String> {
+pub async fn stop_check_in(job_id: String, state: State<'_, AppState>) -> Result<bool, String> {
     Err("Not implemented yet".to_string())
 }
 
@@ -622,7 +729,7 @@ pub async fn add_provider(
 #[specta::specta]
 pub async fn check_browser_available() -> Result<BrowserInfoDto, String> {
     use crate::infrastructure::http::waf_bypass::check_available_browser;
-    
+
     match check_available_browser() {
         Some(path) => {
             log::info!("Browser found at: {}", path);
@@ -645,24 +752,32 @@ pub async fn check_browser_available() -> Result<BrowserInfoDto, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_all_providers(
-    state: State<'_, AppState>,
-) -> Result<Vec<ProviderDto>, String> {
+pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<ProviderDto>, String> {
     let providers = get_builtin_providers();
-    let accounts = state.account_repo.find_all().await.map_err(|e| e.to_string())?;
-    
-    let dtos: Vec<ProviderDto> = providers.iter().map(|(id, provider)| {
-        let account_count = accounts.iter().filter(|acc| acc.provider_id().as_str() == id).count();
-        
-        ProviderDto {
-            id: id.clone(),
-            name: provider.name().to_string(),
-            domain: provider.domain().to_string(),
-            is_builtin: provider.is_builtin(),
-            account_count: account_count as i32,
-        }
-    }).collect();
-    
+    let accounts = state
+        .account_repo
+        .find_all()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let dtos: Vec<ProviderDto> = providers
+        .iter()
+        .map(|(id, provider)| {
+            let account_count = accounts
+                .iter()
+                .filter(|acc| acc.provider_id().as_str() == id)
+                .count();
+
+            ProviderDto {
+                id: id.clone(),
+                name: provider.name().to_string(),
+                domain: provider.domain().to_string(),
+                is_builtin: provider.is_builtin(),
+                account_count: account_count as i32,
+            }
+        })
+        .collect();
+
     Ok(dtos)
 }
 
@@ -676,40 +791,45 @@ pub async fn get_all_accounts(
         state.account_repo.find_enabled().await
     } else {
         state.account_repo.find_all().await
-    }.map_err(|e| e.to_string())?;
+    }
+    .map_err(|e| e.to_string())?;
 
     let providers = get_builtin_providers();
 
-    let dtos = accounts.iter().map(|acc| {
-        let provider_name = providers.get(acc.provider_id().as_str())
-            .map(|p| p.name().to_string())
-            .unwrap_or_else(|| "Unknown".to_string());
-        
-        // Check if balance is stale (> 24 hours old)
-        let is_balance_stale = acc.is_balance_stale(24);
-        
-        // Consider account "online" if session is valid OR balance check is recent (< 24 hours)
-        let is_online = acc.is_session_valid() || !is_balance_stale;
-        
-        AccountDto {
-            id: acc.id().as_str().to_string(),
-            name: acc.name().to_string(),
-            provider_id: acc.provider_id().as_str().to_string(),
-            provider_name,
-            enabled: acc.is_enabled(),
-            last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
-            created_at: acc.created_at().to_rfc3339(),
-            auto_checkin_enabled: acc.auto_checkin_enabled(),
-            auto_checkin_hour: acc.auto_checkin_hour(),
-            auto_checkin_minute: acc.auto_checkin_minute(),
-            last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
-            current_balance: acc.current_balance(),
-            total_consumed: acc.total_consumed(),
-            total_income: acc.total_income(),
-            is_balance_stale,
-            is_online,
-        }
-    }).collect();
+    let dtos = accounts
+        .iter()
+        .map(|acc| {
+            let provider_name = providers
+                .get(acc.provider_id().as_str())
+                .map(|p| p.name().to_string())
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            // Check if balance is stale (> 24 hours old)
+            let is_balance_stale = acc.is_balance_stale(24);
+
+            // Consider account "online" if session is valid OR balance check is recent (< 24 hours)
+            let is_online = acc.is_session_valid() || !is_balance_stale;
+
+            AccountDto {
+                id: acc.id().as_str().to_string(),
+                name: acc.name().to_string(),
+                provider_id: acc.provider_id().as_str().to_string(),
+                provider_name,
+                enabled: acc.is_enabled(),
+                last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
+                created_at: acc.created_at().to_rfc3339(),
+                auto_checkin_enabled: acc.auto_checkin_enabled(),
+                auto_checkin_hour: acc.auto_checkin_hour(),
+                auto_checkin_minute: acc.auto_checkin_minute(),
+                last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
+                current_balance: acc.current_balance(),
+                total_consumed: acc.total_consumed(),
+                total_income: acc.total_income(),
+                is_balance_stale,
+                is_online,
+            }
+        })
+        .collect();
 
     Ok(dtos)
 }
@@ -721,14 +841,16 @@ pub async fn get_account_detail(
     state: State<'_, AppState>,
 ) -> Result<AccountDetailDto, String> {
     let id = AccountId::from_string(&account_id);
-    let account = state.account_repo
+    let account = state
+        .account_repo
         .find_by_id(&id)
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Account not found")?;
 
     let providers = get_builtin_providers();
-    let provider_name = providers.get(account.provider_id().as_str())
+    let provider_name = providers
+        .get(account.provider_id().as_str())
         .map(|p| p.name().to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
@@ -773,9 +895,7 @@ pub async fn get_check_in_stats(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_running_jobs(
-    state: State<'_, AppState>,
-) -> Result<Vec<RunningJobDto>, String> {
+pub async fn get_running_jobs(state: State<'_, AppState>) -> Result<Vec<RunningJobDto>, String> {
     Err("Not implemented yet".to_string())
 }
 
@@ -788,22 +908,26 @@ pub async fn fetch_account_balance(
     state: State<'_, AppState>,
 ) -> Result<BalanceDto, String> {
     const MAX_CACHE_AGE_HOURS: i64 = 1;
-    
+
     let providers = get_builtin_providers();
-    
+
     // Get account
     let acc_id = AccountId::from_string(&account_id);
-    let mut account = state.account_repo
+    let mut account = state
+        .account_repo
         .find_by_id(&acc_id)
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Account not found")?;
-    
+
     // Check if we have valid cached balance
     if !account.is_balance_stale(MAX_CACHE_AGE_HOURS) {
         // Use cached balance
-        if let (Some(current_balance), Some(total_consumed), Some(total_income)) =
-            (account.current_balance(), account.total_consumed(), account.total_income()) {
+        if let (Some(current_balance), Some(total_consumed), Some(total_income)) = (
+            account.current_balance(),
+            account.total_consumed(),
+            account.total_income(),
+        ) {
             return Ok(BalanceDto {
                 current_balance,
                 total_consumed,
@@ -814,20 +938,21 @@ pub async fn fetch_account_balance(
 
     // Cache is stale or doesn't exist, fetch fresh balance
     let provider_id = account.provider_id().as_str();
-    let provider = providers.get(provider_id)
+    let provider = providers
+        .get(provider_id)
         .ok_or(format!("Provider {} not found", provider_id))?;
 
     // Create executor
-    let executor = CheckInExecutor::new(state.account_repo.clone(), true)
-        .map_err(|e| e.to_string())?;
+    let executor =
+        CheckInExecutor::new(state.account_repo.clone(), true).map_err(|e| e.to_string())?;
 
     // Execute check-in (which fetches balance)
-    let result = executor.execute_check_in(&account_id, provider)
+    let result = executor
+        .execute_check_in(&account_id, provider)
         .await
         .map_err(|e| e.to_string())?;
 
-    let balance = result.user_info
-        .ok_or("Failed to fetch balance")?;
+    let balance = result.user_info.ok_or("Failed to fetch balance")?;
 
     // Note: API returns quota (current balance) and used_quota (total consumed)
     let current_balance = balance.quota;
@@ -835,16 +960,24 @@ pub async fn fetch_account_balance(
     let balance_dto = BalanceDto {
         current_balance,
         total_consumed,
-        total_income: current_balance + total_consumed,  // Total income = current balance + consumed
+        total_income: current_balance + total_consumed, // Total income = current balance + consumed
     };
 
     // Update account cache
-    account.update_balance(balance_dto.current_balance, balance_dto.total_consumed, balance_dto.total_income);
-    state.account_repo.save(&account).await.map_err(|e| e.to_string())?;
+    account.update_balance(
+        balance_dto.current_balance,
+        balance_dto.total_consumed,
+        balance_dto.total_income,
+    );
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Store balance history (only if significantly changed or first time)
     save_balance_history(&account_id, &balance_dto, &state).await?;
-    
+
     Ok(balance_dto)
 }
 
@@ -856,7 +989,7 @@ pub async fn fetch_accounts_balances(
     state: State<'_, AppState>,
 ) -> Result<HashMap<String, Option<BalanceDto>>, String> {
     let mut results = HashMap::new();
-    
+
     for account_id in account_ids {
         match fetch_account_balance(account_id.clone(), state.clone()).await {
             Ok(balance) => {
@@ -867,7 +1000,7 @@ pub async fn fetch_accounts_balances(
             }
         }
     }
-    
+
     Ok(results)
 }
 
@@ -878,11 +1011,15 @@ pub async fn get_balance_statistics(
     state: State<'_, AppState>,
 ) -> Result<BalanceStatisticsDto, String> {
     let pool = &*state.pool;
-    
+
     // Get all accounts with their latest balances
-    let accounts = state.account_repo.find_enabled().await.map_err(|e| e.to_string())?;
+    let accounts = state
+        .account_repo
+        .find_enabled()
+        .await
+        .map_err(|e| e.to_string())?;
     let providers = get_builtin_providers();
-    
+
     let mut provider_stats: HashMap<String, ProviderBalanceDto> = HashMap::new();
     let mut total_current_balance = 0.0;
     let mut total_consumed = 0.0;
@@ -890,14 +1027,18 @@ pub async fn get_balance_statistics(
 
     for account in accounts {
         // Use cached balance from account directly (faster than querying balance_history)
-        let balance_opt = match (account.current_balance(), account.total_consumed(), account.total_income()) {
+        let balance_opt = match (
+            account.current_balance(),
+            account.total_consumed(),
+            account.total_income(),
+        ) {
             (Some(cb), Some(tc), Some(ti)) => Some((cb, tc, ti)),
             _ => {
                 // Fallback to balance_history if account cache is empty
                 let account_id = account.id().as_str();
                 sqlx::query_as::<_, (f64, f64, f64)>(
                     "SELECT current_balance, total_consumed, total_income FROM balance_history
-                     WHERE account_id = ? ORDER BY recorded_at DESC LIMIT 1"
+                     WHERE account_id = ? ORDER BY recorded_at DESC LIMIT 1",
                 )
                 .bind(account_id)
                 .fetch_optional(pool)
@@ -908,18 +1049,22 @@ pub async fn get_balance_statistics(
 
         if let Some((current_balance, consumed, income)) = balance_opt {
             let provider_id = account.provider_id().as_str();
-            let provider_name = providers.get(provider_id)
+            let provider_name = providers
+                .get(provider_id)
                 .map(|p| p.name().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
 
-            let stat = provider_stats.entry(provider_id.to_string()).or_insert(ProviderBalanceDto {
-                provider_id: provider_id.to_string(),
-                provider_name,
-                current_balance: 0.0,
-                total_consumed: 0.0,
-                total_income: 0.0,
-                account_count: 0,
-            });
+            let stat =
+                provider_stats
+                    .entry(provider_id.to_string())
+                    .or_insert(ProviderBalanceDto {
+                        provider_id: provider_id.to_string(),
+                        provider_name,
+                        current_balance: 0.0,
+                        total_consumed: 0.0,
+                        total_income: 0.0,
+                        account_count: 0,
+                    });
 
             stat.current_balance += current_balance;
             stat.total_consumed += consumed;
@@ -949,20 +1094,22 @@ async fn save_balance_history(
     let pool = &*state.pool;
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now();
-    
+
     // Check if we already have a record today
     let today_start = now.date_naive().and_hms_opt(0, 0, 0).unwrap();
-    let today_start_str = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(today_start, chrono::Utc).to_rfc3339();
-    
+    let today_start_str =
+        chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(today_start, chrono::Utc)
+            .to_rfc3339();
+
     let existing: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM balance_history WHERE account_id = ? AND recorded_at >= ? LIMIT 1"
+        "SELECT id FROM balance_history WHERE account_id = ? AND recorded_at >= ? LIMIT 1",
     )
     .bind(account_id)
     .bind(&today_start_str)
     .fetch_optional(pool)
     .await
     .map_err(|e| e.to_string())?;
-    
+
     // Only insert if no record exists for today or if values changed significantly
     if existing.is_none() {
         sqlx::query(
@@ -979,6 +1126,88 @@ async fn save_balance_history(
         .await
         .map_err(|e| e.to_string())?;
     }
-    
+
     Ok(())
+}
+
+// ============================================================
+// Check-in Streak Commands
+// ============================================================
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_check_in_streak(
+    account_id: String,
+    state: State<'_, AppState>,
+) -> Result<dtos::CheckInStreakDto, String> {
+    state
+        .streak_queries
+        .get_streak_stats(&account_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_all_check_in_streaks(
+    state: State<'_, AppState>,
+) -> Result<Vec<dtos::CheckInStreakDto>, String> {
+    state
+        .streak_queries
+        .get_all_streaks()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_check_in_calendar(
+    account_id: String,
+    year: i32,
+    month: u32,
+    state: State<'_, AppState>,
+) -> Result<dtos::CheckInCalendarDto, String> {
+    state
+        .streak_queries
+        .get_calendar(&account_id, year, month)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_check_in_trend(
+    account_id: String,
+    days: u32,
+    state: State<'_, AppState>,
+) -> Result<dtos::CheckInTrendDto, String> {
+    state
+        .streak_queries
+        .get_trend(&account_id, days)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_check_in_day_detail(
+    account_id: String,
+    date: String,
+    state: State<'_, AppState>,
+) -> Result<dtos::CheckInDayDto, String> {
+    state
+        .streak_queries
+        .get_day_detail(&account_id, &date)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn recalculate_check_in_streaks(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .streak_queries
+        .recalculate_all_streaks()
+        .await
+        .map_err(|e| e.to_string())
 }

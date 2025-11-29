@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
+import {
   Home,
-  UserCircle, 
+  UserCircle,
+  Flame,
   Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ export function Sidebar() {
   const navigation = [
     { name: t('nav.dashboard'), href: '/', icon: Home },
     { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
+    { name: t('nav.streaks'), href: '/streaks', icon: Flame },
     { name: t('nav.settings'), href: '/settings', icon: Settings2 },
   ];
 

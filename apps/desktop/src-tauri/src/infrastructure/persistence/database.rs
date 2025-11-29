@@ -1,6 +1,6 @@
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
-use std::path::Path;
 use crate::domain::shared::DomainError;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use std::path::Path;
 
 pub struct Database {
     pool: SqlitePool,

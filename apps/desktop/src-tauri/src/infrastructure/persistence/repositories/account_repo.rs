@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use sqlx::SqlitePool;
-use sqlx::FromRow;
-use std::sync::Arc;
-use serde_json;
 use chrono::{DateTime, Utc};
+use serde_json;
+use sqlx::FromRow;
+use sqlx::SqlitePool;
+use std::sync::Arc;
 
 use crate::domain::account::{Account, AccountRepository, Credentials};
-use crate::domain::shared::{AccountId, ProviderId, DomainError};
+use crate::domain::shared::{AccountId, DomainError, ProviderId};
 
 #[derive(FromRow)]
 struct AccountRow {
@@ -145,9 +145,7 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| DomainError::Repository(e.to_string()))?;
 
-        rows.into_iter()
-            .map(|row| row.to_account())
-            .collect()
+        rows.into_iter().map(|row| row.to_account()).collect()
     }
 
     async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
@@ -158,9 +156,7 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| DomainError::Repository(e.to_string()))?;
 
-        rows.into_iter()
-            .map(|row| row.to_account())
-            .collect()
+        rows.into_iter().map(|row| row.to_account()).collect()
     }
 
     async fn delete(&self, id: &AccountId) -> Result<(), DomainError> {
