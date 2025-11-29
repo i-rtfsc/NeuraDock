@@ -191,10 +191,13 @@ mod tests {
     }
 
     fn create_test_account(name: &str, enabled: bool) -> Account {
+        let mut cookies = HashMap::new();
+        cookies.insert("session".to_string(), "test_session".to_string());
+        
         let mut account = Account::new(
             name.to_string(),
             ProviderId::new(),
-            Credentials::new(HashMap::new(), "test@user".to_string()),
+            Credentials::new(cookies, "test@user".to_string()),
         )
         .unwrap();
         

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::domain::{
     account::{Account, AccountRepository},
-    check_in::Provider,
+    check_in::{CheckInDomainService, Provider},
     shared::AccountId,
 };
 use crate::infrastructure::http::{CheckInResult, HttpClient, UserInfo, WafBypassService};
@@ -68,14 +68,26 @@ impl CheckInExecutor {
 
         info!("[{}] Starting check-in process", account_name);
 
-        // Check if account is enabled
-        if !account.is_enabled() {
-            warn!("[{}] Account is disabled", account_name);
+        // Use domain service to validate check-in eligibility
+        if let Err(e) = CheckInDomainService::can_check_in(&account) {
+            warn!("[{}] Check-in validation failed: {}", account_name, e);
             return Ok(AccountCheckInResult {
                 account_id: account_id.to_string(),
                 account_name,
                 success: false,
-                message: "Account is disabled".to_string(),
+                message: e.to_string(),
+                user_info: None,
+            });
+        }
+
+        // Validate provider configuration
+        if let Err(e) = CheckInDomainService::validate_provider(provider) {
+            error!("[{}] Provider validation failed: {}", account_name, e);
+            return Ok(AccountCheckInResult {
+                account_id: account_id.to_string(),
+                account_name,
+                success: false,
+                message: e.to_string(),
                 user_info: None,
             });
         }
