@@ -750,51 +750,13 @@ pub async fn get_all_accounts(
     enabled_only: bool,
     state: State<'_, AppState>,
 ) -> Result<Vec<AccountDto>, String> {
-    let accounts = if enabled_only {
-        state.account_repo.find_enabled().await
-    } else {
-        state.account_repo.find_all().await
-    }
-    .map_err(|e| e.to_string())?;
-
     let providers = get_builtin_providers();
-
-    let dtos = accounts
-        .iter()
-        .map(|acc| {
-            let provider_name = providers
-                .get(acc.provider_id().as_str())
-                .map(|p| p.name().to_string())
-                .unwrap_or_else(|| "Unknown".to_string());
-
-            // Check if balance is stale (> 24 hours old)
-            let is_balance_stale = acc.is_balance_stale(24);
-
-            // Consider account "online" if session is valid OR balance check is recent (< 24 hours)
-            let is_online = acc.is_session_valid() || !is_balance_stale;
-
-            AccountDto {
-                id: acc.id().as_str().to_string(),
-                name: acc.name().to_string(),
-                provider_id: acc.provider_id().as_str().to_string(),
-                provider_name,
-                enabled: acc.is_enabled(),
-                last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
-                created_at: acc.created_at().to_rfc3339(),
-                auto_checkin_enabled: acc.auto_checkin_enabled(),
-                auto_checkin_hour: acc.auto_checkin_hour(),
-                auto_checkin_minute: acc.auto_checkin_minute(),
-                last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
-                current_balance: acc.current_balance(),
-                total_consumed: acc.total_consumed(),
-                total_income: acc.total_income(),
-                is_balance_stale,
-                is_online,
-            }
-        })
-        .collect();
-
-    Ok(dtos)
+    
+    state
+        .account_queries
+        .get_all_accounts(enabled_only, &providers)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

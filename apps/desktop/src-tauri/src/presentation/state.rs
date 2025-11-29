@@ -4,7 +4,7 @@ use tauri::Manager;
 
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
-use crate::application::queries::CheckInStreakQueries;
+use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::AutoCheckInScheduler;
 use crate::domain::events::account_events::*;
 use crate::domain::events::EventBus;
@@ -28,6 +28,7 @@ pub struct AppState {
     pub account_repo: Arc<dyn AccountRepository>,
     pub scheduler: Arc<AutoCheckInScheduler>,
     pub event_bus: Arc<dyn EventBus>,
+    pub account_queries: Arc<AccountQueryService>,
     pub streak_queries: Arc<CheckInStreakQueries>,
     pub command_handlers: CommandHandlers,
     pub app_handle: tauri::AppHandle,
@@ -69,6 +70,7 @@ impl AppState {
         let db = Arc::new(database);
         let account_repo =
             Arc::new(SqliteAccountRepository::new(pool.clone())) as Arc<dyn AccountRepository>;
+        let account_queries = Arc::new(AccountQueryService::new(account_repo.clone()));
         let streak_queries = Arc::new(CheckInStreakQueries::new(pool.clone()));
 
         eprintln!("📊 Initializing scheduler...");
@@ -165,6 +167,7 @@ impl AppState {
             account_repo,
             scheduler,
             event_bus,
+            account_queries,
             streak_queries,
             command_handlers,
             app_handle,

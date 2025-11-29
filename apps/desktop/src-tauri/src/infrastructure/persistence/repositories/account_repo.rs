@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::domain::account::{Account, AccountRepository, Credentials};
 use crate::domain::shared::{AccountId, DomainError, ProviderId};
+use crate::infrastructure::persistence::RepositoryErrorMapper;
 
 #[derive(FromRow)]
 struct AccountRow {
@@ -33,7 +34,7 @@ struct AccountRow {
 impl AccountRow {
     fn to_account(self) -> Result<Account, DomainError> {
         let cookies = serde_json::from_str(&self.cookies)
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_json_error(e, "Deserialize account cookies"))?;
         let credentials = Credentials::new(cookies, self.api_user);
 
         Ok(Account::restore(
@@ -94,7 +95,7 @@ impl AccountRepository for SqliteAccountRepository {
         "#;
 
         let cookies_json = serde_json::to_string(account.credentials().cookies())
-            .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_json_error(e, "Serialize account cookies"))?;
 
         sqlx::query(query)
             .bind(account.id().as_str())
@@ -117,7 +118,7 @@ impl AccountRepository for SqliteAccountRepository {
             .bind(account.total_income())
             .execute(&*self.pool)
             .await
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save account"))?;
 
         Ok(())
     }
@@ -129,7 +130,7 @@ impl AccountRepository for SqliteAccountRepository {
             .bind(id.as_str())
             .fetch_optional(&*self.pool)
             .await
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find account by ID"))?;
 
         match row {
             Some(row) => Ok(Some(row.to_account()?)),
@@ -143,7 +144,7 @@ impl AccountRepository for SqliteAccountRepository {
         let rows: Vec<AccountRow> = sqlx::query_as(query)
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all accounts"))?;
 
         rows.into_iter().map(|row| row.to_account()).collect()
     }
@@ -154,7 +155,7 @@ impl AccountRepository for SqliteAccountRepository {
         let rows: Vec<AccountRow> = sqlx::query_as(query)
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find enabled accounts"))?;
 
         rows.into_iter().map(|row| row.to_account()).collect()
     }
@@ -166,7 +167,7 @@ impl AccountRepository for SqliteAccountRepository {
             .bind(id.as_str())
             .execute(&*self.pool)
             .await
-            .map_err(|e| DomainError::Repository(e.to_string()))?;
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete account"))?;
 
         Ok(())
     }
