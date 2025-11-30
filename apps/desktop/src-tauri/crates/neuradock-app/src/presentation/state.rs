@@ -1,4 +1,5 @@
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Manager;
 use tracing::{info, warn, error};
@@ -10,6 +11,7 @@ use crate::application::services::{AutoCheckInScheduler, ConfigService};
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::check_in::Provider;
 use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_infrastructure::persistence::{repositories::SqliteAccountRepository, Database};
 use neuradock_infrastructure::security::{EncryptionService, KeyManager};
@@ -139,6 +141,12 @@ impl AppState {
         let providers = get_builtin_providers();
         info!("📦 Got {} providers", providers.len());
 
+        // Create a HashMap for command handlers (providers don't need Arc)
+        let providers_map: HashMap<String, Provider> = providers
+            .iter()
+            .map(|(k, v)| (k.to_string(), (*v).clone()))
+            .collect();
+
         if let Err(e) = scheduler
             .reload_schedules(providers.clone(), account_repo.clone(), app_handle.clone())
             .await
@@ -169,10 +177,12 @@ impl AppState {
             )),
             execute_check_in: Arc::new(ExecuteCheckInCommandHandler::new(
                 account_repo.clone(),
+                providers_map.clone(),
                 true, // headless_browser
             )),
             batch_execute_check_in: Arc::new(BatchExecuteCheckInCommandHandler::new(
                 account_repo.clone(),
+                providers_map,
                 true, // headless_browser
             )),
         };

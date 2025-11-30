@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use log::{error, info};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::application::commands::check_in_commands::*;
@@ -8,18 +9,24 @@ use crate::application::dtos::BalanceDto;
 use crate::application::services::CheckInExecutor;
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::Provider;
-use neuradock_domain::shared::DomainError;
+use neuradock_domain::shared::{AccountId, DomainError};
 
 /// Execute check-in command handler
 pub struct ExecuteCheckInCommandHandler {
     account_repo: Arc<dyn AccountRepository>,
+    providers: HashMap<String, Provider>,
     headless_browser: bool,
 }
 
 impl ExecuteCheckInCommandHandler {
-    pub fn new(account_repo: Arc<dyn AccountRepository>, headless_browser: bool) -> Self {
+    pub fn new(
+        account_repo: Arc<dyn AccountRepository>,
+        providers: HashMap<String, Provider>,
+        headless_browser: bool,
+    ) -> Self {
         Self {
             account_repo,
+            providers,
             headless_browser,
         }
     }
@@ -32,18 +39,28 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
     async fn handle(&self, cmd: ExecuteCheckInCommand) -> Result<Self::Result, DomainError> {
         info!("Handling ExecuteCheckInCommand for account: {}", cmd.account_id);
 
+        // Load account to get provider_id
+        let account = self
+            .account_repo
+            .find_by_id(&AccountId::from_string(&cmd.account_id))
+            .await?
+            .ok_or_else(|| {
+                DomainError::AccountNotFound(format!("Account not found: {}", cmd.account_id))
+            })?;
+
+        // Get provider from account's provider_id
+        let provider_id = account.provider_id().as_str();
+        let provider = self.providers.get(provider_id).ok_or_else(|| {
+            DomainError::ProviderNotFound(format!("Provider not found: {}", provider_id))
+        })?;
+
         // Create executor
         let executor = CheckInExecutor::new(self.account_repo.clone(), self.headless_browser)
             .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
 
-        // Get provider (this should be passed or loaded properly)
-        // For now, we'll need to get it from somewhere
-        // TODO: This is a temporary solution, should be refactored
-        let provider = self.get_provider_for_account(&cmd.account_id).await?;
-
         // Execute check-in
         let result = executor
-            .execute_check_in(&cmd.account_id, &provider)
+            .execute_check_in(&cmd.account_id, provider)
             .await
             .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
 
@@ -64,34 +81,22 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
     }
 }
 
-impl ExecuteCheckInCommandHandler {
-    async fn get_provider_for_account(&self, _account_id: &str) -> Result<Provider, DomainError> {
-        // TODO: This is a temporary implementation
-        // Should load provider from account's provider_id
-        // For now, return a default provider
-        Ok(Provider::builtin(
-            "anyrouter",
-            "AnyRouter".to_string(),
-            "https://anyrouter.top".to_string(),
-            "/login".to_string(),
-            Some("/api/user/sign_in".to_string()),
-            "/api/user/self".to_string(),
-            "new-api-user".to_string(),
-            Some("waf_cookies".to_string()),
-        ))
-    }
-}
-
 /// Batch execute check-in command handler
 pub struct BatchExecuteCheckInCommandHandler {
     account_repo: Arc<dyn AccountRepository>,
+    providers: HashMap<String, Provider>,
     headless_browser: bool,
 }
 
 impl BatchExecuteCheckInCommandHandler {
-    pub fn new(account_repo: Arc<dyn AccountRepository>, headless_browser: bool) -> Self {
+    pub fn new(
+        account_repo: Arc<dyn AccountRepository>,
+        providers: HashMap<String, Provider>,
+        headless_browser: bool,
+    ) -> Self {
         Self {
             account_repo,
+            providers,
             headless_browser,
         }
     }
@@ -116,21 +121,52 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
 
         for account_id in cmd.account_ids {
-            let provider = match self.get_provider_for_account(&account_id).await {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("Failed to get provider for account {}: {}", account_id, e);
+            // Load account to get provider_id
+            let account = match self
+                .account_repo
+                .find_by_id(&AccountId::from_string(&account_id))
+                .await
+            {
+                Ok(Some(acc)) => acc,
+                Ok(None) => {
+                    error!("Account not found: {}", account_id);
                     failed += 1;
                     results.push(CheckInCommandResult {
                         success: false,
-                        message: format!("Failed to get provider: {}", e),
+                        message: format!("Account not found: {}", account_id),
+                        balance: None,
+                    });
+                    continue;
+                }
+                Err(e) => {
+                    error!("Failed to load account {}: {}", account_id, e);
+                    failed += 1;
+                    results.push(CheckInCommandResult {
+                        success: false,
+                        message: format!("Failed to load account: {}", e),
                         balance: None,
                     });
                     continue;
                 }
             };
 
-            match executor.execute_check_in(&account_id, &provider).await {
+            // Get provider from account's provider_id
+            let provider_id = account.provider_id().as_str();
+            let provider = match self.providers.get(provider_id) {
+                Some(p) => p,
+                None => {
+                    error!("Provider not found: {}", provider_id);
+                    failed += 1;
+                    results.push(CheckInCommandResult {
+                        success: false,
+                        message: format!("Provider not found: {}", provider_id),
+                        balance: None,
+                    });
+                    continue;
+                }
+            };
+
+            match executor.execute_check_in(&account_id, provider).await {
                 Ok(result) => {
                     if result.success {
                         succeeded += 1;
@@ -170,21 +206,5 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             failed,
             results,
         })
-    }
-}
-
-impl BatchExecuteCheckInCommandHandler {
-    async fn get_provider_for_account(&self, _account_id: &str) -> Result<Provider, DomainError> {
-        // TODO: Same as single check-in handler
-        Ok(Provider::builtin(
-            "anyrouter",
-            "AnyRouter".to_string(),
-            "https://anyrouter.top".to_string(),
-            "/login".to_string(),
-            Some("/api/user/sign_in".to_string()),
-            "/api/user/self".to_string(),
-            "new-api-user".to_string(),
-            Some("waf_cookies".to_string()),
-        ))
     }
 }
