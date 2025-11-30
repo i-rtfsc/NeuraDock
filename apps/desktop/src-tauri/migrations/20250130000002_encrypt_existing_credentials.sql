@@ -16,8 +16,6 @@
 -- The actual migration happens in Rust code during application startup
 -- if unencrypted data is detected
 
--- Future: Add a flag column to track encryption status
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS credentials_encrypted BOOLEAN DEFAULT FALSE;
+-- This migration intentionally does nothing to avoid SQL syntax errors
+-- Encryption is handled automatically by the backward-compatible decryption logic
 
--- Mark all existing accounts as not encrypted
-UPDATE accounts SET credentials_encrypted = FALSE WHERE credentials_encrypted IS NULL;
