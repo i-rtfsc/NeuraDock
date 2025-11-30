@@ -93,6 +93,13 @@ coverage/
 *.profraw
 *.profdata
 
+# Coverage reports
+**/coverage/
+**/target/coverage/
+tarpaulin-report.html
+tarpaulin-report.json
+lcov.info
+
 # Benchmark 结果
 benchmark_results/
 criterion/

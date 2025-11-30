@@ -57,8 +57,7 @@ impl Default for InMemoryEventBus {
 #[async_trait]
 impl EventBus for InMemoryEventBus {
     async fn publish(&self, event: Box<dyn DomainEvent>) -> Result<(), DomainError> {
-        let event_any = event.as_any();
-        let event_type_name = std::any::type_name_of_val(event_any);
+        let event_type_name = event.event_type_name();
         
         info!("Publishing event: {}", event_type_name);
         
@@ -66,6 +65,8 @@ impl EventBus for InMemoryEventBus {
         
         if let Some(event_handlers) = handlers.get(event_type_name) {
             info!("Found {} handlers for event type: {}", event_handlers.len(), event_type_name);
+            
+            let event_any = event.as_any();
             
             // Execute all handlers for this event type
             for handler in event_handlers {
@@ -130,6 +131,9 @@ mod tests {
         });
         
         bus.publish(event).await.unwrap();
+        
+        // Give async handlers time to complete
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         
         let was_called = *called.read().await;
         assert!(was_called, "Handler should have been called");

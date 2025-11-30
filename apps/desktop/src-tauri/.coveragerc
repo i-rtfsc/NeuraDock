@@ -1,0 +1,19 @@
+# Coverage configuration
+[run]
+branch = True
+omit = 
+    */tests/*
+    */test_*.rs
+    *_test.rs
+    */main.rs
+    */build.rs
+    target/*
+    gen/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = coverage/html

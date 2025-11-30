@@ -442,14 +442,16 @@ impl Default for HttpClient {
     }
 }
 
-/// Extract domain from URL
+/// Extract domain from URL (including port if present)
 fn extract_domain(url: &str) -> Result<String> {
     let parsed = url::Url::parse(url)?;
-    Ok(format!(
-        "{}://{}",
-        parsed.scheme(),
-        parsed.host_str().unwrap_or("")
-    ))
+    let host = parsed.host_str().unwrap_or("");
+    
+    if let Some(port) = parsed.port() {
+        Ok(format!("{}://{}:{}", parsed.scheme(), host, port))
+    } else {
+        Ok(format!("{}://{}", parsed.scheme(), host))
+    }
 }
 
 #[cfg(test)]

@@ -13,4 +13,8 @@ pub use event_bus::{EventBus, EventHandler, DynamicEventHandler, TypedEventHandl
 pub trait DomainEvent: Send + Sync + Any {
     /// Convert to Any for type-safe downcasting
     fn as_any(&self) -> &(dyn Any + Send + Sync);
+    
+    /// Get the type name of this event for routing/matching
+    /// This should return the same value as std::any::type_name::<Self>()
+    fn event_type_name(&self) -> &'static str;
 }

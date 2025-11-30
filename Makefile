@@ -1,4 +1,4 @@
-.PHONY: help dev dev-first setup install check-deps build build-frontend build-backend test test-backend clean clean-frontend clean-backend clean-all check fix logs kill rebuild
+.PHONY: help dev dev-first setup install check-deps build build-frontend build-backend test test-backend test-coverage coverage-report clean clean-frontend clean-backend clean-all check fix logs kill rebuild
 
 # 默认目标
 help:
@@ -21,6 +21,8 @@ help:
 	@echo "  build-backend    - 📦 仅构建后端"
 	@echo "  test             - 🧪 运行所有测试"
 	@echo "  test-backend     - 🧪 运行后端测试"
+	@echo "  test-coverage    - 📊 运行测试并生成覆盖率报告"
+	@echo "  coverage-report  - 📈 打开覆盖率报告 (HTML)"
 	@echo "  clean            - 🧹 清理所有构建产物"
 	@echo "  clean-all        - 🧹 深度清理（包括依赖）"
 	@echo "  kill             - ⚠️  杀掉所有运行中的进程和端口"
@@ -129,6 +131,33 @@ test-backend:
 	@echo "🧪 运行后端测试..."
 	@cd apps/desktop/src-tauri && cargo test --workspace
 
+# 运行测试并生成覆盖率报告
+test-coverage:
+	@echo "📊 运行测试并生成覆盖率报告..."
+	@if ! command -v cargo-tarpaulin &> /dev/null; then \
+		echo "❌ cargo-tarpaulin 未安装"; \
+		echo "安装: cargo install cargo-tarpaulin"; \
+		exit 1; \
+	fi
+	@cd apps/desktop/src-tauri && cargo tarpaulin --workspace --lib --target-dir target/coverage --out Html --out Json --out Lcov --output-dir coverage
+	@echo "✅ 覆盖率报告已生成"
+	@cd apps/desktop/src-tauri && grep "coverage" coverage/tarpaulin-report.json | head -1 || true
+	@echo ""
+	@echo "报告位置:"
+	@echo "  HTML: apps/desktop/src-tauri/coverage/tarpaulin-report.html"
+	@echo "  JSON: apps/desktop/src-tauri/coverage/tarpaulin-report.json"
+	@echo "  LCOV: apps/desktop/src-tauri/coverage/lcov.info"
+
+# 打开覆盖率报告
+coverage-report:
+	@echo "📈 打开覆盖率报告..."
+	@if [ -f "apps/desktop/src-tauri/coverage/index.html" ]; then \
+		open apps/desktop/src-tauri/coverage/index.html; \
+	else \
+		echo "❌ 覆盖率报告不存在"; \
+		echo "请先运行: make test-coverage"; \
+	fi
+
 # 清理构建产物
 clean: clean-frontend clean-backend
 	@echo "✅ 清理完成"
@@ -143,6 +172,8 @@ clean-frontend:
 clean-backend:
 	@echo "🧹 清理后端..."
 	@cd apps/desktop/src-tauri && cargo clean
+	@rm -rf apps/desktop/src-tauri/target/coverage
+	@rm -rf apps/desktop/src-tauri/coverage
 
 # 深度清理
 clean-all:
@@ -151,6 +182,7 @@ clean-all:
 	@rm -rf apps/desktop/dist
 	@rm -rf apps/desktop/.vite
 	@cd apps/desktop/src-tauri && cargo clean && rm -rf target
+	@rm -rf apps/desktop/src-tauri/coverage
 	@rm -rf ~/Library/Logs/neuradock
 	@rm -f *.db *.db-shm *.db-wal
 	@echo "✅ 深度清理完成"

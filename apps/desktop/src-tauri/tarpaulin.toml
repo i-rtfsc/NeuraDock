@@ -1,0 +1,35 @@
+# Tarpaulin configuration for NeuraDock
+# https://github.com/xd009642/tarpaulin
+
+[config.default]
+# Run configuration
+workspace = true
+exclude-files = [
+    "target/*",
+    "gen/*",
+    "*/tests/*",
+    "*/main.rs",
+    "*/build.rs",
+]
+
+# Output formats
+out = ["Html", "Json", "Lcov"]
+output-dir = "coverage"
+
+# Test configuration
+run-types = ["Lib"]
+timeout = "300s"
+follow-exec = true
+
+# Use separate target directory to avoid conflicts
+target-dir = "target/coverage"
+
+# Reporting
+fail-under = 60.0  # Start with 60%, increase over time to 80%
+verbose = false
+color = "Always"
+
+# CI-specific configuration
+[config.ci]
+out = ["Xml", "Json", "Lcov"]
+fail-under = 80.0
