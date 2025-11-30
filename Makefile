@@ -118,7 +118,7 @@ build-frontend: check-deps
 # 构建后端
 build-backend:
 	@echo "🦀 构建后端 (Release)..."
-	@cd apps/desktop/src-tauri && cargo build --release
+	@cd apps/desktop/src-tauri && cargo build --release --workspace
 
 # 运行所有测试
 test: test-backend
@@ -127,7 +127,7 @@ test: test-backend
 # 运行后端测试
 test-backend:
 	@echo "🧪 运行后端测试..."
-	@cd apps/desktop/src-tauri && cargo test
+	@cd apps/desktop/src-tauri && cargo test --workspace
 
 # 清理构建产物
 clean: clean-frontend clean-backend
@@ -158,14 +158,14 @@ clean-all:
 # 代码检查
 check:
 	@echo "🔍 检查代码格式..."
-	@cd apps/desktop/src-tauri && cargo fmt --check
-	@cd apps/desktop/src-tauri && cargo clippy -- -D warnings
+	@cd apps/desktop/src-tauri && cargo fmt --all --check
+	@cd apps/desktop/src-tauri && cargo clippy --workspace -- -D warnings
 	@echo "✅ 代码检查完成"
 
 # 自动修复
 fix:
 	@echo "🔧 自动修复代码格式..."
-	@cd apps/desktop/src-tauri && cargo fmt
+	@cd apps/desktop/src-tauri && cargo fmt --all
 	@echo "✅ 代码格式修复完成"
 
 # 查看日志
@@ -212,7 +212,7 @@ status:
 # 生成 TypeScript 绑定
 bindings:
 	@echo "🔗 生成 TypeScript 绑定..."
-	@cd apps/desktop/src-tauri && cargo build
+	@cd apps/desktop/src-tauri && cargo build --workspace
 	@echo "✅ 绑定已生成到 apps/desktop/src/lib/tauri.ts"
 
 # 开发环境检查
