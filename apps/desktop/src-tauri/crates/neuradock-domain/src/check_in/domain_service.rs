@@ -23,9 +23,17 @@ impl CheckInDomainService {
 
     /// Validate provider configuration
     pub fn validate_provider(provider: &Provider) -> Result<(), DomainError> {
-        if provider.sign_in_url().is_none() || provider.sign_in_url().unwrap().is_empty() {
+        // Provider is valid as long as it has basic configuration
+        // sign_in_url is optional - some providers (like AgentRouter) auto check-in when querying user info
+        if provider.domain().is_empty() {
             return Err(DomainError::ProviderNotFound(
-                "Provider check-in URL is not configured".to_string(),
+                "Provider domain is not configured".to_string(),
+            ));
+        }
+
+        if provider.user_info_url().is_empty() {
+            return Err(DomainError::ProviderNotFound(
+                "Provider user info URL is not configured".to_string(),
             ));
         }
 
