@@ -68,6 +68,9 @@ async fn main() {
             get_check_in_trend,
             get_check_in_day_detail,
             recalculate_check_in_streaks,
+            // Config commands
+            get_log_level,
+            set_log_level,
         ])
         .events(collect_events![
             presentation::events::CheckInProgress,

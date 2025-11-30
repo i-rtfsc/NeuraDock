@@ -9,12 +9,14 @@ import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { invoke } from '@tauri-apps/api/core';
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { t, i18n } = useTranslation();
   const [cacheAgeHours, setCacheAgeHours] = useState<number>(1);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [logLevel, setLogLevel] = useState<string>('info');
 
   useEffect(() => {
     const stored = localStorage.getItem('maxCacheAgeHours');
@@ -24,6 +26,13 @@ export function SettingsPage() {
 
     const sidebarStored = localStorage.getItem('sidebarCollapsed');
     setSidebarCollapsed(sidebarStored === 'true');
+
+    // Load log level
+    invoke<string>('get_log_level').then(level => {
+      setLogLevel(level);
+    }).catch(err => {
+      console.error('Failed to get log level:', err);
+    });
   }, []);
 
   const handleLanguageChange = (lang: string) => {
@@ -48,6 +57,20 @@ export function SettingsPage() {
     // Dispatch custom event to notify sidebar
     window.dispatchEvent(new Event('sidebarToggle'));
     toast.success(t('common.success'));
+  };
+
+  const handleLogLevelChange = async (level: string) => {
+    try {
+      await invoke('set_log_level', { level });
+      setLogLevel(level);
+      toast.success(t('settings.logLevelUpdated'), {
+        description: t('settings.restartRequired'),
+      });
+    } catch (err) {
+      toast.error(t('common.error'), {
+        description: String(err),
+      });
+    }
   };
 
   return (
@@ -160,6 +183,35 @@ export function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {t('settings.cacheAgeDescription')}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Developer Settings */}
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle>{t('settings.developer')}</CardTitle>
+          <CardDescription>{t('settings.developerDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Log Level */}
+          <div className="space-y-2">
+            <Label>{t('settings.logLevel')}</Label>
+            <Select value={logLevel} onValueChange={handleLogLevelChange}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="error">{t('settings.logLevelError')}</SelectItem>
+                <SelectItem value="warn">{t('settings.logLevelWarn')}</SelectItem>
+                <SelectItem value="info">{t('settings.logLevelInfo')}</SelectItem>
+                <SelectItem value="debug">{t('settings.logLevelDebug')}</SelectItem>
+                <SelectItem value="trace">{t('settings.logLevelTrace')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t('settings.logLevelDescription')}
             </p>
           </div>
         </CardContent>

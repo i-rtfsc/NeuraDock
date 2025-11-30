@@ -10,7 +10,10 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  setup            - 🔧 首次安装所有依赖 (必须先运行)"
-	@echo "  dev              - 🚀 启动开发模式 (Vite + Tauri)"
+	@echo "  dev              - 🚀 启动开发模式 (RUST_LOG=info)"
+	@echo "  dev-debug        - 🐛 启动开发模式 (RUST_LOG=debug - 详细日志)"
+	@echo "  dev-trace        - 🔍 启动开发模式 (RUST_LOG=trace - 性能追踪)"
+	@echo "  dev-warn         - ⚠️  启动开发模式 (RUST_LOG=warn - 仅警告)"
 	@echo "  dev-first        - 🆕 首次运行 (自动安装依赖并启动)"
 	@echo "  check-deps       - 🔍 检查依赖是否已安装"
 	@echo "  build            - 📦 构建生产版本 (前端 + 后端)"
@@ -81,8 +84,23 @@ dev-first:
 
 # 开发模式 - 需要先安装依赖
 dev: kill check-deps
-	@echo "🚀 启动开发模式..."
-	@cd apps/desktop && npm run tauri:dev
+	@echo "🚀 启动开发模式 (RUST_LOG=info)..."
+	@cd apps/desktop && RUST_LOG=info npm run tauri:dev
+
+# 开发模式 - 详细日志 (debug 级别)
+dev-debug: kill check-deps
+	@echo "🚀 启动开发模式 (RUST_LOG=debug)..."
+	@cd apps/desktop && RUST_LOG=debug npm run tauri:dev
+
+# 开发模式 - 性能追踪 (trace 级别 + spans)
+dev-trace: kill check-deps
+	@echo "🚀 启动开发模式 (RUST_LOG=trace - 性能追踪)..."
+	@cd apps/desktop && RUST_LOG=trace npm run tauri:dev
+
+# 开发模式 - 仅警告和错误
+dev-warn: kill check-deps
+	@echo "🚀 启动开发模式 (RUST_LOG=warn)..."
+	@cd apps/desktop && RUST_LOG=warn npm run tauri:dev
 
 # 构建生产版本
 build: build-frontend build-backend

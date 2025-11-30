@@ -6,7 +6,7 @@ use tracing::{info, warn, error};
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
-use crate::application::services::AutoCheckInScheduler;
+use crate::application::services::{AutoCheckInScheduler, ConfigService};
 use crate::domain::events::account_events::*;
 use crate::domain::events::EventBus;
 use crate::domain::account::AccountRepository;
@@ -34,6 +34,7 @@ pub struct AppState {
     pub streak_queries: Arc<CheckInStreakQueries>,
     pub command_handlers: CommandHandlers,
     pub encryption_service: Arc<EncryptionService>,
+    pub config_service: Arc<ConfigService>,
     pub app_handle: tauri::AppHandle,
 }
 
@@ -177,6 +178,10 @@ impl AppState {
         };
         info!("✓ Command handlers initialized");
 
+        // Initialize config service
+        let config_service = Arc::new(ConfigService::new());
+        info!("✓ Config service initialized");
+
         Ok(Self {
             pool,
             db,
@@ -187,6 +192,7 @@ impl AppState {
             streak_queries,
             command_handlers,
             encryption_service,
+            config_service,
             app_handle,
         })
     }
