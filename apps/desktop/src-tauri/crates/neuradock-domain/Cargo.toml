@@ -1,0 +1,31 @@
+[package]
+name = "neuradock-domain"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Only minimal dependencies for domain layer
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+url = { workspace = true }
+
+# Type-safe IPC (for Tauri commands)
+specta = { workspace = true }
+
+# Async primitives (RwLock, etc.)
+tokio = { workspace = true }
+
+# Logging (minimal usage in domain)
+tracing = { workspace = true }
+
+# Domain layer should NOT depend on:
+# - sqlx (infrastructure concern)
+# - tauri (presentation concern)
+# - encryption libraries (infrastructure concern)
+# - HTTP clients (infrastructure concern)

@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capabilities for NeuraDock","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","dialog:default","fs:default","notification:default","store:default"]}}

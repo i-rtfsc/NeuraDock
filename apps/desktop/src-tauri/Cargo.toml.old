@@ -1,0 +1,81 @@
+[package]
+name = "neuradock"
+version = "0.1.0"
+description = "Auto check-in manager for API services"
+authors = ["NeuraDock"]
+edition = "2021"
+
+[lib]
+name = "neuradock_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri
+tauri = { version = "2.1", features = ["tray-icon", "image-png", "devtools"] }
+tauri-plugin-dialog = "2.2"
+tauri-plugin-fs = "2.2"
+tauri-plugin-notification = "2.2"
+tauri-plugin-os = "2.2"
+tauri-plugin-shell = "2.2"
+tauri-plugin-store = "2.2"
+
+# Type-safe IPC
+tauri-specta = { version = "2.0.0-rc.20", features = ["derive", "typescript"] }
+specta = { version = "2.0.0-rc.20", features = ["derive", "chrono"] }
+specta-typescript = "0.0.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.41", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "cookies", "rustls-tls"] }
+
+# Browser automation - using chromiumoxide for pure Rust solution
+chromiumoxide = { version = "0.7", features = ["tokio-runtime"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1.11", features = ["v4", "serde"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Encryption
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+base64 = "0.22"
+
+# URL handling
+url = { version = "2.5", features = ["serde"] }
+
+# Cron scheduling
+tokio-cron-scheduler = "0.13"
+
+# Email
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "hostname", "smtp-transport"] }
+
+[dev-dependencies]
+mockall = "0.13"
+tempfile = "3.13"

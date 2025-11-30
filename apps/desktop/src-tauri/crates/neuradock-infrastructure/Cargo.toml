@@ -1,0 +1,61 @@
+[package]
+name = "neuradock-infrastructure"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+neuradock-domain = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+log = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Browser automation
+chromiumoxide = { workspace = true }
+
+# Encryption
+aes-gcm = { workspace = true }
+argon2 = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }
+
+# URL handling
+url = { workspace = true }
+
+# Cron scheduling
+tokio-cron-scheduler = { workspace = true }
+
+# Email
+lettre = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

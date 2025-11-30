@@ -1,0 +1,76 @@
+[package]
+name = "neuradock-app"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "neuradock_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Internal dependencies
+neuradock-domain = { workspace = true }
+neuradock-infrastructure = { workspace = true }
+
+# Tauri
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+tauri-plugin-os = { workspace = true }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-store = { workspace = true }
+
+# Type-safe IPC
+tauri-specta = { workspace = true }
+specta = { workspace = true }
+specta-typescript = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Browser automation
+chromiumoxide = { workspace = true }
+
+# URL handling
+url = { workspace = true }
+
+# Cron scheduling
+tokio-cron-scheduler = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }
+tempfile = { workspace = true }

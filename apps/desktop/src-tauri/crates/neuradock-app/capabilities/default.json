@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0/capability.json",
+  "identifier": "default",
+  "description": "Default capabilities for NeuraDock",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:default",
+    "notification:default",
+    "store:default"
+  ]
+}
