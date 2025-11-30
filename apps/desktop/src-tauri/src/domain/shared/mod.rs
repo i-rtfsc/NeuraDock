@@ -41,6 +41,95 @@ define_id!(JobId);
 define_id!(ChannelId);
 define_id!(StreakId);
 
+/// Error codes for structured error handling
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum ErrorCode {
+    // Authentication & Authorization (1xxx)
+    InvalidCredentials = 1001,
+    ExpiredSession = 1002,
+    MissingApiKey = 1003,
+    
+    // Resource Not Found (2xxx)
+    AccountNotFound = 2001,
+    ProviderNotFound = 2002,
+    SessionNotFound = 2003,
+    
+    // Business Logic (3xxx)
+    CheckInFailed = 3001,
+    CheckInTooFrequent = 3002,
+    AccountDisabled = 3003,
+    InvalidProviderConfig = 3004,
+    
+    // Data & Persistence (4xxx)
+    RepositoryError = 4001,
+    DatabaseConstraintViolation = 4002,
+    DataIntegrityError = 4003,
+    SerializationError = 4004,
+    EncryptionError = 4005,
+    DecryptionError = 4006,
+    
+    // Infrastructure (5xxx)
+    InfrastructureError = 5001,
+    NetworkError = 5002,
+    TimeoutError = 5003,
+    ExternalServiceError = 5004,
+    
+    // Validation (6xxx)
+    ValidationError = 6001,
+    InvalidInput = 6002,
+    MissingRequiredField = 6003,
+}
+
+impl ErrorCode {
+    /// Get error code as integer
+    pub fn code(&self) -> u16 {
+        *self as u16
+    }
+    
+    /// Get error severity
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            ErrorCode::InvalidCredentials
+            | ErrorCode::ExpiredSession
+            | ErrorCode::CheckInFailed
+            | ErrorCode::NetworkError => ErrorSeverity::Warning,
+            
+            ErrorCode::AccountNotFound
+            | ErrorCode::ProviderNotFound
+            | ErrorCode::ValidationError
+            | ErrorCode::InvalidInput => ErrorSeverity::Info,
+            
+            ErrorCode::DataIntegrityError
+            | ErrorCode::DatabaseConstraintViolation
+            | ErrorCode::EncryptionError
+            | ErrorCode::DecryptionError
+            | ErrorCode::InfrastructureError => ErrorSeverity::Error,
+            
+            _ => ErrorSeverity::Warning,
+        }
+    }
+    
+    /// Check if error is recoverable
+    pub fn is_recoverable(&self) -> bool {
+        matches!(
+            self,
+            ErrorCode::NetworkError
+            | ErrorCode::TimeoutError
+            | ErrorCode::ExternalServiceError
+            | ErrorCode::CheckInFailed
+        )
+    }
+}
+
+/// Error severity levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum ErrorSeverity {
+    Info,
+    Warning,
+    Error,
+    Critical,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum DomainError {
     #[error("Invalid credentials: {0}")]
@@ -66,4 +155,49 @@ pub enum DomainError {
     
     #[error("Data integrity error: {0}")]
     DataIntegrity(String),
+}
+
+impl DomainError {
+    /// Get error code
+    pub fn code(&self) -> ErrorCode {
+        match self {
+            DomainError::InvalidCredentials(_) => ErrorCode::InvalidCredentials,
+            DomainError::AccountNotFound(_) => ErrorCode::AccountNotFound,
+            DomainError::ProviderNotFound(_) => ErrorCode::ProviderNotFound,
+            DomainError::CheckInFailed(_) => ErrorCode::CheckInFailed,
+            DomainError::Repository(_) => ErrorCode::RepositoryError,
+            DomainError::Infrastructure(_) => ErrorCode::InfrastructureError,
+            DomainError::Validation(_) => ErrorCode::ValidationError,
+            DomainError::DataIntegrity(_) => ErrorCode::DataIntegrityError,
+        }
+    }
+    
+    /// Get error message
+    pub fn message(&self) -> &str {
+        match self {
+            DomainError::InvalidCredentials(msg)
+            | DomainError::AccountNotFound(msg)
+            | DomainError::ProviderNotFound(msg)
+            | DomainError::CheckInFailed(msg)
+            | DomainError::Repository(msg)
+            | DomainError::Infrastructure(msg)
+            | DomainError::Validation(msg)
+            | DomainError::DataIntegrity(msg) => msg,
+        }
+    }
+    
+    /// Get error severity
+    pub fn severity(&self) -> ErrorSeverity {
+        self.code().severity()
+    }
+    
+    /// Check if error is recoverable
+    pub fn is_recoverable(&self) -> bool {
+        self.code().is_recoverable()
+    }
+    
+    /// Format error with code
+    pub fn format_with_code(&self) -> String {
+        format!("[{}] {}", self.code().code(), self)
+    }
 }
