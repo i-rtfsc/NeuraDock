@@ -4,7 +4,8 @@ use serde_json;
 use sqlx::FromRow;
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use tracing::warn;
+use std::time::Instant;
+use tracing::{info, warn};
 
 use crate::domain::account::{Account, AccountRepository, Credentials};
 use crate::domain::shared::{AccountId, DomainError, ProviderId};
@@ -96,6 +97,8 @@ impl SqliteAccountRepository {
 #[async_trait]
 impl AccountRepository for SqliteAccountRepository {
     async fn save(&self, account: &Account) -> Result<(), DomainError> {
+        let start = Instant::now();
+        
         // Start a transaction
         let mut tx = self.pool.begin()
             .await
@@ -196,10 +199,19 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Commit transaction"))?;
 
+        let elapsed = start.elapsed();
+        info!(
+            "📊 Account saved: {} in {:.2}ms",
+            account.id().as_str(),
+            elapsed.as_secs_f64() * 1000.0
+        );
+
         Ok(())
     }
 
     async fn find_by_id(&self, id: &AccountId) -> Result<Option<Account>, DomainError> {
+        let start = Instant::now();
+        
         let query = r#"
             SELECT 
                 a.id, a.name, a.provider_id, a.cookies, a.api_user, a.enabled, 
@@ -222,6 +234,15 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find account by ID"))?;
 
+        let elapsed = start.elapsed();
+        let found = row.is_some();
+        info!(
+            "📊 find_by_id({}): {:.2}ms, found: {}",
+            id.as_str(),
+            elapsed.as_secs_f64() * 1000.0,
+            found
+        );
+
         match row {
             Some(row) => Ok(Some(row.to_account(&self.encryption)?)),
             None => Ok(None),
@@ -229,6 +250,8 @@ impl AccountRepository for SqliteAccountRepository {
     }
 
     async fn find_all(&self) -> Result<Vec<Account>, DomainError> {
+        let start = Instant::now();
+        
         let query = r#"
             SELECT 
                 a.id, a.name, a.provider_id, a.cookies, a.api_user, a.enabled, 
@@ -250,10 +273,28 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all accounts"))?;
 
+        let elapsed = start.elapsed();
+        let count = rows.len();
+        info!(
+            "📊 find_all(): {:.2}ms, {} accounts",
+            elapsed.as_secs_f64() * 1000.0,
+            count
+        );
+        
+        if elapsed.as_millis() > 100 {
+            warn!(
+                "🐌 SLOW QUERY: find_all() took {:.2}ms for {} accounts",
+                elapsed.as_secs_f64() * 1000.0,
+                count
+            );
+        }
+
         rows.into_iter().map(|row| row.to_account(&self.encryption)).collect()
     }
 
     async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
+        let start = Instant::now();
+        
         let query = r#"
             SELECT 
                 a.id, a.name, a.provider_id, a.cookies, a.api_user, a.enabled, 
@@ -276,10 +317,19 @@ impl AccountRepository for SqliteAccountRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find enabled accounts"))?;
 
+        let elapsed = start.elapsed();
+        let count = rows.len();
+        info!(
+            "📊 find_enabled(): {:.2}ms, {} accounts",
+            elapsed.as_secs_f64() * 1000.0,
+            count
+        );
+
         rows.into_iter().map(|row| row.to_account(&self.encryption)).collect()
     }
 
     async fn delete(&self, id: &AccountId) -> Result<(), DomainError> {
+        let start = Instant::now();
         let query = "DELETE FROM accounts WHERE id = ?1";
 
         sqlx::query(query)
@@ -287,6 +337,13 @@ impl AccountRepository for SqliteAccountRepository {
             .execute(&*self.pool)
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete account"))?;
+
+        let elapsed = start.elapsed();
+        info!(
+            "📊 delete({}): {:.2}ms",
+            id.as_str(),
+            elapsed.as_secs_f64() * 1000.0
+        );
 
         Ok(())
     }
