@@ -113,7 +113,11 @@
     "autoDisabled": "未启用自动签到",
     "totalIncome": "总收益",
     "currentBalance": "当前余额",
-    "historicalConsumption": "历史消耗"
+    "historicalConsumption": "历史消耗",
+    "sessionExpired": "Session 已过期",
+    "sessionExpiresSoon": "{{days}} 天后过期",
+    "sessionValidDays": "有效期 {{days}} 天",
+    "sessionUnknown": "Session 未知"
   },
   "accountDialog": {
     "createTitle": "添加新账号",

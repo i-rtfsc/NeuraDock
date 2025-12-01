@@ -113,7 +113,11 @@
     "autoDisabled": "Auto check-in disabled",
     "totalIncome": "Total Income",
     "currentBalance": "Current Balance",
-    "historicalConsumption": "Historical Consumption"
+    "historicalConsumption": "Historical Consumption",
+    "sessionExpired": "Session Expired",
+    "sessionExpiresSoon": "Expires in {{days}} days",
+    "sessionValidDays": "Valid for {{days}} days",
+    "sessionUnknown": "Session Unknown"
   },
   "accountDialog": {
     "createTitle": "Add New Account",

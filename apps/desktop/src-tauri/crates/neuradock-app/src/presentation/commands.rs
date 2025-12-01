@@ -3,8 +3,10 @@ use crate::application::commands::check_in_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::services::CheckInExecutor;
 use crate::application::*;
+use chrono::{Duration, Utc};
 use neuradock_domain::account::{Account, Credentials};
 use neuradock_domain::check_in::Provider;
+use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::{AccountId, ProviderId};
 use crate::presentation::state::AppState;
 use std::collections::HashMap;
@@ -161,6 +163,7 @@ pub async fn import_account_from_json(
     let input: ImportAccountInput =
         serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    let cookies = input.cookies.clone();
     let credentials = Credentials::new(input.cookies, input.api_user);
     let account = Account::new(
         input.name,
@@ -169,13 +172,27 @@ pub async fn import_account_from_json(
     )
     .map_err(|e| e.to_string())?;
 
+    let account_id = account.id().clone();
+
     state
         .account_repo
         .save(&account)
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(account.id().as_str().to_string())
+    // Create and save session with 30-day expiration
+    const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
+    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
+    let session = Session::new(account_id.clone(), session_token, expires_at)
+        .map_err(|e| e.to_string())?;
+    state
+        .session_repo
+        .save(&session)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(account_id.as_str().to_string())
 }
 
 #[tauri::command]
@@ -193,7 +210,7 @@ pub async fn import_accounts_batch(
 
     for input in inputs {
         let account_name = input.name.clone();
-        match import_single_account(input, &state.account_repo).await {
+        match import_single_account(input, &state.account_repo, &state.session_repo).await {
             Ok(account_id) => {
                 succeeded += 1;
                 results.push(ImportItemResult {
@@ -226,7 +243,9 @@ pub async fn import_accounts_batch(
 async fn import_single_account(
     input: ImportAccountInput,
     account_repo: &Arc<dyn crate::domain::account::AccountRepository>,
+    session_repo: &Arc<dyn SessionRepository>,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    let cookies = input.cookies.clone();
     let credentials = Credentials::new(input.cookies, input.api_user);
     let account = Account::new(
         input.name,
@@ -234,9 +253,17 @@ async fn import_single_account(
         credentials,
     )?;
 
+    let account_id = account.id().clone();
     account_repo.save(&account).await?;
 
-    Ok(account.id().as_str().to_string())
+    // Create and save session with 30-day expiration
+    const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
+    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
+    let session = Session::new(account_id.clone(), session_token, expires_at)?;
+    session_repo.save(&session).await?;
+
+    Ok(account_id.as_str().to_string())
 }
 
 #[tauri::command]
@@ -330,6 +357,7 @@ pub async fn update_accounts_batch(
                     input.cookies,
                     input.api_user,
                     &state.account_repo,
+                    &state.session_repo,
                 )
                 .await
                 {
@@ -358,7 +386,7 @@ pub async fn update_accounts_batch(
             None => {
                 if create_if_not_exists {
                     // Create new account
-                    match import_single_account(input, &state.account_repo).await {
+                    match import_single_account(input, &state.account_repo, &state.session_repo).await {
                         Ok(account_id) => {
                             created += 1;
                             results.push(UpdateItemResult {
@@ -411,15 +439,23 @@ async fn update_account_cookies(
     cookies: HashMap<String, String>,
     api_user: String,
     account_repo: &Arc<dyn crate::domain::account::AccountRepository>,
+    session_repo: &Arc<dyn SessionRepository>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut account = account_repo
         .find_by_id(account_id)
         .await?
         .ok_or("Account not found")?;
 
-    let credentials = Credentials::new(cookies, api_user);
+    let credentials = Credentials::new(cookies.clone(), api_user);
     account.update_credentials(credentials)?;
     account_repo.save(&account).await?;
+
+    // Create and save session with 30-day expiration
+    const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
+    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
+    let session = Session::new(account_id.clone(), session_token, expires_at)?;
+    session_repo.save(&session).await?;
 
     Ok(())
 }

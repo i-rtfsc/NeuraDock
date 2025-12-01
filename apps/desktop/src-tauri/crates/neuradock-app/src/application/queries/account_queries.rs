@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use chrono::Utc;
 
 use crate::application::dtos::AccountDto;
 use neuradock_domain::account::AccountRepository;
@@ -29,6 +30,7 @@ impl AccountQueryService {
             self.account_repo.find_all().await?
         };
 
+        let now = Utc::now();
         let dtos = accounts
             .iter()
             .map(|acc| {
@@ -42,6 +44,18 @@ impl AccountQueryService {
 
                 // Consider account "online" if session is valid OR balance check is recent (< 24 hours)
                 let is_online = acc.is_session_valid() || !is_balance_stale;
+
+                // Calculate session expiration info
+                let session_expires_at = acc.session_expires_at();
+                let (session_expires_soon, session_days_remaining) = match session_expires_at {
+                    Some(expires_at) => {
+                        let duration = expires_at.signed_duration_since(now);
+                        let days_remaining = duration.num_days();
+                        let expires_soon = days_remaining <= 7; // Warn if expires within 7 days
+                        (expires_soon, Some(days_remaining.max(0)))
+                    }
+                    None => (false, None),
+                };
 
                 AccountDto {
                     id: acc.id().as_str().to_string(),
@@ -60,6 +74,9 @@ impl AccountQueryService {
                     total_income: acc.total_income(),
                     is_balance_stale,
                     is_online,
+                    session_expires_at: session_expires_at.map(|dt| dt.to_rfc3339()),
+                    session_expires_soon,
+                    session_days_remaining,
                 }
             })
             .collect();
@@ -74,10 +91,11 @@ impl AccountQueryService {
         providers: &HashMap<String, Provider>,
     ) -> Result<Option<AccountDto>, DomainError> {
         use neuradock_domain::shared::AccountId;
-        
+
         let account_id = AccountId::from_string(account_id);
         let account = self.account_repo.find_by_id(&account_id).await?;
 
+        let now = Utc::now();
         Ok(account.map(|acc| {
             let provider_name = providers
                 .get(acc.provider_id().as_str())
@@ -86,6 +104,18 @@ impl AccountQueryService {
 
             let is_balance_stale = acc.is_balance_stale(24);
             let is_online = acc.is_session_valid() || !is_balance_stale;
+
+            // Calculate session expiration info
+            let session_expires_at = acc.session_expires_at();
+            let (session_expires_soon, session_days_remaining) = match session_expires_at {
+                Some(expires_at) => {
+                    let duration = expires_at.signed_duration_since(now);
+                    let days_remaining = duration.num_days();
+                    let expires_soon = days_remaining <= 7;
+                    (expires_soon, Some(days_remaining.max(0)))
+                }
+                None => (false, None),
+            };
 
             AccountDto {
                 id: acc.id().as_str().to_string(),
@@ -104,6 +134,9 @@ impl AccountQueryService {
                 total_income: acc.total_income(),
                 is_balance_stale,
                 is_online,
+                session_expires_at: session_expires_at.map(|dt| dt.to_rfc3339()),
+                session_expires_soon,
+                session_days_remaining,
             }
         }))
     }

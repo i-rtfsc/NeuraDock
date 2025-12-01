@@ -37,6 +37,10 @@ export interface Account {
   total_consumed?: number;
   total_income?: number;
   last_balance_check_at?: string;
+  // Session expiration info
+  session_expires_at?: string;
+  session_expires_soon: boolean;
+  session_days_remaining?: number;
 }
 
 export interface AccountDetail extends Account {

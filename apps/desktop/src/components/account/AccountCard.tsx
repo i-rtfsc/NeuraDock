@@ -22,6 +22,7 @@ import {
   PowerOff,
   Loader2,
   Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -106,12 +107,30 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
             <h3 className="font-medium text-sm truncate mb-2" title={account.name}>
               {account.name}
             </h3>
-            {/* 状态和中转站名称在第二行 */}
+            {/* 状态和Session过期信息在第二行 */}
             <div className="flex items-center gap-2 text-xs">
               <Badge variant={account.enabled ? 'default' : 'secondary'} className="text-xs rounded-full">
                 {account.enabled ? t('accountCard.active') : t('accountCard.disabled')}
               </Badge>
-              <span className="text-muted-foreground">{account.provider_name}</span>
+              {/* Session过期提醒 */}
+              {account.session_expires_at ? (
+                account.session_expires_soon ? (
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <AlertTriangle className="h-3 w-3" />
+                    {account.session_days_remaining !== undefined && account.session_days_remaining <= 0
+                      ? t('accountCard.sessionExpired')
+                      : t('accountCard.sessionExpiresSoon', { days: account.session_days_remaining })}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {t('accountCard.sessionValidDays', { days: account.session_days_remaining })}
+                  </span>
+                )
+              ) : (
+                <span className="text-muted-foreground/50">
+                  {t('accountCard.sessionUnknown')}
+                </span>
+              )}
             </div>
           </div>
 

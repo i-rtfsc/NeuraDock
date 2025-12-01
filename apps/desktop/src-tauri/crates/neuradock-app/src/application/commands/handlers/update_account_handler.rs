@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use log::info;
 use std::sync::Arc;
 
@@ -9,6 +9,9 @@ use neuradock_domain::account::{AccountRepository, Credentials};
 use neuradock_domain::events::account_events::AccountUpdated;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::shared::{AccountId, DomainError};
+
+/// Default session expiration duration (30 days)
+const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
 
 /// Update account command handler
 pub struct UpdateAccountCommandHandler {
@@ -59,9 +62,25 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
             let api_user = cmd.api_user.unwrap_or_else(|| {
                 account.credentials().api_user().to_string()
             });
-            let credentials = Credentials::new(cookies, api_user);
+            let credentials = Credentials::new(cookies.clone(), api_user);
             account.update_credentials(credentials)?;
             credentials_updated = true;
+
+            // When cookies are updated, set session expiration to 30 days from now
+            // This allows frontend to track when the session will expire
+            let session_token = cookies
+                .values()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| "session".to_string());
+            let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
+            account.update_session(session_token, expires_at);
+
+            info!(
+                "Session expiration set to {} days from now for account: {}",
+                DEFAULT_SESSION_EXPIRATION_DAYS,
+                account.name()
+            );
         }
 
         // 4. Update auto check-in configuration if provided
@@ -85,7 +104,7 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
             auto_checkin_config_updated,
             occurred_at: Utc::now(),
         };
-        
+
         self.event_bus.publish(Box::new(event)).await?;
 
         Ok(UpdateAccountResult { success: true })

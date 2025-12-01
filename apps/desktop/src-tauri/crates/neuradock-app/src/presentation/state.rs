@@ -11,9 +11,10 @@ use crate::application::services::{AutoCheckInScheduler, ConfigService};
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::session::SessionRepository;
 use neuradock_domain::check_in::Provider;
 use neuradock_infrastructure::events::InMemoryEventBus;
-use neuradock_infrastructure::persistence::{repositories::SqliteAccountRepository, Database};
+use neuradock_infrastructure::persistence::{repositories::{SqliteAccountRepository, SqliteSessionRepository}, Database};
 use neuradock_infrastructure::security::{EncryptionService, KeyManager};
 
 /// Command handlers container
@@ -30,6 +31,7 @@ pub struct AppState {
     pub pool: Arc<SqlitePool>,
     pub db: Arc<Database>,
     pub account_repo: Arc<dyn AccountRepository>,
+    pub session_repo: Arc<dyn SessionRepository>,
     pub scheduler: Arc<AutoCheckInScheduler>,
     pub event_bus: Arc<dyn EventBus>,
     pub account_queries: Arc<AccountQueryService>,
@@ -91,6 +93,8 @@ impl AppState {
         let db = Arc::new(database);
         let account_repo =
             Arc::new(SqliteAccountRepository::new(pool.clone(), encryption_service.clone())) as Arc<dyn AccountRepository>;
+        let session_repo =
+            Arc::new(SqliteSessionRepository::new(pool.clone())) as Arc<dyn SessionRepository>;
         let account_queries = Arc::new(AccountQueryService::new(account_repo.clone()));
         let streak_queries = Arc::new(CheckInStreakQueries::new(pool.clone()));
 
@@ -196,6 +200,7 @@ impl AppState {
             pool,
             db,
             account_repo,
+            session_repo,
             scheduler,
             event_bus,
             account_queries,
