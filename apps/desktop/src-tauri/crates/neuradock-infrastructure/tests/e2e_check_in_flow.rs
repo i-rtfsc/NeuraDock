@@ -15,6 +15,8 @@ use neuradock_infrastructure::persistence::repositories::{
 };
 use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_domain::account::{Account, AccountRepository, Credentials};
+use neuradock_domain::balance::BalanceRepository;
+use neuradock_domain::session::SessionRepository;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::shared::{AccountId, ProviderId};
 
@@ -30,13 +32,12 @@ async fn e2e_complete_check_in_flow() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     let balance_repo = Arc::new(SqliteBalanceRepository::new(Arc::new(pool.clone())));
     let session_repo = Arc::new(SqliteSessionRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
     ));
 
     // ============================================================
@@ -66,7 +67,7 @@ async fn e2e_complete_check_in_flow() {
     // ============================================================
     // Step 2: Enable Account
     // ============================================================
-    account.enable();
+    account.toggle(true);
     account_repo
         .save(&account)
         .await
@@ -83,7 +84,7 @@ async fn e2e_complete_check_in_flow() {
         .expect("Find account should succeed")
         .expect("Account should exist");
 
-    assert!(loaded_account.enabled(), "Account should be enabled");
+    assert!(loaded_account.is_enabled(), "Account should be enabled");
     assert_eq!(loaded_account.name(), "E2E Test Account");
     assert_eq!(loaded_account.provider_id().as_str(), "test-provider");
 
@@ -98,7 +99,7 @@ async fn e2e_complete_check_in_flow() {
     use neuradock_domain::balance::Balance;
     use chrono::Utc;
 
-    let balance = Balance::new(
+    let balance = Balance::restore(
         account_id.clone(),
         100.0,  // current_balance
         20.0,   // total_consumed
@@ -117,28 +118,31 @@ async fn e2e_complete_check_in_flow() {
     // Step 5: Verify Balance was Saved
     // ============================================================
     let latest_balance = balance_repo
-        .find_latest_by_account(&account_id)
+        .find_by_account_id(&account_id)
         .await
         .expect("Find balance should succeed")
         .expect("Balance should exist");
 
-    assert_eq!(latest_balance.current_balance(), 100.0);
+    assert_eq!(latest_balance.current(), 100.0);
     assert_eq!(latest_balance.total_consumed(), 20.0);
     assert_eq!(latest_balance.total_income(), 120.0);
 
     println!("✓ Step 5: Balance verification passed");
 
     // ============================================================
-    // Step 6: Verify Balance History
+    // Step 6: Verify Balance Exists
     // ============================================================
-    let balance_history = balance_repo
-        .find_history_by_account(&account_id, 10)
+    // Note: BalanceRepository doesn't have history query method,
+    // so we just verify the balance record exists
+    let balance_exists = balance_repo
+        .find_by_account_id(&account_id)
         .await
-        .expect("Find balance history should succeed");
+        .expect("Find balance should succeed")
+        .is_some();
 
-    assert_eq!(balance_history.len(), 1, "Should have 1 balance record");
+    assert!(balance_exists, "Should have 1 balance record");
 
-    println!("✓ Step 6: Balance history verification passed");
+    println!("✓ Step 6: Balance record verification passed");
 
     // ============================================================
     // Summary
@@ -148,7 +152,7 @@ async fn e2e_complete_check_in_flow() {
     println!("✅ Account enabled: true");
     println!("✅ Check-in executed (simulated)");
     println!("✅ Balance updated: {:.2} / {:.2}",
-        latest_balance.current_balance(),
+        latest_balance.current(),
         latest_balance.total_income()
     );
     println!("✅ Balance history recorded");
@@ -164,7 +168,7 @@ async fn e2e_check_in_flow_with_auto_checkin_config() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     // ============================================================
@@ -186,7 +190,7 @@ async fn e2e_check_in_flow_with_auto_checkin_config() {
         .update_auto_checkin(true, 9, 30)
         .expect("Update auto check-in should succeed");
 
-    account.enable();
+    account.toggle(true);
 
     account_repo
         .save(&account)
@@ -207,18 +211,23 @@ async fn e2e_check_in_flow_with_auto_checkin_config() {
         .expect("Account should exist");
 
     assert!(loaded_account.auto_checkin_enabled());
-    assert_eq!(loaded_account.auto_checkin_hour(), Some(9));
-    assert_eq!(loaded_account.auto_checkin_minute(), Some(30));
+    assert_eq!(loaded_account.auto_checkin_hour(), 9);
+    assert_eq!(loaded_account.auto_checkin_minute(), 30);
 
     println!("✓ Auto check-in configuration verified");
 
     // ============================================================
-    // Query All Auto Check-in Enabled Accounts
+    // Query All Enabled Accounts and Filter Auto Check-in
     // ============================================================
-    let auto_accounts = account_repo
-        .find_all_auto_checkin_enabled()
+    let enabled_accounts = account_repo
+        .find_enabled()
         .await
-        .expect("Find auto check-in accounts should succeed");
+        .expect("Find enabled accounts should succeed");
+
+    let auto_accounts: Vec<_> = enabled_accounts
+        .iter()
+        .filter(|a| a.auto_checkin_enabled())
+        .collect();
 
     assert!(!auto_accounts.is_empty(), "Should have at least 1 auto check-in account");
     assert!(
@@ -240,12 +249,11 @@ async fn e2e_session_caching_flow() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     let session_repo = Arc::new(SqliteSessionRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
     ));
 
     // ============================================================
@@ -277,14 +285,13 @@ async fn e2e_session_caching_flow() {
     use neuradock_domain::session::Session;
     use chrono::Utc;
 
-    let mut session_cookies = HashMap::new();
-    session_cookies.insert("auth_token".to_string(), "cached_auth_123".to_string());
+    let session_token = "cached_auth_123".to_string();
 
     let session = Session::new(
         account_id.clone(),
-        session_cookies.clone(),
+        session_token.clone(),
         Utc::now() + chrono::Duration::hours(24), // expires in 24 hours
-    );
+    ).expect("Create session should succeed");
 
     session_repo
         .save(&session)
@@ -297,16 +304,16 @@ async fn e2e_session_caching_flow() {
     // Retrieve Session
     // ============================================================
     let loaded_session = session_repo
-        .find_by_account(&account_id)
+        .find_by_account_id(&account_id)
         .await
         .expect("Find session should succeed")
         .expect("Session should exist");
 
-    assert!(!loaded_session.is_expired(), "Session should not be expired");
+    assert!(loaded_session.is_valid(), "Session should not be expired");
     assert_eq!(
-        loaded_session.cookies().get("auth_token"),
-        session_cookies.get("auth_token"),
-        "Session cookies should match"
+        loaded_session.token(),
+        &session_token,
+        "Session token should match"
     );
 
     println!("✓ Session retrieved and validated");
@@ -314,14 +321,13 @@ async fn e2e_session_caching_flow() {
     // ============================================================
     // Update Session
     // ============================================================
-    let mut updated_cookies = HashMap::new();
-    updated_cookies.insert("auth_token".to_string(), "refreshed_auth_456".to_string());
+    let updated_token = "refreshed_auth_456".to_string();
 
     let updated_session = Session::new(
         account_id.clone(),
-        updated_cookies.clone(),
+        updated_token.clone(),
         Utc::now() + chrono::Duration::hours(48),
-    );
+    ).expect("Create updated session should succeed");
 
     session_repo
         .save(&updated_session)
@@ -334,14 +340,14 @@ async fn e2e_session_caching_flow() {
     // Verify Updated Session
     // ============================================================
     let final_session = session_repo
-        .find_by_account(&account_id)
+        .find_by_account_id(&account_id)
         .await
         .expect("Find session should succeed")
         .expect("Session should exist");
 
     assert_eq!(
-        final_session.cookies().get("auth_token").map(|s| s.as_str()),
-        Some("refreshed_auth_456"),
+        final_session.token(),
+        "refreshed_auth_456",
         "Session should be updated"
     );
 

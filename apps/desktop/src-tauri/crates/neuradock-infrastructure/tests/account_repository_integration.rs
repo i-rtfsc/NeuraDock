@@ -13,7 +13,7 @@ mod test_helpers;
 async fn account_repo_save_and_find_integration() {
     let (pool, encryption) = test_helpers::setup_in_memory_db().await;
 
-    let repo = SqliteAccountRepository::new(Arc::new(pool.clone()), Arc::new(encryption));
+    let repo = SqliteAccountRepository::new(Arc::new(pool.clone()), encryption);
 
     // Build domain account
     let mut cookies = HashMap::new();

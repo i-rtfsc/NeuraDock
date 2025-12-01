@@ -13,6 +13,8 @@ use neuradock_infrastructure::persistence::repositories::{
     SqliteAccountRepository, SqliteBalanceRepository, SqliteSessionRepository,
 };
 use neuradock_domain::account::{Account, AccountRepository, Credentials};
+use neuradock_domain::balance::BalanceRepository;
+use neuradock_domain::session::SessionRepository;
 use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 
 mod test_helpers;
@@ -26,7 +28,7 @@ async fn e2e_error_account_not_found() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     // ============================================================
@@ -51,11 +53,11 @@ async fn e2e_error_invalid_credentials() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     // ============================================================
-    // Try to create account with empty cookies
+    // Try to create account with empty cookies - should fail
     // ============================================================
     let empty_cookies = HashMap::new();
     let credentials = Credentials::new(empty_cookies, "empty_user".to_string());
@@ -66,10 +68,10 @@ async fn e2e_error_invalid_credentials() {
         credentials,
     );
 
-    // Account creation should succeed (validation is business logic dependent)
-    assert!(account.is_ok(), "Account with empty cookies should be allowed");
+    // Account creation should fail because cookies are required
+    assert!(account.is_err(), "Account with empty cookies should be rejected");
 
-    println!("✓ Empty credentials test passed");
+    println!("✓ Empty credentials rejection test passed");
 
     // ============================================================
     // Try to create account with very long name (boundary test)
@@ -114,7 +116,7 @@ async fn e2e_error_concurrent_account_updates() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     // ============================================================
@@ -155,7 +157,7 @@ async fn e2e_error_concurrent_account_updates() {
             .expect("Find should succeed")
             .expect("Account should exist");
 
-        acc.enable();
+        acc.toggle(true);
         repo1.save(&acc).await.expect("Save should succeed");
     });
 
@@ -207,12 +209,11 @@ async fn e2e_error_session_expiration() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     let session_repo = Arc::new(SqliteSessionRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
     ));
 
     // ============================================================
@@ -244,15 +245,14 @@ async fn e2e_error_session_expiration() {
     use neuradock_domain::session::Session;
     use chrono::Utc;
 
-    let mut session_cookies = HashMap::new();
-    session_cookies.insert("auth_token".to_string(), "expired_token".to_string());
+    let expired_token = "expired_token".to_string();
 
     // Create session that expired 1 hour ago
     let expired_session = Session::new(
         account_id.clone(),
-        session_cookies,
+        expired_token,
         Utc::now() - chrono::Duration::hours(1),
-    );
+    ).expect("Create expired session should succeed");
 
     session_repo
         .save(&expired_session)
@@ -265,13 +265,13 @@ async fn e2e_error_session_expiration() {
     // Retrieve and verify expiration
     // ============================================================
     let loaded_session = session_repo
-        .find_by_account(&account_id)
+        .find_by_account_id(&account_id)
         .await
         .expect("Find should succeed")
         .expect("Session should exist");
 
     assert!(
-        loaded_session.is_expired(),
+        !loaded_session.is_valid(),
         "Session should be marked as expired"
     );
 
@@ -280,14 +280,13 @@ async fn e2e_error_session_expiration() {
     // ============================================================
     // Verify session can be refreshed
     // ============================================================
-    let mut fresh_cookies = HashMap::new();
-    fresh_cookies.insert("auth_token".to_string(), "fresh_token".to_string());
+    let fresh_token = "fresh_token".to_string();
 
     let fresh_session = Session::new(
         account_id.clone(),
-        fresh_cookies,
+        fresh_token,
         Utc::now() + chrono::Duration::hours(24),
-    );
+    ).expect("Create fresh session should succeed");
 
     session_repo
         .save(&fresh_session)
@@ -295,13 +294,13 @@ async fn e2e_error_session_expiration() {
         .expect("Session refresh should succeed");
 
     let refreshed_session = session_repo
-        .find_by_account(&account_id)
+        .find_by_account_id(&account_id)
         .await
         .expect("Find should succeed")
         .expect("Session should exist");
 
     assert!(
-        !refreshed_session.is_expired(),
+        refreshed_session.is_valid(),
         "Refreshed session should not be expired"
     );
 
@@ -317,7 +316,7 @@ async fn e2e_error_balance_edge_cases() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     let balance_repo = Arc::new(SqliteBalanceRepository::new(Arc::new(pool.clone())));
@@ -351,7 +350,7 @@ async fn e2e_error_balance_edge_cases() {
     use neuradock_domain::balance::Balance;
     use chrono::Utc;
 
-    let zero_balance = Balance::new(
+    let zero_balance = Balance::restore(
         account_id.clone(),
         0.0,
         0.0,
@@ -369,7 +368,7 @@ async fn e2e_error_balance_edge_cases() {
     // ============================================================
     // Test 2: Negative balance (edge case, should be allowed)
     // ============================================================
-    let negative_balance = Balance::new(
+    let negative_balance = Balance::restore(
         account_id.clone(),
         -10.0,
         50.0,
@@ -387,7 +386,7 @@ async fn e2e_error_balance_edge_cases() {
     // ============================================================
     // Test 3: Very large balance
     // ============================================================
-    let large_balance = Balance::new(
+    let large_balance = Balance::restore(
         account_id.clone(),
         999999999.99,
         1000000.0,
@@ -403,19 +402,19 @@ async fn e2e_error_balance_edge_cases() {
     println!("✓ Large balance saved");
 
     // ============================================================
-    // Verify balance history contains all records
+    // Verify latest balance is the large one
     // ============================================================
-    let history = balance_repo
-        .find_history_by_account(&account_id, 10)
+    // Note: BalanceRepository stores only current balance, not history
+    let current_balance = balance_repo
+        .find_by_account_id(&account_id)
         .await
-        .expect("Find history should succeed");
-
-    assert_eq!(history.len(), 3, "Should have 3 balance records");
+        .expect("Find balance should succeed")
+        .expect("Balance should exist");
 
     // Latest should be the large balance
-    assert_eq!(history[0].current_balance(), 999999999.99);
+    assert_eq!(current_balance.current(), 999999999.99);
 
-    println!("✓ Balance history contains all edge case records");
+    println!("✓ Latest balance verified");
 }
 
 #[tokio::test]
@@ -427,13 +426,12 @@ async fn e2e_error_account_deletion_cascade() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     let balance_repo = Arc::new(SqliteBalanceRepository::new(Arc::new(pool.clone())));
     let session_repo = Arc::new(SqliteSessionRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
     ));
 
     // ============================================================
@@ -462,7 +460,7 @@ async fn e2e_error_account_deletion_cascade() {
     use neuradock_domain::session::Session;
     use chrono::Utc;
 
-    let balance = Balance::new(account_id.clone(), 100.0, 20.0, 120.0, Utc::now());
+    let balance = Balance::restore(account_id.clone(), 100.0, 20.0, 120.0, Utc::now());
     balance_repo
         .save(&balance)
         .await
@@ -471,9 +469,9 @@ async fn e2e_error_account_deletion_cascade() {
     // Save session
     let session = Session::new(
         account_id.clone(),
-        cookies,
+        "test_session_token".to_string(),
         Utc::now() + chrono::Duration::hours(24),
-    );
+    ).expect("Create session should succeed");
     session_repo
         .save(&session)
         .await
@@ -507,10 +505,10 @@ async fn e2e_error_account_deletion_cascade() {
     // Verify related data (balance and session may or may not cascade delete)
     // This depends on database schema constraints
     // ============================================================
-    let balance_result = balance_repo.find_latest_by_account(&account_id).await;
+    let balance_result = balance_repo.find_by_account_id(&account_id).await;
     println!("✓ Balance query after account deletion: {:?}", balance_result.is_ok());
 
-    let session_result = session_repo.find_by_account(&account_id).await;
+    let session_result = session_repo.find_by_account_id(&account_id).await;
     println!("✓ Session query after account deletion: {:?}", session_result.is_ok());
 }
 
@@ -523,7 +521,7 @@ async fn e2e_error_auto_checkin_validation() {
 
     let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
         Arc::new(pool.clone()),
-        Arc::new(encryption.clone()),
+        encryption.clone(),
     ));
 
     // ============================================================
@@ -597,8 +595,8 @@ async fn e2e_error_auto_checkin_validation() {
         .expect("Find should succeed")
         .expect("Account should exist");
 
-    assert_eq!(loaded.auto_checkin_hour(), Some(23));
-    assert_eq!(loaded.auto_checkin_minute(), Some(59));
+    assert_eq!(loaded.auto_checkin_hour(), 23);
+    assert_eq!(loaded.auto_checkin_minute(), 59);
 
     println!("✓ Auto check-in validation tests passed");
 }
