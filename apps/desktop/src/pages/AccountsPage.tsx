@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProviders } from '@/hooks/useProviders';
-import { useBalanceStatistics } from '@/hooks/useBalance';
+import { useBalanceStatistics, useRefreshAllBalances } from '@/hooks/useBalance';
 import { AccountCard } from '@/components/account/AccountCard';
 import { AccountDialog } from '@/components/account/AccountDialog';
 import { JsonImportDialog } from '@/components/account/JsonImportDialog';
@@ -21,6 +21,7 @@ export function AccountsPage() {
   const { data: accounts, isLoading } = useAccounts();
   const { data: providers } = useProviders();
   const { data: statistics } = useBalanceStatistics();
+  const refreshAllBalancesMutation = useRefreshAllBalances();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
@@ -72,6 +73,22 @@ export function AccountsPage() {
 
   const getProviderStats = (providerId: string) => {
     return statistics?.providers.find(p => p.provider_id === providerId);
+  };
+
+  const handleRefreshProviderBalances = async (providerAccounts: Account[]) => {
+    const enabledAccountIds = providerAccounts.filter(a => a.enabled).map(a => a.id);
+    if (enabledAccountIds.length === 0) {
+      toast.error(t('accounts.noEnabledAccounts') || 'No enabled accounts');
+      return;
+    }
+
+    try {
+      await refreshAllBalancesMutation.mutateAsync(enabledAccountIds);
+      toast.success(t('accounts.balancesRefreshed') || 'Balances refreshed');
+    } catch (error) {
+      console.error('Failed to refresh balances:', error);
+      toast.error(t('common.error'));
+    }
   };
 
   return (
@@ -175,10 +192,23 @@ export function AccountsPage() {
                       </div>
                       <div className="flex gap-2">
                         {enabledCount > 0 && (
-                          <BatchCheckInButton
-                            accountIds={providerAccounts.filter(a => a.enabled).map(a => a.id)}
-                            onComplete={() => {}}
-                          />
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefreshProviderBalances(providerAccounts)}
+                              disabled={refreshAllBalancesMutation.isPending}
+                              className="rounded-full"
+                              title={t('accounts.refreshAllBalances') || 'Refresh all balances'}
+                            >
+                              <RefreshCw className={`mr-2 h-4 w-4 ${refreshAllBalancesMutation.isPending ? 'animate-spin' : ''}`} />
+                              {t('accounts.refreshBalances') || 'Refresh Balances'}
+                            </Button>
+                            <BatchCheckInButton
+                              accountIds={providerAccounts.filter(a => a.enabled).map(a => a.id)}
+                              onComplete={() => {}}
+                            />
+                          </>
                         )}
                       </div>
                     </div>

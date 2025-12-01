@@ -66,7 +66,11 @@
     "quota": "Quota",
     "used": "Used",
     "remaining": "Remaining",
-    "batchUpdate": "Batch Update"
+    "batchUpdate": "Batch Update",
+    "refreshBalances": "Refresh Balances",
+    "refreshAllBalances": "Refresh all account balances",
+    "balancesRefreshed": "Balances refreshed",
+    "noEnabledAccounts": "No enabled accounts"
   },
   "batchUpdate": {
     "title": "Batch Update Cookies",
@@ -117,7 +121,9 @@
     "sessionExpired": "Session Expired",
     "sessionExpiresSoon": "Expires in {{days}} days",
     "sessionValidDays": "Valid for {{days}} days",
-    "sessionUnknown": "Session Unknown"
+    "sessionUnknown": "Session Unknown",
+    "refreshBalance": "Refresh balance",
+    "balanceRefreshed": "Balance refreshed"
   },
   "accountDialog": {
     "createTitle": "Add New Account",

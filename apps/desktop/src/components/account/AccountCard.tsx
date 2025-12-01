@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteAccount, useToggleAccount } from '@/hooks/useAccounts';
-import { useFetchAccountBalance } from '@/hooks/useBalance';
+import { useFetchAccountBalance, useRefreshAccountBalance } from '@/hooks/useBalance';
 import { CheckInButton } from '@/components/checkin/CheckInButton';
 import { toast } from 'sonner';
 import {
@@ -23,6 +23,7 @@ import {
   Loader2,
   Clock,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -35,12 +36,13 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteAccount();
   const toggleMutation = useToggleAccount();
+  const refreshBalanceMutation = useRefreshAccountBalance();
   const { t } = useTranslation();
-  
+
   // Get cache age from settings (default to 1 hour)
   const maxCacheAgeHours = parseInt(localStorage.getItem('maxCacheAgeHours') || '1', 10);
   const maxCacheAgeMs = maxCacheAgeHours * 60 * 60 * 1000;
-  
+
   // Only fetch fresh balance if account is enabled AND balance is stale/missing
   const shouldFetchBalance = account.enabled && (
     !account.current_balance || !account.total_consumed || account.total_income == null ||
@@ -83,6 +85,16 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       );
     } catch (error) {
       console.error('Failed to toggle account:', error);
+      toast.error(t('common.error'));
+    }
+  };
+
+  const handleRefreshBalance = async () => {
+    try {
+      await refreshBalanceMutation.mutateAsync(account.id);
+      toast.success(t('accountCard.balanceRefreshed') || 'Balance refreshed');
+    } catch (error) {
+      console.error('Failed to refresh balance:', error);
       toast.error(t('common.error'));
     }
   };
@@ -173,28 +185,42 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
 
       <CardContent className="space-y-3">
         {/* 余额信息 */}
-        {account.enabled && (balance || balanceLoading) && (
-          <div className="grid grid-cols-3 gap-2 text-xs bg-muted/30 rounded-xl p-3">
-            {balance ? (
-              <>
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-0.5">{t('accountCard.totalIncome')}</p>
-                  <p className="font-semibold text-blue-600">${balance.total_income.toFixed(2)}</p>
+        {account.enabled && (balance || balanceLoading || refreshBalanceMutation.isPending) && (
+          <div className="relative">
+            {/* 刷新按钮 */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -top-1 -right-1 h-6 w-6 rounded-full z-10"
+              onClick={handleRefreshBalance}
+              disabled={refreshBalanceMutation.isPending || balanceLoading}
+              title={t('accountCard.refreshBalance') || 'Refresh balance'}
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshBalanceMutation.isPending ? 'animate-spin' : ''}`} />
+            </Button>
+
+            <div className="grid grid-cols-3 gap-2 text-xs bg-muted/30 rounded-xl p-3">
+              {balance ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-0.5">{t('accountCard.totalIncome')}</p>
+                    <p className="font-semibold text-blue-600">${balance.total_income.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center border-x">
+                    <p className="text-muted-foreground mb-0.5">{t('accountCard.historicalConsumption')}</p>
+                    <p className="font-semibold text-orange-600">${balance.total_consumed.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-0.5">{t('accountCard.currentBalance')}</p>
+                    <p className="font-semibold text-green-600">${balance.current_balance.toFixed(2)}</p>
+                  </div>
+                </>
+              ) : (balanceLoading || refreshBalanceMutation.isPending) ? (
+                <div className="col-span-3 flex items-center justify-center py-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-                <div className="text-center border-x">
-                  <p className="text-muted-foreground mb-0.5">{t('accountCard.historicalConsumption')}</p>
-                  <p className="font-semibold text-orange-600">${balance.total_consumed.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-0.5">{t('accountCard.currentBalance')}</p>
-                  <p className="font-semibold text-green-600">${balance.current_balance.toFixed(2)}</p>
-                </div>
-              </>
-            ) : balanceLoading ? (
-              <div className="col-span-3 flex items-center justify-center py-2">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         )}
 

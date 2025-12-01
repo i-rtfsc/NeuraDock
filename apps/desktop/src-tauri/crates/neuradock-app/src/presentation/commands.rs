@@ -805,15 +805,18 @@ pub async fn get_running_jobs(state: State<'_, AppState>) -> Result<Vec<RunningJ
 
 // Fetch account balance with smart caching
 // Only performs fresh login if cache is stale (> 1 hour) or no cache exists
+// Set force_refresh to true to ignore cache and always fetch fresh balance
 #[tauri::command]
 #[specta::specta]
 pub async fn fetch_account_balance(
     account_id: String,
+    force_refresh: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<BalanceDto, String> {
     const MAX_CACHE_AGE_HOURS: i64 = 1;
 
     let providers = get_builtin_providers();
+    let force_refresh = force_refresh.unwrap_or(false);
 
     // Get account
     let acc_id = AccountId::from_string(&account_id);
@@ -824,8 +827,8 @@ pub async fn fetch_account_balance(
         .map_err(|e| e.to_string())?
         .ok_or("Account not found")?;
 
-    // Check if we have valid cached balance
-    if !account.is_balance_stale(MAX_CACHE_AGE_HOURS) {
+    // Check if we have valid cached balance (unless force_refresh is true)
+    if !force_refresh && !account.is_balance_stale(MAX_CACHE_AGE_HOURS) {
         // Use cached balance
         if let (Some(current_balance), Some(total_consumed), Some(total_income)) = (
             account.current_balance(),
@@ -840,7 +843,7 @@ pub async fn fetch_account_balance(
         }
     }
 
-    // Cache is stale or doesn't exist, fetch fresh balance
+    // Cache is stale or doesn't exist, or force_refresh is true - fetch fresh balance
     let provider_id = account.provider_id().as_str();
     let provider = providers
         .get(provider_id)
@@ -850,17 +853,15 @@ pub async fn fetch_account_balance(
     let executor =
         CheckInExecutor::new(state.account_repo.clone(), true).map_err(|e| e.to_string())?;
 
-    // Execute check-in (which fetches balance)
-    let result = executor
-        .execute_check_in(&account_id, provider)
+    // Fetch balance only (without triggering check-in)
+    let user_info = executor
+        .fetch_balance_only(&account_id, provider)
         .await
         .map_err(|e| e.to_string())?;
 
-    let balance = result.user_info.ok_or("Failed to fetch balance")?;
-
     // Note: API returns quota (current balance) and used_quota (total consumed)
-    let current_balance = balance.quota;
-    let total_consumed = balance.used_quota;
+    let current_balance = user_info.quota;
+    let total_consumed = user_info.used_quota;
     let balance_dto = BalanceDto {
         current_balance,
         total_consumed,
@@ -890,12 +891,13 @@ pub async fn fetch_account_balance(
 #[specta::specta]
 pub async fn fetch_accounts_balances(
     account_ids: Vec<String>,
+    force_refresh: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<HashMap<String, Option<BalanceDto>>, String> {
     let mut results = HashMap::new();
 
     for account_id in account_ids {
-        match fetch_account_balance(account_id.clone(), state.clone()).await {
+        match fetch_account_balance(account_id.clone(), force_refresh, state.clone()).await {
             Ok(balance) => {
                 results.insert(account_id, Some(balance));
             }

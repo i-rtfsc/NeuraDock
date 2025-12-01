@@ -287,6 +287,55 @@ impl CheckInExecutor {
         })
     }
 
+    /// Fetch balance only (without triggering check-in)
+    /// Only calls /api/user/self to get user info
+    #[instrument(skip(self, provider), fields(account_id = %account_id, provider_id = %provider.id()))]
+    pub async fn fetch_balance_only(
+        &self,
+        account_id: &str,
+        provider: &Provider,
+    ) -> Result<UserInfo> {
+        let account_id_obj = AccountId::from_string(account_id);
+
+        // Load account
+        let account = self
+            .account_repo
+            .find_by_id(&account_id_obj)
+            .await
+            .context("Failed to load account")?
+            .ok_or_else(|| anyhow::anyhow!("Account not found"))?;
+
+        let account_name = account.name().to_string();
+
+        info!("[{}] Fetching balance (query only, no check-in)", account_name);
+
+        // Prepare cookies
+        let cookies = self
+            .prepare_cookies(&account_name, provider, account.credentials().cookies())
+            .await?;
+
+        let api_user = account.credentials().api_user();
+
+        // Get user info (balance)
+        let user_info = self
+            .http_client
+            .get_user_info(
+                &provider.user_info_url(),
+                &cookies,
+                provider.api_user_key(),
+                api_user,
+            )
+            .await
+            .context("Failed to get user info")?;
+
+        info!(
+            "[{}] Balance fetched: ${:.2}, Used: ${:.2}",
+            account_name, user_info.quota, user_info.used_quota
+        );
+
+        Ok(user_info)
+    }
+
     /// Execute batch check-in for multiple accounts
     #[instrument(skip(self, providers), fields(batch_size = account_ids.len()))]
     pub async fn execute_batch_check_in(
