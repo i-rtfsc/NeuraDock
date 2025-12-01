@@ -11,7 +11,7 @@ default-members = ["crates/neuradock-app"]
 version = "0.1.0"
 authors = ["NeuraDock"]
 edition = "2021"
-license = "MIT"
+license = "GPL-3.0"
 
 [workspace.dependencies]
 # Internal crates
