@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use neuradock_domain::check_in::Balance;
 
+mod token_dto;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AccountDto {
     pub id: String,
@@ -314,4 +316,39 @@ pub struct UpdateNotificationChannelInput {
     #[specta(type = String)]
     pub config: Option<serde_json::Value>,
     pub enabled: Option<bool>,
+}
+
+// ============================================================
+// Token Management DTOs
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct TokenDto {
+    pub id: i64,
+    pub account_id: String,
+    pub account_name: String,
+    pub provider_name: String,
+    pub name: String,
+    pub key: String,
+    pub masked_key: String,
+    pub status: i32,
+    pub status_text: String,
+    pub used_quota: i64,
+    pub remain_quota: i64,
+    pub unlimited_quota: bool,
+    pub usage_percentage: f64,
+    pub expired_time: Option<i64>,
+    pub expired_at: Option<String>,
+    pub is_active: bool,
+    pub is_expired: bool,
+    pub model_limits_allowed: Vec<String>,
+    pub model_limits_denied: Vec<String>,
+    pub fetched_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ProviderNodeDto {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
 }

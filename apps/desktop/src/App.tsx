@@ -7,6 +7,7 @@ import { Toaster } from './components/ui/toaster';
 import { DashboardPage } from './pages/DashboardPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { CheckInStreaksPage } from './pages/CheckInStreaksPage';
+import { TokenManagerPage } from './pages/TokenManagerPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/accounts" element={<AccountsPage />} />
               <Route path="/streaks" element={<CheckInStreaksPage />} />
+              <Route path="/tokens" element={<TokenManagerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </MainLayout>

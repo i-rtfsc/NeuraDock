@@ -7,15 +7,17 @@ use tracing::{info, warn, error};
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
-use crate::application::services::{AutoCheckInScheduler, ConfigService, NotificationService};
+use crate::application::services::{AutoCheckInScheduler, ClaudeConfigService, CodexConfigService, ConfigService, NotificationService, TokenService};
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::session::SessionRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
+use neuradock_domain::token::TokenRepository;
+use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::check_in::Provider;
 use neuradock_infrastructure::events::InMemoryEventBus;
-use neuradock_infrastructure::persistence::{repositories::{SqliteAccountRepository, SqliteSessionRepository}, Database};
+use neuradock_infrastructure::persistence::{repositories::{SqliteAccountRepository, SqliteSessionRepository, SqliteTokenRepository, SqliteCustomProviderNodeRepository}, Database};
 use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::security::{EncryptionService, KeyManager};
 
@@ -39,7 +41,12 @@ pub struct AppState {
     pub account_repo: Arc<dyn AccountRepository>,
     pub session_repo: Arc<dyn SessionRepository>,
     pub notification_channel_repo: Arc<dyn NotificationChannelRepository>,
+    pub token_repo: Arc<dyn TokenRepository>,
+    pub custom_node_repo: Arc<dyn CustomProviderNodeRepository>,
     pub notification_service: Arc<NotificationService>,
+    pub token_service: Arc<TokenService>,
+    pub claude_config_service: Arc<ClaudeConfigService>,
+    pub codex_config_service: Arc<CodexConfigService>,
     pub scheduler: Arc<AutoCheckInScheduler>,
     pub event_bus: Arc<dyn EventBus>,
     pub account_queries: Arc<AccountQueryService>,
@@ -105,9 +112,23 @@ impl AppState {
             Arc::new(SqliteSessionRepository::new(pool.clone())) as Arc<dyn SessionRepository>;
         let notification_channel_repo =
             Arc::new(SqliteNotificationChannelRepository::new(pool.clone())) as Arc<dyn NotificationChannelRepository>;
+        let token_repo =
+            Arc::new(SqliteTokenRepository::new(pool.clone())) as Arc<dyn TokenRepository>;
+        let custom_node_repo =
+            Arc::new(SqliteCustomProviderNodeRepository::new(pool.clone())) as Arc<dyn CustomProviderNodeRepository>;
         let notification_service = Arc::new(NotificationService::new(notification_channel_repo.clone(), pool.clone()));
         let account_queries = Arc::new(AccountQueryService::new(account_repo.clone()));
         let streak_queries = Arc::new(CheckInStreakQueries::new(pool.clone()));
+
+        // Initialize token services
+        info!("🔧 Initializing token services...");
+        let token_service = Arc::new(
+            TokenService::new(token_repo.clone(), account_repo.clone())
+                .map_err(|e| format!("Failed to initialize token service: {}", e))?
+        );
+        let claude_config_service = Arc::new(ClaudeConfigService::new());
+        let codex_config_service = Arc::new(CodexConfigService::new());
+        info!("✓ Token services initialized");
 
         info!("📊 Initializing scheduler...");
         // Initialize scheduler
@@ -237,7 +258,12 @@ impl AppState {
             account_repo,
             session_repo,
             notification_channel_repo,
+            token_repo,
+            custom_node_repo,
             notification_service,
+            token_service,
+            claude_config_service,
+            codex_config_service,
             scheduler,
             event_bus,
             account_queries,

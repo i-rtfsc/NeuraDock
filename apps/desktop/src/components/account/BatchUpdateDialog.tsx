@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { invoke } from '@tauri-apps/api/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { RefreshCw, FileJson, AlertCircle, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle2, Loader2, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface BatchUpdateResult {

@@ -79,6 +79,18 @@ async fn main() {
             delete_notification_channel,
             get_all_notification_channels,
             test_notification_channel,
+            // Token commands
+            fetch_account_tokens,
+            configure_claude_global,
+            generate_claude_temp_commands,
+            configure_codex_global,
+            generate_codex_temp_commands,
+            check_model_compatibility,
+            get_provider_nodes,
+            add_custom_node,
+            delete_custom_node,
+            clear_claude_global,
+            clear_codex_global,
         ])
         .events(collect_events![
             presentation::events::CheckInProgress,

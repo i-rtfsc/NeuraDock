@@ -46,7 +46,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "cookies", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "cookies", "rustls-tls", "gzip"] }
 
 # Encryption
 aes-gcm = "0.10"

@@ -22,6 +22,7 @@ impl AnyRouterPlugin {
                 "/login".to_string(),
                 Some("/api/user/sign_in".to_string()),
                 "/api/user/self".to_string(),
+                Some("/api/token/".to_string()),
                 "new-api-user".to_string(),
                 Some("waf_cookies".to_string()),
             ),

@@ -14,6 +14,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
 
+pub mod token;
+
+// Re-export token commands
+pub use token::*;
+
 /// Get built-in providers
 pub fn get_builtin_providers() -> HashMap<String, Provider> {
     let mut providers = HashMap::new();
@@ -28,6 +33,7 @@ pub fn get_builtin_providers() -> HashMap<String, Provider> {
             "/login".to_string(),
             Some("/api/user/sign_in".to_string()),
             "/api/user/self".to_string(),
+            Some("/api/token/".to_string()),
             "new-api-user".to_string(),
             Some("waf_cookies".to_string()),
         ),
@@ -43,6 +49,7 @@ pub fn get_builtin_providers() -> HashMap<String, Provider> {
             "/login".to_string(),
             None, // Auto check-in: balance updates when querying user info
             "/api/user/self".to_string(),
+            Some("/api/token/".to_string()),
             "new-api-user".to_string(),
             None, // No WAF bypass needed
         ),

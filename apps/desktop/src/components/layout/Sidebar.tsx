@@ -3,6 +3,7 @@ import {
   Home,
   UserCircle,
   Flame,
+  Key,
   Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function Sidebar() {
     { name: t('nav.dashboard'), href: '/', icon: Home },
     { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
     { name: t('nav.streaks'), href: '/streaks', icon: Flame },
+    { name: t('nav.tokens'), href: '/tokens', icon: Key },
     { name: t('nav.settings'), href: '/settings', icon: Settings2 },
   ];
 
