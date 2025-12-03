@@ -44,7 +44,7 @@ impl ExecuteCheckInCommandHandler {
         self
     }
 
-    /// Save balance to balance_history table (one record per day)
+    /// Save balance to balance_history table (one record per day, always update if exists)
     async fn save_balance_history(&self, account_id: &str, balance: &BalanceDto) {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now();
@@ -59,8 +59,30 @@ impl ExecuteCheckInCommandHandler {
         .await;
 
         match existing {
-            Ok(Some(_)) => {
-                info!("Balance history already exists for today for account {}", account_id);
+            Ok(Some((existing_id,))) => {
+                // Record exists for today - always update with latest values
+                let result = sqlx::query(
+                    "UPDATE balance_history
+                     SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
+                     WHERE id = ?"
+                )
+                .bind(balance.current_balance)
+                .bind(balance.total_consumed)
+                .bind(balance.total_income)
+                .bind(now)
+                .bind(&existing_id)
+                .execute(&*self.pool)
+                .await;
+
+                match result {
+                    Ok(_) => {
+                        info!("Balance history updated for account {}: current=${:.2}, consumed=${:.2}, income=${:.2}",
+                            account_id, balance.current_balance, balance.total_consumed, balance.total_income);
+                    }
+                    Err(e) => {
+                        error!("Failed to update balance history: {}", e);
+                    }
+                }
             }
             Ok(None) => {
                 // Insert new record
@@ -237,7 +259,7 @@ impl BatchExecuteCheckInCommandHandler {
         self
     }
 
-    /// Save balance to balance_history table (one record per day)
+    /// Save balance to balance_history table (one record per day, always update if exists)
     async fn save_balance_history(&self, account_id: &str, balance: &BalanceDto) {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now();
@@ -252,8 +274,30 @@ impl BatchExecuteCheckInCommandHandler {
         .await;
 
         match existing {
-            Ok(Some(_)) => {
-                info!("Balance history already exists for today for account {}", account_id);
+            Ok(Some((existing_id,))) => {
+                // Record exists for today - always update with latest values
+                let result = sqlx::query(
+                    "UPDATE balance_history
+                     SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
+                     WHERE id = ?"
+                )
+                .bind(balance.current_balance)
+                .bind(balance.total_consumed)
+                .bind(balance.total_income)
+                .bind(now)
+                .bind(&existing_id)
+                .execute(&*self.pool)
+                .await;
+
+                match result {
+                    Ok(_) => {
+                        info!("Balance history updated for account {}: current=${:.2}, consumed=${:.2}, income=${:.2}",
+                            account_id, balance.current_balance, balance.total_consumed, balance.total_income);
+                    }
+                    Err(e) => {
+                        error!("Failed to update balance history: {}", e);
+                    }
+                }
             }
             Ok(None) => {
                 // Insert new record

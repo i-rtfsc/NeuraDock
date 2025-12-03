@@ -884,7 +884,7 @@ pub async fn get_balance_statistics(
     })
 }
 
-// Helper function to save balance history
+// Helper function to save balance history (one record per day, always update if exists)
 async fn save_balance_history(
     account_id: &str,
     balance: &BalanceDto,
@@ -909,21 +909,39 @@ async fn save_balance_history(
     .await
     .map_err(|e| e.to_string())?;
 
-    // Only insert if no record exists for today or if values changed significantly
-    if existing.is_none() {
-        sqlx::query(
-            "INSERT INTO balance_history (id, account_id, current_balance, total_consumed, total_income, recorded_at)
-             VALUES (?, ?, ?, ?, ?, ?)"
-        )
-        .bind(&id)
-        .bind(account_id)
-        .bind(balance.current_balance)
-        .bind(balance.total_consumed)
-        .bind(balance.total_income)
-        .bind(now.to_rfc3339())
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+    match existing {
+        Some((existing_id,)) => {
+            // Record exists for today - always update with latest values
+            sqlx::query(
+                "UPDATE balance_history
+                 SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
+                 WHERE id = ?"
+            )
+            .bind(balance.current_balance)
+            .bind(balance.total_consumed)
+            .bind(balance.total_income)
+            .bind(now.to_rfc3339())
+            .bind(&existing_id)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        }
+        None => {
+            // No record exists for today - insert new one
+            sqlx::query(
+                "INSERT INTO balance_history (id, account_id, current_balance, total_consumed, total_income, recorded_at)
+                 VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            .bind(&id)
+            .bind(account_id)
+            .bind(balance.current_balance)
+            .bind(balance.total_consumed)
+            .bind(balance.total_income)
+            .bind(now.to_rfc3339())
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        }
     }
 
     Ok(())
