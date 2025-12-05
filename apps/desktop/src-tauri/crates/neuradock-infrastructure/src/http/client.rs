@@ -85,17 +85,27 @@ impl HttpClient {
             .context("Failed to send user info request")?;
 
         let status = response.status();
+        log::info!("User info response status: {}", status);
 
         if !status.is_success() {
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unable to read response".to_string());
+            log::error!("User info request failed with status {}: {}", status, &error_text[..error_text.len().min(500)]);
+
+            // Try to extract message from JSON response
+            let error_message = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                json["message"].as_str().unwrap_or(&error_text).to_string()
+            } else {
+                error_text.clone()
+            };
+
             // Check if this is a WAF challenge
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
                 anyhow::bail!("WAF_CHALLENGE: {}", &error_text[..error_text.len().min(500)]);
             }
-            anyhow::bail!("User info request failed with status {}: {}", status, error_text);
+            anyhow::bail!("{}", error_message);
         }
 
         // Get response text first to check for WAF challenge
@@ -103,6 +113,8 @@ impl HttpClient {
             .text()
             .await
             .context("Failed to read user info response")?;
+
+        log::debug!("User info response length: {} bytes", response_text.len());
 
         // Check if response is HTML (WAF challenge page)
         if response_text.trim().starts_with('<') || response_text.contains("acw_sc__v2") || response_text.contains("<script>var arg1=") {

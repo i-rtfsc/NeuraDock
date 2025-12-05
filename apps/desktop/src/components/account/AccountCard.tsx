@@ -96,7 +96,8 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       toast.success(t('accountCard.balanceRefreshed') || 'Balance refreshed');
     } catch (error) {
       console.error('Failed to refresh balance:', error);
-      toast.error(t('common.error'));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(errorMessage || t('common.error'));
     }
   };
 

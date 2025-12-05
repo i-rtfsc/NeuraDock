@@ -444,8 +444,7 @@ impl CheckInExecutor {
                 provider.api_user_key(),
                 api_user,
             )
-            .await
-            .context("Failed to get user info")?;
+            .await?;
 
         info!(
             "[{}] Balance fetched: ${:.2}, Used: ${:.2}",
