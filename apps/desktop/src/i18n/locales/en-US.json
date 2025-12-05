@@ -421,7 +421,13 @@
     "noLimits": "Unrestricted",
     "noModelsConfigured": "None",
     "noCompatibleModelsForClaude": "This provider does not support Claude-compatible models (Claude, GLM, DeepSeek, Gemini).",
-    "noGPTModels": "Note: This token has no model restrictions. This provider may not have GPT models, but Codex can work with OpenAI-compatible APIs."
+    "noGPTModels": "Note: This token has no model restrictions. This provider may not have GPT models, but Codex can work with OpenAI-compatible APIs.",
+    "geminiComingSoon": "Gemini (Coming Soon)",
+    "selectModel": "Select Model (Optional)",
+    "chooseModel": "Choose a model (optional)...",
+    "noModelsAvailable": "No compatible models found",
+    "modelHint": "Select a specific model to configure default model settings",
+    "geminiSupportComingSoon": "Gemini configuration support is coming soon."
   },
   "disclaimer": {
     "title": "Important Notices",

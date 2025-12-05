@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import {
@@ -32,7 +32,7 @@ interface ConfigDialogProps {
   account: AccountDto | null;
 }
 
-type AITool = 'claude' | 'codex';
+type AITool = 'claude' | 'codex' | 'gemini';
 type ConfigMode = 'global' | 'temp';
 
 export function ConfigDialog({
@@ -44,6 +44,7 @@ export function ConfigDialog({
   const { t } = useTranslation();
   const [selectedTool, setSelectedTool] = useState<AITool>('claude');
   const [selectedNode, setSelectedNode] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [configMode, setConfigMode] = useState<ConfigMode>('global');
   const [tempCommands, setTempCommands] = useState('');
   const [copied, setCopied] = useState(false);
@@ -69,17 +70,37 @@ export function ConfigDialog({
     staleTime: 24 * 60 * 60 * 1000,
   });
 
+  // Determine available models based on token limits or provider models
+  const availableModels = useMemo(() => {
+    if (!token) return [];
+    return token.model_limits_enabled ? token.model_limits_allowed : providerModels;
+  }, [token, providerModels]);
+
+  // Filter models based on selected tool
+  const filteredModels = useMemo(() => {
+    if (!availableModels || availableModels.length === 0) return [];
+
+    return availableModels.filter(m => {
+      const lowerM = m.toLowerCase();
+      if (selectedTool === 'claude') {
+        return lowerM.includes('claude') || lowerM.includes('glm') || lowerM.includes('deepseek');
+      } else if (selectedTool === 'codex') {
+        return lowerM.includes('gpt');
+      }
+      // For Gemini, we might add filters later, but for now just show all or specific ones if we knew
+      return true;
+    });
+  }, [availableModels, selectedTool]);
+
+  // Reset selected model when tool changes
+  useEffect(() => {
+    setSelectedModel('');
+  }, [selectedTool]);
+
   // Check compatibility when tool or token changes
   useEffect(() => {
     if (token && open) {
-      // Determine which models to check:
-      // - If model_limits_enabled is true, use model_limits_allowed
-      // - If model_limits_enabled is false, use provider models
-      const modelsToCheck = token.model_limits_enabled
-        ? token.model_limits_allowed
-        : providerModels;
-
-      if (modelsToCheck.length === 0 && !token.model_limits_enabled) {
+      if (availableModels.length === 0 && !token.model_limits_enabled) {
         // Still loading provider models
         setIsCompatible(true);
         setCompatibilityWarning('');
@@ -126,15 +147,19 @@ export function ConfigDialog({
               t('token.noModelLimits', 'Note: This token has no model restrictions.')
             );
           }
+        } else if (selectedTool === 'gemini') {
+           // Gemini compatibility check (placeholder)
+           setIsCompatible(true);
+           setCompatibilityWarning(t('token.geminiSupportComingSoon', 'Gemini configuration support is coming soon.'));
         }
       };
 
       // For tokens with model limits, use the original check
       if (!token.model_limits_enabled) {
-        checkCompatibilityForUnrestrictedToken(modelsToCheck);
+        checkCompatibilityForUnrestrictedToken(availableModels);
       } else {
         invoke<[boolean, string]>('check_model_compatibility', {
-          models: modelsToCheck,
+          models: availableModels,
           tool: selectedTool,
         })
           .then(([compatible, warning]) => {
@@ -146,7 +171,7 @@ export function ConfigDialog({
           });
       }
     }
-  }, [token, selectedTool, open, providerModels, t]);
+  }, [token, selectedTool, open, availableModels, t]);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -154,6 +179,7 @@ export function ConfigDialog({
       setTempCommands('');
       setCopied(false);
       setConfigMode('global');
+      setSelectedModel('');
 
       // Set default node when nodes load
       if (nodes.length > 0 && !selectedNode) {
@@ -188,14 +214,18 @@ export function ConfigDialog({
           tokenId: token!.id,
           accountId: token!.account_id,
           baseUrl: selectedNode,
+          model: selectedModel || null,
         });
-      } else {
+      } else if (selectedTool === 'codex') {
         return invoke<string>('configure_codex_global', {
           tokenId: token!.id,
           accountId: token!.account_id,
           providerId: account!.provider_id,
           baseUrl: selectedNode,
+          model: selectedModel || null,
         });
+      } else {
+        throw new Error("Gemini configuration not implemented yet");
       }
     },
     onSuccess: (message) => {
@@ -215,14 +245,18 @@ export function ConfigDialog({
           tokenId: token!.id,
           accountId: token!.account_id,
           baseUrl: selectedNode,
+          model: selectedModel || null,
         });
-      } else {
+      } else if (selectedTool === 'codex') {
         return invoke<string>('generate_codex_temp_commands', {
           tokenId: token!.id,
           accountId: token!.account_id,
           providerId: account!.provider_id,
           baseUrl: selectedNode,
+          model: selectedModel || null,
         });
+      } else {
+         throw new Error("Gemini configuration not implemented yet");
       }
     },
     onSuccess: (commands) => {
@@ -268,6 +302,7 @@ export function ConfigDialog({
               <SelectContent>
                 <SelectItem value="claude">Claude Code</SelectItem>
                 <SelectItem value="codex">Codex (OpenAI)</SelectItem>
+                <SelectItem value="gemini">{t('token.geminiComingSoon', 'Gemini (Coming Soon)')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -280,10 +315,37 @@ export function ConfigDialog({
             </Alert>
           )}
 
+          {/* Model Selector */}
+          <div className="space-y-2">
+            <Label>{t('token.selectModel', 'Select Model (Optional)')}</Label>
+            <Select value={selectedModel} onValueChange={setSelectedModel} disabled={selectedTool === 'gemini'}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('token.chooseModel', 'Choose a model (optional)...')} />
+              </SelectTrigger>
+              <SelectContent>
+                 {filteredModels.length > 0 ? (
+                    filteredModels.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))
+                 ) : (
+                     <div className="p-2 text-sm text-muted-foreground text-center">
+                        {t('token.noModelsAvailable', 'No compatible models found')}
+                     </div>
+                 )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t('token.modelHint', 'Select a specific model to configure default model settings')}
+            </p>
+          </div>
+
+
           {/* Node Selector - For both Claude and Codex */}
           <div className="space-y-2">
             <Label>{t('token.selectNode', 'Select Node')}</Label>
-            <Select value={selectedNode} onValueChange={setSelectedNode}>
+            <Select value={selectedNode} onValueChange={setSelectedNode} disabled={selectedTool === 'gemini'}>
               <SelectTrigger>
                 <SelectValue placeholder={t('token.chooseNode', 'Choose a node...')} />
               </SelectTrigger>
@@ -315,64 +377,80 @@ export function ConfigDialog({
             </TabsList>
 
             <TabsContent value="global" className="space-y-4 mt-4">
-              <p className="text-sm text-muted-foreground">
-                {selectedTool === 'claude'
-                  ? t('token.claudeGlobalDesc', 'This will write the configuration to ~/.claude/settings.json and apply globally.')
-                  : t('token.codexGlobalDesc', 'This will write the configuration to ~/.codex/config.toml and ~/.codex/auth.json and apply globally.')}
-              </p>
-              <Button
-                className="w-full"
-                onClick={() => configureGlobalMutation.mutate()}
-                disabled={!selectedNode || configureGlobalMutation.isPending || !isCompatible}
-              >
-                {configureGlobalMutation.isPending
-                  ? t('common.configuring', 'Configuring...')
-                  : t('token.configureGlobally', 'Configure Globally')}
-              </Button>
+               {selectedTool === 'gemini' ? (
+                 <div className="p-4 border rounded-md bg-muted text-center text-muted-foreground">
+                    {t('token.geminiSupportComingSoon', 'Gemini configuration support is coming soon.')}
+                 </div>
+               ) : (
+                  <>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedTool === 'claude'
+                      ? t('token.claudeGlobalDesc', 'This will write the configuration to ~/.claude/settings.json and apply globally.')
+                      : t('token.codexGlobalDesc', 'This will write the configuration to ~/.codex/config.toml and ~/.codex/auth.json and apply globally.')}
+                  </p>
+                  <Button
+                    className="w-full"
+                    onClick={() => configureGlobalMutation.mutate()}
+                    disabled={!selectedNode || configureGlobalMutation.isPending || !isCompatible}
+                  >
+                    {configureGlobalMutation.isPending
+                      ? t('common.configuring', 'Configuring...')
+                      : t('token.configureGlobally', 'Configure Globally')}
+                  </Button>
+                  </>
+               )}
             </TabsContent>
 
             <TabsContent value="temp" className="space-y-4 mt-4">
-              <p className="text-sm text-muted-foreground">
-                {t('token.tempConfigDesc', 'Generate export commands to use in your current terminal session only.')}
-              </p>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => generateTempMutation.mutate()}
-                disabled={!selectedNode || generateTempMutation.isPending}
-              >
-                {generateTempMutation.isPending
-                  ? t('common.generating', 'Generating...')
-                  : t('token.generateCommands', 'Generate Commands')}
-              </Button>
-
-              {tempCommands && (
-                <div className="space-y-2">
-                  <Textarea
-                    value={tempCommands}
-                    readOnly
-                    className="font-mono text-sm"
-                    rows={selectedTool === 'claude' ? 6 : 4}
-                  />
+               {selectedTool === 'gemini' ? (
+                 <div className="p-4 border rounded-md bg-muted text-center text-muted-foreground">
+                    {t('token.geminiSupportComingSoon', 'Gemini configuration support is coming soon.')}
+                 </div>
+               ) : (
+                  <>
+                  <p className="text-sm text-muted-foreground">
+                    {t('token.tempConfigDesc', 'Generate export commands to use in your current terminal session only.')}
+                  </p>
                   <Button
-                    variant="secondary"
                     className="w-full"
-                    onClick={handleCopyCommands}
+                    variant="outline"
+                    onClick={() => generateTempMutation.mutate()}
+                    disabled={!selectedNode || generateTempMutation.isPending}
                   >
-                    {copied ? (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        {t('common.copied', 'Copied!')}
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-2 h-4 w-4" />
-                        {t('token.copyToClipboard', 'Copy to Clipboard')}
-                      </>
-                    )}
+                    {generateTempMutation.isPending
+                      ? t('common.generating', 'Generating...')
+                      : t('token.generateCommands', 'Generate Commands')}
                   </Button>
-                </div>
-              )}
+
+                  {tempCommands && (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={tempCommands}
+                        readOnly
+                        className="font-mono text-sm"
+                        rows={selectedTool === 'claude' ? 6 : 4}
+                      />
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={handleCopyCommands}
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            {t('common.copied', 'Copied!')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            {t('token.copyToClipboard', 'Copy to Clipboard')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  </>
+               )}
             </TabsContent>
           </Tabs>
         </div>

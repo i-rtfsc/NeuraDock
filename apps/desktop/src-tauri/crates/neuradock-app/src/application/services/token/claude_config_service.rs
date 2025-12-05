@@ -14,6 +14,9 @@ const MANAGED_ENV_KEYS: &[&str] = &[
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
     "DISABLE_TELEMETRY",
     "API_TIMEOUT_MS",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
 ];
 
 impl ClaudeConfigService {
@@ -37,7 +40,12 @@ impl ClaudeConfigService {
 
     /// Configure Claude Code globally by writing to ~/.claude/settings.json
     /// This properly merges with existing configuration
-    pub fn configure_global(&self, token: &ApiToken, base_url: &str) -> Result<String> {
+    pub fn configure_global(
+        &self,
+        token: &ApiToken,
+        base_url: &str,
+        model: Option<&str>,
+    ) -> Result<String> {
         let config_path = Self::get_claude_config_path()?;
 
         // Ensure directory exists
@@ -70,25 +78,45 @@ impl ClaudeConfigService {
                 env_obj.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
                 env_obj.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
                 env_obj.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+                
+                if let Some(m) = model {
+                    env_obj.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
+                    env_obj.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
+                    env_obj.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
+                }
             } else {
                 // env exists but is not an object, replace it
-                *env_value = json!({
-                    "ANTHROPIC_API_KEY": api_key,
-                    "ANTHROPIC_BASE_URL": base_url,
-                    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-                    "DISABLE_TELEMETRY": "1",
-                    "API_TIMEOUT_MS": "3000000",
-                });
+                let mut env_map = serde_json::Map::new();
+                env_map.insert("ANTHROPIC_API_KEY".to_string(), json!(api_key));
+                env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
+                env_map.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
+                env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
+                env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+                
+                if let Some(m) = model {
+                    env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
+                    env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
+                    env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
+                }
+                
+                *env_value = Value::Object(env_map);
             }
         } else {
             // env doesn't exist, create it
-            config_obj.insert("env".to_string(), json!({
-                "ANTHROPIC_API_KEY": api_key,
-                "ANTHROPIC_BASE_URL": base_url,
-                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-                "DISABLE_TELEMETRY": "1",
-                "API_TIMEOUT_MS": "3000000",
-            }));
+            let mut env_map = serde_json::Map::new();
+            env_map.insert("ANTHROPIC_API_KEY".to_string(), json!(api_key));
+            env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
+            env_map.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
+            env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
+            env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+            
+            if let Some(m) = model {
+                env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
+                env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
+                env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
+            }
+            
+            config_obj.insert("env".to_string(), Value::Object(env_map));
         }
 
         // Write back config with proper formatting
@@ -146,16 +174,28 @@ impl ClaudeConfigService {
     }
 
     /// Generate temporary export commands for current shell session
-    pub fn generate_temp_commands(&self, token: &ApiToken, base_url: &str) -> Result<String> {
+    pub fn generate_temp_commands(
+        &self,
+        token: &ApiToken,
+        base_url: &str,
+        model: Option<&str>,
+    ) -> Result<String> {
         let api_key = Self::ensure_sk_prefix(token.key());
-        let commands = vec![
+        let mut commands = vec![
             format!("export ANTHROPIC_API_KEY=\"{}\"", api_key),
             format!("export ANTHROPIC_BASE_URL=\"{}\"", base_url),
             "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=\"1\"".to_string(),
             "export DISABLE_TELEMETRY=\"1\"".to_string(),
             "export API_TIMEOUT_MS=\"3000000\"".to_string(),
-            "# Run the above commands in your terminal, then start Claude Code".to_string(),
         ];
+        
+        if let Some(m) = model {
+            commands.push(format!("export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"{}\"", m));
+            commands.push(format!("export ANTHROPIC_DEFAULT_SONNET_MODEL=\"{}\"", m));
+            commands.push(format!("export ANTHROPIC_DEFAULT_OPUS_MODEL=\"{}\"", m));
+        }
+        
+        commands.push("# Run the above commands in your terminal, then start Claude Code".to_string());
 
         Ok(commands.join("\n"))
     }

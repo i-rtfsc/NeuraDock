@@ -35,9 +35,10 @@ impl CodexConfigService {
     }
 
     /// Generate config.toml content for AnyRouter
-    fn generate_anyrouter_config(base_url: &str) -> String {
+    fn generate_anyrouter_config(base_url: &str, model: Option<&str>) -> String {
+        let model_name = model.unwrap_or("gpt-5-codex");
         format!(
-            r#"model = "gpt-5-codex"
+            r#"model = "{}"
 model_provider = "anyrouter"
 preferred_auth_method = "apikey"
 
@@ -47,14 +48,15 @@ name = "Any Router"
 base_url = "{}/v1"
 wire_api = "responses"
 "#,
-            base_url
+            model_name, base_url
         )
     }
 
     /// Generate config.toml content for AgentRouter
-    fn generate_agentrouter_config(base_url: &str) -> String {
+    fn generate_agentrouter_config(base_url: &str, model: Option<&str>) -> String {
+        let model_name = model.unwrap_or("gpt-5");
         format!(
-            r#"model = "gpt-5"
+            r#"model = "{}"
 model_provider = "openai-chat-completions"
 preferred_auth_method = "apikey"
 
@@ -67,7 +69,7 @@ wire_api = "chat"
 query_params = {{}}
 stream_idle_timeout_ms = 300000
 "#,
-            base_url
+            model_name, base_url
         )
     }
 
@@ -77,6 +79,7 @@ stream_idle_timeout_ms = 300000
         token: &ApiToken,
         provider_id: &str,
         base_url: &str,
+        model: Option<&str>,
     ) -> Result<String> {
         let codex_dir = Self::get_codex_dir()?;
         let config_path = Self::get_codex_config_path()?;
@@ -87,8 +90,8 @@ stream_idle_timeout_ms = 300000
 
         // Generate config.toml based on provider
         let config_content = match provider_id {
-            "anyrouter" => Self::generate_anyrouter_config(base_url),
-            "agentrouter" => Self::generate_agentrouter_config(base_url),
+            "anyrouter" => Self::generate_anyrouter_config(base_url, model),
+            "agentrouter" => Self::generate_agentrouter_config(base_url, model),
             _ => return Err(anyhow::anyhow!("Unsupported provider: {}", provider_id)),
         };
 
@@ -153,6 +156,7 @@ stream_idle_timeout_ms = 300000
         _token: &ApiToken,
         _provider_id: &str,
         _base_url: &str,
+        _model: Option<&str>,
     ) -> Result<String> {
         Err(anyhow::anyhow!(
             "Temporary configuration is currently unavailable. Please use global configuration instead."

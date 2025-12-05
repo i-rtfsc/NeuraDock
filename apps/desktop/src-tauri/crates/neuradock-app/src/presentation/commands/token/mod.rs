@@ -62,6 +62,7 @@ pub async fn configure_claude_global(
     token_id: i64,
     account_id: String,
     base_url: String,
+    model: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let account_id = AccountId::from_string(&account_id);
@@ -82,7 +83,7 @@ pub async fn configure_claude_global(
     // Configure to Claude Code
     let result = state
         .claude_config_service
-        .configure_global(token, &base_url)
+        .configure_global(token, &base_url, model.as_deref())
         .map_err(|e| e.to_string())?;
 
     Ok(result)
@@ -94,6 +95,7 @@ pub async fn generate_claude_temp_commands(
     token_id: i64,
     account_id: String,
     base_url: String,
+    model: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let account_id = AccountId::from_string(&account_id);
@@ -114,7 +116,7 @@ pub async fn generate_claude_temp_commands(
     // Generate temp commands
     let commands = state
         .claude_config_service
-        .generate_temp_commands(token, &base_url)
+        .generate_temp_commands(token, &base_url, model.as_deref())
         .map_err(|e| e.to_string())?;
 
     Ok(commands)
@@ -228,6 +230,7 @@ pub async fn configure_codex_global(
     account_id: String,
     provider_id: String,
     base_url: String,
+    model: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let account_id = AccountId::from_string(&account_id);
@@ -248,7 +251,7 @@ pub async fn configure_codex_global(
     // Configure to Codex
     let result = state
         .codex_config_service
-        .configure_global(token, &provider_id, &base_url)
+        .configure_global(token, &provider_id, &base_url, model.as_deref())
         .map_err(|e| e.to_string())?;
 
     Ok(result)
@@ -261,6 +264,7 @@ pub async fn generate_codex_temp_commands(
     account_id: String,
     provider_id: String,
     base_url: String,
+    model: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let account_id = AccountId::from_string(&account_id);
@@ -281,7 +285,7 @@ pub async fn generate_codex_temp_commands(
     // Generate temp commands (currently unavailable)
     let commands = state
         .codex_config_service
-        .generate_temp_commands(token, &provider_id, &base_url)
+        .generate_temp_commands(token, &provider_id, &base_url, model.as_deref())
         .map_err(|e| e.to_string())?;
 
     Ok(commands)

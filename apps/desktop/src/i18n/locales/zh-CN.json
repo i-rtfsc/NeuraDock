@@ -421,7 +421,13 @@
     "noLimits": "不限制",
     "noModelsConfigured": "无",
     "noCompatibleModelsForClaude": "此中转站不支持 Claude 兼容的模型（Claude、GLM、DeepSeek、Gemini）。",
-    "noGPTModels": "注意：此令牌没有模型限制。此中转站可能没有 GPT 模型，但 Codex 可以使用 OpenAI 兼容的 API。"
+    "noGPTModels": "注意：此令牌没有模型限制。此中转站可能没有 GPT 模型，但 Codex 可以使用 OpenAI 兼容的 API。",
+    "geminiComingSoon": "Gemini（即将推出）",
+    "selectModel": "选择模型（可选）",
+    "chooseModel": "选择一个模型（可选）...",
+    "noModelsAvailable": "未找到兼容的模型",
+    "modelHint": "选择一个特定模型以配置默认模型设置",
+    "geminiSupportComingSoon": "Gemini 配置支持即将推出。"
   },
   "disclaimer": {
     "title": "重要声明",
