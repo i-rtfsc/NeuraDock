@@ -69,4 +69,9 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+
+  /* Enable window dragging for touch/pen input on Windows */
+  *[data-tauri-drag-region] {
+    app-region: drag;
+  }
 }
