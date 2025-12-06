@@ -10,24 +10,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useDeleteAccount, useToggleAccount } from '@/hooks/useAccounts';
-import { useFetchAccountBalance, useRefreshAccountBalance } from '@/hooks/useBalance';
 import { CheckInButton } from '@/components/checkin/CheckInButton';
 import { ProviderModelsSection } from '@/components/account/ProviderModelsSection';
-import { toast } from 'sonner';
+import { AccountBalanceDisplay } from '@/components/account/AccountBalanceDisplay';
+import { useSmartAccountBalance } from '@/hooks/account/useSmartAccountBalance';
+import { useAccountOperations } from '@/hooks/account/useAccountOperations';
 import {
   MoreVertical,
   Edit,
   Trash2,
   Power,
   PowerOff,
-  Loader2,
   Clock,
   AlertTriangle,
-  RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '@/lib/formatters';
 
 interface AccountCardProps {
   account: Account;
@@ -36,82 +33,33 @@ interface AccountCardProps {
 
 export function AccountCard({ account, onEdit }: AccountCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const deleteMutation = useDeleteAccount();
-  const toggleMutation = useToggleAccount();
-  const refreshBalanceMutation = useRefreshAccountBalance();
   const { t } = useTranslation();
 
-  // Get cache age from settings (default to 1 hour)
-  const maxCacheAgeHours = parseInt(localStorage.getItem('maxCacheAgeHours') || '1', 10);
-  const maxCacheAgeMs = maxCacheAgeHours * 60 * 60 * 1000;
+  // Use custom hooks for logic encapsulation
+  const { 
+    balance, 
+    isLoading: isBalanceLoading, 
+    isFetching: isBalanceFetching 
+  } = useSmartAccountBalance(account);
+  
+  const { 
+    handleToggle, 
+    handleRefreshBalance, 
+    handleDelete, 
+    isDeleting, 
+    isRefreshingBalance 
+  } = useAccountOperations(account);
 
-  // Only fetch fresh balance if account is enabled AND balance is stale/missing
-  const shouldFetchBalance = account.enabled && (
-    !account.current_balance || !account.total_consumed || account.total_income == null ||
-    !account.last_balance_check_at ||
-    (new Date().getTime() - new Date(account.last_balance_check_at).getTime()) > maxCacheAgeMs
-  );
-
-  // Fetch fresh balance in background (with smart caching)
-  const { data: freshBalance, isLoading: balanceLoading, error: balanceError } = useFetchAccountBalance(
-    account.id,
-    shouldFetchBalance
-  );
-
-  // Debug logging for errors
-  if (balanceError) {
-    console.error(`Failed to fetch balance for ${account.name}:`, balanceError);
-  }
-
-  // Use cached balance from account or fresh balance from fetch
-  const balance = freshBalance || (
-    account.current_balance != null && account.total_consumed != null && account.total_income != null ? {
-      current_balance: account.current_balance,
-      total_consumed: account.total_consumed,
-      total_income: account.total_income,
-    } : null
-  );
+  const confirmDelete = async () => {
+    const success = await handleDelete();
+    if (success) {
+      setShowDeleteConfirm(false);
+    }
+  };
 
   // 从account对象获取自动签到设置
   const autoCheckinEnabled = account.auto_checkin_enabled || false;
   const autoCheckinTime = `${String(account.auto_checkin_hour || 9).padStart(2, '0')}:${String(account.auto_checkin_minute || 0).padStart(2, '0')}`;
-
-  const handleToggle = async () => {
-    try {
-      await toggleMutation.mutateAsync({
-        accountId: account.id,
-        enabled: !account.enabled,
-      });
-      toast.success(
-        account.enabled ? t('accountCard.disabled') : t('accountCard.enabled')
-      );
-    } catch (error) {
-      console.error('Failed to toggle account:', error);
-      toast.error(t('common.error'));
-    }
-  };
-
-  const handleRefreshBalance = async () => {
-    try {
-      await refreshBalanceMutation.mutateAsync(account.id);
-      toast.success(t('accountCard.balanceRefreshed') || 'Balance refreshed');
-    } catch (error) {
-      console.error('Failed to refresh balance:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast.error(errorMessage || t('common.error'));
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await deleteMutation.mutateAsync(account.id);
-      toast.success(t('common.success'));
-      setShowDeleteConfirm(false);
-    } catch (error) {
-      console.error('Failed to delete account:', error);
-      toast.error(t('common.error'));
-    }
-  };
 
   return (
     <Card className={`relative hover:shadow-lg transition-all rounded-2xl ${!account.enabled ? 'opacity-60' : ''}`}>
@@ -188,43 +136,13 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
 
       <CardContent className="space-y-3">
         {/* 余额信息 */}
-        {account.enabled && (balance || balanceLoading || refreshBalanceMutation.isPending) && (
-          <div className="relative">
-            {/* 刷新按钮 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute -top-1 -right-1 h-6 w-6 rounded-full z-10"
-              onClick={handleRefreshBalance}
-              disabled={refreshBalanceMutation.isPending || balanceLoading}
-              title={t('accountCard.refreshBalance') || 'Refresh balance'}
-            >
-              <RefreshCw className={`h-3 w-3 ${refreshBalanceMutation.isPending ? 'animate-spin' : ''}`} />
-            </Button>
-
-            <div className="grid grid-cols-3 gap-2 text-xs bg-muted/30 rounded-xl p-3">
-              {balance ? (
-                <>
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-0.5">{t('accountCard.totalIncome')}</p>
-                    <p className="font-semibold text-blue-600">{formatCurrency(balance.total_income)}</p>
-                  </div>
-                  <div className="text-center border-x">
-                    <p className="text-muted-foreground mb-0.5">{t('accountCard.historicalConsumption')}</p>
-                    <p className="font-semibold text-orange-600">{formatCurrency(balance.total_consumed)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-0.5">{t('accountCard.currentBalance')}</p>
-                    <p className="font-semibold text-green-600">{formatCurrency(balance.current_balance)}</p>
-                  </div>
-                </>
-              ) : (balanceLoading || refreshBalanceMutation.isPending) ? (
-                <div className="col-span-3 flex items-center justify-center py-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : null}
-            </div>
-          </div>
+        {account.enabled && (
+          <AccountBalanceDisplay
+            balance={balance}
+            isLoading={isBalanceLoading}
+            isRefreshing={isRefreshingBalance || isBalanceFetching}
+            onRefresh={handleRefreshBalance}
+          />
         )}
 
         {/* 自动签到信息和手动签到按钮 */}
@@ -286,11 +204,11 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleDelete}
-                disabled={deleteMutation.isPending}
+                onClick={confirmDelete}
+                disabled={isDeleting}
                 className="rounded-full"
               >
-                {deleteMutation.isPending ? t('accountCard.deleting') : t('accountCard.delete')}
+                {isDeleting ? t('accountCard.deleting') : t('accountCard.delete')}
               </Button>
             </div>
           </div>
