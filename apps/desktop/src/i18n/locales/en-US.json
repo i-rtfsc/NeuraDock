@@ -282,6 +282,7 @@
     "dataPerformanceDescription": "Manage data caching and refresh behavior",
     "notification": "Notifications",
     "notificationDescription": "Configure notification methods for check-in success/failure",
+    "noNotificationChannels": "No notification channels configured. Please set up notification methods in the system.",
     "about": "About",
     "aboutDescription": "Application version and information",
     "theme": "Theme",

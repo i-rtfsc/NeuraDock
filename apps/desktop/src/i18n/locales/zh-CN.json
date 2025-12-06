@@ -282,6 +282,7 @@
     "dataPerformanceDescription": "管理数据缓存和刷新行为",
     "notification": "通知设置",
     "notificationDescription": "配置签到成功/失败时的通知方式",
+    "noNotificationChannels": "暂无通知渠道，请在系统中配置通知方式",
     "about": "关于",
     "aboutDescription": "应用版本和信息",
     "theme": "主题",

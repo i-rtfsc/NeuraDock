@@ -186,8 +186,16 @@ export function SettingsPage() {
               <CardDescription>{t('settings.dataPerformanceDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="cache-age">{t('settings.cacheAge')}</Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="cache-age" className="text-base font-semibold">
+                    {t('settings.cacheAge')}
+                  </Label>
+                  <Badge variant="outline" className="rounded-full">
+                    {cacheAgeHours} {t('settings.hours')}
+                  </Badge>
+                </div>
+                
                 <div className="flex items-center gap-3">
                   <Input
                     id="cache-age"
@@ -196,16 +204,23 @@ export function SettingsPage() {
                     max="24"
                     value={cacheAgeHours}
                     onChange={(e) => setCacheAgeHours(parseInt(e.target.value, 10))}
-                    className="rounded-lg max-w-[200px]"
+                    className="rounded-xl h-11 max-w-[200px]"
                   />
-                  <span className="text-sm text-muted-foreground">{t('settings.hours')}</span>
-                  <Button onClick={handleCacheAgeChange} className="rounded-full ml-auto">
+                  <Button 
+                    onClick={handleCacheAgeChange} 
+                    className="rounded-full"
+                    size="sm"
+                  >
                     {t('common.save')}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('settings.cacheAgeDescription')}
-                </p>
+                
+                <Alert className="rounded-xl bg-blue-500/5 border-blue-500/30">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+                  <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+                    {t('settings.cacheAgeDescription')}
+                  </AlertDescription>
+                </Alert>
               </div>
             </CardContent>
           </Card>
@@ -218,11 +233,20 @@ export function SettingsPage() {
               <CardTitle>{t('settings.notification')}</CardTitle>
               <CardDescription>{t('settings.notificationDescription')}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <NotificationChannelList
-                channels={notificationChannels}
-                onUpdate={refetchChannels}
-              />
+            <CardContent className="space-y-4">
+              {notificationChannels.length === 0 ? (
+                <Alert className="rounded-xl bg-gray-500/5 border-gray-500/30">
+                  <Bell className="h-4 w-4 text-gray-600 dark:text-gray-500" />
+                  <AlertDescription className="text-sm text-gray-900 dark:text-gray-100">
+                    {t('settings.noNotificationChannels')}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <NotificationChannelList
+                  channels={notificationChannels}
+                  onUpdate={refetchChannels}
+                />
+              )}
             </CardContent>
           </Card>
         );
@@ -231,10 +255,7 @@ export function SettingsPage() {
         return (
           <Card className="rounded-2xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Code className="h-5 w-5" />
-                {t('settings.developer')}
-              </CardTitle>
+              <CardTitle>{t('settings.developer')}</CardTitle>
               <CardDescription>{t('settings.developerDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -285,17 +306,10 @@ export function SettingsPage() {
                   </SelectContent>
                 </Select>
 
-                <Alert className="rounded-xl border-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {t('settings.logLevelDescription')}
-                  </AlertDescription>
-                </Alert>
-
-                <Alert variant="warning" className="rounded-xl border-2">
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="text-sm font-medium">
-                    {t('settings.restartRequired')}
+                <Alert className="rounded-xl border-amber-500/30 bg-amber-500/5">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                  <AlertDescription className="text-sm text-amber-900 dark:text-amber-100">
+                    {t('settings.logLevelDescription')} {t('settings.restartRequired')}
                   </AlertDescription>
                 </Alert>
               </div>
