@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use neuradock_domain::balance::{Balance, BalanceRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
-use crate::persistence::RepositoryErrorMapper;
+use crate::persistence::ResultExt;
 
 #[derive(FromRow)]
 struct BalanceRow {
@@ -59,7 +59,7 @@ impl BalanceRepository for SqliteBalanceRepository {
             .bind(balance.last_checked_at())
             .execute(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save balance"))?;
+            .map_repo_error("Save balance")?;
 
         Ok(())
     }
@@ -71,7 +71,7 @@ impl BalanceRepository for SqliteBalanceRepository {
             .bind(account_id.as_str())
             .fetch_optional(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find balance by account ID"))?;
+            .map_repo_error("Find balance by account ID")?;
 
         Ok(row.map(|r| r.to_balance()))
     }
@@ -83,7 +83,7 @@ impl BalanceRepository for SqliteBalanceRepository {
             .bind(account_id.as_str())
             .execute(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete balance"))?;
+            .map_repo_error("Delete balance")?;
 
         Ok(())
     }
@@ -94,7 +94,7 @@ impl BalanceRepository for SqliteBalanceRepository {
         let rows: Vec<BalanceRow> = sqlx::query_as(query)
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all balances"))?;
+            .map_repo_error("Find all balances")?;
 
         Ok(rows.into_iter().map(|r| r.to_balance()).collect())
     }
@@ -107,7 +107,7 @@ impl BalanceRepository for SqliteBalanceRepository {
             .bind(threshold)
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find stale balances"))?;
+            .map_repo_error("Find stale balances")?;
 
         Ok(rows.into_iter().map(|r| r.to_balance()).collect())
     }

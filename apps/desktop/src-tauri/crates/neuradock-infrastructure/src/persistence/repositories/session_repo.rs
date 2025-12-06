@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
-use crate::persistence::RepositoryErrorMapper;
+use crate::persistence::ResultExt;
 
 #[derive(FromRow)]
 struct SessionRow {
@@ -55,7 +55,7 @@ impl SessionRepository for SqliteSessionRepository {
             .bind(session.last_login_at())
             .execute(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save session"))?;
+            .map_repo_error("Save session")?;
 
         Ok(())
     }
@@ -67,7 +67,7 @@ impl SessionRepository for SqliteSessionRepository {
             .bind(account_id.as_str())
             .fetch_optional(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find session by account ID"))?;
+            .map_repo_error("Find session by account ID")?;
 
         Ok(row.map(|r| r.to_session()))
     }
@@ -79,7 +79,7 @@ impl SessionRepository for SqliteSessionRepository {
             .bind(account_id.as_str())
             .execute(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete session"))?;
+            .map_repo_error("Delete session")?;
 
         Ok(())
     }
@@ -91,7 +91,7 @@ impl SessionRepository for SqliteSessionRepository {
             .bind(Utc::now())
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find valid sessions"))?;
+            .map_repo_error("Find valid sessions")?;
 
         Ok(rows.into_iter().map(|r| r.to_session()).collect())
     }
