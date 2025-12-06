@@ -71,11 +71,9 @@ impl BalanceRepository for SqliteBalanceRepository {
     async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Balance>, DomainError> {
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances WHERE account_id = ?1";
 
-        let row: Option<BalanceRow> = sqlx::query_as(query)
-            .bind(account_id.as_str())
-            .fetch_optional(self.base.pool())
-            .await
-            .map_repo_error("Find balance by account ID")?;
+        let row: Option<BalanceRow> = self.base
+            .fetch_optional(sqlx::query_as(query).bind(account_id.as_str()), "Find balance by account ID")
+            .await?;
 
         Ok(row.map(|r| r.to_balance()))
     }
@@ -83,11 +81,9 @@ impl BalanceRepository for SqliteBalanceRepository {
     async fn delete(&self, account_id: &AccountId) -> Result<(), DomainError> {
         let query = "DELETE FROM balances WHERE account_id = ?1";
 
-        sqlx::query(query)
-            .bind(account_id.as_str())
-            .execute(self.base.pool())
-            .await
-            .map_repo_error("Delete balance")?;
+        self.base
+            .execute(sqlx::query(query).bind(account_id.as_str()), "Delete balance")
+            .await?;
 
         Ok(())
     }
@@ -95,10 +91,9 @@ impl BalanceRepository for SqliteBalanceRepository {
     async fn find_all(&self) -> Result<Vec<Balance>, DomainError> {
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances ORDER BY last_checked_at DESC";
 
-        let rows: Vec<BalanceRow> = sqlx::query_as(query)
-            .fetch_all(self.base.pool())
-            .await
-            .map_repo_error("Find all balances")?;
+        let rows: Vec<BalanceRow> = self.base
+            .fetch_all(sqlx::query_as(query), "Find all balances")
+            .await?;
 
         Ok(rows.into_iter().map(|r| r.to_balance()).collect())
     }
@@ -107,11 +102,9 @@ impl BalanceRepository for SqliteBalanceRepository {
         let threshold = Utc::now() - chrono::Duration::hours(hours_threshold);
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances WHERE last_checked_at < ?1 ORDER BY last_checked_at ASC";
 
-        let rows: Vec<BalanceRow> = sqlx::query_as(query)
-            .bind(threshold)
-            .fetch_all(self.base.pool())
-            .await
-            .map_repo_error("Find stale balances")?;
+        let rows: Vec<BalanceRow> = self.base
+            .fetch_all(sqlx::query_as(query).bind(threshold), "Find stale balances")
+            .await?;
 
         Ok(rows.into_iter().map(|r| r.to_balance()).collect())
     }

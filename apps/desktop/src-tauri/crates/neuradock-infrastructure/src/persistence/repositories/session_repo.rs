@@ -52,14 +52,16 @@ impl SessionRepository for SqliteSessionRepository {
                 last_login_at = ?4
         "#;
 
-        sqlx::query(query)
-            .bind(session.account_id().as_str())
-            .bind(session.token())
-            .bind(session.expires_at())
-            .bind(session.last_login_at())
-            .execute(self.base.pool())
-            .await
-            .map_repo_error("Save session")?;
+        self.base
+            .execute(
+                sqlx::query(query)
+                    .bind(session.account_id().as_str())
+                    .bind(session.token())
+                    .bind(session.expires_at())
+                    .bind(session.last_login_at()),
+                "Save session",
+            )
+            .await?;
 
         Ok(())
     }
@@ -67,11 +69,9 @@ impl SessionRepository for SqliteSessionRepository {
     async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Session>, DomainError> {
         let query = "SELECT account_id, token, expires_at, last_login_at FROM sessions WHERE account_id = ?1";
 
-        let row: Option<SessionRow> = sqlx::query_as(query)
-            .bind(account_id.as_str())
-            .fetch_optional(self.base.pool())
-            .await
-            .map_repo_error("Find session by account ID")?;
+        let row: Option<SessionRow> = self.base
+            .fetch_optional(sqlx::query_as(query).bind(account_id.as_str()), "Find session by account ID")
+            .await?;
 
         Ok(row.map(|r| r.to_session()))
     }
@@ -79,11 +79,9 @@ impl SessionRepository for SqliteSessionRepository {
     async fn delete(&self, account_id: &AccountId) -> Result<(), DomainError> {
         let query = "DELETE FROM sessions WHERE account_id = ?1";
 
-        sqlx::query(query)
-            .bind(account_id.as_str())
-            .execute(self.base.pool())
-            .await
-            .map_repo_error("Delete session")?;
+        self.base
+            .execute(sqlx::query(query).bind(account_id.as_str()), "Delete session")
+            .await?;
 
         Ok(())
     }
@@ -91,11 +89,9 @@ impl SessionRepository for SqliteSessionRepository {
     async fn find_valid_sessions(&self) -> Result<Vec<Session>, DomainError> {
         let query = "SELECT account_id, token, expires_at, last_login_at FROM sessions WHERE expires_at > ?1 ORDER BY last_login_at DESC";
 
-        let rows: Vec<SessionRow> = sqlx::query_as(query)
-            .bind(Utc::now())
-            .fetch_all(self.base.pool())
-            .await
-            .map_repo_error("Find valid sessions")?;
+        let rows: Vec<SessionRow> = self.base
+            .fetch_all(sqlx::query_as(query).bind(Utc::now()), "Find valid sessions")
+            .await?;
 
         Ok(rows.into_iter().map(|r| r.to_session()).collect())
     }
