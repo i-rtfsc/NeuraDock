@@ -430,6 +430,25 @@
     "modelHint": "选择一个特定模型以配置默认模型设置",
     "geminiSupportComingSoon": "Gemini 配置支持即将推出。"
   },
+  "notification": {
+    "addChannel": "添加渠道",
+    "noChannels": "还没有配置通知渠道",
+    "noChannelsDesc": "添加飞书、钉钉或邮件通知渠道，及时获知签到结果",
+    "addFirstChannel": "添加第一个通知渠道",
+    "deleted": "通知渠道已删除",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "testSuccess": "测试成功",
+    "testFailed": "测试失败",
+    "test": "测试",
+    "webhookKey": "Webhook Key",
+    "sender": "发件人",
+    "channel": {
+      "feishu": "飞书",
+      "dingtalk": "钉钉",
+      "email": "邮件"
+    }
+  },
   "disclaimer": {
     "title": "重要声明",
     "liability": {

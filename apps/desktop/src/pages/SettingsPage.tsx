@@ -230,33 +230,73 @@ export function SettingsPage() {
         return (
           <Card className="rounded-2xl">
             <CardHeader>
-              <CardTitle>{t('settings.developer')}</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Code className="h-5 w-5" />
+                {t('settings.developer')}
+              </CardTitle>
               <CardDescription>{t('settings.developerDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>{t('settings.logLevel')}</Label>
+              {/* Log Level */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">{t('settings.logLevel')}</Label>
+                  <Badge variant="outline" className="rounded-full">
+                    {logLevel.toUpperCase()}
+                  </Badge>
+                </div>
+                
                 <Select value={logLevel} onValueChange={handleLogLevelChange}>
-                  <SelectTrigger className="rounded-lg">
+                  <SelectTrigger className="rounded-xl h-11">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="error">{t('settings.logLevelError')}</SelectItem>
-                    <SelectItem value="warn">{t('settings.logLevelWarn')}</SelectItem>
-                    <SelectItem value="info">{t('settings.logLevelInfo')}</SelectItem>
-                    <SelectItem value="debug">{t('settings.logLevelDebug')}</SelectItem>
-                    <SelectItem value="trace">{t('settings.logLevelTrace')}</SelectItem>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="error" className="rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500">●</span>
+                        {t('settings.logLevelError')}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="warn" className="rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-500">●</span>
+                        {t('settings.logLevelWarn')}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="info" className="rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-500">●</span>
+                        {t('settings.logLevelInfo')}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="debug" className="rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-purple-500">●</span>
+                        {t('settings.logLevelDebug')}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="trace" className="rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500">●</span>
+                        {t('settings.logLevelTrace')}
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {t('settings.logLevelDescription')}
-                </p>
-                <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <span className="text-amber-600 dark:text-amber-500">💾</span>
-                  <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    {t('settings.logLevelSaved')}
-                  </span>
-                </div>
+
+                <Alert className="rounded-xl border-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {t('settings.logLevelDescription')}
+                  </AlertDescription>
+                </Alert>
+
+                <Alert variant="warning" className="rounded-xl border-2">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-sm font-medium">
+                    {t('settings.restartRequired')}
+                  </AlertDescription>
+                </Alert>
               </div>
             </CardContent>
           </Card>
