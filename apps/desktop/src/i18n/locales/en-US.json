@@ -347,6 +347,7 @@
     "title": "Token Manager",
     "description": "Manage API tokens for AnyRouter and AgentRouter accounts",
     "selectAccount": "Select Account",
+    "chooseAccount": "Choose an account...",
     "selectAccountPlaceholder": "Choose an account to view tokens...",
     "noAccounts": "No AnyRouter/AgentRouter accounts",
     "noAccountsDescription": "Please add AnyRouter or AgentRouter accounts first",

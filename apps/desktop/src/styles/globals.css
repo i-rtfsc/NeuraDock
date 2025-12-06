@@ -4,60 +4,118 @@
 
 @layer base {
   :root {
-    /* macOS Light Theme - inspired by iOS/macOS design */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 12%;
+    /* macOS Light Theme - inspired by Raycast, Arc, Linear */
+    /* Background: warm white with subtle warmth */
+    --background: 0 0% 99%;
+    --foreground: 220 13% 13%;
+    
+    /* Cards: pure white with soft shadows */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 12%;
+    --card-foreground: 220 13% 13%;
+    
+    /* Popovers: elevated white */
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 12%;
-    --primary: 211 100% 50%;
+    --popover-foreground: 220 13% 13%;
+    
+    /* Primary: modern blue (Raycast-inspired) */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 16% 93%;
-    --secondary-foreground: 0 0% 12%;
-    --muted: 210 16% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 211 100% 50%;
+    
+    /* Secondary: subtle gray with warmth */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 13% 13%;
+    
+    /* Muted: light gray backgrounds */
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;
+    
+    /* Accent: vibrant blue */
+    --accent: 221 83% 53%;
     --accent-foreground: 0 0% 100%;
+    
+    /* Destructive: warm red */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 89%;
-    --input: 0 0% 89%;
-    --ring: 211 100% 50%;
+    
+    /* Borders: soft gray */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
     --radius: 0.75rem;
     
     /* macOS specific */
-    --sidebar: 0 0% 96%;
-    --sidebar-foreground: 0 0% 12%;
-    --topbar: 0 0% 98%;
+    --sidebar: 0 0% 97.5%;
+    --sidebar-foreground: 220 13% 13%;
+    --topbar: 0 0% 99%;
+    
+    /* Success: fresh green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning: amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Info: cyan */
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
   }
 
   .dark {
-    /* macOS Dark Theme - inspired by iOS/macOS design */
-    --background: 0 0% 10%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 14%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 211 100% 55%;
+    /* macOS Dark Theme - inspired by Arc, Raycast, Linear dark modes */
+    /* Background: true dark with subtle warmth */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    
+    /* Cards: elevated dark surface */
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+    
+    /* Popovers: elevated above cards */
+    --popover: 222 47% 16%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Primary: bright blue (more vivid in dark) */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 18%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 211 100% 55%;
+    
+    /* Secondary: darker surface */
+    --secondary: 222 47% 18%;
+    --secondary-foreground: 210 40% 98%;
+    
+    /* Muted: medium dark */
+    --muted: 222 47% 20%;
+    --muted-foreground: 215 20% 65%;
+    
+    /* Accent: vivid blue */
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    
+    /* Destructive: bright red */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 22%;
-    --input: 0 0% 22%;
-    --ring: 211 100% 55%;
+    
+    /* Borders: subtle gray */
+    --border: 222 47% 25%;
+    --input: 222 47% 25%;
+    --ring: 217 91% 60%;
     
     /* macOS specific */
-    --sidebar: 0 0% 12%;
-    --sidebar-foreground: 0 0% 95%;
-    --topbar: 0 0% 10%;
+    --sidebar: 222 47% 12%;
+    --sidebar-foreground: 210 40% 98%;
+    --topbar: 222 47% 11%;
+    
+    /* Success: vibrant green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning: bright amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Info: cyan */
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
   }
 }
 
