@@ -7,14 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProviders } from '@/hooks/useProviders';
 import { useBalanceStatistics, useRefreshAllBalances } from '@/hooks/useBalance';
+import { useAccountActions } from '@/hooks/useAccountActions';
 import { AccountCard } from '@/components/account/AccountCard';
 import { AccountDialog } from '@/components/account/AccountDialog';
 import { JsonImportDialog } from '@/components/account/JsonImportDialog';
 import { BatchUpdateDialog } from '@/components/account/BatchUpdateDialog';
 import { BatchCheckInButton } from '@/components/checkin/BatchCheckInButton';
-import { Account, AccountDetail } from '@/lib/tauri-commands';
+import { Account } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 
 export function AccountsPage() {
@@ -22,12 +22,17 @@ export function AccountsPage() {
   const { data: providers } = useProviders();
   const { data: statistics } = useBalanceStatistics();
   const refreshAllBalancesMutation = useRefreshAllBalances();
+  const { 
+    editingAccount, 
+    dialogOpen: accountDialogOpen, 
+    handleEdit, 
+    handleCreate, 
+    handleDialogClose 
+  } = useAccountActions();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [jsonImportDialogOpen, setJsonImportDialogOpen] = useState(false);
   const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<AccountDetail | null>(null);
 
   // Filter accounts by search query
   const filteredAccounts = accounts?.filter((account) =>
@@ -49,27 +54,7 @@ export function AccountsPage() {
     }, {} as Record<string, Account[]>);
   }, [filteredAccounts]);
 
-  const handleEdit = async (account: Account) => {
-    try {
-      // Fetch full account details including credentials
-      const accountDetail = await invoke<AccountDetail>('get_account_detail', { accountId: account.id });
-      setEditingAccount(accountDetail);
-      setAccountDialogOpen(true);
-    } catch (error) {
-      console.error('Failed to fetch account details:', error);
-      toast.error(t('common.error'));
-    }
-  };
 
-  const handleCreate = () => {
-    setEditingAccount(null);
-    setAccountDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setAccountDialogOpen(false);
-    setEditingAccount(null);
-  };
 
   const getProviderStats = (providerId: string) => {
     return statistics?.providers.find(p => p.provider_id === providerId);
