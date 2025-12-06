@@ -6,6 +6,7 @@ use std::sync::Arc;
 use neuradock_domain::shared::DomainError;
 
 use crate::persistence::unit_of_work::RepositoryErrorMapper;
+use crate::persistence::SqliteRepositoryBase;
 
 /// WAF cookies cache duration (24 hours)
 const WAF_CACHE_HOURS: i64 = 24;
@@ -34,12 +35,14 @@ struct WafCookiesRow {
 }
 
 pub struct SqliteWafCookiesRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteWafCookiesRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 
     fn row_to_domain(&self, row: WafCookiesRow) -> Result<WafCookies, DomainError> {
@@ -84,7 +87,7 @@ impl SqliteWafCookiesRepository {
         .bind(cookies_json)
         .bind(now.to_rfc3339())
         .bind(expires_at.to_rfc3339())
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save WAF cookies"))?;
 
@@ -103,7 +106,7 @@ impl SqliteWafCookiesRepository {
             "#,
         )
         .bind(provider_id)
-        .fetch_optional(&*self.pool)
+        .fetch_optional(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Get WAF cookies"))?;
 
@@ -130,7 +133,7 @@ impl SqliteWafCookiesRepository {
     pub async fn delete(&self, provider_id: &str) -> Result<(), DomainError> {
         sqlx::query("DELETE FROM waf_cookies WHERE provider_id = ?")
             .bind(provider_id)
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete WAF cookies"))?;
 
@@ -143,7 +146,7 @@ impl SqliteWafCookiesRepository {
 
         let result = sqlx::query("DELETE FROM waf_cookies WHERE expires_at < ?")
             .bind(now)
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Cleanup expired WAF cookies"))?;
 

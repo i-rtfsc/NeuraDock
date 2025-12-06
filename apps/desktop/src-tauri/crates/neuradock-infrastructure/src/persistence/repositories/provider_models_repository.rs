@@ -5,6 +5,7 @@ use std::sync::Arc;
 use neuradock_domain::shared::DomainError;
 
 use crate::persistence::unit_of_work::RepositoryErrorMapper;
+use crate::persistence::SqliteRepositoryBase;
 
 #[derive(Debug, Clone)]
 pub struct ProviderModels {
@@ -22,12 +23,14 @@ struct ProviderModelsRow {
 }
 
 pub struct SqliteProviderModelsRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteProviderModelsRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 
     fn row_to_domain(&self, row: ProviderModelsRow) -> Result<ProviderModels, DomainError> {
@@ -63,7 +66,7 @@ impl SqliteProviderModelsRepository {
         .bind(provider_id)
         .bind(models_json)
         .bind(now)
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save provider models"))?;
 
@@ -80,7 +83,7 @@ impl SqliteProviderModelsRepository {
             "#,
         )
         .bind(provider_id)
-        .fetch_optional(&*self.pool)
+        .fetch_optional(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find provider models"))?;
 
@@ -107,7 +110,7 @@ impl SqliteProviderModelsRepository {
     pub async fn delete_by_provider(&self, provider_id: &str) -> Result<(), DomainError> {
         sqlx::query("DELETE FROM provider_models WHERE provider_id = ?")
             .bind(provider_id)
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete provider models"))?;
 

@@ -26,13 +26,17 @@ impl SessionRow {
     }
 }
 
+use crate::persistence::SqliteRepositoryBase;
+
 pub struct SqliteSessionRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteSessionRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 }
 
@@ -53,7 +57,7 @@ impl SessionRepository for SqliteSessionRepository {
             .bind(session.token())
             .bind(session.expires_at())
             .bind(session.last_login_at())
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_repo_error("Save session")?;
 
@@ -65,7 +69,7 @@ impl SessionRepository for SqliteSessionRepository {
 
         let row: Option<SessionRow> = sqlx::query_as(query)
             .bind(account_id.as_str())
-            .fetch_optional(&*self.pool)
+            .fetch_optional(self.base.pool())
             .await
             .map_repo_error("Find session by account ID")?;
 
@@ -77,7 +81,7 @@ impl SessionRepository for SqliteSessionRepository {
 
         sqlx::query(query)
             .bind(account_id.as_str())
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_repo_error("Delete session")?;
 
@@ -89,7 +93,7 @@ impl SessionRepository for SqliteSessionRepository {
 
         let rows: Vec<SessionRow> = sqlx::query_as(query)
             .bind(Utc::now())
-            .fetch_all(&*self.pool)
+            .fetch_all(self.base.pool())
             .await
             .map_repo_error("Find valid sessions")?;
 

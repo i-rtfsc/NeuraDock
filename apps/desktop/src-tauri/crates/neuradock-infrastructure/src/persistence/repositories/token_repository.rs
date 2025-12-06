@@ -7,6 +7,7 @@ use neuradock_domain::shared::{AccountId, DomainError};
 use neuradock_domain::token::{ApiToken, ModelLimits, TokenId, TokenRepository, TokenStatus};
 
 use crate::persistence::unit_of_work::RepositoryErrorMapper;
+use crate::persistence::SqliteRepositoryBase;
 
 #[derive(Debug, FromRow)]
 struct TokenRow {
@@ -27,12 +28,14 @@ struct TokenRow {
 }
 
 pub struct SqliteTokenRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteTokenRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 
     fn row_to_domain(&self, row: TokenRow) -> Result<ApiToken, DomainError> {
@@ -123,7 +126,7 @@ impl TokenRepository for SqliteTokenRepository {
         .bind(model_limits_allowed)
         .bind(model_limits_denied)
         .bind(token.fetched_at().to_rfc3339())
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save token"))?;
 
@@ -131,7 +134,7 @@ impl TokenRepository for SqliteTokenRepository {
     }
 
     async fn save_batch(&self, tokens: Vec<ApiToken>) -> Result<(), DomainError> {
-        let mut tx = self.pool.begin().await
+        let mut tx = self.base.pool().begin().await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
         for token in tokens {
@@ -199,7 +202,7 @@ impl TokenRepository for SqliteTokenRepository {
             "#,
         )
         .bind(id.value())
-        .fetch_optional(&*self.pool)
+        .fetch_optional(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find token by id"))?;
 
@@ -221,7 +224,7 @@ impl TokenRepository for SqliteTokenRepository {
             "#,
         )
         .bind(account_id.to_string())
-        .fetch_all(&*self.pool)
+        .fetch_all(self.base.pool())
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find tokens by account"))?;
 
@@ -236,7 +239,7 @@ impl TokenRepository for SqliteTokenRepository {
     async fn delete_by_account(&self, account_id: &AccountId) -> Result<(), DomainError> {
         sqlx::query("DELETE FROM api_tokens WHERE account_id = ?")
             .bind(account_id.to_string())
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete tokens by account"))?;
 

@@ -28,13 +28,17 @@ impl BalanceRow {
     }
 }
 
+use crate::persistence::SqliteRepositoryBase;
+
 pub struct SqliteBalanceRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteBalanceRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 }
 
@@ -57,7 +61,7 @@ impl BalanceRepository for SqliteBalanceRepository {
             .bind(balance.total_consumed())
             .bind(balance.total_income())
             .bind(balance.last_checked_at())
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_repo_error("Save balance")?;
 
@@ -69,7 +73,7 @@ impl BalanceRepository for SqliteBalanceRepository {
 
         let row: Option<BalanceRow> = sqlx::query_as(query)
             .bind(account_id.as_str())
-            .fetch_optional(&*self.pool)
+            .fetch_optional(self.base.pool())
             .await
             .map_repo_error("Find balance by account ID")?;
 
@@ -81,7 +85,7 @@ impl BalanceRepository for SqliteBalanceRepository {
 
         sqlx::query(query)
             .bind(account_id.as_str())
-            .execute(&*self.pool)
+            .execute(self.base.pool())
             .await
             .map_repo_error("Delete balance")?;
 
@@ -92,7 +96,7 @@ impl BalanceRepository for SqliteBalanceRepository {
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances ORDER BY last_checked_at DESC";
 
         let rows: Vec<BalanceRow> = sqlx::query_as(query)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.base.pool())
             .await
             .map_repo_error("Find all balances")?;
 
@@ -105,7 +109,7 @@ impl BalanceRepository for SqliteBalanceRepository {
 
         let rows: Vec<BalanceRow> = sqlx::query_as(query)
             .bind(threshold)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.base.pool())
             .await
             .map_repo_error("Find stale balances")?;
 

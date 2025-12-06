@@ -7,13 +7,17 @@ use neuradock_domain::custom_node::{
 };
 use neuradock_domain::shared::{DomainError, ProviderId};
 
+use crate::persistence::SqliteRepositoryBase;
+
 pub struct SqliteCustomProviderNodeRepository {
-    pool: Arc<SqlitePool>,
+    base: SqliteRepositoryBase,
 }
 
 impl SqliteCustomProviderNodeRepository {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+        Self {
+            base: SqliteRepositoryBase::new(pool),
+        }
     }
 }
 
@@ -33,7 +37,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
         .bind(&provider_id)
         .bind(name)
         .bind(base_url)
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .context("Failed to insert custom provider node")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
@@ -62,7 +66,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
             "#,
         )
         .bind(id_value)
-        .fetch_optional(&*self.pool)
+        .fetch_optional(self.base.pool())
         .await
         .context("Failed to query custom provider node by id")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
@@ -98,7 +102,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
             "#,
         )
         .bind(&provider_id_str)
-        .fetch_all(&*self.pool)
+        .fetch_all(self.base.pool())
         .await
         .context("Failed to query custom provider nodes by provider")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
@@ -134,7 +138,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
             ORDER BY provider_id, created_at ASC
             "#,
         )
-        .fetch_all(&*self.pool)
+        .fetch_all(self.base.pool())
         .await
         .context("Failed to query all custom provider nodes")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
@@ -177,7 +181,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
         .bind(name)
         .bind(base_url)
         .bind(id_value)
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .context("Failed to update custom provider node")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
@@ -194,7 +198,7 @@ impl CustomProviderNodeRepository for SqliteCustomProviderNodeRepository {
             "#,
         )
         .bind(id_value)
-        .execute(&*self.pool)
+        .execute(self.base.pool())
         .await
         .context("Failed to delete custom provider node")
         .map_err(|e| DomainError::Repository(e.to_string()))?;
