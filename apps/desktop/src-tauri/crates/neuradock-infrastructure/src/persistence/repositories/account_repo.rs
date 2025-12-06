@@ -267,11 +267,6 @@ impl AccountRepository for SqliteAccountRepository {
 
         let elapsed = start.elapsed();
         let count = rows.len();
-        info!(
-            "📊 find_all(): {:.2}ms, {} accounts",
-            elapsed.as_secs_f64() * 1000.0,
-            count
-        );
         
         if elapsed.as_millis() > 100 {
             warn!(
@@ -281,7 +276,28 @@ impl AccountRepository for SqliteAccountRepository {
             );
         }
 
-        rows.into_iter().map(|row| row.to_account(&self.encryption)).collect()
+        // Graceful degradation: if one account fails to load (e.g. decryption error),
+        // log it and continue with the others.
+        let accounts = rows
+            .into_iter()
+            .filter_map(|row| {
+                match row.to_account(&self.encryption) {
+                    Ok(account) => Some(account),
+                    Err(e) => {
+                        tracing::error!("Failed to load account: {}", e);
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        info!(
+            "📊 find_all(): {:.2}ms, {} accounts loaded",
+            elapsed.as_secs_f64() * 1000.0,
+            count
+        );
+
+        Ok(accounts)
     }
 
     async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
@@ -300,13 +316,27 @@ impl AccountRepository for SqliteAccountRepository {
 
         let elapsed = start.elapsed();
         let count = rows.len();
+        
+        let accounts = rows
+            .into_iter()
+            .filter_map(|row| {
+                match row.to_account(&self.encryption) {
+                    Ok(account) => Some(account),
+                    Err(e) => {
+                        tracing::error!("Failed to load enabled account: {}", e);
+                        None
+                    }
+                }
+            })
+            .collect();
+
         info!(
-            "📊 find_enabled(): {:.2}ms, {} accounts",
+            "📊 find_enabled(): {:.2}ms, {} accounts loaded",
             elapsed.as_secs_f64() * 1000.0,
             count
         );
 
-        rows.into_iter().map(|row| row.to_account(&self.encryption)).collect()
+        Ok(accounts)
     }
 
     async fn delete(&self, id: &AccountId) -> Result<(), DomainError> {
