@@ -30,6 +30,8 @@ impl AccountQueryService {
             self.account_repo.find_all().await?
         };
 
+        use crate::application::dtos::AccountDtoMapper;
+
         let now = Utc::now();
         let dtos = accounts
             .iter()
@@ -39,45 +41,9 @@ impl AccountQueryService {
                     .map(|p| p.name().to_string())
                     .unwrap_or_else(|| "Unknown".to_string());
 
-                // Check if balance is stale (> 24 hours old)
-                let is_balance_stale = acc.is_balance_stale(24);
-
-                // Consider account "online" if session is valid OR balance check is recent (< 24 hours)
-                let is_online = acc.is_session_valid() || !is_balance_stale;
-
-                // Calculate session expiration info
-                let session_expires_at = acc.session_expires_at();
-                let (session_expires_soon, session_days_remaining) = match session_expires_at {
-                    Some(expires_at) => {
-                        let duration = expires_at.signed_duration_since(now);
-                        let days_remaining = duration.num_days();
-                        let expires_soon = days_remaining <= 7; // Warn if expires within 7 days
-                        (expires_soon, Some(days_remaining.max(0)))
-                    }
-                    None => (false, None),
-                };
-
-                AccountDto {
-                    id: acc.id().as_str().to_string(),
-                    name: acc.name().to_string(),
-                    provider_id: acc.provider_id().as_str().to_string(),
-                    provider_name,
-                    enabled: acc.is_enabled(),
-                    last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
-                    created_at: acc.created_at().to_rfc3339(),
-                    auto_checkin_enabled: acc.auto_checkin_enabled(),
-                    auto_checkin_hour: acc.auto_checkin_hour(),
-                    auto_checkin_minute: acc.auto_checkin_minute(),
-                    last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
-                    current_balance: acc.current_balance(),
-                    total_consumed: acc.total_consumed(),
-                    total_income: acc.total_income(),
-                    is_balance_stale,
-                    is_online,
-                    session_expires_at: session_expires_at.map(|dt| dt.to_rfc3339()),
-                    session_expires_soon,
-                    session_days_remaining,
-                }
+                AccountDtoMapper::new(acc, provider_name)
+                    .with_time(now)
+                    .to_dto()
             })
             .collect();
 
@@ -95,6 +61,8 @@ impl AccountQueryService {
         let account_id = AccountId::from_string(account_id);
         let account = self.account_repo.find_by_id(&account_id).await?;
 
+        use crate::application::dtos::AccountDtoMapper;
+
         let now = Utc::now();
         Ok(account.map(|acc| {
             let provider_name = providers
@@ -102,42 +70,9 @@ impl AccountQueryService {
                 .map(|p| p.name().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
 
-            let is_balance_stale = acc.is_balance_stale(24);
-            let is_online = acc.is_session_valid() || !is_balance_stale;
-
-            // Calculate session expiration info
-            let session_expires_at = acc.session_expires_at();
-            let (session_expires_soon, session_days_remaining) = match session_expires_at {
-                Some(expires_at) => {
-                    let duration = expires_at.signed_duration_since(now);
-                    let days_remaining = duration.num_days();
-                    let expires_soon = days_remaining <= 7;
-                    (expires_soon, Some(days_remaining.max(0)))
-                }
-                None => (false, None),
-            };
-
-            AccountDto {
-                id: acc.id().as_str().to_string(),
-                name: acc.name().to_string(),
-                provider_id: acc.provider_id().as_str().to_string(),
-                provider_name,
-                enabled: acc.is_enabled(),
-                last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
-                created_at: acc.created_at().to_rfc3339(),
-                auto_checkin_enabled: acc.auto_checkin_enabled(),
-                auto_checkin_hour: acc.auto_checkin_hour(),
-                auto_checkin_minute: acc.auto_checkin_minute(),
-                last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
-                current_balance: acc.current_balance(),
-                total_consumed: acc.total_consumed(),
-                total_income: acc.total_income(),
-                is_balance_stale,
-                is_online,
-                session_expires_at: session_expires_at.map(|dt| dt.to_rfc3339()),
-                session_expires_soon,
-                session_days_remaining,
-            }
+            AccountDtoMapper::new(&acc, provider_name)
+                .with_time(now)
+                .to_dto()
         }))
     }
 

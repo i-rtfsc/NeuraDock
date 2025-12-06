@@ -647,28 +647,17 @@ pub async fn get_account_detail(
         .map_err(|e| e.to_string())?
         .ok_or("Account not found")?;
 
+    use crate::application::dtos::AccountDetailDtoMapper;
+
     let providers = get_builtin_providers();
     let provider_name = providers
         .get(account.provider_id().as_str())
         .map(|p| p.name().to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
-    Ok(AccountDetailDto {
-        id: account.id().as_str().to_string(),
-        name: account.name().to_string(),
-        provider_id: account.provider_id().as_str().to_string(),
-        provider_name,
-        api_user: account.credentials().api_user().to_string(),
-        cookies: account.credentials().cookies().clone(),
-        cookies_count: account.credentials().cookies().len() as i32,
-        enabled: account.is_enabled(),
-        last_check_in: account.last_check_in().map(|dt| dt.to_rfc3339()),
-        last_balance: None,
-        created_at: account.created_at().to_rfc3339(),
-        auto_checkin_enabled: account.auto_checkin_enabled(),
-        auto_checkin_hour: account.auto_checkin_hour(),
-        auto_checkin_minute: account.auto_checkin_minute(),
-    })
+    Ok(AccountDetailDtoMapper::new(&account, provider_name)
+        .with_balance(None)
+        .to_dto())
 }
 
 #[tauri::command]

@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 
+use neuradock_domain::account::Account;
 use neuradock_domain::check_in::Balance;
 
-mod token_dto;
+pub mod token_dto;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AccountDto {
@@ -62,6 +63,120 @@ impl From<Balance> for BalanceDto {
             current_balance: b.current_balance,
             total_consumed: b.total_consumed,
             total_income: b.total_income,
+        }
+    }
+}
+
+// ============================================================
+// Account DTO Conversions
+// ============================================================
+
+/// Helper struct for Account -> AccountDto conversion
+/// Provides provider name which is not part of the domain model
+pub struct AccountDtoMapper<'a> {
+    pub provider_name: String,
+    pub now: DateTime<Utc>,
+    account: &'a Account,
+}
+
+impl<'a> AccountDtoMapper<'a> {
+    pub fn new(account: &'a Account, provider_name: String) -> Self {
+        Self {
+            provider_name,
+            now: Utc::now(),
+            account,
+        }
+    }
+
+    pub fn with_time(mut self, now: DateTime<Utc>) -> Self {
+        self.now = now;
+        self
+    }
+
+    pub fn to_dto(self) -> AccountDto {
+        let acc = self.account;
+
+        // Check if balance is stale (> 24 hours old)
+        let is_balance_stale = acc.is_balance_stale(24);
+
+        // Consider account "online" if session is valid OR balance check is recent
+        let is_online = acc.is_session_valid() || !is_balance_stale;
+
+        // Calculate session expiration info
+        let session_expires_at = acc.session_expires_at();
+        let (session_expires_soon, session_days_remaining) = match session_expires_at {
+            Some(expires_at) => {
+                let duration = expires_at.signed_duration_since(self.now);
+                let days_remaining = duration.num_days();
+                let expires_soon = days_remaining <= 7;
+                (expires_soon, Some(days_remaining.max(0)))
+            }
+            None => (false, None),
+        };
+
+        AccountDto {
+            id: acc.id().as_str().to_string(),
+            name: acc.name().to_string(),
+            provider_id: acc.provider_id().as_str().to_string(),
+            provider_name: self.provider_name,
+            enabled: acc.is_enabled(),
+            last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
+            created_at: acc.created_at().to_rfc3339(),
+            auto_checkin_enabled: acc.auto_checkin_enabled(),
+            auto_checkin_hour: acc.auto_checkin_hour(),
+            auto_checkin_minute: acc.auto_checkin_minute(),
+            last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
+            current_balance: acc.current_balance(),
+            total_consumed: acc.total_consumed(),
+            total_income: acc.total_income(),
+            is_balance_stale,
+            is_online,
+            session_expires_at: session_expires_at.map(|dt| dt.to_rfc3339()),
+            session_expires_soon,
+            session_days_remaining,
+        }
+    }
+}
+
+/// Helper for AccountDetailDto conversion
+pub struct AccountDetailDtoMapper<'a> {
+    pub provider_name: String,
+    account: &'a Account,
+    pub last_balance: Option<BalanceDto>,
+}
+
+impl<'a> AccountDetailDtoMapper<'a> {
+    pub fn new(account: &'a Account, provider_name: String) -> Self {
+        Self {
+            provider_name,
+            account,
+            last_balance: None,
+        }
+    }
+
+    pub fn with_balance(mut self, balance: Option<BalanceDto>) -> Self {
+        self.last_balance = balance;
+        self
+    }
+
+    pub fn to_dto(self) -> AccountDetailDto {
+        let acc = self.account;
+
+        AccountDetailDto {
+            id: acc.id().as_str().to_string(),
+            name: acc.name().to_string(),
+            provider_id: acc.provider_id().as_str().to_string(),
+            provider_name: self.provider_name,
+            api_user: acc.credentials().api_user().to_string(),
+            cookies: acc.credentials().cookies().clone(),
+            cookies_count: acc.credentials().cookies().len() as i32,
+            enabled: acc.is_enabled(),
+            last_check_in: acc.last_check_in().map(|dt| dt.to_rfc3339()),
+            last_balance: self.last_balance,
+            created_at: acc.created_at().to_rfc3339(),
+            auto_checkin_enabled: acc.auto_checkin_enabled(),
+            auto_checkin_hour: acc.auto_checkin_hour(),
+            auto_checkin_minute: acc.auto_checkin_minute(),
         }
     }
 }
