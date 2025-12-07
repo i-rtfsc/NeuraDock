@@ -16,6 +16,8 @@ import { NotificationChannelList } from '@/components/notification/NotificationC
 import { useNotificationChannels } from '@/hooks/useNotificationChannels';
 import { cn } from '@/lib/utils';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type SettingSection = 'appearance' | 'performance' | 'notifications' | 'developer' | 'about';
 
@@ -99,11 +101,58 @@ export function SettingsPage() {
     }
   };
 
+  const sidebarContent = (
+    <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden h-full">
+      <ScrollArea className="h-full">
+        <div className="p-2 space-y-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className={cn(
+                    "text-sm font-medium truncate",
+                    isActive && "font-semibold"
+                  )}>
+                    {t(item.labelKey)}
+                  </div>
+                  <div className={cn(
+                    "text-xs truncate mt-0.5",
+                    isActive
+                      ? "text-primary-foreground/80"
+                      : "text-muted-foreground/70"
+                  )}>
+                    {t(item.descKey)}
+                  </div>
+                </div>
+                {isActive && (
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </Card>
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'appearance':
         return (
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle>{t('settings.appearance')}</CardTitle>
               <CardDescription>{t('settings.appearanceDescription')}</CardDescription>
@@ -181,7 +230,7 @@ export function SettingsPage() {
 
       case 'performance':
         return (
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle>{t('settings.dataPerformance')}</CardTitle>
               <CardDescription>{t('settings.dataPerformanceDescription')}</CardDescription>
@@ -229,7 +278,7 @@ export function SettingsPage() {
 
       case 'notifications':
         return (
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle>{t('settings.notification')}</CardTitle>
               <CardDescription>{t('settings.notificationDescription')}</CardDescription>
@@ -254,7 +303,7 @@ export function SettingsPage() {
 
       case 'developer':
         return (
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle>{t('settings.developer')}</CardTitle>
               <CardDescription>{t('settings.developerDescription')}</CardDescription>
@@ -321,7 +370,7 @@ export function SettingsPage() {
       case 'about':
         return (
           <div className="space-y-6">
-            <Card className="rounded-2xl">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardHeader>
                 <CardTitle>{t('settings.about')}</CardTitle>
                 <CardDescription>{t('settings.aboutDescription')}</CardDescription>
@@ -375,64 +424,14 @@ export function SettingsPage() {
 
   return (
     <PageContainer 
-      className="space-y-6 w-full"
+      className="h-full overflow-hidden"
       title={t('settings.title')}
     >
-      {/* Header Removed */}
-
-      {/* Main Layout: Sidebar + Content */}
-      <div className="flex gap-6">
-        {/* Left Sidebar Navigation */}
-        <nav className="w-64 shrink-0">
-          <Card className="rounded-2xl p-2">
-            <div className="space-y-1">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeSection === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSection(item.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className={cn(
-                        "text-sm font-medium truncate",
-                        isActive && "font-semibold"
-                      )}>
-                        {t(item.labelKey)}
-                      </div>
-                      <div className={cn(
-                        "text-xs truncate mt-0.5",
-                        isActive
-                          ? "text-primary-foreground/80"
-                          : "text-muted-foreground/70"
-                      )}>
-                        {t(item.descKey)}
-                      </div>
-                    </div>
-                    {isActive && (
-                      <ChevronRight className="h-4 w-4 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-        </nav>
-
-        {/* Right Content Area */}
-        <div className="flex-1 min-w-0">
+      <SidebarPageLayout sidebar={sidebarContent}>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {renderContent()}
         </div>
-      </div>
+      </SidebarPageLayout>
     </PageContainer>
   );
 }
