@@ -147,7 +147,7 @@ export function CheckInStreaksPage() {
             
             {providerGroups.map((group) => (
               <div key={group.providerId} className="mt-4 first:mt-2">
-                <div className="px-3 mb-1 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider flex items-center gap-2">
+                <div className="px-3 mb-1 text-xs font-semibold text-muted-foreground/50 tracking-wider flex items-center gap-2">
                   <Box className="h-3 w-3" />
                   {group.providerName}
                 </div>
