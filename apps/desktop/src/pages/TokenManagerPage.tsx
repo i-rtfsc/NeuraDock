@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
-import { AccountSelector } from '@/components/token/AccountSelector';
 import { TokenList } from '@/components/token/TokenList';
 import { ConfigDialog } from '@/components/token/ConfigDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -21,12 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Plus, Trash2, Server, XCircle } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Server, XCircle, Search, Layers, Box } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { TokenDto, AccountDto, ProviderNode } from '@/types/token';
+import { cn } from '@/lib/utils';
 
 import { PageContainer } from '@/components/layout/PageContainer';
+import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
 
 export function TokenManagerPage() {
   const { t } = useTranslation();
@@ -34,6 +37,7 @@ export function TokenManagerPage() {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState<TokenDto | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Node management state
   const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
@@ -52,9 +56,38 @@ export function TokenManagerPage() {
   });
 
   // Filter to AnyRouter/AgentRouter accounts
-  const tokenProviders = accounts.filter(
-    (acc) => acc.provider_id === 'anyrouter' || acc.provider_id === 'agentrouter'
-  );
+  const tokenProviders = useMemo(() => {
+    const filtered = accounts.filter(
+      (acc) => acc.provider_id === 'anyrouter' || acc.provider_id === 'agentrouter'
+    );
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return filtered.filter(
+        (acc) =>
+          acc.name.toLowerCase().includes(query) ||
+          acc.provider_name.toLowerCase().includes(query)
+      );
+    }
+    return filtered;
+  }, [accounts, searchQuery]);
+
+  // Group accounts by provider
+  const providerGroups = useMemo(() => {
+    const groupsMap = new Map<string, { providerId: string; providerName: string; accounts: AccountDto[] }>();
+
+    tokenProviders.forEach((account) => {
+      if (!groupsMap.has(account.provider_id)) {
+        groupsMap.set(account.provider_id, {
+          providerId: account.provider_id,
+          providerName: account.provider_name,
+          accounts: [],
+        });
+      }
+      groupsMap.get(account.provider_id)!.accounts.push(account);
+    });
+
+    return Array.from(groupsMap.values());
+  }, [tokenProviders]);
 
   // Get tokens for selected account
   const {
@@ -168,9 +201,64 @@ export function TokenManagerPage() {
     }
   };
 
+  const sidebarContent = (
+    <>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={t('accounts.searchPlaceholder')}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
+        />
+      </div>
+      
+      <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-2 space-y-1">
+            {providerGroups.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                {t('token.noAccounts', 'No accounts found')}
+              </div>
+            ) : (
+              providerGroups.map((group) => (
+                <div key={group.providerId} className="mt-4 first:mt-2">
+                  <div className="px-3 mb-1 text-xs font-semibold text-muted-foreground/50 tracking-wider flex items-center gap-2">
+                    <Box className="h-3 w-3" />
+                    {group.providerName}
+                  </div>
+                  <div className="space-y-1">
+                    {group.accounts.map((account) => {
+                      const isActive = selectedAccount === account.id;
+                      return (
+                        <button
+                          key={account.id}
+                          onClick={() => setSelectedAccount(account.id)}
+                          title={account.name}
+                          className={cn(
+                            "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                            isActive 
+                              ? "bg-primary text-primary-foreground shadow-sm" 
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          <span className="truncate">{account.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </Card>
+    </>
+  );
+
   return (
     <PageContainer 
-      className="space-y-6"
+      className="h-full overflow-hidden"
       title={t('token.title', 'Token Manager')}
       actions={
         <>
@@ -202,23 +290,23 @@ export function TokenManagerPage() {
         </>
       }
     >
-      {/* Header Removed */}
-
-      {/* Account Selector */}
-      <AccountSelector
-        accounts={tokenProviders}
-        selectedAccount={selectedAccount}
-        onSelectAccount={setSelectedAccount}
-      />
-
-      {/* Token List */}
-      {selectedAccount && (
-        <TokenList
-          tokens={tokens}
-          isLoading={isLoading}
-          onConfigureToken={handleConfigureToken}
-        />
-      )}
+      <SidebarPageLayout sidebar={sidebarContent}>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {selectedAccount ? (
+            <TokenList
+              tokens={tokens}
+              isLoading={isLoading}
+              onConfigureToken={handleConfigureToken}
+            />
+          ) : (
+            <Card className="border-dashed bg-muted/30">
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <p className="text-muted-foreground">{t('token.selectAccountPlaceholder', 'Select an account to view tokens')}</p>
+              </div>
+            </Card>
+          )}
+        </div>
+      </SidebarPageLayout>
 
       {/* Config Dialog */}
       <ConfigDialog
