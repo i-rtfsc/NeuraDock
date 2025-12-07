@@ -41,7 +41,12 @@
     --border: 40 10% 89%;
     --input: 40 10% 90%;
     --ring: 221 83% 53%;
-    --radius: 1rem;
+    
+    /* Radius Tokens */
+    --radius-sm: 0.5rem;    /* 8px - Badges, Small Inputs */
+    --radius-md: 0.75rem;   /* 12px - Buttons, Inputs, Popovers */
+    --radius-lg: 1rem;      /* 16px - Cards, Dialogs */
+    --radius-full: 9999px;  /* Pills, Avatars */
     
     /* macOS specific - warm tones */
     --sidebar: 40 15% 97%;

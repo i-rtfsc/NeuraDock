@@ -43,12 +43,11 @@ export default {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
-        xl: '1rem',
-        '2xl': '1.25rem',
-        '3xl': '1.5rem',
+        lg: 'var(--radius-lg)',
+        md: 'var(--radius-md)',
+        sm: 'var(--radius-sm)',
+        full: 'var(--radius-full)',
+        DEFAULT: 'var(--radius-md)',
       },
       boxShadow: {
         'macos': '0 4px 24px rgba(0, 0, 0, 0.08)',
