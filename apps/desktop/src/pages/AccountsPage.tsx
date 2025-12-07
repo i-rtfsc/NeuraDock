@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Upload, Search, RefreshCw, Layers, Box } from 'lucide-react';
+import { Plus, Upload, Search, RefreshCw, Layers, Box, Wallet, TrendingUp, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -236,33 +236,44 @@ export function AccountsPage() {
     >
       <SidebarPageLayout sidebar={sidebarContent}>
         <div className="space-y-8">
-          {/* Statistics - Clean Band Design */}
+          {/* Statistics - Cards Design */}
           {filteredStatistics && (
-            <div className="flex items-center justify-between px-1 py-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                  {t('dashboard.stats.totalIncome')}
-                </span>
-                <span className="text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="p-1.5 rounded-md bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.totalIncome')}</span>
+                </div>
+                <span className="text-2xl font-bold tracking-tight text-foreground">
                   ${filteredStatistics.total_income.toFixed(2)}
                 </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                  {t('dashboard.stats.historicalConsumption')}
-                </span>
-                <span className="text-2xl font-bold tracking-tight text-orange-600 dark:text-orange-400">
+              </Card>
+
+              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="p-1.5 rounded-md bg-orange-100/50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                    <History className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.historicalConsumption')}</span>
+                </div>
+                <span className="text-2xl font-bold tracking-tight text-foreground">
                   ${filteredStatistics.total_consumed.toFixed(2)}
                 </span>
-              </div>
-              <div className="flex flex-col gap-1 text-right">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                  {t('dashboard.stats.currentBalance')}
-                </span>
-                <span className="text-2xl font-bold tracking-tight text-green-600 dark:text-green-400">
+              </Card>
+
+              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="p-1.5 rounded-md bg-green-100/50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                    <Wallet className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.currentBalance')}</span>
+                </div>
+                <span className="text-2xl font-bold tracking-tight text-foreground">
                   ${filteredStatistics.total_current_balance.toFixed(2)}
                 </span>
-              </div>
+              </Card>
             </div>
           )}
 

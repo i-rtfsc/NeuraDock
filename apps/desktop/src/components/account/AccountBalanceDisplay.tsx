@@ -25,11 +25,11 @@ export function AccountBalanceDisplay({
 
   return (
     <div className="relative group/balance">
-      {/* Refresh Button - Only visible on hover */}
+      {/* Refresh Button - Always visible */}
       <Button
         variant="ghost"
         size="icon"
-        className="absolute -top-2 -right-2 h-6 w-6 rounded-full z-10 opacity-0 group-hover/balance:opacity-100 transition-opacity"
+        className="absolute -top-2 -right-2 h-6 w-6 rounded-full z-10 text-muted-foreground/50 hover:text-foreground transition-colors"
         onClick={(e) => {
           e.stopPropagation();
           onRefresh();
