@@ -176,17 +176,17 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
               <Card 
                 key={channel.id} 
                 className={cn(
-                  "rounded-2xl border-2 transition-all duration-200",
+                  "rounded-xl border-none shadow-sm transition-all duration-200",
                   channel.enabled 
-                    ? "border-primary/20 bg-primary/5" 
-                    : "border-border/50 opacity-60 hover:opacity-100"
+                    ? "bg-primary/5 ring-1 ring-primary/20" 
+                    : "bg-muted/30 hover:bg-muted/50"
                 )}
               >
                 <CardContent className="py-4">
                   <div className="flex items-center gap-4">
                     {/* Icon */}
                     <div className={cn(
-                      "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
+                      "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
                       getChannelTypeColor(channel.channel_type)
                     )}>
                       <Icon className="h-6 w-6" />
@@ -199,12 +199,12 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                           {getChannelTypeName(channel.channel_type)}
                         </h4>
                         {channel.enabled ? (
-                          <Badge variant="default" className="rounded-full px-2 py-0.5">
+                          <Badge variant="default" className="rounded-full px-2 py-0.5 text-[10px] h-5">
                             <Check className="h-3 w-3 mr-1" />
                             {t('notification.enabled')}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="rounded-full px-2 py-0.5">
+                          <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] h-5">
                             <X className="h-3 w-3 mr-1" />
                             {t('notification.disabled')}
                           </Badge>
