@@ -29,7 +29,7 @@ export function AccountBalanceDisplay({
       <Button
         variant="ghost"
         size="icon"
-        className="absolute -top-2 -right-2 h-6 w-6 rounded-full z-10 text-muted-foreground/50 hover:text-foreground transition-colors"
+        className="absolute top-0 right-0 h-6 w-6 rounded-full z-10 text-muted-foreground/50 hover:text-foreground transition-colors"
         onClick={(e) => {
           e.stopPropagation();
           onRefresh();
@@ -40,10 +40,10 @@ export function AccountBalanceDisplay({
         <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
       </Button>
 
-      <div className="space-y-2">
+      <div className="space-y-2 pt-1">
         {balance ? (
           <>
-            <div className="flex justify-between items-baseline">
+            <div className="flex justify-between items-baseline pr-7">
               <span className="text-xs text-muted-foreground">{t('accountCard.currentBalance')}</span>
               <span className="font-bold text-sm text-green-600 dark:text-green-400 truncate max-w-[120px]" title={formatCurrency(balance.current_balance)}>
                 {formatCurrency(balance.current_balance)}

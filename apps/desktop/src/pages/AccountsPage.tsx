@@ -288,12 +288,12 @@ export function AccountsPage() {
                 const enabledCount = providerAccounts.filter(a => a.enabled).length;
                 
                 return (
-                  <div key={providerId} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <Card key={providerId} className="animate-in fade-in slide-in-from-bottom-4 duration-500 border-border/50 shadow-sm overflow-hidden">
                     {/* Provider Header */}
-                    <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
                       <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold tracking-tight">{providerName}</h2>
-                        <Badge variant="secondary" className="rounded-full px-2.5 text-xs">
+                        <h2 className="text-base font-semibold tracking-tight">{providerName}</h2>
+                        <Badge variant="secondary" className="rounded-full px-2.5 text-xs bg-background/50">
                           {providerAccounts.length}
                         </Badge>
                       </div>
@@ -303,7 +303,7 @@ export function AccountsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 text-muted-foreground hover:text-foreground"
+                              className="h-7 text-muted-foreground hover:text-foreground hover:bg-background/50"
                               onClick={() => handleRefreshProviderBalances(providerAccounts)}
                               disabled={refreshAllBalancesMutation.isPending}
                             >
@@ -320,7 +320,7 @@ export function AccountsPage() {
                     </div>
 
                     {/* Accounts Grid */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+                    <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
                       {providerAccounts.map((account) => (
                         <AccountCard
                           key={account.id}
@@ -329,7 +329,7 @@ export function AccountsPage() {
                         />
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
