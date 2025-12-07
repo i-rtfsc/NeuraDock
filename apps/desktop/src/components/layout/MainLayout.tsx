@@ -49,7 +49,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             </Button>
           </div>
           
-          <div className="flex-1 overflow-auto p-0 pt-12 scrollbar-hide relative z-0">
+          <div className="flex-1 overflow-auto p-0 pt-8 scrollbar-hide relative z-0">
             {children}
           </div>
         </div>

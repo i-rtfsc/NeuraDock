@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Upload, Search, DollarSign, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,10 +36,20 @@ export function AccountsPage() {
     handleDialogClose 
   } = useAccountActions();
   const { t } = useTranslation();
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedProvider = searchParams.get('provider') || 'all';
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [jsonImportDialogOpen, setJsonImportDialogOpen] = useState(false);
   const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>('all');
+
+  const setSelectedProvider = (value: string) => {
+    setSearchParams(prev => {
+      prev.set('provider', value);
+      return prev;
+    });
+  };
 
   // Filter accounts
   const filteredAccounts = useMemo(() => {
@@ -91,6 +102,25 @@ export function AccountsPage() {
     }, {} as Record<string, Account[]>);
   }, [filteredAccounts]);
 
+  // Calculate filtered statistics based on selected provider
+  const filteredStatistics = useMemo(() => {
+    if (!statistics) return null;
+    
+    if (selectedProvider === 'all') {
+      return statistics;
+    }
+
+    const providerStats = statistics.providers.find(p => p.provider_id === selectedProvider);
+    if (!providerStats) return null;
+
+    return {
+      ...statistics,
+      total_income: providerStats.total_income,
+      total_consumed: providerStats.total_consumed,
+      total_current_balance: providerStats.current_balance,
+    };
+  }, [statistics, selectedProvider]);
+
 
 
 
@@ -138,14 +168,14 @@ export function AccountsPage() {
       </div>
 
       {/* Statistics Cards */}
-      {statistics && (
+      {filteredStatistics && (
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-950/20 border-blue-100 dark:border-blue-900/50">
             <CardContent className="p-6 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalIncome')}</p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  ${statistics.total_income.toFixed(2)}
+                  ${filteredStatistics.total_income.toFixed(2)}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
@@ -158,7 +188,7 @@ export function AccountsPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  ${statistics.total_consumed.toFixed(2)}
+                  ${filteredStatistics.total_consumed.toFixed(2)}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center">
@@ -171,7 +201,7 @@ export function AccountsPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  ${statistics.total_current_balance.toFixed(2)}
+                  ${filteredStatistics.total_current_balance.toFixed(2)}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
@@ -183,9 +213,24 @@ export function AccountsPage() {
       )}
 
       {/* Toolbar & Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2 -mx-2 px-2">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between py-2">
+        <div className="flex items-center gap-4 flex-1 w-full">
+          {/* Provider Tabs - Now on the Left */}
+          {allProviders.length > 0 && (
+            <Tabs value={selectedProvider} onValueChange={setSelectedProvider} className="w-full md:w-auto">
+              <TabsList className="bg-muted/50 w-full md:w-auto overflow-x-auto justify-start">
+                <TabsTrigger value="all">All</TabsTrigger>
+                {allProviders.map(p => (
+                  <TabsTrigger key={p.id} value={p.id}>{p.name}</TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+
+          <div className="flex-1 hidden md:block" />
+
+          {/* Search Bar - Now on the Right */}
+          <div className="relative w-full md:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t('accounts.searchPlaceholder')}
@@ -194,18 +239,6 @@ export function AccountsPage() {
               className="pl-9 bg-muted/50 border-muted-foreground/20"
             />
           </div>
-          
-          {/* Provider Tabs */}
-          {allProviders.length > 0 && (
-            <Tabs value={selectedProvider} onValueChange={setSelectedProvider} className="hidden md:block">
-              <TabsList className="bg-muted/50">
-                <TabsTrigger value="all">All</TabsTrigger>
-                {allProviders.map(p => (
-                  <TabsTrigger key={p.id} value={p.id}>{p.name}</TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          )}
         </div>
       </div>
 
