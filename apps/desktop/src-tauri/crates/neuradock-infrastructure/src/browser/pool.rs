@@ -6,7 +6,7 @@ use neuradock_domain::shared::DomainError;
 
 /// Browser instance with metadata
 struct BrowserInstance {
-    browser: Browser,
+    browser: Arc<Browser>,
     created_at: Instant,
     last_used: Instant,
     usage_count: usize,
@@ -91,14 +91,14 @@ impl BrowserPool {
                 now.duration_since(instance.created_at).as_secs()
             );
             
-            instance.browser.clone()
+            Arc::clone(&instance.browser)
         } else {
             // Create new browser
             tracing::info!("Creating new browser instance (pool size: {})", pool.len());
             
             drop(pool); // Release lock before launching browser
             
-            let browser = tokio::time::timeout(
+            let (browser, _handler) = tokio::time::timeout(
                 Duration::from_secs(self.config.launch_timeout),
                 Browser::launch(self.browser_config.clone())
             )
@@ -106,9 +106,10 @@ impl BrowserPool {
             .map_err(|_| DomainError::Infrastructure("Browser launch timeout".to_string()))?
             .map_err(|e| DomainError::Infrastructure(format!("Failed to launch browser: {}", e)))?;
 
+            let browser = Arc::new(browser);
             let mut pool = self.pool.lock().await;
             pool.push(BrowserInstance {
-                browser: browser.clone(),
+                browser: Arc::clone(&browser),
                 created_at: now,
                 last_used: now,
                 usage_count: 1,
@@ -167,7 +168,7 @@ impl BrowserPool {
 
 /// Pooled browser with automatic return to pool
 pub struct PooledBrowser {
-    browser: Browser,
+    browser: Arc<Browser>,
     pool: Arc<Mutex<Vec<BrowserInstance>>>,
     _permit: tokio::sync::OwnedSemaphorePermit,
 }

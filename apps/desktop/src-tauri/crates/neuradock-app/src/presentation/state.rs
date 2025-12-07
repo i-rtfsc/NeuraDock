@@ -2,7 +2,7 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Manager;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;

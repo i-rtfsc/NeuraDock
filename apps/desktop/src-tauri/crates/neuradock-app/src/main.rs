@@ -5,14 +5,11 @@ mod presentation;
 
 // Use external crates
 use neuradock_domain as domain;
-use neuradock_infrastructure as infrastructure;
 
 use presentation::commands::*;
 use presentation::state::AppState;
 use specta_typescript::Typescript;
-use std::sync::Arc;
 use tauri::Manager;
-use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_specta::{collect_commands, collect_events, Builder};
 use tokio::sync::OnceCell;
 

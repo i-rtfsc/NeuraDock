@@ -1,5 +1,4 @@
 use crate::application::commands::account_commands::*;
-use crate::application::commands::check_in_commands::*;
 use crate::application::commands::notification_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::services::CheckInExecutor;
@@ -476,7 +475,7 @@ pub async fn execute_check_in(
     account_id: String,
     state: State<'_, AppState>,
 ) -> Result<ExecuteCheckInResult, String> {
-    use crate::application::commands::check_in_commands::{ExecuteCheckInCommand, CheckInCommandResult};
+    use crate::application::commands::check_in_commands::ExecuteCheckInCommand;
 
     log::info!(
         "=== execute_check_in command called for account: {} ===",
@@ -512,7 +511,7 @@ pub async fn execute_batch_check_in(
     account_ids: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<BatchCheckInResult, String> {
-    use crate::application::commands::check_in_commands::{BatchExecuteCheckInCommand, BatchCheckInCommandResult};
+    use crate::application::commands::check_in_commands::BatchExecuteCheckInCommand;
 
     let command = BatchExecuteCheckInCommand { account_ids };
 

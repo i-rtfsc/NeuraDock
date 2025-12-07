@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::Utc;
 use log::{error, info};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
