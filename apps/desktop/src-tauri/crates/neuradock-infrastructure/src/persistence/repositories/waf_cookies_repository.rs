@@ -66,7 +66,11 @@ impl SqliteWafCookiesRepository {
     }
 
     /// Save or update WAF cookies for a provider
-    pub async fn save(&self, provider_id: &str, cookies: &HashMap<String, String>) -> Result<(), DomainError> {
+    pub async fn save(
+        &self,
+        provider_id: &str,
+        cookies: &HashMap<String, String>,
+    ) -> Result<(), DomainError> {
         let cookies_json = serde_json::to_string(cookies)
             .map_err(|e| DomainError::Validation(format!("Failed to serialize cookies: {}", e)))?;
 
@@ -91,7 +95,11 @@ impl SqliteWafCookiesRepository {
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save WAF cookies"))?;
 
-        log::info!("WAF cookies saved for provider {}, expires at {}", provider_id, expires_at);
+        log::info!(
+            "WAF cookies saved for provider {}, expires at {}",
+            provider_id,
+            expires_at
+        );
 
         Ok(())
     }
@@ -114,8 +122,11 @@ impl SqliteWafCookiesRepository {
             Some(row) => {
                 let waf_cookies = self.row_to_domain(row)?;
                 if waf_cookies.is_valid() {
-                    log::info!("Using cached WAF cookies for provider {}, expires at {}",
-                        provider_id, waf_cookies.expires_at);
+                    log::info!(
+                        "Using cached WAF cookies for provider {}, expires at {}",
+                        provider_id,
+                        waf_cookies.expires_at
+                    );
                     Ok(Some(waf_cookies))
                 } else {
                     log::info!("WAF cookies for provider {} have expired", provider_id);

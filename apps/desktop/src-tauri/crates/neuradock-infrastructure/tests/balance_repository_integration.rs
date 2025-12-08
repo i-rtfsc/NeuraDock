@@ -1,10 +1,10 @@
+use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use chrono::{Utc, Duration};
 
-use neuradock_infrastructure::persistence::repositories::SqliteBalanceRepository;
 use neuradock_domain::balance::{Balance, BalanceRepository};
 use neuradock_domain::shared::AccountId;
+use neuradock_infrastructure::persistence::repositories::SqliteBalanceRepository;
 
 mod test_helpers;
 
@@ -59,12 +59,18 @@ async fn balance_repo_save_find_and_stale_integration() {
 
     // find stale balances older than 24 hours
     let stale = repo.find_stale_balances(24).await.expect("find stale");
-    let ids: Vec<String> = stale.into_iter().map(|b| b.account_id().as_str().to_string()).collect();
+    let ids: Vec<String> = stale
+        .into_iter()
+        .map(|b| b.account_id().as_str().to_string())
+        .collect();
 
     assert!(ids.contains(&stale_account.as_str().to_string()));
 
     // delete the first balance
     repo.delete(&account_id).await.expect("delete");
-    let not_found = repo.find_by_account_id(&account_id).await.expect("find after delete");
+    let not_found = repo
+        .find_by_account_id(&account_id)
+        .await
+        .expect("find after delete");
     assert!(not_found.is_none());
 }

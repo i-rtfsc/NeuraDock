@@ -23,7 +23,7 @@ pub trait EventHandler<E: DomainEvent>: Send + Sync {
 pub trait DynamicEventHandler: Send + Sync {
     /// Handle any domain event (type-erased)
     async fn handle_dynamic(&self, event: &(dyn Any + Send + Sync)) -> Result<(), DomainError>;
-    
+
     /// Get the type name this handler handles
     fn event_type_name(&self) -> &'static str;
 }

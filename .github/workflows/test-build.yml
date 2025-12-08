@@ -1,0 +1,173 @@
+name: Test Build
+
+# 用于测试构建流程，不创建 release
+on:
+  push:
+    branches:
+      - test-ci  # 临时添加，测试通过后可以删除
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '选择测试平台'
+        required: true
+        default: 'macos'
+        type: choice
+        options:
+          - macos
+          - windows
+          - linux
+          - all
+
+jobs:
+  build-macos:
+    # Push 事件时总是构建；手动触发时根据选择
+    if: github.event_name == 'push' || github.event.inputs.platform == 'macos' || github.event.inputs.platform == 'all'
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: |
+          cd apps/desktop
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        run: |
+          cd apps/desktop
+          npm run build
+
+      - name: Build Tauri app (Universal Binary)
+        run: |
+          cd apps/desktop
+          npm run tauri:build -- --target universal-apple-darwin
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuraDock-macOS-Universal
+          path: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  build-windows:
+    # Push 事件时总是构建；手动触发时根据选择
+    if: github.event_name == 'push' || github.event.inputs.platform == 'windows' || github.event.inputs.platform == 'all'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: |
+          cd apps/desktop
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        run: |
+          cd apps/desktop
+          npm run build
+
+      - name: Build Tauri app
+        run: |
+          cd apps/desktop
+          npm run tauri:build
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuraDock-Windows-x64
+          path: apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 7
+
+  build-linux:
+    # Push 事件时总是构建；手动触发时根据选择
+    if: github.event_name == 'push' || github.event.inputs.platform == 'linux' || github.event.inputs.platform == 'all'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsqlite3-dev
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: |
+          cd apps/desktop
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        run: |
+          cd apps/desktop
+          npm run build
+
+      - name: Build Tauri app
+        run: |
+          cd apps/desktop
+          npm run tauri:build
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuraDock-Linux-x64
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 7

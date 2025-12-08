@@ -1,11 +1,11 @@
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
-use neuradock_domain::shared::DomainError;
 use crate::persistence::ResultExt;
+use neuradock_domain::shared::DomainError;
 
 /// Base struct for SQLite repositories
-/// 
+///
 /// Provides common functionality:
 /// - Pool management
 /// - Error mapping
@@ -19,11 +19,11 @@ impl SqliteRepositoryBase {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
         Self { pool }
     }
-    
+
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
-    
+
     pub fn arc_pool(&self) -> Arc<SqlitePool> {
         Arc::clone(&self.pool)
     }
@@ -52,10 +52,7 @@ impl SqliteRepositoryBase {
     where
         T: Send + Unpin + for<'r> FromRow<'r, sqlx::sqlite::SqliteRow>,
     {
-        query
-            .fetch_one(self.pool())
-            .await
-            .map_repo_error(operation)
+        query.fetch_one(self.pool()).await.map_repo_error(operation)
     }
 
     /// Execute a query that returns multiple rows
@@ -67,10 +64,7 @@ impl SqliteRepositoryBase {
     where
         T: Send + Unpin + for<'r> FromRow<'r, sqlx::sqlite::SqliteRow>,
     {
-        query
-            .fetch_all(self.pool())
-            .await
-            .map_repo_error(operation)
+        query.fetch_all(self.pool()).await.map_repo_error(operation)
     }
 
     /// Execute a non-query statement (INSERT, UPDATE, DELETE)
@@ -79,11 +73,8 @@ impl SqliteRepositoryBase {
         query: sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
         operation: &str,
     ) -> Result<u64, DomainError> {
-        let result = query
-            .execute(self.pool())
-            .await
-            .map_repo_error(operation)?;
-        
+        let result = query.execute(self.pool()).await.map_repo_error(operation)?;
+
         Ok(result.rows_affected())
     }
 }
@@ -100,10 +91,10 @@ mod tests {
             .connect(":memory:")
             .await
             .unwrap();
-        
+
         let pool = Arc::new(pool);
         let repo = SqliteRepositoryBase::new(pool.clone());
-        
+
         assert!(Arc::ptr_eq(&pool, &repo.arc_pool()));
     }
 }

@@ -18,20 +18,6 @@ static STATE_CELL: OnceCell<()> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing with env filter
-    // Set RUST_LOG=debug for detailed logs, or RUST_LOG=info for normal operation
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
-        )
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_line_number(true)
-        .init();
-    
-    tracing::info!("🚀 NeuraDock starting...");
-
     let builder = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             // Account commands
@@ -91,6 +77,10 @@ async fn main() {
             fetch_provider_models,
             refresh_provider_models_with_waf,
             get_cached_provider_models,
+            // System & Logging commands
+            get_app_version,
+            log_from_frontend,
+            open_log_dir,
         ])
         .events(collect_events![
             presentation::events::CheckInProgress,
@@ -107,12 +97,41 @@ async fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let handle = app.handle().clone();
+
+            // Initialize full logging system with file output
+            let log_dir = handle
+                .path()
+                .app_log_dir()
+                .expect("Failed to get log directory")
+                .join("logs");
+
+            match neuradock_infrastructure::logging::init_logger(log_dir.clone()) {
+                Ok(_) => {
+                    tracing::info!("🚀 NeuraDock starting...");
+                    tracing::info!("📝 File logging initialized at: {}", log_dir.display());
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to initialize file logging: {}", e);
+                    eprintln!("   Falling back to console logging only");
+
+                    let _ = tracing_subscriber::fmt()
+                        .with_env_filter(
+                            tracing_subscriber::EnvFilter::try_from_default_env()
+                                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                        )
+                        .with_target(true)
+                        .with_thread_ids(true)
+                        .with_line_number(true)
+                        .try_init();
+                }
+            }
 
             // Initialize state asynchronously
             tauri::async_runtime::spawn(async move {

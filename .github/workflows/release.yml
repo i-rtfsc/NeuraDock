@@ -1,0 +1,291 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows
+          - os: ubuntu-22.04
+            platform: linux
+          - os: macos-14
+            platform: macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add macOS targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          # Core build tools
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            curl \
+            wget \
+            file \
+            patchelf \
+            libssl-dev
+          # GTK/GLib stack
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libsqlite3-dev
+          # WebKit2GTK (try 4.1 then 4.0)
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev \
+            || sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.0-dev
+          # libsoup (try 3.0 then 2.4)
+          sudo apt-get install -y --no-install-recommends libsoup-3.0-dev \
+            || sudo apt-get install -y --no-install-recommends libsoup2.4-dev
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: |
+          cd apps/desktop
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        run: |
+          cd apps/desktop
+          npm run build
+
+      - name: Build Tauri app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd apps/desktop
+          npm run tauri:build -- --target universal-apple-darwin
+
+      - name: Build Tauri app (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd apps/desktop
+          npm run tauri:build
+
+      - name: Build Tauri app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd apps/desktop
+          npm run tauri:build
+
+      - name: Prepare macOS assets
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p release-assets
+          VERSION="${GITHUB_REF_NAME:-${{ github.event.inputs.version }}}"
+
+          # Find DMG file
+          DMG=$(find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" -type f | head -1 || true)
+          if [ -z "$DMG" ]; then
+            echo "❌ No DMG found" >&2
+            exit 1
+          fi
+
+          # Copy and rename DMG
+          NEW_DMG="NeuraDock-${VERSION}-macOS-Universal.dmg"
+          cp "$DMG" "release-assets/$NEW_DMG"
+          echo "✅ macOS DMG copied: $NEW_DMG"
+
+      - name: Prepare Windows assets
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $VERSION = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.version }}" }
+
+          # Find MSI file
+          $msi = Get-ChildItem -Path 'apps/desktop/src-tauri/target/release/bundle/msi' -Recurse -Include *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $msi) {
+            Write-Error "No MSI installer found"
+            exit 1
+          }
+
+          # Copy and rename MSI
+          $dest = "NeuraDock-$VERSION-Windows-x64.msi"
+          Copy-Item $msi.FullName (Join-Path release-assets $dest)
+          Write-Host "✅ Windows MSI copied: $dest"
+
+      - name: Prepare Linux assets
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p release-assets
+          VERSION="${GITHUB_REF_NAME:-${{ github.event.inputs.version }}}"
+
+          # Find AppImage
+          APPIMAGE=$(find apps/desktop/src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f | head -1 || true)
+          if [ -n "$APPIMAGE" ]; then
+            NEW_APPIMAGE="NeuraDock-${VERSION}-Linux-x64.AppImage"
+            cp "$APPIMAGE" "release-assets/$NEW_APPIMAGE"
+            echo "✅ AppImage copied: $NEW_APPIMAGE"
+          fi
+
+          # Find DEB
+          DEB=$(find apps/desktop/src-tauri/target/release/bundle/deb -name "*.deb" -type f | head -1 || true)
+          if [ -n "$DEB" ]; then
+            NEW_DEB="NeuraDock-${VERSION}-Linux-x64.deb"
+            cp "$DEB" "release-assets/$NEW_DEB"
+            echo "✅ Deb package copied: $NEW_DEB"
+          fi
+
+      - name: List prepared assets
+        shell: bash
+        run: |
+          echo "📦 Release assets:"
+          ls -lh release-assets/ || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Organize release assets
+        run: |
+          mkdir -p release-assets
+          find all-artifacts -type f -exec cp {} release-assets/ \;
+          echo "📦 Final release assets:"
+          ls -lh release-assets/
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "$GITHUB_REF_NAME" ]; then
+            echo "version=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: NeuraDock ${{ steps.version.outputs.version }}
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 📦 NeuraDock ${{ steps.version.outputs.version }}
+
+            自动签到管理系统 - 现代化的桌面应用
+
+            ### 下载安装包
+
+            请根据你的操作系统下载对应的安装包：
+
+            #### 🍎 macOS
+            - **NeuraDock-${{ steps.version.outputs.version }}-macOS-Universal.dmg** - 通用版本（同时支持 Intel + Apple Silicon）
+
+            #### 🪟 Windows
+            - **NeuraDock-${{ steps.version.outputs.version }}-Windows-x64.msi** - 64位安装包
+
+            #### 🐧 Linux
+            - **NeuraDock-${{ steps.version.outputs.version }}-Linux-x64.AppImage** - AppImage（通用格式，推荐）
+            - **NeuraDock-${{ steps.version.outputs.version }}-Linux-x64.deb** - Debian/Ubuntu 软件包
+
+            ### 安装说明
+
+            **macOS**：双击 DMG 文件，将应用拖入 Applications 文件夹。如遇"已损坏"提示，请在终端执行：
+            ```bash
+            xattr -cr "/Applications/NeuraDock.app"
+            ```
+
+            **Windows**：双击 MSI 文件，按照安装向导完成安装。
+
+            **Linux (AppImage)**：
+            ```bash
+            chmod +x NeuraDock-*.AppImage
+            ./NeuraDock-*.AppImage
+            ```
+
+            **Linux (Deb)**：
+            ```bash
+            sudo dpkg -i NeuraDock-*.deb
+            sudo apt-get install -f  # 解决依赖问题
+            ```
+
+            ### ✨ 更新内容
+
+            详见下方自动生成的 Release Notes。
+
+            ### 📚 文档
+
+            - [用户手册](https://github.com/${{ github.repository }}/blob/main/README.md)
+            - [开发者文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
+
+            ---
+
+            🤖 Built with [Tauri](https://tauri.app/) + Rust + React
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List all generated files (debug)
+        if: always()
+        shell: bash
+        run: |
+          echo "📋 All files in release-assets:"
+          find release-assets -type f -ls 2>/dev/null || true

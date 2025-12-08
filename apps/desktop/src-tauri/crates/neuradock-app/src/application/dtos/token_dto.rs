@@ -1,13 +1,9 @@
 use neuradock_domain::token::{ApiToken, TokenStatus};
 
-use super::{TokenDto};
+use super::TokenDto;
 
 impl TokenDto {
-    pub fn from_domain(
-        token: &ApiToken,
-        account_name: String,
-        provider_name: String,
-    ) -> Self {
+    pub fn from_domain(token: &ApiToken, account_name: String, provider_name: String) -> Self {
         let status_text = match token.status() {
             TokenStatus::Enabled => "Active",
             TokenStatus::Disabled => "Disabled",
@@ -15,7 +11,8 @@ impl TokenDto {
         }
         .to_string();
 
-        let (model_limits_allowed, model_limits_denied) = if let Some(limits) = token.model_limits() {
+        let (model_limits_allowed, model_limits_denied) = if let Some(limits) = token.model_limits()
+        {
             (limits.allowed.clone(), limits.denied.clone())
         } else {
             (Vec::new(), Vec::new())

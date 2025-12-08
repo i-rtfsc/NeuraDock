@@ -43,8 +43,12 @@ impl TokenService {
         account_id: &AccountId,
         force_refresh: bool,
     ) -> Result<Vec<ApiToken>> {
-        log::info!("fetch_and_cache_tokens: account_id={}, force_refresh={}", account_id, force_refresh);
-        
+        log::info!(
+            "fetch_and_cache_tokens: account_id={}, force_refresh={}",
+            account_id,
+            force_refresh
+        );
+
         // 1. Load account
         let account = self
             .account_repo
@@ -52,7 +56,11 @@ impl TokenService {
             .await?
             .context("Account not found")?;
 
-        log::info!("Account found: name={}, provider={}", account.name(), account.provider_id());
+        log::info!(
+            "Account found: name={}, provider={}",
+            account.name(),
+            account.provider_id()
+        );
 
         // 2. Check session validity
         if !account.is_session_valid() {
@@ -63,7 +71,7 @@ impl TokenService {
         let session_token = account
             .session_token()
             .context("No session token available")?;
-            
+
         log::info!("Session token valid, length: {}", session_token.len());
 
         // 3. If not forcing refresh, try cache first
@@ -71,7 +79,7 @@ impl TokenService {
             log::info!("Checking cache for account {}", account_id);
             let cached_tokens = self.token_repo.find_by_account(account_id).await?;
             log::info!("Found {} cached tokens", cached_tokens.len());
-            
+
             if !cached_tokens.is_empty() {
                 // Check if cache is stale (> 1 hour)
                 let cache_valid = cached_tokens.iter().all(|t| {
@@ -99,7 +107,10 @@ impl TokenService {
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
             match waf_cookies_repo.get_valid(provider_id).await {
                 Ok(Some(cached_waf)) => {
-                    log::info!("Using cached WAF cookies (expires at {})", cached_waf.expires_at);
+                    log::info!(
+                        "Using cached WAF cookies (expires at {})",
+                        cached_waf.expires_at
+                    );
                     cookies_map.extend(cached_waf.cookies);
                 }
                 Ok(None) => {
@@ -113,21 +124,38 @@ impl TokenService {
 
         let cookie_string = self.build_cookie_string(&cookies_map);
         let api_user = account.credentials().api_user();
-        let api_user_opt = if api_user.is_empty() { None } else { Some(api_user) };
+        let api_user_opt = if api_user.is_empty() {
+            None
+        } else {
+            Some(api_user)
+        };
 
-        log::info!("Fetching tokens from API: url={}{}, has_api_user={}",
-                   base_url, token_api_path, api_user_opt.is_some());
+        log::info!(
+            "Fetching tokens from API: url={}{}, has_api_user={}",
+            base_url,
+            token_api_path,
+            api_user_opt.is_some()
+        );
 
         let response = self
             .http_client
-            .fetch_tokens(&base_url, &token_api_path, &cookie_string, api_user_opt, 0, 10)
+            .fetch_tokens(
+                &base_url,
+                &token_api_path,
+                &cookie_string,
+                api_user_opt,
+                0,
+                10,
+            )
             .await;
 
         // Handle WAF challenge
         let response = match response {
             Ok(resp) => resp,
             Err(e) if e.to_string().contains("WAF_CHALLENGE") => {
-                log::warn!("WAF challenge detected, invalidating cache and getting fresh WAF cookies...");
+                log::warn!(
+                    "WAF challenge detected, invalidating cache and getting fresh WAF cookies..."
+                );
 
                 // Invalidate cached WAF cookies first (they are clearly invalid)
                 if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
@@ -145,11 +173,21 @@ impl TokenService {
                 cookies_map.extend(waf_cookies);
                 let updated_cookies = self.build_cookie_string(&cookies_map);
 
-                log::info!("Retrying with fresh WAF cookies (cookie length: {})", updated_cookies.len());
+                log::info!(
+                    "Retrying with fresh WAF cookies (cookie length: {})",
+                    updated_cookies.len()
+                );
 
                 // Retry with updated cookies
                 self.http_client
-                    .fetch_tokens(&base_url, &token_api_path, &updated_cookies, api_user_opt, 0, 10)
+                    .fetch_tokens(
+                        &base_url,
+                        &token_api_path,
+                        &updated_cookies,
+                        api_user_opt,
+                        0,
+                        10,
+                    )
                     .await?
             }
             Err(e) => return Err(e),
@@ -166,7 +204,10 @@ impl TokenService {
 
         // 6. Delete old tokens and save new ones (to handle deleted tokens on server side)
         if !tokens.is_empty() {
-            log::info!("Deleting old tokens for account {} before saving new ones", account_id);
+            log::info!(
+                "Deleting old tokens for account {} before saving new ones",
+                account_id
+            );
             self.token_repo.delete_by_account(account_id).await?;
             self.token_repo.save_batch(tokens.clone()).await?;
             log::info!("Cached {} tokens for account {}", tokens.len(), account_id);
@@ -177,15 +218,24 @@ impl TokenService {
 
     /// Get cached tokens only
     pub async fn get_cached_tokens(&self, account_id: &AccountId) -> Result<Vec<ApiToken>> {
-        self.token_repo.find_by_account(account_id).await.map_err(Into::into)
+        self.token_repo
+            .find_by_account(account_id)
+            .await
+            .map_err(Into::into)
     }
 
     fn get_provider_urls(&self, account: &Account) -> Result<(String, String)> {
         let provider_id = account.provider_id();
-        
+
         let (base_url, token_api_path) = match provider_id.to_string().as_str() {
-            "anyrouter" => ("https://anyrouter.top".to_string(), "/api/token/".to_string()),
-            "agentrouter" => ("https://agentrouter.org".to_string(), "/api/token/".to_string()),
+            "anyrouter" => (
+                "https://anyrouter.top".to_string(),
+                "/api/token/".to_string(),
+            ),
+            "agentrouter" => (
+                "https://agentrouter.org".to_string(),
+                "/api/token/".to_string(),
+            ),
             _ => anyhow::bail!("Unknown provider: {}", provider_id),
         };
 
@@ -275,7 +325,10 @@ impl TokenService {
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
             match waf_cookies_repo.get_valid(provider_id).await {
                 Ok(Some(cached_waf)) => {
-                    log::info!("Using cached WAF cookies for WAF challenge (expires at {})", cached_waf.expires_at);
+                    log::info!(
+                        "Using cached WAF cookies for WAF challenge (expires at {})",
+                        cached_waf.expires_at
+                    );
                     return Ok(cached_waf.cookies);
                 }
                 Ok(None) => {
@@ -300,12 +353,16 @@ impl TokenService {
         let (base_url, _) = self.get_provider_urls(account)?;
         let login_url = format!("{}/console/token", base_url);
 
-        let waf_cookies = self.waf_service
+        let waf_cookies = self
+            .waf_service
             .get_waf_cookies(&login_url, account.name())
             .await
             .context("Failed to get WAF cookies")?;
 
-        log::info!("Successfully got {} WAF cookies via bypass", waf_cookies.len());
+        log::info!(
+            "Successfully got {} WAF cookies via bypass",
+            waf_cookies.len()
+        );
 
         // Cache the new WAF cookies
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {

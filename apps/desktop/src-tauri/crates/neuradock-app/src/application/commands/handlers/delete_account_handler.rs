@@ -17,10 +17,7 @@ pub struct DeleteAccountCommandHandler {
 }
 
 impl DeleteAccountCommandHandler {
-    pub fn new(
-        account_repo: Arc<dyn AccountRepository>,
-        event_bus: Arc<dyn EventBus>,
-    ) -> Self {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, event_bus: Arc<dyn EventBus>) -> Self {
         Self {
             account_repo,
             event_bus,
@@ -33,7 +30,10 @@ impl CommandHandler<DeleteAccountCommand> for DeleteAccountCommandHandler {
     type Result = DeleteAccountResult;
 
     async fn handle(&self, cmd: DeleteAccountCommand) -> Result<Self::Result, DomainError> {
-        info!("Handling DeleteAccountCommand for account: {}", cmd.account_id);
+        info!(
+            "Handling DeleteAccountCommand for account: {}",
+            cmd.account_id
+        );
 
         let account_id = AccountId::from_string(&cmd.account_id);
 
@@ -58,7 +58,7 @@ impl CommandHandler<DeleteAccountCommand> for DeleteAccountCommandHandler {
             name,
             occurred_at: Utc::now(),
         };
-        
+
         self.event_bus.publish(Box::new(event)).await?;
 
         Ok(DeleteAccountResult { success: true })

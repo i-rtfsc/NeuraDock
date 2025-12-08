@@ -81,7 +81,10 @@ pub enum ChannelConfig {
     /// Feishu webhook configuration
     Feishu { webhook_key: String },
     /// DingTalk webhook configuration
-    DingTalk { webhook_key: String, secret: Option<String> },
+    DingTalk {
+        webhook_key: String,
+        secret: Option<String>,
+    },
     /// Email configuration
     Email {
         smtp_host: String,

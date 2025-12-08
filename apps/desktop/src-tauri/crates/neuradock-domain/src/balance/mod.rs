@@ -9,7 +9,7 @@ pub use repository::BalanceRepository;
 
 /// Balance value object
 /// Represents account balance information
-/// 
+///
 /// Separated from Account aggregate because balance has different
 /// lifecycle and update frequency. Balance changes frequently during
 /// check-ins and balance queries, while account credentials remain stable.

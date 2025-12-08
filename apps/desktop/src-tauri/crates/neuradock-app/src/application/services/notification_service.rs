@@ -4,11 +4,11 @@ use log::{error, info};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
+use crate::application::services::i18n::t;
 use neuradock_domain::notification::{
     NotificationChannelRepository, NotificationMessage, NotificationSender,
 };
 use neuradock_infrastructure::notification::create_sender;
-use crate::application::services::i18n::t;
 
 #[derive(FromRow)]
 struct YesterdayBalanceRow {
@@ -99,8 +99,10 @@ impl NotificationService {
             .await
         {
             Ok(Some(row)) => {
-                info!("Found yesterday's balance for account {}: current={}, consumed={}, income={}",
-                    account_id, row.current_balance, row.total_consumed, row.total_income);
+                info!(
+                    "Found yesterday's balance for account {}: current={}, consumed={}, income={}",
+                    account_id, row.current_balance, row.total_consumed, row.total_income
+                );
                 Some((row.current_balance, row.total_consumed, row.total_income))
             }
             Ok(None) => {
@@ -125,15 +127,35 @@ impl NotificationService {
         let yesterday_balance = self.get_yesterday_balance(account_id).await;
 
         let content = if let Some((today_current, today_consumed, today_income)) = balance {
-            if let Some((yesterday_current, yesterday_consumed, yesterday_income)) = yesterday_balance {
+            if let Some((yesterday_current, yesterday_consumed, yesterday_income)) =
+                yesterday_balance
+            {
                 // Calculate changes
                 let current_change = today_current - yesterday_current;
                 let consumed_change = today_consumed - yesterday_consumed;
                 let income_change = today_income - yesterday_income;
 
-                let current_emoji = if current_change > 0.0 { "📈" } else if current_change < 0.0 { "📉" } else { "➡️" };
-                let consumed_emoji = if consumed_change > 0.0 { "📈" } else if consumed_change < 0.0 { "📉" } else { "➡️" };
-                let income_emoji = if income_change > 0.0 { "📈" } else if income_change < 0.0 { "📉" } else { "➡️" };
+                let current_emoji = if current_change > 0.0 {
+                    "📈"
+                } else if current_change < 0.0 {
+                    "📉"
+                } else {
+                    "➡️"
+                };
+                let consumed_emoji = if consumed_change > 0.0 {
+                    "📈"
+                } else if consumed_change < 0.0 {
+                    "📉"
+                } else {
+                    "➡️"
+                };
+                let income_emoji = if income_change > 0.0 {
+                    "📈"
+                } else if income_change < 0.0 {
+                    "📉"
+                } else {
+                    "➡️"
+                };
 
                 format!(
                     "{}: {}\n{}: {}\n\n{}:\n   {}: ${:.2}\n   {}: ${:.2}\n   {}: ${:.2}\n\n{}:\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n\n{}:\n   {}: {:+.2} {}\n   {}: {:+.2} {}\n   {}: {:+.2} {}",
@@ -187,9 +209,12 @@ impl NotificationService {
                 )
             }
         } else {
-            format!("{}: {}\n{}: {}\n\n{}",
-                t("notification.label.account"), account_name,
-                t("notification.label.provider"), provider_name,
+            format!(
+                "{}: {}\n{}: {}\n\n{}",
+                t("notification.label.account"),
+                account_name,
+                t("notification.label.provider"),
+                provider_name,
                 t("notification.checkIn.success.simple")
             )
         };
@@ -223,6 +248,9 @@ impl NotificationService {
 
     /// Test notification channel
     pub async fn test_channel(&self, sender: Arc<dyn NotificationSender>) -> Result<()> {
-        sender.test().await.map_err(|e| anyhow::anyhow!(e.to_string()))
+        sender
+            .test()
+            .await
+            .map_err(|e| anyhow::anyhow!(e.to_string()))
     }
 }

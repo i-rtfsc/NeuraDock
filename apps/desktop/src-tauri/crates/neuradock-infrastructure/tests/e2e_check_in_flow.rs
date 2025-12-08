@@ -10,15 +10,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use neuradock_domain::account::{Account, AccountRepository, Credentials};
+use neuradock_domain::balance::BalanceRepository;
+use neuradock_domain::events::EventBus;
+use neuradock_domain::session::SessionRepository;
+use neuradock_domain::shared::{AccountId, ProviderId};
+use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_infrastructure::persistence::repositories::{
     SqliteAccountRepository, SqliteBalanceRepository, SqliteSessionRepository,
 };
-use neuradock_infrastructure::events::InMemoryEventBus;
-use neuradock_domain::account::{Account, AccountRepository, Credentials};
-use neuradock_domain::balance::BalanceRepository;
-use neuradock_domain::session::SessionRepository;
-use neuradock_domain::events::EventBus;
-use neuradock_domain::shared::{AccountId, ProviderId};
 
 mod test_helpers;
 
@@ -36,9 +36,7 @@ async fn e2e_complete_check_in_flow() {
     ));
 
     let balance_repo = Arc::new(SqliteBalanceRepository::new(Arc::new(pool.clone())));
-    let session_repo = Arc::new(SqliteSessionRepository::new(
-        Arc::new(pool.clone()),
-    ));
+    let session_repo = Arc::new(SqliteSessionRepository::new(Arc::new(pool.clone())));
 
     // ============================================================
     // Step 1: Create Account
@@ -96,14 +94,14 @@ async fn e2e_complete_check_in_flow() {
     // In a real E2E test, this would call ExecuteCheckInCommandHandler
     // For now, we simulate the check-in by directly updating balance
 
-    use neuradock_domain::balance::Balance;
     use chrono::Utc;
+    use neuradock_domain::balance::Balance;
 
     let balance = Balance::restore(
         account_id.clone(),
-        100.0,  // current_balance
-        20.0,   // total_consumed
-        120.0,  // total_income
+        100.0, // current_balance
+        20.0,  // total_consumed
+        120.0, // total_income
         Utc::now(),
     );
 
@@ -151,7 +149,8 @@ async fn e2e_complete_check_in_flow() {
     println!("✅ Account created: {}", account_id.as_str());
     println!("✅ Account enabled: true");
     println!("✅ Check-in executed (simulated)");
-    println!("✅ Balance updated: {:.2} / {:.2}",
+    println!(
+        "✅ Balance updated: {:.2} / {:.2}",
         latest_balance.current(),
         latest_balance.total_income()
     );
@@ -229,7 +228,10 @@ async fn e2e_check_in_flow_with_auto_checkin_config() {
         .filter(|a| a.auto_checkin_enabled())
         .collect();
 
-    assert!(!auto_accounts.is_empty(), "Should have at least 1 auto check-in account");
+    assert!(
+        !auto_accounts.is_empty(),
+        "Should have at least 1 auto check-in account"
+    );
     assert!(
         auto_accounts.iter().any(|a| a.id() == &account_id),
         "Created account should be in the list"
@@ -252,9 +254,7 @@ async fn e2e_session_caching_flow() {
         encryption.clone(),
     ));
 
-    let session_repo = Arc::new(SqliteSessionRepository::new(
-        Arc::new(pool.clone()),
-    ));
+    let session_repo = Arc::new(SqliteSessionRepository::new(Arc::new(pool.clone())));
 
     // ============================================================
     // Create Account
@@ -282,8 +282,8 @@ async fn e2e_session_caching_flow() {
     // ============================================================
     // Save Session
     // ============================================================
-    use neuradock_domain::session::Session;
     use chrono::Utc;
+    use neuradock_domain::session::Session;
 
     let session_token = "cached_auth_123".to_string();
 
@@ -291,7 +291,8 @@ async fn e2e_session_caching_flow() {
         account_id.clone(),
         session_token.clone(),
         Utc::now() + chrono::Duration::hours(24), // expires in 24 hours
-    ).expect("Create session should succeed");
+    )
+    .expect("Create session should succeed");
 
     session_repo
         .save(&session)
@@ -327,7 +328,8 @@ async fn e2e_session_caching_flow() {
         account_id.clone(),
         updated_token.clone(),
         Utc::now() + chrono::Duration::hours(48),
-    ).expect("Create updated session should succeed");
+    )
+    .expect("Create updated session should succeed");
 
     session_repo
         .save(&updated_session)

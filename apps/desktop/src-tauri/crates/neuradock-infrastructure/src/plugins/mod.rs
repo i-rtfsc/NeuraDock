@@ -1,5 +1,5 @@
-pub mod anyrouter;
 pub mod agentrouter;
+pub mod anyrouter;
 
-pub use anyrouter::AnyRouterPlugin;
 pub use agentrouter::AgentRouterPlugin;
+pub use anyrouter::AnyRouterPlugin;

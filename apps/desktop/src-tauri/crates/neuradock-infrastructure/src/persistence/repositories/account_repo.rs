@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, warn};
 
-use neuradock_domain::account::{Account, AccountRepository, Credentials};
-use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 use crate::persistence::RepositoryErrorMapper;
 use crate::security::EncryptionService;
+use neuradock_domain::account::{Account, AccountRepository, Credentials};
+use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 
 #[derive(FromRow)]
 struct AccountRow {
@@ -45,10 +45,10 @@ impl AccountRow {
                     self.id, e
                 ))
             })?;
-        
+
         let cookies = serde_json::from_str(&cookies_json)
             .map_err(|e| RepositoryErrorMapper::map_json_error(e, "Deserialize account cookies"))?;
-        
+
         // Decrypt API user - fail if decryption fails (no fallback to plaintext)
         let api_user = encryption.decrypt(&self.api_user)
             .map_err(|e| {
@@ -57,7 +57,7 @@ impl AccountRow {
                     self.id, e
                 ))
             })?;
-        
+
         let credentials = Credentials::new(cookies, api_user);
 
         Ok(Account::restore(
@@ -112,9 +112,11 @@ impl SqliteAccountRepository {
 impl AccountRepository for SqliteAccountRepository {
     async fn save(&self, account: &Account) -> Result<(), DomainError> {
         let start = Instant::now();
-        
+
         // Start a transaction
-        let mut tx = self.pool.begin()
+        let mut tx = self
+            .pool
+            .begin()
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
@@ -137,14 +139,18 @@ impl AccountRepository for SqliteAccountRepository {
         // Encrypt cookies JSON
         let cookies_json = serde_json::to_string(account.credentials().cookies())
             .map_err(|e| RepositoryErrorMapper::map_json_error(e, "Serialize account cookies"))?;
-        let encrypted_cookies = self.encryption
+        let encrypted_cookies = self
+            .encryption
             .encrypt(&cookies_json)
             .map_err(|e| DomainError::DataIntegrity(format!("Failed to encrypt cookies: {}", e)))?;
-        
+
         // Encrypt API user
-        let encrypted_api_user = self.encryption
+        let encrypted_api_user = self
+            .encryption
             .encrypt(account.credentials().api_user())
-            .map_err(|e| DomainError::DataIntegrity(format!("Failed to encrypt api_user: {}", e)))?;
+            .map_err(|e| {
+                DomainError::DataIntegrity(format!("Failed to encrypt api_user: {}", e))
+            })?;
 
         sqlx::query(account_query)
             .bind(account.id().as_str())
@@ -163,8 +169,11 @@ impl AccountRepository for SqliteAccountRepository {
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save account"))?;
 
         // 2. Save/Update session if exists
-        if let (Some(token), Some(expires_at), Some(last_login_at)) = 
-            (account.session_token(), account.session_expires_at(), account.last_login_at()) {
+        if let (Some(token), Some(expires_at), Some(last_login_at)) = (
+            account.session_token(),
+            account.session_expires_at(),
+            account.last_login_at(),
+        ) {
             let session_query = r#"
                 INSERT INTO sessions (account_id, token, expires_at, last_login_at)
                 VALUES (?1, ?2, ?3, ?4)
@@ -173,7 +182,7 @@ impl AccountRepository for SqliteAccountRepository {
                     expires_at = ?3,
                     last_login_at = ?4
             "#;
-            
+
             sqlx::query(session_query)
                 .bind(account.id().as_str())
                 .bind(token)
@@ -185,8 +194,12 @@ impl AccountRepository for SqliteAccountRepository {
         }
 
         // 3. Save/Update balance if exists
-        if let (Some(current), Some(consumed), Some(income), Some(checked_at)) = 
-            (account.current_balance(), account.total_consumed(), account.total_income(), account.last_balance_check_at()) {
+        if let (Some(current), Some(consumed), Some(income), Some(checked_at)) = (
+            account.current_balance(),
+            account.total_consumed(),
+            account.total_income(),
+            account.last_balance_check_at(),
+        ) {
             let balance_query = r#"
                 INSERT INTO balances (account_id, current, total_consumed, total_income, last_checked_at)
                 VALUES (?1, ?2, ?3, ?4, ?5)
@@ -196,7 +209,7 @@ impl AccountRepository for SqliteAccountRepository {
                     total_income = ?4,
                     last_checked_at = ?5
             "#;
-            
+
             sqlx::query(balance_query)
                 .bind(account.id().as_str())
                 .bind(current)
@@ -225,11 +238,14 @@ impl AccountRepository for SqliteAccountRepository {
 
     async fn find_by_id(&self, id: &AccountId) -> Result<Option<Account>, DomainError> {
         let start = Instant::now();
-        
-        let query = format!(r#"
+
+        let query = format!(
+            r#"
             {}
             WHERE a.id = ?1
-        "#, Self::SELECT_QUERY);
+        "#,
+            Self::SELECT_QUERY
+        );
 
         let row: Option<AccountRow> = sqlx::query_as(&query)
             .bind(id.as_str())
@@ -254,11 +270,14 @@ impl AccountRepository for SqliteAccountRepository {
 
     async fn find_all(&self) -> Result<Vec<Account>, DomainError> {
         let start = Instant::now();
-        
-        let query = format!(r#"
+
+        let query = format!(
+            r#"
             {}
             ORDER BY a.created_at DESC
-        "#, Self::SELECT_QUERY);
+        "#,
+            Self::SELECT_QUERY
+        );
 
         let rows: Vec<AccountRow> = sqlx::query_as(&query)
             .fetch_all(&*self.pool)
@@ -267,7 +286,7 @@ impl AccountRepository for SqliteAccountRepository {
 
         let elapsed = start.elapsed();
         let count = rows.len();
-        
+
         if elapsed.as_millis() > 100 {
             warn!(
                 "🐌 SLOW QUERY: find_all() took {:.2}ms for {} accounts",
@@ -280,13 +299,11 @@ impl AccountRepository for SqliteAccountRepository {
         // log it and continue with the others.
         let accounts = rows
             .into_iter()
-            .filter_map(|row| {
-                match row.to_account(&self.encryption) {
-                    Ok(account) => Some(account),
-                    Err(e) => {
-                        tracing::error!("Failed to load account: {}", e);
-                        None
-                    }
+            .filter_map(|row| match row.to_account(&self.encryption) {
+                Ok(account) => Some(account),
+                Err(e) => {
+                    tracing::error!("Failed to load account: {}", e);
+                    None
                 }
             })
             .collect();
@@ -302,12 +319,15 @@ impl AccountRepository for SqliteAccountRepository {
 
     async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
         let start = Instant::now();
-        
-        let query = format!(r#"
+
+        let query = format!(
+            r#"
             {}
             WHERE a.enabled = true 
             ORDER BY a.created_at DESC
-        "#, Self::SELECT_QUERY);
+        "#,
+            Self::SELECT_QUERY
+        );
 
         let rows: Vec<AccountRow> = sqlx::query_as(&query)
             .fetch_all(&*self.pool)
@@ -316,16 +336,14 @@ impl AccountRepository for SqliteAccountRepository {
 
         let elapsed = start.elapsed();
         let count = rows.len();
-        
+
         let accounts = rows
             .into_iter()
-            .filter_map(|row| {
-                match row.to_account(&self.encryption) {
-                    Ok(account) => Some(account),
-                    Err(e) => {
-                        tracing::error!("Failed to load enabled account: {}", e);
-                        None
-                    }
+            .filter_map(|row| match row.to_account(&self.encryption) {
+                Ok(account) => Some(account),
+                Err(e) => {
+                    tracing::error!("Failed to load enabled account: {}", e);
+                    None
                 }
             })
             .collect();
@@ -363,32 +381,34 @@ impl AccountRepository for SqliteAccountRepository {
 // Additional utility methods for SqliteAccountRepository
 impl SqliteAccountRepository {
     /// Migrate unencrypted accounts by attempting to detect and re-encrypt plaintext data
-    /// 
+    ///
     /// ⚠️ WARNING: This method is for migration purposes only and should be called once
     /// during deployment. After migration, all accounts must be properly encrypted.
-    /// 
+    ///
     /// Returns the IDs of accounts that were successfully migrated.
     pub async fn migrate_unencrypted_accounts(&self) -> Result<Vec<AccountId>, DomainError> {
         info!("🔄 Starting migration of unencrypted accounts...");
-        
+
         // Query all raw account rows directly
         let query = "SELECT id, cookies, api_user FROM accounts";
         let rows: Vec<(String, String, String)> = sqlx::query_as(query)
             .fetch_all(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Fetch accounts for migration"))?;
-        
+            .map_err(|e| {
+                RepositoryErrorMapper::map_sqlx_error(e, "Fetch accounts for migration")
+            })?;
+
         let mut migrated_ids = Vec::new();
         let mut failed_accounts = Vec::new();
-        
+
         for (id, cookies, api_user) in rows {
             // Try to decrypt - if it fails, assume it's plaintext and needs migration
-            let needs_migration = self.encryption.decrypt(&cookies).is_err() 
+            let needs_migration = self.encryption.decrypt(&cookies).is_err()
                 || self.encryption.decrypt(&api_user).is_err();
-            
+
             if needs_migration {
                 info!("🔐 Migrating account: {}", id);
-                
+
                 // Assume the data is plaintext and try to encrypt it
                 match self.encrypt_account_data(&id, &cookies, &api_user).await {
                     Ok(_) => {
@@ -402,18 +422,24 @@ impl SqliteAccountRepository {
                 }
             }
         }
-        
+
         if !failed_accounts.is_empty() {
-            warn!("⚠️  Migration completed with {} failures:", failed_accounts.len());
+            warn!(
+                "⚠️  Migration completed with {} failures:",
+                failed_accounts.len()
+            );
             for (id, error) in &failed_accounts {
                 warn!("  - Account {}: {}", id, error);
             }
         }
-        
-        info!("✅ Migration completed. Migrated {} accounts", migrated_ids.len());
+
+        info!(
+            "✅ Migration completed. Migrated {} accounts",
+            migrated_ids.len()
+        );
         Ok(migrated_ids)
     }
-    
+
     /// Encrypt plaintext account data
     async fn encrypt_account_data(
         &self,
@@ -424,16 +450,17 @@ impl SqliteAccountRepository {
         // Validate that cookies is valid JSON
         let _: serde_json::Value = serde_json::from_str(plaintext_cookies)
             .map_err(|e| DomainError::Validation(format!("Invalid cookies JSON: {}", e)))?;
-        
+
         // Encrypt the data
-        let encrypted_cookies = self.encryption
+        let encrypted_cookies = self
+            .encryption
             .encrypt(plaintext_cookies)
             .map_err(|e| DomainError::DataIntegrity(format!("Failed to encrypt cookies: {}", e)))?;
-        
-        let encrypted_api_user = self.encryption
-            .encrypt(plaintext_api_user)
-            .map_err(|e| DomainError::DataIntegrity(format!("Failed to encrypt api_user: {}", e)))?;
-        
+
+        let encrypted_api_user = self.encryption.encrypt(plaintext_api_user).map_err(|e| {
+            DomainError::DataIntegrity(format!("Failed to encrypt api_user: {}", e))
+        })?;
+
         // Update the database
         let update_query = "UPDATE accounts SET cookies = ?1, api_user = ?2 WHERE id = ?3";
         sqlx::query(update_query)
@@ -442,8 +469,10 @@ impl SqliteAccountRepository {
             .bind(account_id)
             .execute(&*self.pool)
             .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Update encrypted account data"))?;
-        
+            .map_err(|e| {
+                RepositoryErrorMapper::map_sqlx_error(e, "Update encrypted account data")
+            })?;
+
         Ok(())
     }
 }

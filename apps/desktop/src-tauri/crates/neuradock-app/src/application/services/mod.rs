@@ -1,7 +1,7 @@
 mod check_in_executor;
 mod config_service;
-mod notification_service;
 mod i18n;
+mod notification_service;
 mod scheduler;
 pub mod token;
 

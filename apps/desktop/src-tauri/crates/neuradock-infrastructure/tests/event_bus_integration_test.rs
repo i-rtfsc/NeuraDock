@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use neuradock_domain::events::account_events::AccountCreated;
 use neuradock_domain::events::{DynamicEventHandler, EventBus};
-use neuradock_domain::shared::{AccountId, ProviderId, DomainError};
+use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 use neuradock_infrastructure::events::in_memory_event_bus::InMemoryEventBus;
 use std::any::Any;
 use std::sync::Arc;

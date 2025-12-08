@@ -1,8 +1,8 @@
+use chromiumoxide::{Browser, BrowserConfig};
+use neuradock_domain::shared::DomainError;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Semaphore};
-use chromiumoxide::{Browser, BrowserConfig};
-use neuradock_domain::shared::DomainError;
 
 /// Browser instance with metadata
 struct BrowserInstance {
@@ -58,22 +58,24 @@ impl BrowserPool {
     /// Acquire a browser from the pool
     pub async fn acquire(&self) -> Result<PooledBrowser, DomainError> {
         // Acquire semaphore permit
-        let permit = self.semaphore.clone().acquire_owned().await
-            .map_err(|e| DomainError::Infrastructure(format!("Failed to acquire browser: {}", e)))?;
+        let permit = self.semaphore.clone().acquire_owned().await.map_err(|e| {
+            DomainError::Infrastructure(format!("Failed to acquire browser: {}", e))
+        })?;
 
         // Try to get an existing browser
         let mut pool = self.pool.lock().await;
-        
+
         // Find a usable browser
         let now = Instant::now();
         let mut reusable_idx = None;
-        
+
         for (idx, instance) in pool.iter().enumerate() {
             let idle_time = now.duration_since(instance.last_used);
-            
+
             // Check if browser is still valid
-            if idle_time.as_secs() < self.config.max_idle_time 
-                && instance.usage_count < self.config.max_usage_count {
+            if idle_time.as_secs() < self.config.max_idle_time
+                && instance.usage_count < self.config.max_usage_count
+            {
                 reusable_idx = Some(idx);
                 break;
             }
@@ -84,23 +86,23 @@ impl BrowserPool {
             let mut instance = pool.remove(idx);
             instance.last_used = now;
             instance.usage_count += 1;
-            
+
             tracing::info!(
                 "Reusing browser instance (usage: {}, age: {}s)",
                 instance.usage_count,
                 now.duration_since(instance.created_at).as_secs()
             );
-            
+
             Arc::clone(&instance.browser)
         } else {
             // Create new browser
             tracing::info!("Creating new browser instance (pool size: {})", pool.len());
-            
+
             drop(pool); // Release lock before launching browser
-            
+
             let (browser, _handler) = tokio::time::timeout(
                 Duration::from_secs(self.config.launch_timeout),
-                Browser::launch(self.browser_config.clone())
+                Browser::launch(self.browser_config.clone()),
             )
             .await
             .map_err(|_| DomainError::Infrastructure("Browser launch timeout".to_string()))?
@@ -114,7 +116,7 @@ impl BrowserPool {
                 last_used: now,
                 usage_count: 1,
             });
-            
+
             browser
         };
 
@@ -141,13 +143,13 @@ impl BrowserPool {
     pub async fn cleanup(&self) {
         let mut pool = self.pool.lock().await;
         let now = Instant::now();
-        
+
         let initial_size = pool.len();
         pool.retain(|instance| {
             let idle_time = now.duration_since(instance.last_used);
-            let is_valid = idle_time.as_secs() < self.config.max_idle_time 
+            let is_valid = idle_time.as_secs() < self.config.max_idle_time
                 && instance.usage_count < self.config.max_usage_count;
-            
+
             if !is_valid {
                 tracing::info!(
                     "Removing stale browser (idle: {}s, usage: {})",
@@ -155,10 +157,10 @@ impl BrowserPool {
                     instance.usage_count
                 );
             }
-            
+
             is_valid
         });
-        
+
         let removed = initial_size - pool.len();
         if removed > 0 {
             tracing::info!("Cleaned up {} stale browser(s)", removed);
@@ -200,23 +202,20 @@ mod tests {
             max_usage_count: 10,
             launch_timeout: 30,
         };
-        
-        let browser_config = BrowserConfig::builder()
-            .with_head()
-            .build()
-            .unwrap();
-        
+
+        let browser_config = BrowserConfig::builder().with_head().build().unwrap();
+
         let pool = BrowserPool::new(config, browser_config);
-        
+
         // Acquire first browser
         let browser1 = pool.acquire().await;
         assert!(browser1.is_ok());
-        
+
         // Pool should have 1 browser
         assert_eq!(pool.size().await, 1);
-        
+
         drop(browser1);
-        
+
         // After drop, pool still has the browser
         assert_eq!(pool.size().await, 1);
     }
@@ -229,24 +228,21 @@ mod tests {
             max_usage_count: 10,
             launch_timeout: 30,
         };
-        
-        let browser_config = BrowserConfig::builder()
-            .with_head()
-            .build()
-            .unwrap();
-        
+
+        let browser_config = BrowserConfig::builder().with_head().build().unwrap();
+
         let pool = BrowserPool::new(config, browser_config);
-        
+
         // Acquire and release
         {
             let _browser1 = pool.acquire().await.unwrap();
         }
-        
+
         // Acquire again should reuse
         {
             let _browser2 = pool.acquire().await.unwrap();
         }
-        
+
         // Should still have only 1 browser
         assert_eq!(pool.size().await, 1);
     }

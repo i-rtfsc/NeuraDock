@@ -17,10 +17,7 @@ pub struct UpdateAccountCommandHandler {
 }
 
 impl UpdateAccountCommandHandler {
-    pub fn new(
-        account_repo: Arc<dyn AccountRepository>,
-        event_bus: Arc<dyn EventBus>,
-    ) -> Self {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, event_bus: Arc<dyn EventBus>) -> Self {
         Self {
             account_repo,
             event_bus,
@@ -33,7 +30,10 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
     type Result = UpdateAccountResult;
 
     async fn handle(&self, cmd: UpdateAccountCommand) -> Result<Self::Result, DomainError> {
-        info!("Handling UpdateAccountCommand for account: {}", cmd.account_id);
+        info!(
+            "Handling UpdateAccountCommand for account: {}",
+            cmd.account_id
+        );
 
         let account_id = AccountId::from_string(&cmd.account_id);
 
@@ -56,9 +56,9 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
 
         // 3. Update credentials if provided
         if let Some(cookies) = cmd.cookies {
-            let api_user = cmd.api_user.unwrap_or_else(|| {
-                account.credentials().api_user().to_string()
-            });
+            let api_user = cmd
+                .api_user
+                .unwrap_or_else(|| account.credentials().api_user().to_string());
             let credentials = Credentials::new(cookies.clone(), api_user);
             account.update_credentials(credentials)?;
             credentials_updated = true;
@@ -77,7 +77,9 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
         // 4. Update auto check-in configuration if provided
         if let Some(enabled) = cmd.auto_checkin_enabled {
             let hour = cmd.auto_checkin_hour.unwrap_or(account.auto_checkin_hour());
-            let minute = cmd.auto_checkin_minute.unwrap_or(account.auto_checkin_minute());
+            let minute = cmd
+                .auto_checkin_minute
+                .unwrap_or(account.auto_checkin_minute());
             account.update_auto_checkin(enabled, hour, minute)?;
             auto_checkin_config_updated = true;
         }

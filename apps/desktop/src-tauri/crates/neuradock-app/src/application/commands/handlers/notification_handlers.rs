@@ -27,16 +27,18 @@ impl CreateNotificationChannelHandler {
 impl CommandHandler<CreateNotificationChannelCommand> for CreateNotificationChannelHandler {
     type Result = CreateNotificationChannelResult;
 
-    async fn handle(&self, cmd: CreateNotificationChannelCommand) -> Result<Self::Result, DomainError> {
+    async fn handle(
+        &self,
+        cmd: CreateNotificationChannelCommand,
+    ) -> Result<Self::Result, DomainError> {
         info!("Creating notification channel: {}", cmd.input.channel_type);
 
         // Parse channel type
         let channel_type = ChannelType::from_str(&cmd.input.channel_type)?;
 
         // Parse and validate config
-        let config: ChannelConfig = serde_json::from_value(cmd.input.config).map_err(|e| {
-            DomainError::InvalidInput(format!("Invalid channel config: {}", e))
-        })?;
+        let config: ChannelConfig = serde_json::from_value(cmd.input.config)
+            .map_err(|e| DomainError::InvalidInput(format!("Invalid channel config: {}", e)))?;
 
         // Validate channel type matches config
         if config.channel_type() != channel_type {
@@ -81,7 +83,10 @@ impl UpdateNotificationChannelHandler {
 impl CommandHandler<UpdateNotificationChannelCommand> for UpdateNotificationChannelHandler {
     type Result = UpdateNotificationChannelResult;
 
-    async fn handle(&self, cmd: UpdateNotificationChannelCommand) -> Result<Self::Result, DomainError> {
+    async fn handle(
+        &self,
+        cmd: UpdateNotificationChannelCommand,
+    ) -> Result<Self::Result, DomainError> {
         info!("Updating notification channel: {}", cmd.input.channel_id);
 
         let channel_id = NotificationChannelId::from_string(&cmd.input.channel_id);
@@ -97,9 +102,8 @@ impl CommandHandler<UpdateNotificationChannelCommand> for UpdateNotificationChan
 
         // Update config if provided
         if let Some(config_value) = cmd.input.config {
-            let config: ChannelConfig = serde_json::from_value(config_value).map_err(|e| {
-                DomainError::InvalidInput(format!("Invalid channel config: {}", e))
-            })?;
+            let config: ChannelConfig = serde_json::from_value(config_value)
+                .map_err(|e| DomainError::InvalidInput(format!("Invalid channel config: {}", e)))?;
             channel.update_config(config)?;
         }
 
@@ -145,7 +149,10 @@ impl DeleteNotificationChannelHandler {
 impl CommandHandler<DeleteNotificationChannelCommand> for DeleteNotificationChannelHandler {
     type Result = DeleteNotificationChannelResult;
 
-    async fn handle(&self, cmd: DeleteNotificationChannelCommand) -> Result<Self::Result, DomainError> {
+    async fn handle(
+        &self,
+        cmd: DeleteNotificationChannelCommand,
+    ) -> Result<Self::Result, DomainError> {
         info!("Deleting notification channel: {}", cmd.channel_id);
 
         let channel_id = NotificationChannelId::from_string(&cmd.channel_id);
@@ -173,7 +180,10 @@ impl TestNotificationChannelHandler {
 impl CommandHandler<TestNotificationChannelCommand> for TestNotificationChannelHandler {
     type Result = TestNotificationChannelResult;
 
-    async fn handle(&self, cmd: TestNotificationChannelCommand) -> Result<Self::Result, DomainError> {
+    async fn handle(
+        &self,
+        cmd: TestNotificationChannelCommand,
+    ) -> Result<Self::Result, DomainError> {
         info!("Testing notification channel: {}", cmd.channel_id);
 
         let channel_id = NotificationChannelId::from_string(&cmd.channel_id);

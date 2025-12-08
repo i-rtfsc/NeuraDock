@@ -26,9 +26,9 @@ mod tests {
         let scheduled_at = Utc::now();
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
-        
+
         let result = job.start();
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Running);
     }
@@ -41,10 +41,10 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         // Try to start again
         let result = job.start();
-        
+
         assert!(result.is_err());
         assert_eq!(job.status(), &CheckInStatus::Running); // Status should not change
     }
@@ -57,16 +57,16 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let balance = Balance::new(100.0, 50.0);
         let check_in_result = CheckInResult {
             success: true,
             balance: Some(balance),
             message: Some("Success".to_string()),
         };
-        
+
         let result = job.complete(check_in_result);
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Completed);
         assert!(job.result().is_some());
@@ -80,17 +80,17 @@ mod tests {
         let scheduled_at = Utc::now();
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
-        
+
         let balance = Balance::new(100.0, 50.0);
         let check_in_result = CheckInResult {
             success: true,
             balance: Some(balance),
             message: Some("Success".to_string()),
         };
-        
+
         // Try to complete without starting
         let result = job.complete(check_in_result);
-        
+
         assert!(result.is_err());
         assert_eq!(job.status(), &CheckInStatus::Pending); // Status should not change
     }
@@ -103,9 +103,9 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let result = job.fail("Network error".to_string());
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Failed);
         assert_eq!(job.error(), Some("Network error"));
@@ -118,9 +118,9 @@ mod tests {
         let scheduled_at = Utc::now();
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
-        
+
         let result = job.fail("Pre-check failed".to_string());
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Failed);
         assert_eq!(job.error(), Some("Pre-check failed"));
@@ -134,7 +134,7 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let balance = Balance::new(100.0, 50.0);
         let check_in_result = CheckInResult {
             success: true,
@@ -142,10 +142,10 @@ mod tests {
             message: Some("Success".to_string()),
         };
         job.complete(check_in_result).unwrap();
-        
+
         // Try to fail after completion
         let result = job.fail("Error".to_string());
-        
+
         assert!(result.is_err());
         assert_eq!(job.status(), &CheckInStatus::Completed); // Status should not change
     }
@@ -157,9 +157,9 @@ mod tests {
         let scheduled_at = Utc::now();
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
-        
+
         let result = job.cancel();
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Cancelled);
     }
@@ -172,9 +172,9 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let result = job.cancel();
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Cancelled);
     }
@@ -187,7 +187,7 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let balance = Balance::new(100.0, 50.0);
         let check_in_result = CheckInResult {
             success: true,
@@ -195,10 +195,10 @@ mod tests {
             message: Some("Success".to_string()),
         };
         job.complete(check_in_result).unwrap();
-        
+
         // Try to cancel after completion
         let result = job.cancel();
-        
+
         assert!(result.is_err());
         assert_eq!(job.status(), &CheckInStatus::Completed); // Status should not change
     }
@@ -212,10 +212,10 @@ mod tests {
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
         job.fail("Error".to_string()).unwrap();
-        
+
         // Try to cancel after failure
         let result = job.cancel();
-        
+
         assert!(result.is_err());
         assert_eq!(job.status(), &CheckInStatus::Failed); // Status should not change
     }
@@ -228,15 +228,15 @@ mod tests {
 
         let mut job = CheckInJob::new(account_id, provider_id, scheduled_at);
         job.start().unwrap();
-        
+
         let check_in_result = CheckInResult {
             success: false,
             balance: None,
             message: Some("Check-in failed".to_string()),
         };
-        
+
         let result = job.complete(check_in_result);
-        
+
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Completed);
         assert!(job.result().is_some());

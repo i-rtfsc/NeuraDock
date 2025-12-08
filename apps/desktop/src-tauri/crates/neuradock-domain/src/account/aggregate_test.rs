@@ -14,13 +14,13 @@ mod tests {
     #[test]
     fn test_create_account_with_valid_data() {
         let credentials = create_test_credentials();
-        
+
         let result = Account::new(
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
         );
-        
+
         assert!(result.is_ok());
         let account = result.unwrap();
         assert_eq!(account.name(), "Test Account");
@@ -34,13 +34,13 @@ mod tests {
     #[test]
     fn test_create_account_with_empty_name_fails() {
         let credentials = create_test_credentials();
-        
+
         let result = Account::new(
             "".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
         );
-        
+
         assert!(result.is_err());
         match result {
             Err(DomainError::Validation(msg)) => {
@@ -53,13 +53,13 @@ mod tests {
     #[test]
     fn test_create_account_with_whitespace_name_fails() {
         let credentials = create_test_credentials();
-        
+
         let result = Account::new(
             "   ".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
         );
-        
+
         assert!(result.is_err());
     }
 
@@ -67,13 +67,13 @@ mod tests {
     fn test_create_account_with_invalid_credentials_fails() {
         let empty_cookies = HashMap::new();
         let credentials = Credentials::new(empty_cookies, "test@user".to_string());
-        
+
         let result = Account::new(
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
         );
-        
+
         assert!(result.is_err());
         match result {
             Err(DomainError::InvalidCredentials(_)) => {
@@ -90,10 +90,11 @@ mod tests {
             "Original Name".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_name("Updated Name".to_string());
-        
+
         assert!(result.is_ok());
         assert_eq!(account.name(), "Updated Name");
     }
@@ -105,10 +106,11 @@ mod tests {
             "Original Name".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_name("".to_string());
-        
+
         assert!(result.is_err());
         assert_eq!(account.name(), "Original Name"); // Name should not change
     }
@@ -120,10 +122,11 @@ mod tests {
             "Original Name".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_name("  Trimmed Name  ".to_string());
-        
+
         assert!(result.is_ok());
         assert_eq!(account.name(), "Trimmed Name");
     }
@@ -135,13 +138,14 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert!(account.is_enabled());
-        
+
         account.toggle(false);
         assert!(!account.is_enabled());
-        
+
         account.toggle(true);
         assert!(account.is_enabled());
     }
@@ -153,14 +157,15 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert!(account.last_check_in().is_none());
-        
+
         let before = Utc::now();
         account.record_check_in();
         let after = Utc::now();
-        
+
         assert!(account.last_check_in().is_some());
         let last_check_in = account.last_check_in().unwrap();
         assert!(last_check_in >= before && last_check_in <= after);
@@ -173,10 +178,11 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_auto_checkin(true, 10, 30);
-        
+
         assert!(result.is_ok());
         assert!(account.auto_checkin_enabled());
         assert_eq!(account.auto_checkin_hour(), 10);
@@ -190,10 +196,11 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_auto_checkin(true, 24, 0);
-        
+
         assert!(result.is_err());
         match result {
             Err(DomainError::Validation(msg)) => {
@@ -211,10 +218,11 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let result = account.update_auto_checkin(true, 9, 60);
-        
+
         assert!(result.is_err());
         match result {
             Err(DomainError::Validation(msg)) => {
@@ -232,17 +240,18 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert!(account.session_token().is_none());
         assert!(account.session_expires_at().is_none());
         assert!(!account.is_session_valid());
-        
+
         let token = "session_token_123".to_string();
         let expires_at = Utc::now() + chrono::Duration::hours(1);
-        
+
         account.update_session(token.clone(), expires_at);
-        
+
         assert_eq!(account.session_token(), Some(&token));
         assert_eq!(account.session_expires_at(), Some(expires_at));
         assert!(account.is_session_valid());
@@ -256,16 +265,17 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Set session first
         let expires_at = Utc::now() + chrono::Duration::hours(1);
         account.update_session("token".to_string(), expires_at);
         assert!(account.is_session_valid());
-        
+
         // Clear session
         account.clear_session();
-        
+
         assert!(account.session_token().is_none());
         assert!(account.session_expires_at().is_none());
         assert!(!account.is_session_valid());
@@ -278,12 +288,13 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Set expired session
         let expired = Utc::now() - chrono::Duration::hours(1);
         account.update_session("token".to_string(), expired);
-        
+
         assert!(!account.is_session_valid());
     }
 
@@ -294,14 +305,15 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert!(account.current_balance().is_none());
         assert!(account.total_consumed().is_none());
         assert!(account.total_income().is_none());
-        
+
         account.update_balance(100.0, 50.0, 150.0);
-        
+
         assert_eq!(account.current_balance(), Some(100.0));
         assert_eq!(account.total_consumed(), Some(50.0));
         assert_eq!(account.total_income(), Some(150.0));
@@ -315,8 +327,9 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // No balance check yet, should be stale
         assert!(account.is_balance_stale(24));
     }
@@ -328,11 +341,12 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Update balance (sets last_balance_check_at to now)
         account.update_balance(100.0, 50.0, 150.0);
-        
+
         // Should not be stale (checked just now)
         assert!(!account.is_balance_stale(24));
     }
@@ -344,14 +358,15 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let mut new_cookies = HashMap::new();
         new_cookies.insert("session".to_string(), "new_token".to_string());
         let new_credentials = Credentials::new(new_cookies, "new@user".to_string());
-        
+
         let result = account.update_credentials(new_credentials);
-        
+
         assert!(result.is_ok());
         assert_eq!(account.credentials().api_user(), "new@user");
     }
@@ -363,13 +378,14 @@ mod tests {
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let empty_cookies = HashMap::new();
         let invalid_credentials = Credentials::new(empty_cookies, "test@user".to_string());
-        
+
         let result = account.update_credentials(invalid_credentials);
-        
+
         assert!(result.is_err());
     }
 }

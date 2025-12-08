@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Plus, Trash2, Server, XCircle, Search, Layers, Box } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Server, XCircle, Search, Box } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { TokenDto, AccountDto, ProviderNode } from '@/types/token';
@@ -94,7 +94,6 @@ export function TokenManagerPage() {
     data: tokens = [],
     isLoading,
     refetch,
-    isFetching,
   } = useQuery<TokenDto[]>({
     queryKey: ['tokens', selectedAccount],
     queryFn: () =>

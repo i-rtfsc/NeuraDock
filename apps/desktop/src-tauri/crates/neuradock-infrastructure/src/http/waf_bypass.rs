@@ -41,28 +41,28 @@ fn find_browser() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         // Check Windows registry and common installation paths
-        let windows_paths = vec![
+        let windows_paths: Vec<String> = vec![
             // Chrome (Program Files)
-            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe".to_string(),
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe".to_string(),
             // Chrome (Local AppData)
             format!(
                 r"{}\Google\Chrome\Application\chrome.exe",
                 std::env::var("LOCALAPPDATA").unwrap_or_default()
             ),
             // Chromium
-            r"C:\Program Files\Chromium\Application\chrome.exe",
-            r"C:\Program Files (x86)\Chromium\Application\chrome.exe",
+            r"C:\Program Files\Chromium\Application\chrome.exe".to_string(),
+            r"C:\Program Files (x86)\Chromium\Application\chrome.exe".to_string(),
             // Brave
-            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe".to_string(),
+            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe".to_string(),
             format!(
                 r"{}\BraveSoftware\Brave-Browser\Application\brave.exe",
                 std::env::var("LOCALAPPDATA").unwrap_or_default()
             ),
             // Microsoft Edge
-            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe".to_string(),
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe".to_string(),
         ];
 
         for path_str in windows_paths {

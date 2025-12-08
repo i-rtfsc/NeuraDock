@@ -323,7 +323,12 @@
     "sidebarExpandedDesc": "Show icon and text label",
     "sidebarCollapsedDesc": "Show icon only to save space",
     "cacheControl": "Cache Control",
-    "systemInfo": "System Information"
+    "systemInfo": "System Information",
+    "openLogFolder": "Open Log Folder",
+    "logFolderDescription": "Collect detailed diagnostics by sharing this folder when reporting issues.",
+    "opening": "Opening...",
+    "logFolderOpened": "Log folder opened: {{path}}",
+    "failedToOpenLogs": "Failed to open log folder"
   },
   "common": {
     "loading": "Loading...",

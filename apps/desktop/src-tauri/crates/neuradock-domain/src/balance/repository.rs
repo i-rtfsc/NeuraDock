@@ -10,7 +10,10 @@ pub trait BalanceRepository: Send + Sync {
     async fn save(&self, balance: &Balance) -> Result<(), DomainError>;
 
     /// Find balance by account ID
-    async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Balance>, DomainError>;
+    async fn find_by_account_id(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Balance>, DomainError>;
 
     /// Delete balance by account ID
     async fn delete(&self, account_id: &AccountId) -> Result<(), DomainError>;

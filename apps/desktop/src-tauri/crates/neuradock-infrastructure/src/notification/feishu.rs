@@ -31,7 +31,9 @@ impl FeishuWebhookSender {
         // Try to parse the content to check if it's a check-in success message with balance data
         // Accept both Chinese and English success title variants and fall back to content markers
         let title_lc = message.title.to_lowercase();
-        let is_checkin_title = title_lc.contains("签到") || title_lc.contains("check-in") || title_lc.contains("checkin");
+        let is_checkin_title = title_lc.contains("签到")
+            || title_lc.contains("check-in")
+            || title_lc.contains("checkin");
         if is_checkin_title && message.content.contains("📅") {
             // Build a card message for check-in success with balance comparison
             return self.build_card_message(message);
@@ -127,7 +129,11 @@ impl FeishuWebhookSender {
                 elements.push(json!({"tag": "hr"}));
                 current_section = format!("**{}**\n", trimmed);
                 in_section = true;
-            } else if in_section && !trimmed.is_empty() && !trimmed.starts_with("账户") && !trimmed.starts_with("服务商") {
+            } else if in_section
+                && !trimmed.is_empty()
+                && !trimmed.starts_with("账户")
+                && !trimmed.starts_with("服务商")
+            {
                 current_section.push_str(&format!("{}\n", trimmed));
             }
         }
@@ -161,11 +167,7 @@ impl FeishuWebhookSender {
     /// Build a simple text message for Feishu (fallback)
     fn build_text_message(&self, message: &NotificationMessage) -> serde_json::Value {
         let text = if message.link.is_some() {
-            format!(
-                "{}\n\n{}",
-                message.title,
-                message.content
-            )
+            format!("{}\n\n{}", message.title, message.content)
         } else {
             format!("{}\n{}", message.title, message.content)
         };
@@ -259,10 +261,7 @@ mod tests {
         let payload = sender.build_rich_message(&message);
 
         assert_eq!(payload["msg_type"], "post");
-        assert_eq!(
-            payload["content"]["post"]["zh_cn"]["title"],
-            "标题"
-        );
+        assert_eq!(payload["content"]["post"]["zh_cn"]["title"], "标题");
     }
 
     #[test]
@@ -273,7 +272,13 @@ mod tests {
         let payload = sender.build_text_message(&message);
 
         assert_eq!(payload["msg_type"], "text");
-        assert!(payload["content"]["text"].as_str().unwrap().contains("标题"));
-        assert!(payload["content"]["text"].as_str().unwrap().contains("内容"));
+        assert!(payload["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("标题"));
+        assert!(payload["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("内容"));
     }
 }

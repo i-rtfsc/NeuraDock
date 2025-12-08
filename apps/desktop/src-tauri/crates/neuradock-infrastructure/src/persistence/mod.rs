@@ -1,6 +1,6 @@
 pub mod repositories;
-pub mod unit_of_work;
 pub mod transaction;
+pub mod unit_of_work;
 
 mod database;
 mod repository_base;

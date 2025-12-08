@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 use neuradock_domain::token::ApiToken;
 
@@ -57,14 +57,14 @@ impl ClaudeConfigService {
         let mut config: Value = if config_path.exists() {
             let content = fs::read_to_string(&config_path)
                 .context("Failed to read existing settings.json")?;
-            serde_json::from_str(&content)
-                .context("Failed to parse existing settings.json")?
+            serde_json::from_str(&content).context("Failed to parse existing settings.json")?
         } else {
             json!({})
         };
 
         // Ensure config is an object
-        let config_obj = config.as_object_mut()
+        let config_obj = config
+            .as_object_mut()
             .context("settings.json must be a JSON object")?;
 
         // Get or create env object
@@ -75,10 +75,13 @@ impl ClaudeConfigService {
             if let Some(env_obj) = env_value.as_object_mut() {
                 env_obj.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
                 env_obj.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-                env_obj.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
+                env_obj.insert(
+                    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+                    json!("1"),
+                );
                 env_obj.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
                 env_obj.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-                
+
                 if let Some(m) = model {
                     env_obj.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
                     env_obj.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
@@ -89,16 +92,19 @@ impl ClaudeConfigService {
                 let mut env_map = serde_json::Map::new();
                 env_map.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
                 env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-                env_map.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
+                env_map.insert(
+                    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+                    json!("1"),
+                );
                 env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
                 env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-                
+
                 if let Some(m) = model {
                     env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
                     env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
                     env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
                 }
-                
+
                 *env_value = Value::Object(env_map);
             }
         } else {
@@ -106,16 +112,19 @@ impl ClaudeConfigService {
             let mut env_map = serde_json::Map::new();
             env_map.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
             env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-            env_map.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(), json!("1"));
+            env_map.insert(
+                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+                json!("1"),
+            );
             env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
             env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-            
+
             if let Some(m) = model {
                 env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
                 env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
                 env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
             }
-            
+
             config_obj.insert("env".to_string(), Value::Object(env_map));
         }
 
@@ -123,7 +132,10 @@ impl ClaudeConfigService {
         let content = serde_json::to_string_pretty(&config)?;
         fs::write(&config_path, content)?;
 
-        log::info!("Successfully configured Claude Code at: {}", config_path.display());
+        log::info!(
+            "Successfully configured Claude Code at: {}",
+            config_path.display()
+        );
 
         Ok(format!(
             "Successfully configured Claude Code globally at: {}",
@@ -141,13 +153,14 @@ impl ClaudeConfigService {
         }
 
         // Read existing config
-        let content = fs::read_to_string(&config_path)
-            .context("Failed to read existing settings.json")?;
-        let mut config: Value = serde_json::from_str(&content)
-            .context("Failed to parse existing settings.json")?;
+        let content =
+            fs::read_to_string(&config_path).context("Failed to read existing settings.json")?;
+        let mut config: Value =
+            serde_json::from_str(&content).context("Failed to parse existing settings.json")?;
 
         // Ensure config is an object
-        let config_obj = config.as_object_mut()
+        let config_obj = config
+            .as_object_mut()
             .context("settings.json must be a JSON object")?;
 
         // Remove only our managed keys from env
@@ -168,7 +181,10 @@ impl ClaudeConfigService {
         let content = serde_json::to_string_pretty(&config)?;
         fs::write(&config_path, content)?;
 
-        log::info!("Successfully cleared Claude Code configuration at: {}", config_path.display());
+        log::info!(
+            "Successfully cleared Claude Code configuration at: {}",
+            config_path.display()
+        );
 
         Ok("Successfully cleared Claude Code global configuration".to_string())
     }
@@ -188,14 +204,15 @@ impl ClaudeConfigService {
             "export DISABLE_TELEMETRY=\"1\"".to_string(),
             "export API_TIMEOUT_MS=\"3000000\"".to_string(),
         ];
-        
+
         if let Some(m) = model {
             commands.push(format!("export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"{}\"", m));
             commands.push(format!("export ANTHROPIC_DEFAULT_SONNET_MODEL=\"{}\"", m));
             commands.push(format!("export ANTHROPIC_DEFAULT_OPUS_MODEL=\"{}\"", m));
         }
-        
-        commands.push("# Run the above commands in your terminal, then start Claude Code".to_string());
+
+        commands
+            .push("# Run the above commands in your terminal, then start Claude Code".to_string());
 
         Ok(commands.join("\n"))
     }
