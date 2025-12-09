@@ -1,5 +1,6 @@
 use neuradock_domain::shared::DomainError;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use std::fs::OpenOptions;
 use std::path::Path;
 
 pub struct Database {
@@ -8,9 +9,22 @@ pub struct Database {
 
 impl Database {
     pub async fn new(db_path: &str) -> Result<Self, DomainError> {
-        if let Some(parent) = Path::new(db_path).parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
+        let path = Path::new(db_path);
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                DomainError::Infrastructure(format!("Failed to create DB directory: {}", e))
+            })?;
+        }
+
+        if !path.exists() {
+            OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(path)
+                .map_err(|e| {
+                    DomainError::Infrastructure(format!("Failed to create DB file: {}", e))
+                })?;
         }
 
         let pool = SqlitePoolOptions::new()

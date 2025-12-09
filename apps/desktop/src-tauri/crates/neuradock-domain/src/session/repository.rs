@@ -10,7 +10,10 @@ pub trait SessionRepository: Send + Sync {
     async fn save(&self, session: &Session) -> Result<(), DomainError>;
 
     /// Find session by account ID
-    async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Session>, DomainError>;
+    async fn find_by_account_id(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Session>, DomainError>;
 
     /// Delete session by account ID
     async fn delete(&self, account_id: &AccountId) -> Result<(), DomainError>;

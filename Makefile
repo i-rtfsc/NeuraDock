@@ -1,4 +1,4 @@
-.PHONY: help dev dev-fast dev-first setup install check-deps build build-release build-release-fast build-frontend build-backend test test-backend test-coverage coverage-report clean clean-frontend clean-backend clean-all check fix logs kill rebuild migrate status bindings env-check version run-release update-deps outdated install-rust-tools fix-permissions
+.PHONY: help dev dev-fast dev-first setup install check-deps build build-release build-release-fast build-universal build-arch build-all-macos build-frontend build-backend test test-backend test-coverage coverage-report clean clean-frontend clean-backend clean-all check fix logs kill rebuild migrate status bindings env-check version run-release update-deps outdated install-rust-tools fix-permissions validate-actions show-targets
 
 # 默认目标
 help:
@@ -44,13 +44,21 @@ help:
 	@echo "  install-rust-tools - 🔧 安装 Rust 开发工具"
 	@echo "  fix-permissions  - 🔧 修复文件权限"
 	@echo "  dev-fast         - ⚡ 快速启动（跳过检查）"
+	@echo "  build-universal  - 🍎 构建 macOS Universal Binary"
+	@echo "  build-all-macos  - 🍎 构建所有 macOS 架构（aarch64 + x86_64 + universal）"
+	@echo "  build-arch       - 📦 构建指定架构（需要 ARCH=xxx）"
+	@echo "  validate-actions - ✅ 验证 GitHub Actions 配置"
+	@echo "  show-targets     - 📋 显示所有可用的构建目标"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make setup           - 首次安装依赖"
-	@echo "  make dev             - 启动开发服务器"
-	@echo "  make build-release   - 构建生产版本并打包"
-	@echo "  make kill dev        - 杀掉旧进程后启动开发"
-	@echo "  make clean build     - 清理后重新构建"
+	@echo "  make setup              - 首次安装依赖"
+	@echo "  make dev                - 启动开发服务器"
+	@echo "  make build-release      - 构建当前架构版本"
+	@echo "  make build-universal    - 构建 Universal Binary"
+	@echo "  make build-all-macos    - 构建所有 macOS 架构"
+	@echo "  make build-arch ARCH=x86_64-apple-darwin  - 构建 Intel 版本"
+	@echo "  make kill dev           - 杀掉旧进程后启动开发"
+	@echo "  make clean build        - 清理后重新构建"
 
 # 杀掉所有进程
 kill:
@@ -123,9 +131,9 @@ build: build-frontend build-backend
 	@echo "✅ 构建完成"
 	@echo "二进制文件位置: apps/desktop/src-tauri/target/release/neuradock"
 
-# 构建并打包 release 版本
+# 构建并打包 release 版本（当前架构）
 build-release: check-deps
-	@echo "📦 构建 Release 版本（包含打包）..."
+	@echo "📦 构建 Release 版本（当前架构：$$(uname -m)）..."
 	@cd apps/desktop && npm run tauri:build
 	@echo "✅ Release 构建完成"
 	@echo ""
@@ -136,6 +144,60 @@ build-release: check-deps
 	@echo ""
 	@echo "查看详细构建产物："
 	@ls -lh apps/desktop/src-tauri/target/release/bundle/*/ 2>/dev/null || true
+
+# 构建 macOS Universal Binary（支持 Intel + Apple Silicon）
+build-universal: check-deps
+	@echo "🍎 构建 macOS Universal Binary（Intel + Apple Silicon）..."
+	@echo ""
+	@echo "📋 检查并安装必要的 Rust targets..."
+	@rustup target add x86_64-apple-darwin 2>/dev/null || true
+	@rustup target add aarch64-apple-darwin 2>/dev/null || true
+	@echo ""
+	@echo "🔨 构建中..."
+	@cd apps/desktop && npm run tauri:build -- --target universal-apple-darwin
+	@echo ""
+	@echo "✅ Universal Binary 构建完成"
+	@echo ""
+	@echo "📦 安装包位置："
+	@ls -lh apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/ 2>/dev/null || \
+	ls -lh apps/desktop/src-tauri/target/release/bundle/dmg/ 2>/dev/null || true
+
+# 构建指定架构的版本
+build-arch: check-deps
+	@if [ -z "$(ARCH)" ]; then \
+		echo "❌ 请指定架构"; \
+		echo ""; \
+		echo "用法: make build-arch ARCH=<架构>"; \
+		echo ""; \
+		echo "可用架构:"; \
+		echo "  - aarch64-apple-darwin    (Apple Silicon)"; \
+		echo "  - x86_64-apple-darwin     (Intel Mac)"; \
+		echo "  - universal-apple-darwin  (Universal Binary)"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@echo "📦 构建 $(ARCH) 版本..."
+	@rustup target add $(ARCH) 2>/dev/null || true
+	@cd apps/desktop && npm run tauri:build -- --target $(ARCH)
+	@echo "✅ $(ARCH) 构建完成"
+
+# 构建所有 macOS 架构
+build-all-macos: check-deps
+	@echo "🍎 构建所有 macOS 架构..."
+	@echo ""
+	@echo "1️⃣  构建 Apple Silicon (aarch64)..."
+	@$(MAKE) build-arch ARCH=aarch64-apple-darwin
+	@echo ""
+	@echo "2️⃣  构建 Intel (x86_64)..."
+	@$(MAKE) build-arch ARCH=x86_64-apple-darwin
+	@echo ""
+	@echo "3️⃣  构建 Universal Binary..."
+	@$(MAKE) build-universal
+	@echo ""
+	@echo "✅ 所有 macOS 架构构建完成！"
+	@echo ""
+	@echo "📦 安装包列表："
+	@find apps/desktop/src-tauri/target -name "*.dmg" -type f -exec ls -lh {} \;
 
 # 快速构建 release（不打包，仅编译）
 build-release-fast: build-frontend build-backend
@@ -378,3 +440,31 @@ fix-permissions:
 	@chmod +x apps/desktop/src-tauri/target/release/neuradock 2>/dev/null || true
 	@chmod -R u+w apps/desktop/node_modules 2>/dev/null || true
 	@echo "✅ 权限修复完成"
+
+# 验证 GitHub Actions workflow
+validate-actions:
+	@echo "🔍 验证 GitHub Actions..."
+	@./.github/workflows/validate.sh
+
+# 显示可用的构建目标
+show-targets:
+	@echo "📋 可用的构建目标："
+	@echo ""
+	@echo "🍎 macOS:"
+	@echo "  make build-release          - 构建当前架构 ($$(uname -m))"
+	@echo "  make build-universal        - 构建 Universal Binary (Intel + Apple Silicon)"
+	@echo "  make build-all-macos        - 构建所有 macOS 架构"
+	@echo "  make build-arch ARCH=x86_64-apple-darwin     - Intel Mac"
+	@echo "  make build-arch ARCH=aarch64-apple-darwin    - Apple Silicon"
+	@echo ""
+	@echo "🌍 跨平台构建 (需要 GitHub Actions):"
+	@echo "  使用 GitHub Actions 自动构建 Windows、Linux、macOS"
+	@echo "  1. 推送带 tag 的提交: git tag v0.1.0 && git push origin v0.1.0"
+	@echo "  2. 或手动触发: 在 GitHub Actions 页面选择 'Release' workflow"
+	@echo ""
+	@echo "📦 构建产物位置:"
+	@echo "  - macOS DMG:  apps/desktop/src-tauri/target/*/release/bundle/dmg/"
+	@echo "  - Windows:    apps/desktop/src-tauri/target/*/release/bundle/msi/"
+	@echo "  - Linux DEB:  apps/desktop/src-tauri/target/*/release/bundle/deb/"
+	@echo "  - Linux RPM:  apps/desktop/src-tauri/target/*/release/bundle/rpm/"
+	@echo "  - AppImage:   apps/desktop/src-tauri/target/*/release/bundle/appimage/"

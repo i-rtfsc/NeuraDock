@@ -5,6 +5,7 @@ pub mod browser;
 pub mod config;
 pub mod events;
 pub mod http;
+pub mod logging;
 pub mod monitoring;
 pub mod notification;
 pub mod persistence;

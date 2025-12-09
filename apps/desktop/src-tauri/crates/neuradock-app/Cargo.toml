@@ -26,6 +26,7 @@ tauri = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-notification = { workspace = true }
+tauri-plugin-opener = { workspace = true }
 tauri-plugin-os = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 tauri-plugin-store = { workspace = true }

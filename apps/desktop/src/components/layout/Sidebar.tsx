@@ -4,9 +4,7 @@ import {
   UserCircle,
   Flame,
   Key,
-  Settings2,
-  PanelLeftClose,
-  PanelLeftOpen
+  Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';

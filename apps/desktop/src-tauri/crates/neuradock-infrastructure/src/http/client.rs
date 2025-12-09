@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
+use log::{debug, warn};
 use reqwest::{header, Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
-use log::{debug, warn};
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
@@ -62,16 +62,19 @@ impl HttpClient {
             .build()
             .context("Failed to create HTTP client")?;
 
-        Ok(Self { client, retry_config })
+        Ok(Self {
+            client,
+            retry_config,
+        })
     }
 
     /// Execute a request with retry logic
-    /// 
+    ///
     /// Retries on:
     /// - Network errors (connection failures, timeouts)
     /// - 5xx server errors
     /// - 429 Too Many Requests
-    /// 
+    ///
     /// Does NOT retry on:
     /// - 4xx client errors (except 429)
     /// - Successful responses (2xx, 3xx)
@@ -89,7 +92,7 @@ impl HttpClient {
 
         loop {
             attempt += 1;
-            
+
             match request_fn().await {
                 Ok(response) => {
                     if attempt > 1 {
@@ -98,30 +101,26 @@ impl HttpClient {
                     return Ok(response);
                 }
                 Err(e) => {
-                    let should_retry = attempt <= self.retry_config.max_retries 
-                        && self.is_retryable_error(&e);
+                    let should_retry =
+                        attempt <= self.retry_config.max_retries && self.is_retryable_error(&e);
 
                     if should_retry {
                         warn!(
                             "⚠️  {} failed (attempt {}/{}): {}. Retrying in {}ms...",
-                            operation_name,
-                            attempt,
-                            self.retry_config.max_retries,
-                            e,
-                            backoff_ms
+                            operation_name, attempt, self.retry_config.max_retries, e, backoff_ms
                         );
 
                         sleep(Duration::from_millis(backoff_ms)).await;
 
                         // Exponential backoff with cap
-                        backoff_ms = ((backoff_ms as f64 * self.retry_config.backoff_multiplier) as u64)
+                        backoff_ms = ((backoff_ms as f64 * self.retry_config.backoff_multiplier)
+                            as u64)
                             .min(self.retry_config.max_backoff_ms);
                     } else {
                         if attempt > self.retry_config.max_retries {
                             warn!(
                                 "❌ {} failed after {} attempts",
-                                operation_name,
-                                self.retry_config.max_retries
+                                operation_name, self.retry_config.max_retries
                             );
                         }
                         return Err(e);
@@ -168,11 +167,13 @@ impl HttpClient {
             let api_user_key = api_user_key.clone();
             let api_user_value = api_user_value.clone();
             let client = self.client.clone();
-            
+
             async move {
-                Self::get_user_info_once(&client, &url, &cookies, &api_user_key, &api_user_value).await
+                Self::get_user_info_once(&client, &url, &cookies, &api_user_key, &api_user_value)
+                    .await
             }
-        }).await
+        })
+        .await
     }
 
     /// Get user info (quota and used quota) - single attempt
@@ -234,18 +235,26 @@ impl HttpClient {
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unable to read response".to_string());
-            log::error!("User info request failed with status {}: {}", status, &error_text[..error_text.len().min(500)]);
+            log::error!(
+                "User info request failed with status {}: {}",
+                status,
+                &error_text[..error_text.len().min(500)]
+            );
 
             // Try to extract message from JSON response
-            let error_message = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_text) {
-                json["message"].as_str().unwrap_or(&error_text).to_string()
-            } else {
-                error_text.clone()
-            };
+            let error_message =
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                    json["message"].as_str().unwrap_or(&error_text).to_string()
+                } else {
+                    error_text.clone()
+                };
 
             // Check if this is a WAF challenge
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
-                anyhow::bail!("WAF_CHALLENGE: {}", &error_text[..error_text.len().min(500)]);
+                anyhow::bail!(
+                    "WAF_CHALLENGE: {}",
+                    &error_text[..error_text.len().min(500)]
+                );
             }
             anyhow::bail!("{}", error_message);
         }
@@ -259,13 +268,24 @@ impl HttpClient {
         log::debug!("User info response length: {} bytes", response_text.len());
 
         // Check if response is HTML (WAF challenge page)
-        if response_text.trim().starts_with('<') || response_text.contains("acw_sc__v2") || response_text.contains("<script>var arg1=") {
-            log::warn!("Received WAF challenge page instead of JSON: {}", &response_text[..response_text.len().min(200)]);
-            anyhow::bail!("WAF_CHALLENGE: Received HTML instead of JSON - {}", &response_text[..response_text.len().min(500)]);
+        if response_text.trim().starts_with('<')
+            || response_text.contains("acw_sc__v2")
+            || response_text.contains("<script>var arg1=")
+        {
+            log::warn!(
+                "Received WAF challenge page instead of JSON: {}",
+                &response_text[..response_text.len().min(200)]
+            );
+            anyhow::bail!(
+                "WAF_CHALLENGE: Received HTML instead of JSON - {}",
+                &response_text[..response_text.len().min(500)]
+            );
         }
 
-        let data: serde_json::Value = serde_json::from_str(&response_text)
-            .context(format!("Failed to parse user info response: {}", &response_text[..response_text.len().min(200)]))?;
+        let data: serde_json::Value = serde_json::from_str(&response_text).context(format!(
+            "Failed to parse user info response: {}",
+            &response_text[..response_text.len().min(200)]
+        ))?;
 
         // Debug: Log the full response to understand structure
         log::info!(
@@ -404,7 +424,10 @@ impl HttpClient {
                 .unwrap_or_else(|_| "Unable to read response".to_string());
             // Check if this is a WAF challenge
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
-                anyhow::bail!("WAF_CHALLENGE: {}", &error_text[..error_text.len().min(500)]);
+                anyhow::bail!(
+                    "WAF_CHALLENGE: {}",
+                    &error_text[..error_text.len().min(500)]
+                );
             }
             log::error!(
                 "Check-in request failed with status {}: {}",
@@ -422,9 +445,18 @@ impl HttpClient {
         let text = response.text().await?;
 
         // Check if response is HTML (WAF challenge page)
-        if text.trim().starts_with('<') || text.contains("acw_sc__v2") || text.contains("<script>var arg1=") {
-            log::warn!("Received WAF challenge page instead of JSON in check-in: {}", &text[..text.len().min(200)]);
-            anyhow::bail!("WAF_CHALLENGE: Received HTML instead of JSON - {}", &text[..text.len().min(500)]);
+        if text.trim().starts_with('<')
+            || text.contains("acw_sc__v2")
+            || text.contains("<script>var arg1=")
+        {
+            log::warn!(
+                "Received WAF challenge page instead of JSON in check-in: {}",
+                &text[..text.len().min(200)]
+            );
+            anyhow::bail!(
+                "WAF_CHALLENGE: Received HTML instead of JSON - {}",
+                &text[..text.len().min(500)]
+            );
         }
 
         // Log full response for debugging
@@ -602,15 +634,15 @@ impl HttpClient {
         log::info!("API endpoint response status: {}", status);
 
         // Get response text to check for WAF challenge
-        let response_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| String::new());
+        let response_text = response.text().await.unwrap_or_else(|_| String::new());
 
         // Check for WAF challenge
         if response_text.contains("acw_sc__v2") || response_text.contains("<script>var arg1=") {
             log::warn!("WAF challenge detected in API endpoint response");
-            anyhow::bail!("WAF_CHALLENGE: {}", &response_text[..response_text.len().min(500)]);
+            anyhow::bail!(
+                "WAF_CHALLENGE: {}",
+                &response_text[..response_text.len().min(500)]
+            );
         }
 
         if !status.is_success() {
@@ -636,7 +668,7 @@ impl Default for HttpClient {
 fn extract_domain(url: &str) -> Result<String> {
     let parsed = url::Url::parse(url)?;
     let host = parsed.host_str().unwrap_or("");
-    
+
     if let Some(port) = parsed.port() {
         Ok(format!("{}://{}:{}", parsed.scheme(), host, port))
     } else {

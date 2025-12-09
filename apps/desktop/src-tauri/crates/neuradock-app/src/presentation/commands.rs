@@ -1,17 +1,18 @@
 use crate::application::commands::account_commands::*;
-use crate::application::commands::notification_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
+use crate::application::commands::notification_commands::*;
 use crate::application::services::CheckInExecutor;
 use crate::application::*;
+use crate::presentation::state::AppState;
 use chrono::{Duration, Utc};
 use neuradock_domain::account::{Account, Credentials};
 use neuradock_domain::check_in::Provider;
 use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::{AccountId, ProviderId};
-use crate::presentation::state::AppState;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Manager, State};
+use tracing::warn;
 
 pub mod token;
 
@@ -191,17 +192,32 @@ pub async fn import_account_from_json(
 
     // Create and save session with 30-day expiration
     const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
-    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let session_token = cookies
+        .values()
+        .next()
+        .cloned()
+        .unwrap_or_else(|| "session".to_string());
     let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
-    let session = Session::new(account_id.clone(), session_token, expires_at)
-        .map_err(|e| e.to_string())?;
+    let session =
+        Session::new(account_id.clone(), session_token, expires_at).map_err(|e| e.to_string())?;
     state
         .session_repo
         .save(&session)
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(account_id.as_str().to_string())
+    let account_id_str = account_id.as_str().to_string();
+    if let Err(err) = fetch_account_balance(account_id_str.clone(), Some(true), state.clone()).await
+    {
+        warn!(
+            target: "neuradock::import",
+            account_id = %account_id_str,
+            "Failed to prefetch balance after import: {}",
+            err
+        );
+    }
+
+    Ok(account_id_str)
 }
 
 #[tauri::command]
@@ -222,6 +238,16 @@ pub async fn import_accounts_batch(
         match import_single_account(input, &state.account_repo, &state.session_repo).await {
             Ok(account_id) => {
                 succeeded += 1;
+                if let Err(err) =
+                    fetch_account_balance(account_id.clone(), Some(true), state.clone()).await
+                {
+                    warn!(
+                        target: "neuradock::import",
+                        account_id = %account_id,
+                        "Failed to prefetch balance after batch import: {}",
+                        err
+                    );
+                }
                 results.push(ImportItemResult {
                     success: true,
                     account_id: Some(account_id),
@@ -253,7 +279,7 @@ async fn import_single_account(
     input: ImportAccountInput,
     account_repo: &Arc<dyn crate::domain::account::AccountRepository>,
     session_repo: &Arc<dyn SessionRepository>,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let cookies = input.cookies.clone();
     let credentials = Credentials::new(input.cookies, input.api_user);
     let account = Account::new(
@@ -267,7 +293,11 @@ async fn import_single_account(
 
     // Create and save session with 30-day expiration
     const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
-    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let session_token = cookies
+        .values()
+        .next()
+        .cloned()
+        .unwrap_or_else(|| "session".to_string());
     let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
     let session = Session::new(account_id.clone(), session_token, expires_at)?;
     session_repo.save(&session).await?;
@@ -395,7 +425,9 @@ pub async fn update_accounts_batch(
             None => {
                 if create_if_not_exists {
                     // Create new account
-                    match import_single_account(input, &state.account_repo, &state.session_repo).await {
+                    match import_single_account(input, &state.account_repo, &state.session_repo)
+                        .await
+                    {
                         Ok(account_id) => {
                             created += 1;
                             results.push(UpdateItemResult {
@@ -461,7 +493,11 @@ async fn update_account_cookies(
 
     // Create and save session with 30-day expiration
     const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
-    let session_token = cookies.values().next().cloned().unwrap_or_else(|| "session".to_string());
+    let session_token = cookies
+        .values()
+        .next()
+        .cloned()
+        .unwrap_or_else(|| "session".to_string());
     let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
     let session = Session::new(account_id.clone(), session_token, expires_at)?;
     session_repo.save(&session).await?;
@@ -530,11 +566,7 @@ pub async fn execute_batch_check_in(
             job_id: format!("batch_{}", r.message.len()), // Placeholder
             success: r.success,
             balance: r.balance,
-            error: if r.success {
-                None
-            } else {
-                Some(r.message)
-            },
+            error: if r.success { None } else { Some(r.message) },
         })
         .collect();
 
@@ -624,7 +656,7 @@ pub async fn get_all_accounts(
     state: State<'_, AppState>,
 ) -> Result<Vec<AccountDto>, String> {
     let providers = get_builtin_providers();
-    
+
     state
         .account_queries
         .get_all_accounts(enabled_only, &providers)
@@ -905,7 +937,7 @@ async fn save_balance_history(
             sqlx::query(
                 "UPDATE balance_history
                  SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
-                 WHERE id = ?"
+                 WHERE id = ?",
             )
             .bind(balance.current_balance)
             .bind(balance.total_consumed)
@@ -1039,10 +1071,16 @@ pub async fn set_log_level(level: String, state: State<'_, AppState>) -> Result<
         "info" => LogLevel::Info,
         "debug" => LogLevel::Debug,
         "trace" => LogLevel::Trace,
-        _ => return Err("Invalid log level. Must be one of: error, warn, info, debug, trace".to_string()),
+        _ => {
+            return Err(
+                "Invalid log level. Must be one of: error, warn, info, debug, trace".to_string(),
+            )
+        }
     };
 
-    state.config_service.set_log_level(log_level)
+    state
+        .config_service
+        .set_log_level(log_level)
         .map_err(|e| format!("Failed to save log level: {}", e))?;
     Ok(())
 }
@@ -1146,4 +1184,64 @@ pub async fn test_notification_channel(
         .handle(command)
         .await
         .map_err(|e| e.to_string())
+}
+
+// ============================================================
+// System & Logging Commands
+// ============================================================
+
+/// 获取应用版本信息
+#[tauri::command]
+#[specta::specta]
+pub fn get_app_version() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let profile = if cfg!(debug_assertions) {
+        "Debug"
+    } else {
+        "Release"
+    };
+    format!("{} ({})", version, profile)
+}
+
+/// 前端日志上报
+#[tauri::command]
+#[specta::specta]
+pub fn log_from_frontend(level: String, target: String, message: String, fields: Option<String>) {
+    use neuradock_infrastructure::logging::{log_from_frontend as log_fe, FrontendLog};
+
+    // 解析 fields JSON 字符串
+    let parsed_fields = fields.and_then(|f| serde_json::from_str(&f).ok());
+
+    let log = FrontendLog {
+        level,
+        target,
+        message,
+        fields: parsed_fields,
+    };
+
+    log_fe(log);
+}
+
+/// 打开日志文件夹
+#[tauri::command]
+#[specta::specta]
+pub async fn open_log_dir(app: tauri::AppHandle) -> Result<String, String> {
+    use neuradock_infrastructure::logging;
+    use tauri_plugin_opener::OpenerExt;
+
+    let log_dir = logging::get_log_dir()
+        .or_else(|| {
+            // 如果还没初始化，尝试获取默认路径
+            app.path().app_log_dir().ok().map(|dir| dir.join("logs"))
+        })
+        .ok_or_else(|| "Failed to get log directory".to_string())?;
+
+    // 确保目录存在
+    std::fs::create_dir_all(&log_dir).map_err(|e| e.to_string())?;
+
+    app.opener()
+        .reveal_item_in_dir(&log_dir)
+        .map_err(|e| e.to_string())?;
+
+    Ok(log_dir.display().to_string())
 }

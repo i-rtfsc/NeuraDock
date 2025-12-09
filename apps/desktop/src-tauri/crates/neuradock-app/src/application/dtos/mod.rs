@@ -28,8 +28,8 @@ pub struct AccountDto {
     pub is_online: bool,
     // Session expiration info for frontend display
     pub session_expires_at: Option<String>,
-    pub session_expires_soon: bool,  // true if session expires within 7 days
-    pub session_days_remaining: Option<i64>,  // days until session expires
+    pub session_expires_soon: bool, // true if session expires within 7 days
+    pub session_days_remaining: Option<i64>, // days until session expires
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

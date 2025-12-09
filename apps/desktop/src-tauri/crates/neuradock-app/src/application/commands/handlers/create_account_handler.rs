@@ -17,10 +17,7 @@ pub struct CreateAccountCommandHandler {
 }
 
 impl CreateAccountCommandHandler {
-    pub fn new(
-        account_repo: Arc<dyn AccountRepository>,
-        event_bus: Arc<dyn EventBus>,
-    ) -> Self {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, event_bus: Arc<dyn EventBus>) -> Self {
         Self {
             account_repo,
             event_bus,

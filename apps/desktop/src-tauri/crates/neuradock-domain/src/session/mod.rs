@@ -9,7 +9,7 @@ pub use repository::SessionRepository;
 
 /// Session value object
 /// Represents user authentication session for an account
-/// 
+///
 /// This is a separate value object instead of being part of Account aggregate
 /// because session has different lifecycle and change frequency than account credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]

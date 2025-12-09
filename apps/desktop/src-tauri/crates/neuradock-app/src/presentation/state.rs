@@ -7,18 +7,28 @@ use tracing::{info, warn};
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
-use crate::application::services::{AutoCheckInScheduler, ClaudeConfigService, CodexConfigService, ConfigService, NotificationService, TokenService};
+use crate::application::services::{
+    AutoCheckInScheduler, ClaudeConfigService, CodexConfigService, ConfigService,
+    NotificationService, TokenService,
+};
+use neuradock_domain::account::AccountRepository;
+use neuradock_domain::check_in::Provider;
+use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
-use neuradock_domain::account::AccountRepository;
-use neuradock_domain::session::SessionRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
+use neuradock_domain::session::SessionRepository;
 use neuradock_domain::token::TokenRepository;
-use neuradock_domain::custom_node::CustomProviderNodeRepository;
-use neuradock_domain::check_in::Provider;
 use neuradock_infrastructure::events::InMemoryEventBus;
-use neuradock_infrastructure::persistence::{repositories::{SqliteAccountRepository, SqliteSessionRepository, SqliteTokenRepository, SqliteCustomProviderNodeRepository, SqliteProviderModelsRepository, SqliteWafCookiesRepository}, Database};
 use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
+use neuradock_infrastructure::persistence::{
+    repositories::{
+        SqliteAccountRepository, SqliteCustomProviderNodeRepository,
+        SqliteProviderModelsRepository, SqliteSessionRepository, SqliteTokenRepository,
+        SqliteWafCookiesRepository,
+    },
+    Database,
+};
 use neuradock_infrastructure::security::{EncryptionService, KeyManager};
 
 /// Command handlers container
@@ -71,12 +81,11 @@ impl AppState {
         std::fs::create_dir_all(&app_data_dir)
             .map_err(|e| format!("Failed to create app data directory: {}", e))?;
 
-        // let db_filename = if cfg!(debug_assertions) {
-        //     "neuradock.db"
-        // } else {
-        //     "neuradock.db"
-        // };
-        let db_filename = "neuradock.db";
+        let db_filename = if cfg!(debug_assertions) {
+            "neuradock-dev.db"
+        } else {
+            "neuradock.db"
+        };
 
         let db_path = app_data_dir.join(db_filename);
         let db_path_str = db_path.to_str().ok_or("Invalid database path")?;
@@ -86,15 +95,16 @@ impl AppState {
         // Initialize encryption
         info!("🔐 Initializing encryption...");
         let key_manager = KeyManager::new(app_data_dir.clone());
-        let salt = key_manager.initialize()
+        let salt = key_manager
+            .initialize()
             .map_err(|e| format!("Failed to initialize encryption salt: {}", e))?;
-        
+
         // TODO: In production, get password from secure input
         // For now, use a default password (should be configurable)
         let encryption_password = "neuradock_default_password_2024";
         let encryption_service = Arc::new(
             EncryptionService::from_password(encryption_password, &salt)
-                .map_err(|e| format!("Failed to create encryption service: {}", e))?
+                .map_err(|e| format!("Failed to create encryption service: {}", e))?,
         );
         info!("✓ Encryption initialized");
 
@@ -108,19 +118,25 @@ impl AppState {
 
         let pool = Arc::new(database.pool().clone());
         let db = Arc::new(database);
-        let account_repo =
-            Arc::new(SqliteAccountRepository::new(pool.clone(), encryption_service.clone())) as Arc<dyn AccountRepository>;
+        let account_repo = Arc::new(SqliteAccountRepository::new(
+            pool.clone(),
+            encryption_service.clone(),
+        )) as Arc<dyn AccountRepository>;
         let session_repo =
             Arc::new(SqliteSessionRepository::new(pool.clone())) as Arc<dyn SessionRepository>;
         let notification_channel_repo =
-            Arc::new(SqliteNotificationChannelRepository::new(pool.clone())) as Arc<dyn NotificationChannelRepository>;
+            Arc::new(SqliteNotificationChannelRepository::new(pool.clone()))
+                as Arc<dyn NotificationChannelRepository>;
         let token_repo =
             Arc::new(SqliteTokenRepository::new(pool.clone())) as Arc<dyn TokenRepository>;
-        let custom_node_repo =
-            Arc::new(SqliteCustomProviderNodeRepository::new(pool.clone())) as Arc<dyn CustomProviderNodeRepository>;
+        let custom_node_repo = Arc::new(SqliteCustomProviderNodeRepository::new(pool.clone()))
+            as Arc<dyn CustomProviderNodeRepository>;
         let provider_models_repo = Arc::new(SqliteProviderModelsRepository::new(pool.clone()));
         let waf_cookies_repo = Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
-        let notification_service = Arc::new(NotificationService::new(notification_channel_repo.clone(), pool.clone()));
+        let notification_service = Arc::new(NotificationService::new(
+            notification_channel_repo.clone(),
+            pool.clone(),
+        ));
         let account_queries = Arc::new(AccountQueryService::new(account_repo.clone()));
         let streak_queries = Arc::new(CheckInStreakQueries::new(pool.clone()));
 
@@ -129,7 +145,7 @@ impl AppState {
         let token_service = Arc::new(
             TokenService::new(token_repo.clone(), account_repo.clone())
                 .map_err(|e| format!("Failed to initialize token service: {}", e))?
-                .with_waf_cookies_repo(waf_cookies_repo.clone())
+                .with_waf_cookies_repo(waf_cookies_repo.clone()),
         );
         let claude_config_service = Arc::new(ClaudeConfigService::new());
         let codex_config_service = Arc::new(CodexConfigService::new());
@@ -147,11 +163,11 @@ impl AppState {
         // Initialize event bus and register event handlers
         info!("🔧 Initializing event bus...");
         let event_bus = Arc::new(InMemoryEventBus::new());
-        
+
         // Get providers for event handlers
         use crate::presentation::commands::get_builtin_providers;
         let providers = get_builtin_providers();
-        
+
         // Register SchedulerReloadEventHandler for account events
         let scheduler_reload_handler = SchedulerReloadEventHandler::new(
             scheduler.clone(),
@@ -159,22 +175,36 @@ impl AppState {
             providers.clone(),
             app_handle.clone(),
         );
-        
+
         use neuradock_domain::events::TypedEventHandlerWrapper;
-        
-        event_bus.subscribe::<AccountCreated>(
-            Arc::new(TypedEventHandlerWrapper::<AccountCreated, _>::new(scheduler_reload_handler.clone()))
-        ).await;
-        event_bus.subscribe::<AccountUpdated>(
-            Arc::new(TypedEventHandlerWrapper::<AccountUpdated, _>::new(scheduler_reload_handler.clone()))
-        ).await;
-        event_bus.subscribe::<AccountDeleted>(
-            Arc::new(TypedEventHandlerWrapper::<AccountDeleted, _>::new(scheduler_reload_handler.clone()))
-        ).await;
-        event_bus.subscribe::<AccountToggled>(
-            Arc::new(TypedEventHandlerWrapper::<AccountToggled, _>::new(scheduler_reload_handler))
-        ).await;
-        
+
+        event_bus
+            .subscribe::<AccountCreated>(Arc::new(
+                TypedEventHandlerWrapper::<AccountCreated, _>::new(
+                    scheduler_reload_handler.clone(),
+                ),
+            ))
+            .await;
+        event_bus
+            .subscribe::<AccountUpdated>(Arc::new(
+                TypedEventHandlerWrapper::<AccountUpdated, _>::new(
+                    scheduler_reload_handler.clone(),
+                ),
+            ))
+            .await;
+        event_bus
+            .subscribe::<AccountDeleted>(Arc::new(
+                TypedEventHandlerWrapper::<AccountDeleted, _>::new(
+                    scheduler_reload_handler.clone(),
+                ),
+            ))
+            .await;
+        event_bus
+            .subscribe::<AccountToggled>(Arc::new(
+                TypedEventHandlerWrapper::<AccountToggled, _>::new(scheduler_reload_handler),
+            ))
+            .await;
+
         info!("✓ Event bus initialized and handlers registered");
 
         // Load existing schedules from database
@@ -225,7 +255,7 @@ impl AppState {
                     true, // headless_browser
                     pool.clone(),
                 )
-                .with_notification_service(notification_service.clone())
+                .with_notification_service(notification_service.clone()),
             ),
             batch_execute_check_in: Arc::new(
                 BatchExecuteCheckInCommandHandler::new(
@@ -236,7 +266,7 @@ impl AppState {
                     true, // headless_browser
                     pool.clone(),
                 )
-                .with_notification_service(notification_service.clone())
+                .with_notification_service(notification_service.clone()),
             ),
             create_notification_channel: Arc::new(CreateNotificationChannelHandler::new(
                 notification_channel_repo.clone(),
@@ -257,7 +287,7 @@ impl AppState {
         info!("🔧 Initializing config service...");
         let config_service = Arc::new(
             ConfigService::new(&app_handle)
-                .map_err(|e| format!("Failed to initialize config service: {}", e))?
+                .map_err(|e| format!("Failed to initialize config service: {}", e))?,
         );
         info!("✓ Config service initialized");
 

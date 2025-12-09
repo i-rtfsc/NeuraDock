@@ -9,13 +9,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use neuradock_infrastructure::persistence::repositories::{
-    SqliteAccountRepository, SqliteBalanceRepository, SqliteSessionRepository,
-};
 use neuradock_domain::account::{Account, AccountRepository, Credentials};
 use neuradock_domain::balance::BalanceRepository;
 use neuradock_domain::session::SessionRepository;
 use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
+use neuradock_infrastructure::persistence::repositories::{
+    SqliteAccountRepository, SqliteBalanceRepository, SqliteSessionRepository,
+};
 
 mod test_helpers;
 
@@ -69,7 +69,10 @@ async fn e2e_error_invalid_credentials() {
     );
 
     // Account creation should fail because cookies are required
-    assert!(account.is_err(), "Account with empty cookies should be rejected");
+    assert!(
+        account.is_err(),
+        "Account with empty cookies should be rejected"
+    );
 
     println!("✓ Empty credentials rejection test passed");
 
@@ -212,9 +215,7 @@ async fn e2e_error_session_expiration() {
         encryption.clone(),
     ));
 
-    let session_repo = Arc::new(SqliteSessionRepository::new(
-        Arc::new(pool.clone()),
-    ));
+    let session_repo = Arc::new(SqliteSessionRepository::new(Arc::new(pool.clone())));
 
     // ============================================================
     // Create account
@@ -242,8 +243,8 @@ async fn e2e_error_session_expiration() {
     // ============================================================
     // Create expired session
     // ============================================================
-    use neuradock_domain::session::Session;
     use chrono::Utc;
+    use neuradock_domain::session::Session;
 
     let expired_token = "expired_token".to_string();
 
@@ -252,7 +253,8 @@ async fn e2e_error_session_expiration() {
         account_id.clone(),
         expired_token,
         Utc::now() - chrono::Duration::hours(1),
-    ).expect("Create expired session should succeed");
+    )
+    .expect("Create expired session should succeed");
 
     session_repo
         .save(&expired_session)
@@ -286,7 +288,8 @@ async fn e2e_error_session_expiration() {
         account_id.clone(),
         fresh_token,
         Utc::now() + chrono::Duration::hours(24),
-    ).expect("Create fresh session should succeed");
+    )
+    .expect("Create fresh session should succeed");
 
     session_repo
         .save(&fresh_session)
@@ -347,16 +350,10 @@ async fn e2e_error_balance_edge_cases() {
     // ============================================================
     // Test 1: Zero balance
     // ============================================================
-    use neuradock_domain::balance::Balance;
     use chrono::Utc;
+    use neuradock_domain::balance::Balance;
 
-    let zero_balance = Balance::restore(
-        account_id.clone(),
-        0.0,
-        0.0,
-        0.0,
-        Utc::now(),
-    );
+    let zero_balance = Balance::restore(account_id.clone(), 0.0, 0.0, 0.0, Utc::now());
 
     balance_repo
         .save(&zero_balance)
@@ -368,13 +365,7 @@ async fn e2e_error_balance_edge_cases() {
     // ============================================================
     // Test 2: Negative balance (edge case, should be allowed)
     // ============================================================
-    let negative_balance = Balance::restore(
-        account_id.clone(),
-        -10.0,
-        50.0,
-        40.0,
-        Utc::now(),
-    );
+    let negative_balance = Balance::restore(account_id.clone(), -10.0, 50.0, 40.0, Utc::now());
 
     balance_repo
         .save(&negative_balance)
@@ -430,9 +421,7 @@ async fn e2e_error_account_deletion_cascade() {
     ));
 
     let balance_repo = Arc::new(SqliteBalanceRepository::new(Arc::new(pool.clone())));
-    let session_repo = Arc::new(SqliteSessionRepository::new(
-        Arc::new(pool.clone()),
-    ));
+    let session_repo = Arc::new(SqliteSessionRepository::new(Arc::new(pool.clone())));
 
     // ============================================================
     // Create account with balance and session
@@ -456,9 +445,9 @@ async fn e2e_error_account_deletion_cascade() {
     let account_id = account.id().clone();
 
     // Save balance
+    use chrono::Utc;
     use neuradock_domain::balance::Balance;
     use neuradock_domain::session::Session;
-    use chrono::Utc;
 
     let balance = Balance::restore(account_id.clone(), 100.0, 20.0, 120.0, Utc::now());
     balance_repo
@@ -471,7 +460,8 @@ async fn e2e_error_account_deletion_cascade() {
         account_id.clone(),
         "test_session_token".to_string(),
         Utc::now() + chrono::Duration::hours(24),
-    ).expect("Create session should succeed");
+    )
+    .expect("Create session should succeed");
     session_repo
         .save(&session)
         .await
@@ -506,10 +496,16 @@ async fn e2e_error_account_deletion_cascade() {
     // This depends on database schema constraints
     // ============================================================
     let balance_result = balance_repo.find_by_account_id(&account_id).await;
-    println!("✓ Balance query after account deletion: {:?}", balance_result.is_ok());
+    println!(
+        "✓ Balance query after account deletion: {:?}",
+        balance_result.is_ok()
+    );
 
     let session_result = session_repo.find_by_account_id(&account_id).await;
-    println!("✓ Session query after account deletion: {:?}", session_result.is_ok());
+    println!(
+        "✓ Session query after account deletion: {:?}",
+        session_result.is_ok()
+    );
 }
 
 #[tokio::test]
@@ -550,10 +546,7 @@ async fn e2e_error_auto_checkin_validation() {
     // ============================================================
     let result = account.update_auto_checkin(true, 25, 0);
 
-    assert!(
-        result.is_err(),
-        "Hour 25 should be rejected"
-    );
+    assert!(result.is_err(), "Hour 25 should be rejected");
 
     println!("✓ Invalid hour rejected");
 
@@ -562,10 +555,7 @@ async fn e2e_error_auto_checkin_validation() {
     // ============================================================
     let result = account.update_auto_checkin(true, 9, 60);
 
-    assert!(
-        result.is_err(),
-        "Minute 60 should be rejected"
-    );
+    assert!(result.is_err(), "Minute 60 should be rejected");
 
     println!("✓ Invalid minute rejected");
 
@@ -574,10 +564,7 @@ async fn e2e_error_auto_checkin_validation() {
     // ============================================================
     let result = account.update_auto_checkin(true, 23, 59);
 
-    assert!(
-        result.is_ok(),
-        "Valid time 23:59 should be accepted"
-    );
+    assert!(result.is_ok(), "Valid time 23:59 should be accepted");
 
     account_repo
         .save(&account)

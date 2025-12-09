@@ -1,6 +1,6 @@
+use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[derive(Debug, Deserialize)]
 pub struct TokenResponse {
@@ -14,13 +14,9 @@ pub struct TokenResponse {
 #[serde(untagged)]
 pub enum TokenResponseData {
     /// AgentRouter format: {"data": {"page": 1, "items": [...]}}
-    Paginated {
-        data: TokenDataWrapper,
-    },
+    Paginated { data: TokenDataWrapper },
     /// AnyRouter format: {"data": [...]}
-    Direct {
-        data: Vec<TokenData>,
-    },
+    Direct { data: Vec<TokenData> },
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,14 +34,14 @@ impl TokenResponseData {
             TokenResponseData::Direct { data } => data,
         }
     }
-    
+
     pub fn page(&self) -> u32 {
         match self {
             TokenResponseData::Paginated { data } => data.page,
             TokenResponseData::Direct { .. } => 1,
         }
     }
-    
+
     pub fn total(&self) -> u32 {
         match self {
             TokenResponseData::Paginated { data } => data.total,
@@ -80,7 +76,7 @@ pub struct TokenClient {
 pub struct ProviderModelsResponse {
     pub success: bool,
     pub message: String,
-    pub data: Vec<String>,  // Changed: data is a simple string array, not objects
+    pub data: Vec<String>, // Changed: data is a simple string array, not objects
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -178,7 +174,11 @@ impl TokenClient {
         let url = format!("{}{}?p={}&size={}", base_url, token_api_path, page, size);
 
         log::info!("Fetching tokens from: {}", url);
-        log::debug!("Cookie length: {}, API user: {:?}", cookie_string.len(), api_user);
+        log::debug!(
+            "Cookie length: {}, API user: {:?}",
+            cookie_string.len(),
+            api_user
+        );
 
         let mut request = self
             .client
@@ -202,7 +202,11 @@ impl TokenClient {
             anyhow::bail!("Failed to fetch tokens: HTTP {}", response.status());
         }
 
-        log::debug!("Response status: {}, headers: {:?}", response.status(), response.headers());
+        log::debug!(
+            "Response status: {}, headers: {:?}",
+            response.status(),
+            response.headers()
+        );
 
         // Read response text first for debugging
         let response_text = response.text().await?;
@@ -215,22 +219,23 @@ impl TokenClient {
         }
 
         // Parse JSON
-        let token_response: TokenResponse = serde_json::from_str(&response_text)
-            .map_err(|e| {
-                log::error!("Failed to parse JSON: {}", e);
-                log::error!("Response text was: {}", response_text);
-                anyhow::anyhow!("Failed to parse response: {}", e)
-            })?;
+        let token_response: TokenResponse = serde_json::from_str(&response_text).map_err(|e| {
+            log::error!("Failed to parse JSON: {}", e);
+            log::error!("Response text was: {}", response_text);
+            anyhow::anyhow!("Failed to parse response: {}", e)
+        })?;
 
         if !token_response.success {
             log::error!("API returned error: {}", token_response.message);
             anyhow::bail!("API returned error: {}", token_response.message);
         }
 
-        log::info!("Successfully fetched {} tokens (page {}, total: {})", 
+        log::info!(
+            "Successfully fetched {} tokens (page {}, total: {})",
             token_response.data.items().len(),
             token_response.data.page(),
-            token_response.data.total());
+            token_response.data.total()
+        );
 
         Ok(token_response)
     }

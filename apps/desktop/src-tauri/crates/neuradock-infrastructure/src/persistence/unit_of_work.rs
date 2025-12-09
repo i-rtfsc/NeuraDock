@@ -13,28 +13,25 @@ pub struct UnitOfWork<'a> {
 impl<'a> UnitOfWork<'a> {
     /// Begin a new transaction
     pub async fn begin(pool: &'a SqlitePool) -> Result<Self, DomainError> {
-        let transaction = pool
-            .begin()
-            .await
-            .map_err(|e| DomainError::Infrastructure(format!("Failed to begin transaction: {}", e)))?;
+        let transaction = pool.begin().await.map_err(|e| {
+            DomainError::Infrastructure(format!("Failed to begin transaction: {}", e))
+        })?;
 
         Ok(Self { transaction })
     }
 
     /// Commit the transaction
     pub async fn commit(self) -> Result<(), DomainError> {
-        self.transaction
-            .commit()
-            .await
-            .map_err(|e| DomainError::Infrastructure(format!("Failed to commit transaction: {}", e)))
+        self.transaction.commit().await.map_err(|e| {
+            DomainError::Infrastructure(format!("Failed to commit transaction: {}", e))
+        })
     }
 
     /// Rollback the transaction
     pub async fn rollback(self) -> Result<(), DomainError> {
-        self.transaction
-            .rollback()
-            .await
-            .map_err(|e| DomainError::Infrastructure(format!("Failed to rollback transaction: {}", e)))
+        self.transaction.rollback().await.map_err(|e| {
+            DomainError::Infrastructure(format!("Failed to rollback transaction: {}", e))
+        })
     }
 
     /// Get a mutable reference to the transaction
@@ -100,7 +97,7 @@ mod tests {
     fn test_error_mapping_row_not_found() {
         let error = sqlx::Error::RowNotFound;
         let domain_error = RepositoryErrorMapper::map_sqlx_error(error, "Find account");
-        
+
         match domain_error {
             DomainError::Repository(msg) => {
                 assert!(msg.contains("Find account"));
@@ -114,7 +111,7 @@ mod tests {
     fn test_error_mapping_pool_timeout() {
         let error = sqlx::Error::PoolTimedOut;
         let domain_error = RepositoryErrorMapper::map_sqlx_error(error, "Save account");
-        
+
         match domain_error {
             DomainError::Infrastructure(msg) => {
                 assert!(msg.contains("Save account"));

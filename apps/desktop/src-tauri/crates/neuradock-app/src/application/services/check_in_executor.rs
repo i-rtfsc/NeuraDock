@@ -74,7 +74,9 @@ impl CheckInExecutor {
         info!("[{}] Starting check-in process", account_name);
 
         // 2. Validate using domain service
-        if let Some(error_result) = self.validate_check_in_eligibility(&account, provider, account_id, &account_name) {
+        if let Some(error_result) =
+            self.validate_check_in_eligibility(&account, provider, account_id, &account_name)
+        {
             return Ok(error_result);
         }
 
@@ -140,7 +142,11 @@ impl CheckInExecutor {
 
                         // Refresh WAF cookies and retry
                         match self
-                            .refresh_waf_cookies_and_retry(&account_name, provider, account.credentials().cookies())
+                            .refresh_waf_cookies_and_retry(
+                                &account_name,
+                                provider,
+                                account.credentials().cookies(),
+                            )
                             .await
                         {
                             Ok(fresh_cookies) => {
@@ -150,24 +156,41 @@ impl CheckInExecutor {
                                 // Retry check-in with fresh cookies
                                 match self
                                     .http_client
-                                    .execute_check_in(&sign_in_url, &cookies, provider.api_user_key(), api_user)
+                                    .execute_check_in(
+                                        &sign_in_url,
+                                        &cookies,
+                                        provider.api_user_key(),
+                                        api_user,
+                                    )
                                     .await
                                 {
                                     Ok(result) => {
-                                        info!("[{}] Check-in retry successful after WAF refresh!", account_name);
+                                        info!(
+                                            "[{}] Check-in retry successful after WAF refresh!",
+                                            account_name
+                                        );
                                         result
                                     }
                                     Err(retry_err) => {
-                                        error!("[{}] Check-in retry failed: {}", account_name, retry_err);
+                                        error!(
+                                            "[{}] Check-in retry failed: {}",
+                                            account_name, retry_err
+                                        );
                                         CheckInResult {
                                             success: false,
-                                            message: format!("Check-in failed after WAF retry: {}", retry_err),
+                                            message: format!(
+                                                "Check-in failed after WAF retry: {}",
+                                                retry_err
+                                            ),
                                         }
                                     }
                                 }
                             }
                             Err(refresh_err) => {
-                                error!("[{}] Failed to refresh WAF cookies: {}", account_name, refresh_err);
+                                error!(
+                                    "[{}] Failed to refresh WAF cookies: {}",
+                                    account_name, refresh_err
+                                );
                                 CheckInResult {
                                     success: false,
                                     message: format!("WAF refresh failed: {}", refresh_err),
@@ -206,7 +229,12 @@ impl CheckInExecutor {
             for endpoint in &api_endpoints {
                 let result = self
                     .http_client
-                    .call_api_endpoint(endpoint, &current_cookies, provider.api_user_key(), api_user)
+                    .call_api_endpoint(
+                        endpoint,
+                        &current_cookies,
+                        provider.api_user_key(),
+                        api_user,
+                    )
                     .await;
 
                 match result {
@@ -225,7 +253,11 @@ impl CheckInExecutor {
 
                         // Refresh WAF cookies and retry
                         if let Ok(fresh_cookies) = self
-                            .refresh_waf_cookies_and_retry(&account_name, provider, account.credentials().cookies())
+                            .refresh_waf_cookies_and_retry(
+                                &account_name,
+                                provider,
+                                account.credentials().cookies(),
+                            )
                             .await
                         {
                             current_cookies = fresh_cookies;
@@ -234,7 +266,12 @@ impl CheckInExecutor {
                             // Retry this endpoint
                             if self
                                 .http_client
-                                .call_api_endpoint(endpoint, &current_cookies, provider.api_user_key(), api_user)
+                                .call_api_endpoint(
+                                    endpoint,
+                                    &current_cookies,
+                                    provider.api_user_key(),
+                                    api_user,
+                                )
                                 .await
                                 .is_ok()
                             {
@@ -346,7 +383,10 @@ impl CheckInExecutor {
 
         let account_name = account.name().to_string();
 
-        info!("[{}] Fetching balance (query only, no check-in)", account_name);
+        info!(
+            "[{}] Fetching balance (query only, no check-in)",
+            account_name
+        );
 
         // Prepare cookies
         let cookies = self
@@ -455,11 +495,18 @@ impl CheckInExecutor {
                 Some(info.clone())
             }
             Err(e) if self.is_waf_challenge_error(e) => {
-                warn!("[{}] WAF challenge detected, invalidating cache and retrying...", account_name);
+                warn!(
+                    "[{}] WAF challenge detected, invalidating cache and retrying...",
+                    account_name
+                );
 
                 // Invalidate WAF cache and get fresh cookies
                 cookies = self
-                    .refresh_waf_cookies_and_retry(account_name, provider, account.credentials().cookies())
+                    .refresh_waf_cookies_and_retry(
+                        account_name,
+                        provider,
+                        account.credentials().cookies(),
+                    )
                     .await?;
 
                 // Retry get user info
@@ -474,11 +521,17 @@ impl CheckInExecutor {
                     .await
                 {
                     Ok(info) => {
-                        info!("[{}] Retry successful, balance: ${:.2}", account_name, info.quota);
+                        info!(
+                            "[{}] Retry successful, balance: ${:.2}",
+                            account_name, info.quota
+                        );
                         Some(info)
                     }
                     Err(e) => {
-                        warn!("[{}] Failed to get user info after retry: {}", account_name, e);
+                        warn!(
+                            "[{}] Failed to get user info after retry: {}",
+                            account_name, e
+                        );
                         None
                     }
                 }
@@ -593,7 +646,10 @@ impl CheckInExecutor {
                         info!("[{}] No valid cached WAF cookies found", account_name);
                     }
                     Err(e) => {
-                        warn!("[{}] Failed to check cached WAF cookies: {}", account_name, e);
+                        warn!(
+                            "[{}] Failed to check cached WAF cookies: {}",
+                            account_name, e
+                        );
                     }
                 }
             }
@@ -657,7 +713,10 @@ impl CheckInExecutor {
         // Delete cached WAF cookies
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
             if let Err(e) = waf_cookies_repo.delete(provider_id).await {
-                warn!("[{}] Failed to delete cached WAF cookies: {}", account_name, e);
+                warn!(
+                    "[{}] Failed to delete cached WAF cookies: {}",
+                    account_name, e
+                );
             } else {
                 info!("[{}] Invalidated cached WAF cookies", account_name);
             }

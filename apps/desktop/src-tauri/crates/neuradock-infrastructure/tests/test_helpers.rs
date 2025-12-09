@@ -1,7 +1,7 @@
-use sqlx::SqlitePool;
 use neuradock_infrastructure::security::EncryptionService;
-use std::path::Path;
+use sqlx::SqlitePool;
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
 pub async fn setup_in_memory_db() -> (SqlitePool, Arc<EncryptionService>) {
@@ -43,8 +43,10 @@ pub async fn setup_in_memory_db() -> (SqlitePool, Arc<EncryptionService>) {
 
     // Create encryption service with deterministic salt for tests
     let salt = [42u8; 32];
-    let encryption = Arc::new(EncryptionService::from_password("test_password", &salt)
-        .expect("Create encryption service"));
+    let encryption = Arc::new(
+        EncryptionService::from_password("test_password", &salt)
+            .expect("Create encryption service"),
+    );
 
     (pool, encryption)
 }

@@ -3,9 +3,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
+use crate::persistence::ResultExt;
 use neuradock_domain::balance::{Balance, BalanceRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
-use crate::persistence::ResultExt;
 
 #[derive(FromRow)]
 struct BalanceRow {
@@ -68,11 +68,18 @@ impl BalanceRepository for SqliteBalanceRepository {
         Ok(())
     }
 
-    async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Balance>, DomainError> {
+    async fn find_by_account_id(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Balance>, DomainError> {
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances WHERE account_id = ?1";
 
-        let row: Option<BalanceRow> = self.base
-            .fetch_optional(sqlx::query_as(query).bind(account_id.as_str()), "Find balance by account ID")
+        let row: Option<BalanceRow> = self
+            .base
+            .fetch_optional(
+                sqlx::query_as(query).bind(account_id.as_str()),
+                "Find balance by account ID",
+            )
             .await?;
 
         Ok(row.map(|r| r.to_balance()))
@@ -82,7 +89,10 @@ impl BalanceRepository for SqliteBalanceRepository {
         let query = "DELETE FROM balances WHERE account_id = ?1";
 
         self.base
-            .execute(sqlx::query(query).bind(account_id.as_str()), "Delete balance")
+            .execute(
+                sqlx::query(query).bind(account_id.as_str()),
+                "Delete balance",
+            )
             .await?;
 
         Ok(())
@@ -91,7 +101,8 @@ impl BalanceRepository for SqliteBalanceRepository {
     async fn find_all(&self) -> Result<Vec<Balance>, DomainError> {
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances ORDER BY last_checked_at DESC";
 
-        let rows: Vec<BalanceRow> = self.base
+        let rows: Vec<BalanceRow> = self
+            .base
             .fetch_all(sqlx::query_as(query), "Find all balances")
             .await?;
 
@@ -102,7 +113,8 @@ impl BalanceRepository for SqliteBalanceRepository {
         let threshold = Utc::now() - chrono::Duration::hours(hours_threshold);
         let query = "SELECT account_id, current, total_consumed, total_income, last_checked_at FROM balances WHERE last_checked_at < ?1 ORDER BY last_checked_at ASC";
 
-        let rows: Vec<BalanceRow> = self.base
+        let rows: Vec<BalanceRow> = self
+            .base
             .fetch_all(sqlx::query_as(query).bind(threshold), "Find stale balances")
             .await?;
 

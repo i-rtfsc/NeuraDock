@@ -1,8 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
-use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tracing::info;
 
@@ -119,9 +119,7 @@ impl ConfigService {
         self.log_level.store(level as u8, Ordering::Relaxed);
 
         // Persist to disk
-        let config = AppConfig {
-            log_level: level,
-        };
+        let config = AppConfig { log_level: level };
 
         let content = serde_json::to_string_pretty(&config)?;
         std::fs::write(&self.config_path, content)?;

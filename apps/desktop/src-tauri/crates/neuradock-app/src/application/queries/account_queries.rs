@@ -1,6 +1,6 @@
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use chrono::Utc;
 
 use crate::application::dtos::AccountDto;
 use neuradock_domain::account::AccountRepository;
@@ -88,12 +88,12 @@ impl AccountQueryService {
     pub async fn get_account_statistics(&self) -> Result<AccountStatistics, DomainError> {
         let all_accounts = self.account_repo.find_all().await?;
         let enabled_accounts = all_accounts.iter().filter(|a| a.is_enabled()).count();
-        
+
         let total_balance: f64 = all_accounts
             .iter()
             .filter_map(|a| a.current_balance())
             .sum();
-        
+
         let online_accounts = all_accounts
             .iter()
             .filter(|a| a.is_session_valid() || !a.is_balance_stale(24))
@@ -139,7 +139,12 @@ mod tests {
         }
 
         async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
-            Ok(self.accounts.iter().filter(|a| a.is_enabled()).cloned().collect())
+            Ok(self
+                .accounts
+                .iter()
+                .filter(|a| a.is_enabled())
+                .cloned()
+                .collect())
         }
 
         async fn find_by_id(
@@ -161,18 +166,18 @@ mod tests {
     fn create_test_account(name: &str, enabled: bool) -> Account {
         let mut cookies = HashMap::new();
         cookies.insert("session".to_string(), "test_session".to_string());
-        
+
         let mut account = Account::new(
             name.to_string(),
             ProviderId::new(),
             Credentials::new(cookies, "test@user".to_string()),
         )
         .unwrap();
-        
+
         if !enabled {
             account.toggle(false);
         }
-        
+
         account
     }
 
@@ -182,14 +187,14 @@ mod tests {
             create_test_account("Account 1", true),
             create_test_account("Account 2", false),
         ];
-        
+
         let repo = Arc::new(MockAccountRepository {
             accounts: accounts.clone(),
         });
-        
+
         let service = AccountQueryService::new(repo);
         let providers = HashMap::new();
-        
+
         let result = service.get_all_accounts(false, &providers).await.unwrap();
         assert_eq!(result.len(), 2);
     }
@@ -200,14 +205,14 @@ mod tests {
             create_test_account("Account 1", true),
             create_test_account("Account 2", false),
         ];
-        
+
         let repo = Arc::new(MockAccountRepository {
             accounts: accounts.clone(),
         });
-        
+
         let service = AccountQueryService::new(repo);
         let providers = HashMap::new();
-        
+
         let result = service.get_all_accounts(true, &providers).await.unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "Account 1");
@@ -220,13 +225,13 @@ mod tests {
             create_test_account("Account 2", false),
             create_test_account("Account 3", true),
         ];
-        
+
         let repo = Arc::new(MockAccountRepository {
             accounts: accounts.clone(),
         });
-        
+
         let service = AccountQueryService::new(repo);
-        
+
         let stats = service.get_account_statistics().await.unwrap();
         assert_eq!(stats.total_accounts, 3);
         assert_eq!(stats.enabled_accounts, 2);

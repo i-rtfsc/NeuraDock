@@ -37,7 +37,7 @@ impl SchedulerReloadEventHandler {
 
     async fn reload_schedules(&self) -> Result<(), DomainError> {
         info!("🔄 [SCHEDULER] Reloading schedules due to account change");
-        
+
         self.scheduler
             .reload_schedules(
                 self.providers.clone(),
@@ -49,7 +49,7 @@ impl SchedulerReloadEventHandler {
                 error!("❌ [SCHEDULER] Failed to reload schedules: {}", e);
                 DomainError::Infrastructure(format!("Failed to reload schedules: {}", e))
             })?;
-        
+
         info!("✅ [SCHEDULER] Schedules reloaded successfully");
         Ok(())
     }
@@ -62,14 +62,14 @@ impl EventHandler<AccountCreated> for SchedulerReloadEventHandler {
             "🔔 [EVENT] AccountCreated: {} ({}) - auto_checkin_enabled: {}",
             event.name, event.account_id, event.auto_checkin_enabled
         );
-        
+
         if event.auto_checkin_enabled {
             info!("🔄 Reloading scheduler for new account with auto check-in enabled");
             self.reload_schedules().await?;
         } else {
             info!("⏭️  Auto check-in not enabled for account, skipping scheduler reload");
         }
-        
+
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl EventHandler<AccountUpdated> for SchedulerReloadEventHandler {
             "🔔 [EVENT] AccountUpdated: {} - auto_checkin_config_updated: {}",
             event.account_id, event.auto_checkin_config_updated
         );
-        
+
         // Reload if auto check-in config was updated
         if event.auto_checkin_config_updated {
             info!("🔄 Reloading scheduler due to auto check-in config update");
@@ -89,7 +89,7 @@ impl EventHandler<AccountUpdated> for SchedulerReloadEventHandler {
         } else {
             info!("⏭️  Auto check-in config not updated, skipping scheduler reload");
         }
-        
+
         Ok(())
     }
 }
@@ -101,7 +101,7 @@ impl EventHandler<AccountDeleted> for SchedulerReloadEventHandler {
             "🔔 [EVENT] AccountDeleted: {} ({})",
             event.name, event.account_id
         );
-        
+
         info!("🔄 Reloading scheduler to remove deleted account's schedule");
         self.reload_schedules().await?;
         Ok(())
@@ -115,7 +115,7 @@ impl EventHandler<AccountToggled> for SchedulerReloadEventHandler {
             "🔔 [EVENT] AccountToggled: {} - enabled: {}",
             event.account_id, event.enabled
         );
-        
+
         info!("🔄 Reloading scheduler due to account toggle");
         self.reload_schedules().await?;
         Ok(())

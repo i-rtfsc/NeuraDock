@@ -3,9 +3,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
+use crate::persistence::ResultExt;
 use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
-use crate::persistence::ResultExt;
 
 #[derive(FromRow)]
 struct SessionRow {
@@ -66,11 +66,18 @@ impl SessionRepository for SqliteSessionRepository {
         Ok(())
     }
 
-    async fn find_by_account_id(&self, account_id: &AccountId) -> Result<Option<Session>, DomainError> {
+    async fn find_by_account_id(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Session>, DomainError> {
         let query = "SELECT account_id, token, expires_at, last_login_at FROM sessions WHERE account_id = ?1";
 
-        let row: Option<SessionRow> = self.base
-            .fetch_optional(sqlx::query_as(query).bind(account_id.as_str()), "Find session by account ID")
+        let row: Option<SessionRow> = self
+            .base
+            .fetch_optional(
+                sqlx::query_as(query).bind(account_id.as_str()),
+                "Find session by account ID",
+            )
             .await?;
 
         Ok(row.map(|r| r.to_session()))
@@ -80,7 +87,10 @@ impl SessionRepository for SqliteSessionRepository {
         let query = "DELETE FROM sessions WHERE account_id = ?1";
 
         self.base
-            .execute(sqlx::query(query).bind(account_id.as_str()), "Delete session")
+            .execute(
+                sqlx::query(query).bind(account_id.as_str()),
+                "Delete session",
+            )
             .await?;
 
         Ok(())
@@ -89,8 +99,12 @@ impl SessionRepository for SqliteSessionRepository {
     async fn find_valid_sessions(&self) -> Result<Vec<Session>, DomainError> {
         let query = "SELECT account_id, token, expires_at, last_login_at FROM sessions WHERE expires_at > ?1 ORDER BY last_login_at DESC";
 
-        let rows: Vec<SessionRow> = self.base
-            .fetch_all(sqlx::query_as(query).bind(Utc::now()), "Find valid sessions")
+        let rows: Vec<SessionRow> = self
+            .base
+            .fetch_all(
+                sqlx::query_as(query).bind(Utc::now()),
+                "Find valid sessions",
+            )
             .await?;
 
         Ok(rows.into_iter().map(|r| r.to_session()).collect())

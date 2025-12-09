@@ -8,6 +8,6 @@ pub trait Command: Send + Sync {}
 #[async_trait]
 pub trait CommandHandler<C: Command>: Send + Sync {
     type Result;
-    
+
     async fn handle(&self, command: C) -> Result<Self::Result, DomainError>;
 }

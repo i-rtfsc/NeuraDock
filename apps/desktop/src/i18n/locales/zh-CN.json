@@ -323,7 +323,12 @@
     "sidebarExpandedDesc": "显示图标和文字标签",
     "sidebarCollapsedDesc": "仅显示图标以节省空间",
     "cacheControl": "缓存控制",
-    "systemInfo": "系统信息"
+    "systemInfo": "系统信息",
+    "openLogFolder": "打开日志文件夹",
+    "logFolderDescription": "排查问题或反馈 Bug 时，可一键打开此目录并分享日志。",
+    "opening": "打开中...",
+    "logFolderOpened": "日志文件夹已打开：{{path}}",
+    "failedToOpenLogs": "打开日志文件夹失败"
   },
   "common": {
     "loading": "加载中...",

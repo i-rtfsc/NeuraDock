@@ -39,8 +39,9 @@ impl SqliteTokenRepository {
     }
 
     fn row_to_domain(&self, row: TokenRow) -> Result<ApiToken, DomainError> {
-        let status = TokenStatus::from_i32(row.status)
-            .ok_or_else(|| DomainError::Validation(format!("Invalid token status: {}", row.status)))?;
+        let status = TokenStatus::from_i32(row.status).ok_or_else(|| {
+            DomainError::Validation(format!("Invalid token status: {}", row.status))
+        })?;
 
         let expired_time = row.expired_time.and_then(|ts| {
             if ts == -1 {
@@ -50,12 +51,11 @@ impl SqliteTokenRepository {
             }
         });
 
-        let model_limits = if let (Some(allowed_str), Some(denied_str)) = 
-            (row.model_limits_allowed, row.model_limits_denied) {
-            let allowed: Vec<String> = serde_json::from_str(&allowed_str)
-                .unwrap_or_default();
-            let denied: Vec<String> = serde_json::from_str(&denied_str)
-                .unwrap_or_default();
+        let model_limits = if let (Some(allowed_str), Some(denied_str)) =
+            (row.model_limits_allowed, row.model_limits_denied)
+        {
+            let allowed: Vec<String> = serde_json::from_str(&allowed_str).unwrap_or_default();
+            let denied: Vec<String> = serde_json::from_str(&denied_str).unwrap_or_default();
             Some(ModelLimits { allowed, denied })
         } else {
             None
@@ -84,9 +84,11 @@ impl SqliteTokenRepository {
 #[async_trait]
 impl TokenRepository for SqliteTokenRepository {
     async fn save(&self, token: &ApiToken) -> Result<(), DomainError> {
-        let model_limits_allowed = token.model_limits()
+        let model_limits_allowed = token
+            .model_limits()
             .map(|limits| serde_json::to_string(&limits.allowed).unwrap_or_default());
-        let model_limits_denied = token.model_limits()
+        let model_limits_denied = token
+            .model_limits()
             .map(|limits| serde_json::to_string(&limits.denied).unwrap_or_default());
 
         let expired_time = token.expired_time().map(|dt| dt.timestamp());
@@ -134,13 +136,19 @@ impl TokenRepository for SqliteTokenRepository {
     }
 
     async fn save_batch(&self, tokens: Vec<ApiToken>) -> Result<(), DomainError> {
-        let mut tx = self.base.pool().begin().await
+        let mut tx = self
+            .base
+            .pool()
+            .begin()
+            .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
         for token in tokens {
-            let model_limits_allowed = token.model_limits()
+            let model_limits_allowed = token
+                .model_limits()
                 .map(|limits| serde_json::to_string(&limits.allowed).unwrap_or_default());
-            let model_limits_denied = token.model_limits()
+            let model_limits_denied = token
+                .model_limits()
                 .map(|limits| serde_json::to_string(&limits.denied).unwrap_or_default());
 
             let expired_time = token.expired_time().map(|dt| dt.timestamp());
@@ -185,7 +193,8 @@ impl TokenRepository for SqliteTokenRepository {
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save token in batch"))?;
         }
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Commit transaction"))?;
 
         Ok(())

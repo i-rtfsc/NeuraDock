@@ -74,7 +74,10 @@ impl SqliteProviderModelsRepository {
     }
 
     /// Find models by provider ID
-    pub async fn find_by_provider(&self, provider_id: &str) -> Result<Option<ProviderModels>, DomainError> {
+    pub async fn find_by_provider(
+        &self,
+        provider_id: &str,
+    ) -> Result<Option<ProviderModels>, DomainError> {
         let row = sqlx::query_as::<_, ProviderModelsRow>(
             r#"
             SELECT id, provider_id, models, fetched_at
@@ -94,7 +97,11 @@ impl SqliteProviderModelsRepository {
     }
 
     /// Check if provider models are stale (older than specified hours)
-    pub async fn is_stale(&self, provider_id: &str, max_age_hours: i64) -> Result<bool, DomainError> {
+    pub async fn is_stale(
+        &self,
+        provider_id: &str,
+        max_age_hours: i64,
+    ) -> Result<bool, DomainError> {
         let models = self.find_by_provider(provider_id).await?;
 
         match models {

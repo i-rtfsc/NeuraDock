@@ -61,7 +61,7 @@ impl CheckInDomainService {
     pub fn calculate_reward(_provider: &Provider, is_consecutive: bool) -> f64 {
         // Base reward logic - can be extended based on provider configuration
         let base_reward = 1.0; // Default base reward
-        
+
         if is_consecutive {
             // Bonus for consecutive check-ins
             base_reward * 1.5
@@ -100,7 +100,7 @@ mod tests {
     fn create_test_account() -> Account {
         let mut cookies = HashMap::new();
         cookies.insert("session".to_string(), "test_session".to_string());
-        
+
         Account::new(
             "Test Account".to_string(),
             ProviderId::new(),
@@ -131,10 +131,10 @@ mod tests {
     fn test_cannot_check_in_disabled_account() {
         let mut account = create_test_account();
         account.toggle(false);
-        
+
         let result = CheckInDomainService::can_check_in(&account);
         assert!(result.is_err());
-        
+
         match result {
             Err(DomainError::Validation(msg)) => {
                 assert!(msg.contains("disabled"));
@@ -148,10 +148,10 @@ mod tests {
         use crate::account::Credentials;
         use crate::shared::{AccountId, ProviderId};
         use chrono::{Duration, Utc};
-        
+
         let mut cookies = HashMap::new();
         cookies.insert("session".to_string(), "test_session".to_string());
-        
+
         // Create account with recent check-in (2 hours ago)
         let last_check_in = Utc::now() - Duration::hours(2);
         let account = Account::restore(
@@ -173,10 +173,10 @@ mod tests {
             None,
             None,
         );
-        
+
         let result = CheckInDomainService::can_check_in(&account);
         assert!(result.is_err());
-        
+
         match result {
             Err(DomainError::Validation(msg)) => {
                 assert!(msg.contains("too frequent"));
@@ -191,10 +191,10 @@ mod tests {
         use crate::account::Credentials;
         use crate::shared::{AccountId, ProviderId};
         use chrono::{Duration, Utc};
-        
+
         let mut cookies = HashMap::new();
         cookies.insert("session".to_string(), "test_session".to_string());
-        
+
         // Create account with old check-in (24 hours ago - allowed)
         let last_check_in = Utc::now() - Duration::hours(24);
         let account = Account::restore(
@@ -216,7 +216,7 @@ mod tests {
             None,
             None,
         );
-        
+
         let result = CheckInDomainService::can_check_in(&account);
         assert!(result.is_ok());
     }
@@ -230,10 +230,10 @@ mod tests {
     #[test]
     fn test_calculate_reward() {
         let provider = create_test_provider();
-        
+
         let reward = CheckInDomainService::calculate_reward(&provider, false);
         assert_eq!(reward, 1.0); // Default base reward
-        
+
         let consecutive_reward = CheckInDomainService::calculate_reward(&provider, true);
         assert_eq!(consecutive_reward, 1.5); // 1.0 * 1.5
     }

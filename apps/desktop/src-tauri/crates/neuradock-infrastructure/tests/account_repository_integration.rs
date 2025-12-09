@@ -1,11 +1,11 @@
 use sqlx::SqlitePool;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use neuradock_domain::account::{Account, AccountRepository, Credentials};
+use neuradock_domain::shared::ProviderId;
 use neuradock_infrastructure::persistence::repositories::SqliteAccountRepository;
 use neuradock_infrastructure::security::EncryptionService;
-use neuradock_domain::account::{Account, Credentials, AccountRepository};
-use neuradock_domain::shared::ProviderId;
 
 mod test_helpers;
 

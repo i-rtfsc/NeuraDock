@@ -12,7 +12,7 @@ macro_rules! impl_domain_event {
             fn as_any(&self) -> &(dyn Any + Send + Sync) {
                 self
             }
-            
+
             fn event_type_name(&self) -> &'static str {
                 std::any::type_name::<Self>()
             }

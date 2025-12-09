@@ -8,9 +8,6 @@ import {
   XAxis,
   YAxis,
   Legend,
-  Defs,
-  LinearGradient,
-  Stop,
 } from 'recharts';
 import { TrendDataPoint } from '@/hooks/useCheckInStreak';
 import { useTranslation } from 'react-i18next';
@@ -100,7 +97,7 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
           />
           <Tooltip
             cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '4 4' }}
-            content={({ active, payload, label }) => {
+            content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
                   <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-md shadow-xl p-3 text-xs">

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::application::commands::command_handler::Command;
+use std::collections::HashMap;
 
 /// Create account command
 #[derive(Debug, Clone)]

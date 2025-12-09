@@ -51,18 +51,18 @@ pub enum ErrorCode {
     InvalidCredentials = 1001,
     ExpiredSession = 1002,
     MissingApiKey = 1003,
-    
+
     // Resource Not Found (2xxx)
     AccountNotFound = 2001,
     ProviderNotFound = 2002,
     SessionNotFound = 2003,
-    
+
     // Business Logic (3xxx)
     CheckInFailed = 3001,
     CheckInTooFrequent = 3002,
     AccountDisabled = 3003,
     InvalidProviderConfig = 3004,
-    
+
     // Data & Persistence (4xxx)
     RepositoryError = 4001,
     DatabaseConstraintViolation = 4002,
@@ -70,13 +70,13 @@ pub enum ErrorCode {
     SerializationError = 4004,
     EncryptionError = 4005,
     DecryptionError = 4006,
-    
+
     // Infrastructure (5xxx)
     InfrastructureError = 5001,
     NetworkError = 5002,
     TimeoutError = 5003,
     ExternalServiceError = 5004,
-    
+
     // Validation (6xxx)
     ValidationError = 6001,
     InvalidInput = 6002,
@@ -88,7 +88,7 @@ impl ErrorCode {
     pub fn code(&self) -> u16 {
         *self as u16
     }
-    
+
     /// Get error severity
     pub fn severity(&self) -> ErrorSeverity {
         match self {
@@ -96,30 +96,30 @@ impl ErrorCode {
             | ErrorCode::ExpiredSession
             | ErrorCode::CheckInFailed
             | ErrorCode::NetworkError => ErrorSeverity::Warning,
-            
+
             ErrorCode::AccountNotFound
             | ErrorCode::ProviderNotFound
             | ErrorCode::ValidationError
             | ErrorCode::InvalidInput => ErrorSeverity::Info,
-            
+
             ErrorCode::DataIntegrityError
             | ErrorCode::DatabaseConstraintViolation
             | ErrorCode::EncryptionError
             | ErrorCode::DecryptionError
             | ErrorCode::InfrastructureError => ErrorSeverity::Error,
-            
+
             _ => ErrorSeverity::Warning,
         }
     }
-    
+
     /// Check if error is recoverable
     pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
             ErrorCode::NetworkError
-            | ErrorCode::TimeoutError
-            | ErrorCode::ExternalServiceError
-            | ErrorCode::CheckInFailed
+                | ErrorCode::TimeoutError
+                | ErrorCode::ExternalServiceError
+                | ErrorCode::CheckInFailed
         )
     }
 }
@@ -213,17 +213,17 @@ impl DomainError {
             | DomainError::NotImplemented(msg) => msg,
         }
     }
-    
+
     /// Get error severity
     pub fn severity(&self) -> ErrorSeverity {
         self.code().severity()
     }
-    
+
     /// Check if error is recoverable
     pub fn is_recoverable(&self) -> bool {
         self.code().is_recoverable()
     }
-    
+
     /// Format error with code
     pub fn format_with_code(&self) -> String {
         format!("[{}] {}", self.code().code(), self)

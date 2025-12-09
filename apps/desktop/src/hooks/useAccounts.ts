@@ -1,7 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { accountCommands } from '@/lib/tauri-commands';
 import type { CreateAccountInput, UpdateAccountInput } from '@/lib/tauri-commands';
 import { toast } from 'sonner';
+
+export function invalidateAccountCaches(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ['accounts'], exact: false });
+  queryClient.refetchQueries({ queryKey: ['accounts'], type: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['balance-statistics'], exact: false });
+  queryClient.refetchQueries({ queryKey: ['balance-statistics'], type: 'active' });
+}
 
 // Query: Get all accounts
 export function useAccounts(enabledOnly: boolean = false) {
@@ -27,7 +34,7 @@ export function useCreateAccount() {
   return useMutation({
     mutationFn: (input: CreateAccountInput) => accountCommands.create(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success('Account created successfully');
     },
     onError: (error: any) => {
@@ -43,7 +50,7 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: (input: UpdateAccountInput) => accountCommands.update(input),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       queryClient.invalidateQueries({ queryKey: ['account', variables.account_id] });
       toast.success('Account updated successfully');
     },
@@ -60,7 +67,7 @@ export function useDeleteAccount() {
   return useMutation({
     mutationFn: (accountId: string) => accountCommands.delete(accountId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success('Account deleted successfully');
     },
     onError: (error: any) => {
@@ -77,7 +84,7 @@ export function useToggleAccount() {
     mutationFn: ({ accountId, enabled }: { accountId: string; enabled: boolean }) =>
       accountCommands.toggle(accountId, enabled),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       queryClient.invalidateQueries({ queryKey: ['account', variables.accountId] });
       toast.success(`Account ${variables.enabled ? 'enabled' : 'disabled'}`);
     },
@@ -94,7 +101,7 @@ export function useImportAccountFromJson() {
   return useMutation({
     mutationFn: (jsonData: string) => accountCommands.importFromJson(jsonData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success('Account imported successfully');
     },
     onError: (error: any) => {
@@ -110,7 +117,7 @@ export function useImportAccountsBatch() {
   return useMutation({
     mutationFn: (jsonData: string) => accountCommands.importBatch(jsonData),
     onSuccess: (accountIds) => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success(`Successfully imported ${accountIds.length} accounts`);
     },
     onError: (error: any) => {

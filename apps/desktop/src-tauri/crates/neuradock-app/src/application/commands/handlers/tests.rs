@@ -5,7 +5,7 @@ use crate::application::commands::account_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::commands::handlers::*;
 use neuradock_domain::account::{Account, AccountRepository, Credentials};
-use neuradock_domain::events::{EventBus, DomainEvent};
+use neuradock_domain::events::{DomainEvent, EventBus};
 use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 
 // Mock repositories and services for testing
@@ -91,7 +91,7 @@ async fn test_create_account_command_handler() {
 
     let mut cookies = HashMap::new();
     cookies.insert("session".to_string(), "test_session_value".to_string());
-    
+
     let command = CreateAccountCommand {
         name: "Test Account".to_string(),
         provider_id: ProviderId::new().as_str().to_string(),
@@ -107,11 +107,11 @@ async fn test_create_account_command_handler() {
 
     let account_id = result.unwrap().account_id;
     let account_id_obj = AccountId::from_string(&account_id);
-    
+
     // Verify account was saved
     let saved_account = repo.find_by_id(&account_id_obj).await.unwrap();
     assert!(saved_account.is_some());
-    
+
     let account = saved_account.unwrap();
     assert_eq!(account.name(), "Test Account");
     assert!(account.auto_checkin_enabled());
@@ -149,7 +149,7 @@ async fn test_update_account_command_handler() {
     // Create an account first
     let mut cookies = HashMap::new();
     cookies.insert("session".to_string(), "test_session".to_string());
-    
+
     let account = Account::new(
         "Original Name".to_string(),
         ProviderId::new(),
@@ -194,7 +194,7 @@ async fn test_delete_account_command_handler() {
     // Create an account
     let mut cookies = HashMap::new();
     cookies.insert("session".to_string(), "test_session".to_string());
-    
+
     let account = Account::new(
         "Test Account".to_string(),
         ProviderId::new(),
@@ -230,7 +230,7 @@ async fn test_toggle_account_command_handler() {
     // Create an enabled account
     let mut cookies = HashMap::new();
     cookies.insert("session".to_string(), "test_session".to_string());
-    
+
     let account = Account::new(
         "Test Account".to_string(),
         ProviderId::new(),

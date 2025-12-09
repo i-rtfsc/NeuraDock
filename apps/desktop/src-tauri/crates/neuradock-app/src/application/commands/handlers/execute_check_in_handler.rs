@@ -13,8 +13,10 @@ use crate::application::services::{CheckInExecutor, NotificationService};
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::Provider;
 use neuradock_domain::shared::{AccountId, DomainError};
-use neuradock_infrastructure::persistence::repositories::{SqliteProviderModelsRepository, SqliteWafCookiesRepository};
 use neuradock_infrastructure::http::token::TokenClient;
+use neuradock_infrastructure::persistence::repositories::{
+    SqliteProviderModelsRepository, SqliteWafCookiesRepository,
+};
 
 /// Execute check-in command handler
 pub struct ExecuteCheckInCommandHandler {
@@ -53,12 +55,20 @@ impl ExecuteCheckInCommandHandler {
     }
 
     /// Fetch and save provider models after successful check-in
-    async fn fetch_and_save_provider_models(&self, provider: &Provider, cookies: &HashMap<String, String>, api_user: &str) {
+    async fn fetch_and_save_provider_models(
+        &self,
+        provider: &Provider,
+        cookies: &HashMap<String, String>,
+        api_user: &str,
+    ) {
         // Check if provider has models API
         let models_url = match provider.models_url() {
             Some(url) => url,
             None => {
-                info!("Provider {} does not have models API, skipping", provider.name());
+                info!(
+                    "Provider {} does not have models API, skipping",
+                    provider.name()
+                );
                 return;
             }
         };
@@ -101,7 +111,11 @@ impl ExecuteCheckInCommandHandler {
         };
 
         // Use account's api_user value, not provider's api_user_key (which is the header name)
-        let api_user_opt = if api_user.is_empty() { None } else { Some(api_user) };
+        let api_user_opt = if api_user.is_empty() {
+            None
+        } else {
+            Some(api_user)
+        };
 
         match client
             .fetch_provider_models(
@@ -113,13 +127,14 @@ impl ExecuteCheckInCommandHandler {
             .await
         {
             Ok(models) => {
-                info!("Fetched {} models for provider {}", models.len(), provider.name());
+                info!(
+                    "Fetched {} models for provider {}",
+                    models.len(),
+                    provider.name()
+                );
 
                 // Save to database
-                if let Err(e) = self.provider_models_repo
-                    .save(provider_id, &models)
-                    .await
-                {
+                if let Err(e) = self.provider_models_repo.save(provider_id, &models).await {
                     error!("Failed to save provider models: {}", e);
                 } else {
                     info!("Provider models saved to database");
@@ -152,7 +167,7 @@ impl ExecuteCheckInCommandHandler {
                 let result = sqlx::query(
                     "UPDATE balance_history
                      SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
-                     WHERE id = ?"
+                     WHERE id = ?",
                 )
                 .bind(balance.current_balance)
                 .bind(balance.total_consumed)
@@ -209,7 +224,10 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
     type Result = CheckInCommandResult;
 
     async fn handle(&self, cmd: ExecuteCheckInCommand) -> Result<Self::Result, DomainError> {
-        info!("Handling ExecuteCheckInCommand for account: {}", cmd.account_id);
+        info!(
+            "Handling ExecuteCheckInCommand for account: {}",
+            cmd.account_id
+        );
 
         // Load account to get provider_id
         let account = self
@@ -274,12 +292,30 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
             // Auto-fetch provider models if not exists in database
             // Check if provider models already exist
-            if let Ok(existing_models) = self.provider_models_repo.find_by_provider(provider.id().as_str()).await {
-                if existing_models.is_none() || existing_models.as_ref().map(|m| m.models.is_empty()).unwrap_or(true) {
+            if let Ok(existing_models) = self
+                .provider_models_repo
+                .find_by_provider(provider.id().as_str())
+                .await
+            {
+                if existing_models.is_none()
+                    || existing_models
+                        .as_ref()
+                        .map(|m| m.models.is_empty())
+                        .unwrap_or(true)
+                {
                     info!("No provider models in database, auto-fetching...");
                     // Reload account to get the latest cookies (may have been updated during check-in)
-                    if let Ok(Some(updated_acc)) = self.account_repo.find_by_id(&AccountId::from_string(&cmd.account_id)).await {
-                        self.fetch_and_save_provider_models(provider, updated_acc.credentials().cookies(), updated_acc.credentials().api_user()).await;
+                    if let Ok(Some(updated_acc)) = self
+                        .account_repo
+                        .find_by_id(&AccountId::from_string(&cmd.account_id))
+                        .await
+                    {
+                        self.fetch_and_save_provider_models(
+                            provider,
+                            updated_acc.credentials().cookies(),
+                            updated_acc.credentials().api_user(),
+                        )
+                        .await;
                     }
                 } else {
                     info!("Provider models already exist in database, skipping auto-fetch");
@@ -297,9 +333,10 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
             if result.success {
                 // Send success notification
-                let balance = result.user_info.as_ref().map(|info| {
-                    (info.quota, info.used_quota, info.quota + info.used_quota)
-                });
+                let balance = result
+                    .user_info
+                    .as_ref()
+                    .map(|info| (info.quota, info.used_quota, info.quota + info.used_quota));
 
                 if let Err(e) = notification_service
                     .send_check_in_success(&cmd.account_id, &account_name, provider_name, balance)
@@ -369,12 +406,20 @@ impl BatchExecuteCheckInCommandHandler {
     }
 
     /// Fetch and save provider models after successful check-in
-    async fn fetch_and_save_provider_models(&self, provider: &Provider, cookies: &HashMap<String, String>, api_user: &str) {
+    async fn fetch_and_save_provider_models(
+        &self,
+        provider: &Provider,
+        cookies: &HashMap<String, String>,
+        api_user: &str,
+    ) {
         // Check if provider has models API
         let models_url = match provider.models_url() {
             Some(url) => url,
             None => {
-                info!("Provider {} does not have models API, skipping", provider.name());
+                info!(
+                    "Provider {} does not have models API, skipping",
+                    provider.name()
+                );
                 return;
             }
         };
@@ -417,7 +462,11 @@ impl BatchExecuteCheckInCommandHandler {
         };
 
         // Use account's api_user value, not provider's api_user_key (which is the header name)
-        let api_user_opt = if api_user.is_empty() { None } else { Some(api_user) };
+        let api_user_opt = if api_user.is_empty() {
+            None
+        } else {
+            Some(api_user)
+        };
 
         match client
             .fetch_provider_models(
@@ -429,13 +478,14 @@ impl BatchExecuteCheckInCommandHandler {
             .await
         {
             Ok(models) => {
-                info!("Fetched {} models for provider {}", models.len(), provider.name());
+                info!(
+                    "Fetched {} models for provider {}",
+                    models.len(),
+                    provider.name()
+                );
 
                 // Save to database
-                if let Err(e) = self.provider_models_repo
-                    .save(provider_id, &models)
-                    .await
-                {
+                if let Err(e) = self.provider_models_repo.save(provider_id, &models).await {
                     error!("Failed to save provider models: {}", e);
                 } else {
                     info!("Provider models saved to database");
@@ -468,7 +518,7 @@ impl BatchExecuteCheckInCommandHandler {
                 let result = sqlx::query(
                     "UPDATE balance_history
                      SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
-                     WHERE id = ?"
+                     WHERE id = ?",
                 )
                 .bind(balance.current_balance)
                 .bind(balance.total_consumed)
@@ -616,12 +666,30 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
 
                         // Auto-fetch provider models if not exists in database
                         // Check if provider models already exist
-                        if let Ok(existing_models) = self.provider_models_repo.find_by_provider(provider.id().as_str()).await {
-                            if existing_models.is_none() || existing_models.as_ref().map(|m| m.models.is_empty()).unwrap_or(true) {
+                        if let Ok(existing_models) = self
+                            .provider_models_repo
+                            .find_by_provider(provider.id().as_str())
+                            .await
+                        {
+                            if existing_models.is_none()
+                                || existing_models
+                                    .as_ref()
+                                    .map(|m| m.models.is_empty())
+                                    .unwrap_or(true)
+                            {
                                 info!("No provider models in database, auto-fetching...");
                                 // Reload account to get the latest cookies
-                                if let Ok(Some(updated_acc)) = self.account_repo.find_by_id(&AccountId::from_string(&account_id)).await {
-                                    self.fetch_and_save_provider_models(provider, updated_acc.credentials().cookies(), updated_acc.credentials().api_user()).await;
+                                if let Ok(Some(updated_acc)) = self
+                                    .account_repo
+                                    .find_by_id(&AccountId::from_string(&account_id))
+                                    .await
+                                {
+                                    self.fetch_and_save_provider_models(
+                                        provider,
+                                        updated_acc.credentials().cookies(),
+                                        updated_acc.credentials().api_user(),
+                                    )
+                                    .await;
                                 }
                             } else {
                                 info!("Provider models already exist in database, skipping auto-fetch");
@@ -647,25 +715,43 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                             });
 
                             if let Err(e) = notification_service
-                                .send_check_in_success(&account_id, &result.account_name, provider_name, balance)
+                                .send_check_in_success(
+                                    &account_id,
+                                    &result.account_name,
+                                    provider_name,
+                                    balance,
+                                )
                                 .await
                             {
                                 error!("Failed to send check-in success notification: {}", e);
                             } else {
-                                info!("Check-in success notification sent for account {}", account_id);
+                                info!(
+                                    "Check-in success notification sent for account {}",
+                                    account_id
+                                );
                             }
                         } else {
                             if let Err(e) = notification_service
-                                .send_check_in_failure(&result.account_name, provider_name, &result.message)
+                                .send_check_in_failure(
+                                    &result.account_name,
+                                    provider_name,
+                                    &result.message,
+                                )
                                 .await
                             {
                                 error!("Failed to send check-in failure notification: {}", e);
                             } else {
-                                info!("Check-in failure notification sent for account {}", account_id);
+                                info!(
+                                    "Check-in failure notification sent for account {}",
+                                    account_id
+                                );
                             }
                         }
                     } else {
-                        info!("Notification service not available for account {}", account_id);
+                        info!(
+                            "Notification service not available for account {}",
+                            account_id
+                        );
                     }
 
                     if result.success {

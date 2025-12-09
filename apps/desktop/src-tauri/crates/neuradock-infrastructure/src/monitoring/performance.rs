@@ -35,7 +35,7 @@ impl PerformanceMonitor {
     /// Finish monitoring and log the result
     pub fn finish(self) -> Duration {
         let elapsed = self.elapsed();
-        
+
         if elapsed > self.warn_threshold {
             warn!(
                 "⚠️  SLOW OPERATION: '{}' took {:.2}ms (threshold: {:.2}ms)",
@@ -50,7 +50,7 @@ impl PerformanceMonitor {
                 elapsed.as_secs_f64() * 1000.0
             );
         }
-        
+
         elapsed
     }
 }
@@ -58,7 +58,7 @@ impl PerformanceMonitor {
 impl Drop for PerformanceMonitor {
     fn drop(&mut self) {
         let elapsed = self.elapsed();
-        
+
         if elapsed > self.warn_threshold {
             warn!(
                 "⚠️  SLOW OPERATION: '{}' took {:.2}ms (threshold: {:.2}ms)",
@@ -85,7 +85,7 @@ macro_rules! monitor_performance {
     ($operation:expr, $threshold_ms:expr) => {
         $crate::infrastructure::monitoring::PerformanceMonitor::with_threshold(
             $operation,
-            std::time::Duration::from_millis($threshold_ms)
+            std::time::Duration::from_millis($threshold_ms),
         )
     };
 }
@@ -114,17 +114,14 @@ impl QueryMetrics {
 
     pub fn log(&self) {
         let duration_ms = self.duration.as_secs_f64() * 1000.0;
-        
+
         if let Some(rows) = self.rows_affected {
             info!(
                 "📊 Query '{}': {:.2}ms, {} rows",
                 self.query_name, duration_ms, rows
             );
         } else {
-            info!(
-                "📊 Query '{}': {:.2}ms",
-                self.query_name, duration_ms
-            );
+            info!("📊 Query '{}': {:.2}ms", self.query_name, duration_ms);
         }
 
         // Warn if query is slow
@@ -147,31 +144,29 @@ mod tests {
         let monitor = PerformanceMonitor::new("test_operation");
         thread::sleep(Duration::from_millis(10));
         let elapsed = monitor.finish();
-        
+
         assert!(elapsed >= Duration::from_millis(10));
         assert!(elapsed < Duration::from_millis(100));
     }
 
     #[test]
     fn test_performance_monitor_with_threshold() {
-        let monitor = PerformanceMonitor::with_threshold(
-            "slow_operation",
-            Duration::from_millis(5)
-        );
+        let monitor =
+            PerformanceMonitor::with_threshold("slow_operation", Duration::from_millis(5));
         thread::sleep(Duration::from_millis(10));
         let elapsed = monitor.finish();
-        
+
         assert!(elapsed >= Duration::from_millis(10));
     }
 
     #[test]
     fn test_query_metrics() {
-        let metrics = QueryMetrics::new("SELECT * FROM accounts", Duration::from_millis(50))
-            .with_rows(10);
-        
+        let metrics =
+            QueryMetrics::new("SELECT * FROM accounts", Duration::from_millis(50)).with_rows(10);
+
         assert_eq!(metrics.query_name, "SELECT * FROM accounts");
         assert_eq!(metrics.rows_affected, Some(10));
-        
+
         metrics.log();
     }
 }

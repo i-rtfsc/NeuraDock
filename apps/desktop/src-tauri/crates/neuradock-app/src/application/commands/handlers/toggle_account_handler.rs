@@ -17,10 +17,7 @@ pub struct ToggleAccountCommandHandler {
 }
 
 impl ToggleAccountCommandHandler {
-    pub fn new(
-        account_repo: Arc<dyn AccountRepository>,
-        event_bus: Arc<dyn EventBus>,
-    ) -> Self {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, event_bus: Arc<dyn EventBus>) -> Self {
         Self {
             account_repo,
             event_bus,
@@ -65,7 +62,7 @@ impl CommandHandler<ToggleAccountCommand> for ToggleAccountCommandHandler {
             enabled: cmd.enabled,
             occurred_at: Utc::now(),
         };
-        
+
         self.event_bus.publish(Box::new(event)).await?;
 
         Ok(ToggleAccountResult { success: true })

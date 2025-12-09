@@ -97,10 +97,7 @@ stream_idle_timeout_ms = 300000
 
         // Write config.toml
         fs::write(&config_path, &config_content)?;
-        log::info!(
-            "Codex config.toml written to: {}",
-            config_path.display()
-        );
+        log::info!("Codex config.toml written to: {}", config_path.display());
 
         // Create auth.json with API key (ensure sk- prefix)
         let api_key = Self::ensure_sk_prefix(token.key());

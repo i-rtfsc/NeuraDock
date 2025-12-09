@@ -1,17 +1,15 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 import {
   Moon, Sun, Monitor, Palette, Zap, Code, Bell, Info,
-  ChevronRight, AlertTriangle, Scale, LayoutTemplate,
-  PanelLeftClose, PanelLeftOpen, Database, Trash2,
-  Terminal, Copy, Check, Globe
+  AlertTriangle, Scale,
+  Database, Trash2,
+  Terminal
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -269,6 +267,7 @@ const NotificationSettings = () => {
 const DeveloperSettings = () => {
   const { t } = useTranslation();
   const [logLevel, setLogLevel] = useState<string>('info');
+  const [isOpeningLogs, setIsOpeningLogs] = useState(false);
 
   useEffect(() => {
     invoke<string>('get_log_level').then(setLogLevel).catch(console.error);
@@ -281,6 +280,18 @@ const DeveloperSettings = () => {
       toast.success(t('settings.logLevelUpdated'));
     } catch (err) {
       toast.error(t('common.error'));
+    }
+  };
+
+  const handleOpenLogs = async () => {
+    try {
+      setIsOpeningLogs(true);
+      const logPath = await invoke<string>('open_log_dir');
+      toast.success(t('settings.logFolderOpened', { path: logPath }));
+    } catch (error) {
+      toast.error(t('settings.failedToOpenLogs') + ': ' + String(error));
+    } finally {
+      setIsOpeningLogs(false);
     }
   };
 
@@ -350,6 +361,30 @@ const DeveloperSettings = () => {
                 </div>
              </CardContent>
           </Card>
+
+          {/* Log Folder Access */}
+          <Card className="border-border shadow-sm bg-card relative overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="h-5 w-5 text-primary" />
+                {t('settings.openLogFolder')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground max-w-xl">
+                {t('settings.logFolderDescription')}
+              </p>
+              <Button
+                variant="outline"
+                className="self-start"
+                onClick={handleOpenLogs}
+                disabled={isOpeningLogs}
+              >
+                <Terminal className="h-4 w-4 mr-2" />
+                {isOpeningLogs ? t('settings.opening') : t('settings.openLogFolder')}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
@@ -358,14 +393,23 @@ const DeveloperSettings = () => {
 
 const AboutSettings = () => {
   const { t } = useTranslation();
+  const [version, setVersion] = useState<string>('Loading...');
+
+  useEffect(() => {
+    // 获取应用版本
+    invoke<string>('get_app_version')
+      .then(setVersion)
+      .catch(() => setVersion('Unknown'));
+  }, []);
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
          <h2 className="text-2xl font-bold tracking-tight mb-6">{t('settings.about')}</h2>
-         
+
          <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-b from-primary/5 to-transparent rounded-3xl mb-8 border border-border/20">
             <h3 className="text-4xl font-bold text-foreground tracking-tight">NeuraDock</h3>
-            <p className="text-muted-foreground font-mono mt-2">v0.1.0</p>
+            <p className="text-muted-foreground font-mono mt-2">{version}</p>
          </div>
 
          <div className="max-w-3xl mx-auto space-y-6">

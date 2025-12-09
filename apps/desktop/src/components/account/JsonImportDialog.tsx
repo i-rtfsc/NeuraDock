@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { accountCommands } from '@/lib/tauri-commands';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateAccountCaches } from '@/hooks/useAccounts';
 import { toast } from 'sonner';
 import { Upload, FileJson, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -39,7 +40,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   const importSingleMutation = useMutation({
     mutationFn: accountCommands.importFromJson,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success(t('jsonImport.importSuccess'));
       onOpenChange(false);
       setJsonInput('');
@@ -54,7 +55,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   const importBatchMutation = useMutation({
     mutationFn: accountCommands.importBatch,
     onSuccess: (accountIds) => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAccountCaches(queryClient);
       toast.success(t('jsonImport.importBatchSuccess', { count: accountIds.length }));
       onOpenChange(false);
       setJsonInput('');

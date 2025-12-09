@@ -1,10 +1,10 @@
+use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use chrono::{Utc, Duration};
 
-use neuradock_infrastructure::persistence::repositories::SqliteSessionRepository;
 use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::AccountId;
+use neuradock_infrastructure::persistence::repositories::SqliteSessionRepository;
 
 mod test_helpers;
 
@@ -28,7 +28,8 @@ async fn session_repo_save_find_and_valid_integration() {
     let token = "token_abc".to_string();
     let expires_at = Utc::now() + Duration::hours(24);
 
-    let mut session = Session::new(account_id.clone(), token.clone(), expires_at).expect("create session");
+    let mut session =
+        Session::new(account_id.clone(), token.clone(), expires_at).expect("create session");
 
     repo.save(&session).await.expect("save session");
 
@@ -44,19 +45,31 @@ async fn session_repo_save_find_and_valid_integration() {
 
     // valid sessions should include our session
     let valids = repo.find_valid_sessions().await.expect("find valid");
-    let ids: Vec<String> = valids.into_iter().map(|s| s.account_id().as_str().to_string()).collect();
+    let ids: Vec<String> = valids
+        .into_iter()
+        .map(|s| s.account_id().as_str().to_string())
+        .collect();
     assert!(ids.contains(&account_id.as_str().to_string()));
 
     // expire and save
     session.expire();
     repo.save(&session).await.expect("save expired");
 
-    let valids_after = repo.find_valid_sessions().await.expect("find valid after expire");
-    let ids_after: Vec<String> = valids_after.into_iter().map(|s| s.account_id().as_str().to_string()).collect();
+    let valids_after = repo
+        .find_valid_sessions()
+        .await
+        .expect("find valid after expire");
+    let ids_after: Vec<String> = valids_after
+        .into_iter()
+        .map(|s| s.account_id().as_str().to_string())
+        .collect();
     assert!(!ids_after.contains(&account_id.as_str().to_string()));
 
     // delete
     repo.delete(&account_id).await.expect("delete");
-    let not_found = repo.find_by_account_id(&account_id).await.expect("find after delete");
+    let not_found = repo
+        .find_by_account_id(&account_id)
+        .await
+        .expect("find after delete");
     assert!(not_found.is_none());
 }

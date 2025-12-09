@@ -10,7 +10,7 @@ use crate::check_in::CheckInResult;
 use crate::shared::DomainError;
 
 /// Provider plugin trait
-/// 
+///
 /// Defines the contract for check-in provider plugins.
 /// Each provider (AnyRouter, AgentRouter, etc.) implements this trait
 /// to provide custom check-in logic.
@@ -18,29 +18,33 @@ use crate::shared::DomainError;
 pub trait ProviderPlugin: Send + Sync {
     /// Unique plugin identifier (e.g., "anyrouter", "agentrouter")
     fn id(&self) -> &str;
-    
+
     /// Human-readable plugin name (e.g., "AnyRouter", "AgentRouter")
     fn name(&self) -> &str;
-    
+
     /// Provider domain (e.g., "https://anyrouter.top")
     fn domain(&self) -> &str;
-    
+
     /// Execute check-in for an account
-    /// 
+    ///
     /// # Arguments
     /// * `account` - The account to perform check-in
     /// * `headless` - Whether to run browser in headless mode
-    /// 
+    ///
     /// # Returns
     /// CheckInResult with success status and optional message
-    async fn check_in(&self, account: &Account, headless: bool) -> Result<CheckInResult, DomainError>;
-    
+    async fn check_in(
+        &self,
+        account: &Account,
+        headless: bool,
+    ) -> Result<CheckInResult, DomainError>;
+
     /// Validate account credentials
-    /// 
+    ///
     /// Checks if the provided credentials are valid format for this provider.
     /// Does not verify if credentials are correct (that requires actual login).
     fn validate_credentials(&self, account: &Account) -> bool;
-    
+
     /// Get plugin metadata
     fn metadata(&self) -> PluginMetadata {
         PluginMetadata {

@@ -30,12 +30,12 @@ impl InMemoryEventBus {
     ) -> Result<(), DomainError> {
         let event_type_name = std::any::type_name::<E>();
         let mut handlers = self.handlers.write().await;
-        
+
         handlers
             .entry(event_type_name.to_string())
             .or_insert_with(Vec::new)
             .push(handler);
-        
+
         info!("Subscribed handler for event type: {}", event_type_name);
         Ok(())
     }
@@ -58,16 +58,20 @@ impl Default for InMemoryEventBus {
 impl EventBus for InMemoryEventBus {
     async fn publish(&self, event: Box<dyn DomainEvent>) -> Result<(), DomainError> {
         let event_type_name = event.event_type_name();
-        
+
         info!("Publishing event: {}", event_type_name);
-        
+
         let handlers = self.handlers.read().await;
-        
+
         if let Some(event_handlers) = handlers.get(event_type_name) {
-            info!("Found {} handlers for event type: {}", event_handlers.len(), event_type_name);
-            
+            info!(
+                "Found {} handlers for event type: {}",
+                event_handlers.len(),
+                event_type_name
+            );
+
             let event_any = event.as_any();
-            
+
             // Execute all handlers for this event type
             for handler in event_handlers {
                 match handler.handle_dynamic(event_any).await {
@@ -84,7 +88,7 @@ impl EventBus for InMemoryEventBus {
         } else {
             info!("No handlers registered for event type: {}", event_type_name);
         }
-        
+
         Ok(())
     }
 }
@@ -92,10 +96,10 @@ impl EventBus for InMemoryEventBus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use neuradock_domain::events::account_events::AccountCreated;
     use neuradock_domain::events::event_bus::{EventHandler, TypedEventHandlerWrapper};
     use neuradock_domain::shared::{AccountId, ProviderId};
-    use chrono::Utc;
 
     struct TestEventHandler {
         called: Arc<RwLock<bool>>,
@@ -114,14 +118,14 @@ mod tests {
     async fn test_event_bus_publishes_to_handlers() {
         let bus = InMemoryEventBus::new();
         let called = Arc::new(RwLock::new(false));
-        
+
         let handler = TestEventHandler {
             called: called.clone(),
         };
         let wrapper = Arc::new(TypedEventHandlerWrapper::new(handler));
-        
+
         bus.subscribe::<AccountCreated>(wrapper).await.unwrap();
-        
+
         let event = Box::new(AccountCreated {
             account_id: AccountId::new(),
             name: "Test Account".to_string(),
@@ -129,12 +133,12 @@ mod tests {
             auto_checkin_enabled: false,
             occurred_at: Utc::now(),
         });
-        
+
         bus.publish(event).await.unwrap();
-        
+
         // Give async handlers time to complete
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        
+
         let was_called = *called.read().await;
         assert!(was_called, "Handler should have been called");
     }
