@@ -1,4 +1,4 @@
-import { Bell, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -17,7 +17,7 @@ export function TopBar() {
 
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -26,11 +26,6 @@ export function TopBar() {
           >
             {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             <span className="sr-only">Toggle theme</span>
-          </Button>
-
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5" />
-            <span className="sr-only">Notifications</span>
           </Button>
         </div>
       </div>

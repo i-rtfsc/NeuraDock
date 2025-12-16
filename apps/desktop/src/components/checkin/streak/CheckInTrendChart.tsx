@@ -1,13 +1,11 @@
 import {
   Area,
-  Bar,
+  AreaChart,
   CartesianGrid,
-  ComposedChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  Legend,
 } from 'recharts';
 import { TrendDataPoint } from '@/hooks/useCheckInStreak';
 import { useTranslation } from 'react-i18next';
@@ -45,9 +43,6 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
     checkedIn: point.is_checked_in,
   }));
 
-  const incrementLabel = t('streaks.trendDailyIncrement');
-  const totalIncomeLabel = t('streaks.trendTotalIncome');
-
   if (chartData.length === 0) {
     return (
       <div className="flex items-center justify-center h-[300px] text-muted-foreground">
@@ -57,64 +52,60 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
   }
 
   return (
-    <div className={cn("w-full h-[350px]", className)}>
+    <div className={cn("w-full h-[300px]", className)}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <AreaChart data={chartData}>
           <defs>
             <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="colorIncrement" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#22c55e" stopOpacity={0.4} />
+              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
           <XAxis
             dataKey="date"
-            axisLine={false}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
             tickLine={false}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            dy={10}
+            axisLine={false}
             minTickGap={30}
           />
           <YAxis
-            yAxisId="left"
-            orientation="left"
-            axisLine={false}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
             tickLine={false}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            tickFormatter={(value) => currencyFormatter.format(value)}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
             axisLine={false}
-            tickLine={false}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
             tickFormatter={(value) => currencyFormatter.format(value)}
           />
           <Tooltip
             cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '4 4' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
+                const data = payload[0].payload;
                 return (
-                  <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-md shadow-xl p-3 text-xs">
-                    <p className="font-semibold mb-2 text-foreground">{payload[0].payload.fullDate}</p>
-                    <div className="space-y-1">
-                      {payload.map((entry: any) => (
-                        <div key={entry.name} className="flex items-center gap-2">
-                          <div 
-                            className="w-2 h-2 rounded-full" 
-                            style={{ backgroundColor: entry.color }}
-                          />
-                          <span className="text-muted-foreground">{entry.name}:</span>
-                          <span className="font-mono font-medium">
-                            {detailedCurrencyFormatter.format(entry.value)}
+                  <div className="rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-3 text-xs">
+                    <p className="font-semibold mb-2 text-foreground">{data.fullDate}</p>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">{t('streaks.trendTotalIncome')}:</span>
+                        <span className="font-mono font-semibold text-primary">
+                          {detailedCurrencyFormatter.format(data.income)}
+                        </span>
+                      </div>
+                      {data.increment > 0 && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-muted-foreground">{t('streaks.trendDailyIncrement')}:</span>
+                          <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                            +{detailedCurrencyFormatter.format(data.increment)}
                           </span>
                         </div>
-                      ))}
+                      )}
+                      <div className="flex items-center justify-between gap-4 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">{t('streaks.trendBalance')}:</span>
+                        <span className="font-mono font-medium">
+                          {detailedCurrencyFormatter.format(data.balance)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -122,31 +113,15 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
               return null;
             }}
           />
-          <Legend 
-            verticalAlign="top" 
-            height={36} 
-            iconType="circle"
-            formatter={(value) => <span className="text-xs font-medium text-muted-foreground ml-1">{value}</span>}
-          />
-          <Bar
-            yAxisId="left"
-            dataKey="increment"
-            name={incrementLabel}
-            fill="url(#colorIncrement)"
-            radius={[4, 4, 0, 0]}
-            barSize={20}
-          />
           <Area
-            yAxisId="right"
             type="monotone"
             dataKey="income"
-            name={totalIncomeLabel}
-            stroke="#f97316"
+            stroke="hsl(var(--primary))"
             strokeWidth={3}
             fillOpacity={1}
             fill="url(#colorIncome)"
           />
-        </ComposedChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

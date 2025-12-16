@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageContainer } from '@/components/layout/PageContainer';
 import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
+import { CardGrid } from '@/components/layout/CardGrid';
 
 export function CheckInStreaksPage() {
   const { t } = useTranslation();
@@ -119,7 +120,7 @@ export function CheckInStreaksPage() {
           placeholder={t('accounts.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
+          className="pl-8 h-input-sm bg-background shadow-sm border-border/50 text-sm"
         />
       </div>
       
@@ -233,8 +234,9 @@ export function CheckInStreaksPage() {
                         </Badge>
                       </div>
                     </div>
-                    <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {group.accounts.map((accountStreak) => (
+                    <div className="p-[var(--layout-page-content-padding)]">
+                      <CardGrid variant="stats">
+                        {group.accounts.map((accountStreak) => (
                         <Card
                           key={accountStreak.account_id}
                           role="button"
@@ -284,6 +286,7 @@ export function CheckInStreaksPage() {
                           </CardContent>
                         </Card>
                       ))}
+                      </CardGrid>
                     </div>
                   </Card>
                 ))}
@@ -292,7 +295,7 @@ export function CheckInStreaksPage() {
           </div>
         ) : (
           /* Single Account Details */
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-4 duration-500">
             {streak && (
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-8 text-white shadow-xl ring-1 ring-black/5">
                 <div className="absolute -right-12 -top-12 opacity-10 rotate-12">

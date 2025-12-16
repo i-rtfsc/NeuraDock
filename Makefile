@@ -256,8 +256,8 @@ clean: clean-frontend clean-backend
 # 清理前端
 clean-frontend:
 	@echo "🧹 清理前端..."
-	@rm -rf apps/desktop/dist
-	@rm -rf apps/desktop/node_modules/.vite
+	find . -name "node_modules" -type d -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -name "package-lock.json" -type f -delete 2>/dev/null || true
 
 # 清理后端
 clean-backend:
@@ -265,6 +265,9 @@ clean-backend:
 	@cd apps/desktop/src-tauri && cargo clean
 	@rm -rf apps/desktop/src-tauri/target/coverage
 	@rm -rf apps/desktop/src-tauri/coverage
+	@rm -rf apps/desktop/dist 
+	@rm -rf apps/desktop/src-tauri/target
+	
 
 # 深度清理
 clean-all:

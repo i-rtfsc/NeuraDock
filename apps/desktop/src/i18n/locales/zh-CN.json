@@ -6,7 +6,7 @@
   "nav": {
     "dashboard": "主页",
     "accounts": "账号",
-    "streaks": "签到",
+    "streaks": "记录",
     "tokens": "令牌",
     "settings": "设置"
   },
@@ -74,7 +74,10 @@
     "refreshBalances": "刷新余额",
     "refreshAllBalances": "刷新所有账号余额",
     "balancesRefreshed": "余额已刷新",
-    "noEnabledAccounts": "没有启用的账号"
+    "noEnabledAccounts": "没有启用的账号",
+    "tryDifferentSearch": "尝试其他搜索条件",
+    "clearFilters": "清除筛选",
+    "accountNotFound": "账号不存在"
   },
   "batchUpdate": {
     "title": "批量更新 Cookies",
@@ -109,6 +112,7 @@
     "disable": "禁用",
     "enable": "启用",
     "delete": "删除",
+    "deleted": "账号已删除",
     "created": "创建于",
     "remaining": "剩余",
     "checkIn": "签到",
@@ -221,6 +225,8 @@
     "failed": "签到失败",
     "batchTitle": "批量签到结果",
     "batchDescription": "查看批量签到操作的详细结果",
+    "batchSuccess": "批量签到成功",
+    "batchPartial": "批量签到部分成功",
     "close": "关闭",
     "succeeded": "成功",
     "failedCount": "失败",
@@ -228,7 +234,7 @@
     "balance": "余额"
   },
   "streaks": {
-    "pageTitle": "签到",
+    "pageTitle": "签到记录",
     "emptyTitle": "暂无签到数据",
     "emptyDescription": "执行签到操作后，系统会自动记录签到统计。",
     "allAccountsNotice": "当前显示所有账户。请选择一个账户查看详细签到数据。",
@@ -262,6 +268,7 @@
     "trendTitle": "收入趋势（最近30天）",
     "trendDailyIncrement": "当日增长",
     "trendTotalIncome": "累计收入",
+    "trendBalance": "当前余额",
     "trendNoData": "暂无数据",
     "checkInStatus": "签到状态",
     "checkedIn": "已签到",
@@ -322,6 +329,14 @@
     "sidebarIconWithText": "图标+文字",
     "sidebarExpandedDesc": "显示图标和文字标签",
     "sidebarCollapsedDesc": "仅显示图标以节省空间",
+    "appearanceThemeDescription": "选择您喜欢的界面主题。",
+    "appearanceLanguageDescription": "选择界面的显示语言。",
+    "storageTitle": "存储概览",
+    "localDatabase": "本地数据库",
+    "localDatabaseDescription": "账号和日志的本地存储占用",
+    "temporaryFiles": "临时文件",
+    "temporaryFilesDescription": "缓存的图片和会话数据",
+    "empty": "空",
     "cacheControl": "缓存控制",
     "systemInfo": "系统信息",
     "openLogFolder": "打开日志文件夹",
@@ -332,7 +347,8 @@
   },
   "common": {
     "loading": "加载中...",
-    "active": "当前",
+    "active": "启用",
+    "inactive": "禁用",
     "error": "错误",
     "success": "成功",
     "confirm": "确认",
@@ -480,6 +496,27 @@
         "geminiDesc": "Google AI"
       }
     }
+  },
+  "management": {
+    "accountName": "账号名",
+    "provider": "中转站",
+    "status": "状态",
+    "balance": "余额",
+    "totalIncome": "总收入",
+    "lastCheckIn": "最后签到",
+    "actions": "操作",
+    "overview": "概览",
+    "tokens": "Token",
+    "records": "记录",
+    "settings": "设置",
+    "accountStatus": "账号状态",
+    "quickActions": "快速操作",
+    "tokenManagement": "Token 管理",
+    "available": "可用",
+    "checkInRecords": "签到记录",
+    "viewFullRecords": "点击查看完整签到日历",
+    "accountSettings": "账号设置",
+    "editInDialog": "请使用编辑按钮修改账号设置"
   },
   "notification": {
     "addChannel": "添加渠道",

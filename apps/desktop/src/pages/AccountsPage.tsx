@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Upload, Search, RefreshCw, Layers, Box, Wallet, TrendingUp, History } from 'lucide-react';
+import { Plus, Upload, RefreshCw, Search, Wallet, TrendingUp, History, Layers, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 import { useAccounts } from '@/hooks/useAccounts';
@@ -23,6 +24,7 @@ import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/layout/PageContainer';
 import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
+import { CardGrid } from '@/components/layout/CardGrid';
 import { AccountListSkeleton } from '@/components/skeletons/AccountListSkeleton';
 
 export function AccountsPage() {
@@ -141,25 +143,71 @@ export function AccountsPage() {
 
   const sidebarContent = (
     <>
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={t('accounts.searchPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
-        />
-      </div>
-      
-      <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden">
+      {/* Statistics Summary Card */}
+      {filteredStatistics && (
+        <Card className="p-5 border-border/50 shadow-md bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-blue-950/30 dark:via-background dark:to-green-950/30">
+          <div className="space-y-4">
+            {/* Current Balance */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 shadow-sm">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.currentBalance')}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono">
+                    ${filteredStatistics.total_current_balance.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            {/* Total Income */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.totalIncome')}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono">
+                    ${filteredStatistics.total_income.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            {/* Historical Consumption */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 shadow-sm">
+                  <History className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.historicalConsumption')}</p>
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">
+                    ${filteredStatistics.total_consumed.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden transition-all duration-base ease-smooth hover:shadow-hover-md hover:border-border">
         <ScrollArea className="h-full">
           <div className="p-2 space-y-1">
             <button
               onClick={() => setSelectedProvider('all')}
               className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                selectedProvider === 'all' 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                selectedProvider === 'all'
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -171,7 +219,7 @@ export function AccountsPage() {
                 {accounts?.length || 0}
               </span>
             </button>
-            
+
             <div className="my-2 px-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
               {t('accounts.providersLabel')}
             </div>
@@ -185,8 +233,8 @@ export function AccountsPage() {
                   onClick={() => setSelectedProvider(p.id)}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive 
-                      ? "bg-primary text-primary-foreground shadow-sm" 
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
@@ -220,14 +268,50 @@ export function AccountsPage() {
         </div>
       }
       actions={
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setBatchUpdateDialogOpen(true)} title={t('accounts.batchUpdate')}>
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t('accounts.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
+            />
+          </div>
+
+          {/* Provider Filter */}
+          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <SelectTrigger className="w-40 h-9 shadow-sm border-border/50">
+              <SelectValue placeholder={t('accounts.allProviders')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  <span>{t('accounts.allProviders')}</span>
+                </div>
+              </SelectItem>
+              {allProviders.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  <div className="flex items-center gap-2">
+                    <Box className="h-4 w-4" />
+                    <span>{p.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="w-px h-6 bg-border" />
+
+          <Button variant="ghost" size="icon" onClick={() => setBatchUpdateDialogOpen(true)} title={t('accounts.batchUpdate')}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setJsonImportDialogOpen(true)} title={t('accounts.importJSON')}>
+          <Button variant="ghost" size="icon" onClick={() => setJsonImportDialogOpen(true)} title={t('accounts.importJSON')}>
             <Upload className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={handleCreate} className="h-9 px-4 shadow-sm">
+          <Button size="sm" onClick={handleCreate} className="shadow-sm">
             <Plus className="mr-2 h-4 w-4" />
             {t('accounts.addAccount')}
           </Button>
@@ -235,63 +319,22 @@ export function AccountsPage() {
       }
     >
       <SidebarPageLayout sidebar={sidebarContent}>
-        <div className="space-y-8">
-          {/* Statistics - Cards Design */}
-          {filteredStatistics && (
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="p-1.5 rounded-md bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-                    <TrendingUp className="h-4 w-4" />
-                  </div>
-                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.totalIncome')}</span>
-                </div>
-                <span className="text-2xl font-bold tracking-tight text-foreground">
-                  ${filteredStatistics.total_income.toFixed(2)}
-                </span>
-              </Card>
-
-              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="p-1.5 rounded-md bg-orange-100/50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
-                    <History className="h-4 w-4" />
-                  </div>
-                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.historicalConsumption')}</span>
-                </div>
-                <span className="text-2xl font-bold tracking-tight text-foreground">
-                  ${filteredStatistics.total_consumed.toFixed(2)}
-                </span>
-              </Card>
-
-              <Card className="p-4 flex flex-col gap-2 border-border/50 shadow-sm bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="p-1.5 rounded-md bg-green-100/50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
-                    <Wallet className="h-4 w-4" />
-                  </div>
-                  <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.stats.currentBalance')}</span>
-                </div>
-                <span className="text-2xl font-bold tracking-tight text-foreground">
-                  ${filteredStatistics.total_current_balance.toFixed(2)}
-                </span>
-              </Card>
-            </div>
-          )}
-
+        <div className="space-y-section-gap">
           {/* Accounts List */}
           {isLoading ? (
             <AccountListSkeleton />
           ) : filteredAccounts && filteredAccounts.length > 0 ? (
-            <div className="space-y-8">
+            <div className="space-y-section-gap">
               {Object.entries(accountsByProvider).map(([providerId, providerAccounts]) => {
                 const providerInfo = providers?.find(p => p.id === providerId);
                 const providerName = providerInfo?.name || providerAccounts[0]?.provider_name || 'Unknown';
                 const enabledCount = providerAccounts.filter(a => a.enabled).length;
-                
+
                 return (
                   <Card key={providerId} className="animate-in fade-in slide-in-from-bottom-4 duration-500 border-border/50 shadow-sm overflow-hidden">
                     {/* Provider Header */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between px-[var(--layout-page-content-padding)] py-3 bg-muted/30">
+                      <div className="flex items-center gap-element-gap">
                         <h2 className="text-base font-semibold tracking-tight">{providerName}</h2>
                         <Badge variant="secondary" className="rounded-full px-2.5 text-xs bg-background/50">
                           {providerAccounts.length}
@@ -303,7 +346,7 @@ export function AccountsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-muted-foreground hover:text-foreground hover:bg-background/50"
+                              className="text-muted-foreground hover:text-foreground hover:bg-background/50"
                               onClick={() => handleRefreshProviderBalances(providerAccounts)}
                               disabled={refreshAllBalancesMutation.isPending}
                             >
@@ -319,15 +362,17 @@ export function AccountsPage() {
                       </div>
                     </div>
 
-                    {/* Accounts Grid */}
-                    <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-                      {providerAccounts.map((account) => (
-                        <AccountCard
-                          key={account.id}
-                          account={account}
-                          onEdit={handleEdit}
-                        />
-                      ))}
+                    {/* Accounts Grid - 使用统一的CardGrid组件 */}
+                    <div className="p-[var(--layout-page-content-padding)]">
+                      <CardGrid variant="cards">
+                        {providerAccounts.map((account) => (
+                          <AccountCard
+                            key={account.id}
+                            account={account}
+                            onEdit={handleEdit}
+                          />
+                        ))}
+                      </CardGrid>
                     </div>
                   </Card>
                 );

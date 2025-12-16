@@ -16,6 +16,7 @@ use neuradock_domain::check_in::Provider;
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
+use neuradock_domain::independent_key::IndependentKeyRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
 use neuradock_domain::session::SessionRepository;
 use neuradock_domain::token::TokenRepository;
@@ -24,8 +25,8 @@ use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::persistence::{
     repositories::{
         SqliteAccountRepository, SqliteCustomProviderNodeRepository,
-        SqliteProviderModelsRepository, SqliteSessionRepository, SqliteTokenRepository,
-        SqliteWafCookiesRepository,
+        SqliteIndependentKeyRepository, SqliteProviderModelsRepository,
+        SqliteSessionRepository, SqliteTokenRepository, SqliteWafCookiesRepository,
     },
     Database,
 };
@@ -53,6 +54,7 @@ pub struct AppState {
     pub notification_channel_repo: Arc<dyn NotificationChannelRepository>,
     pub token_repo: Arc<dyn TokenRepository>,
     pub custom_node_repo: Arc<dyn CustomProviderNodeRepository>,
+    pub independent_key_repo: Arc<dyn IndependentKeyRepository>,
     pub provider_models_repo: Arc<SqliteProviderModelsRepository>,
     pub waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
     pub notification_service: Arc<NotificationService>,
@@ -131,6 +133,10 @@ impl AppState {
             Arc::new(SqliteTokenRepository::new(pool.clone())) as Arc<dyn TokenRepository>;
         let custom_node_repo = Arc::new(SqliteCustomProviderNodeRepository::new(pool.clone()))
             as Arc<dyn CustomProviderNodeRepository>;
+        let independent_key_repo = Arc::new(SqliteIndependentKeyRepository::new(
+            pool.clone(),
+            encryption_service.clone(),
+        )) as Arc<dyn IndependentKeyRepository>;
         let provider_models_repo = Arc::new(SqliteProviderModelsRepository::new(pool.clone()));
         let waf_cookies_repo = Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
         let notification_service = Arc::new(NotificationService::new(
@@ -299,6 +305,7 @@ impl AppState {
             notification_channel_repo,
             token_repo,
             custom_node_repo,
+            independent_key_repo,
             provider_models_repo,
             waf_cookies_repo,
             notification_service,

@@ -1,0 +1,275 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { MoreVertical, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TableVirtuoso } from 'react-virtuoso';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { Account } from '@/lib/tauri-commands';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+
+interface AccountsTableProps {
+  accounts: Account[];
+  onAccountClick: (account: Account) => void;
+  onCheckIn: (accountId: string) => void;
+  onEdit: (account: Account) => void;
+  onToggle: (account: Account) => void;
+  onDelete: (account: Account) => void;
+  onRefreshBalance: (accountId: string) => void;
+  checkingInIds?: Set<string>;
+  sortConfig?: { key: keyof Account; direction: 'asc' | 'desc' } | null;
+  onSortChange?: (config: { key: keyof Account; direction: 'asc' | 'desc' } | null) => void;
+}
+
+export function AccountsTable({
+  accounts,
+  onAccountClick,
+  onCheckIn,
+  onEdit,
+  onToggle,
+  onDelete,
+  onRefreshBalance,
+  checkingInIds = new Set(),
+  sortConfig,
+  onSortChange,
+}: AccountsTableProps) {
+  const { t } = useTranslation();
+
+  const formatLastCheckIn = (timestamp?: string) => {
+    if (!timestamp) return '-';
+    try {
+      const date = new Date(timestamp);
+      return format(date, 'yyyy-MM-dd HH:mm:ss');
+    } catch {
+      return '-';
+    }
+  };
+
+  const handleSort = (key: keyof Account) => {
+    if (!onSortChange) return;
+
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    onSortChange({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof Account }) => {
+    if (sortConfig?.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-3 w-3 opacity-30" />;
+    }
+    return sortConfig.direction === 'asc' ? (
+      <ArrowUp className="ml-2 h-3 w-3 text-primary" />
+    ) : (
+      <ArrowDown className="ml-2 h-3 w-3 text-primary" />
+    );
+  };
+
+  const SortableHeader = ({ 
+    label, 
+    columnKey, 
+    className 
+  }: { 
+    label: string; 
+    columnKey: keyof Account; 
+    className?: string 
+  }) => (
+    <div 
+      className={cn("flex items-center cursor-pointer select-none hover:text-foreground transition-colors", className)}
+      onClick={() => handleSort(columnKey)}
+    >
+      {label}
+      <SortIcon columnKey={columnKey} />
+    </div>
+  );
+
+  return (
+    <div className="h-full rounded-lg border border-border/50 shadow-sm bg-card overflow-hidden">
+      {accounts.length === 0 ? (
+        <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+           {t('accounts.noAccounts')}
+        </div>
+      ) : (
+        <TableVirtuoso
+          style={{ height: '100%' }}
+          data={accounts}
+          components={{
+            Table: (props) => (
+              <table {...props} className="w-full caption-bottom text-sm border-collapse" />
+            ),
+            TableHead: React.forwardRef((props, ref) => (
+              <thead {...props} ref={ref} className="bg-muted/50 sticky top-0 z-20 shadow-sm [&_tr]:border-b" />
+            )),
+            TableRow: (props) => (
+              <tr 
+                {...props} 
+                className={cn(
+                  "border-b transition-all duration-200 relative group",
+                  "hover:bg-accent/40 hover:shadow-md hover:scale-[1.002] hover:z-10",
+                  "data-[state=selected]:bg-muted"
+                )}
+              />
+            ),
+            TableBody: React.forwardRef((props, ref) => (
+              <tbody {...props} ref={ref} className="[&_tr:last-child]:border-0 bg-card" />
+            )),
+          }}
+          fixedHeaderContent={() => (
+            <tr className="h-10 text-left align-middle font-medium text-muted-foreground">
+              <th className="px-4 py-2 pl-6 font-semibold bg-muted/50 backdrop-blur-sm">
+                <SortableHeader label={t('management.accountName', '账号名')} columnKey="name" />
+              </th>
+              <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm">
+                {t('management.autoCheckIn', '自动签到')}
+              </th>
+              <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
+                <SortableHeader label={t('management.balance', '余额')} columnKey="current_balance" className="justify-end" />
+              </th>
+              <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
+                <SortableHeader label={t('management.totalIncome', '总收入')} columnKey="total_income" className="justify-end" />
+              </th>
+              <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
+                <SortableHeader label={t('management.totalConsumed', '历史消耗')} columnKey="total_consumed" className="justify-end" />
+              </th>
+              <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
+                <SortableHeader label={t('management.lastCheckIn', '最后签到')} columnKey="last_check_in" />
+              </th>
+              <th className="px-4 py-2 text-center font-semibold pr-6 bg-muted/50 backdrop-blur-sm w-32">
+                {t('management.actions', '操作')}
+              </th>
+            </tr>
+          )}
+          itemContent={(_, account) => {
+            const isChecking = checkingInIds.has(account.id);
+            return (
+              <>
+                <td 
+                  className="p-2 pl-6 align-middle font-medium cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold">{account.name}</span>
+                    <Badge variant="outline" className="font-normal text-xs w-fit">
+                      {account.provider_name}
+                    </Badge>
+                  </div>
+                </td>
+                <td 
+                  className="p-2 align-middle text-center cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  {account.auto_checkin_enabled ? (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                        {String(account.auto_checkin_hour).padStart(2, '0')}:{String(account.auto_checkin_minute).padStart(2, '0')}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </td>
+                <td 
+                  className="p-2 align-middle text-right cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+                    {account.current_balance != null
+                      ? `$${account.current_balance.toFixed(2)}`
+                      : '-'
+                    }
+                  </span>
+                </td>
+                <td 
+                  className="p-2 align-middle text-right cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <span className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    {account.total_income != null
+                      ? `$${account.total_income.toFixed(2)}`
+                      : '-'
+                    }
+                  </span>
+                </td>
+                <td 
+                  className="p-2 align-middle text-right cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <span className="font-mono text-sm font-semibold text-orange-600 dark:text-orange-400">
+                    {account.total_consumed != null
+                      ? `$${account.total_consumed.toFixed(2)}`
+                      : '-'
+                    }
+                  </span>
+                </td>
+                <td 
+                  className="p-2 align-middle cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {formatLastCheckIn(account.last_check_in)}
+                  </span>
+                </td>
+                <td className="p-2 align-middle pr-6">
+                  <div className="flex items-center justify-center gap-1">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCheckIn(account.id);
+                      }}
+                      disabled={!account.enabled || isChecking}
+                      className={cn(
+                        "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-300",
+                        "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
+                        "disabled:opacity-50 disabled:cursor-not-allowed",
+                        isChecking && "animate-pulse"
+                      )}
+                    >
+                      <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                      {isChecking ? t('checkIn.checking', '签到中...') : t('checkIn.checkIn', '签到')}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm" className="h-8 w-8 hover:bg-muted">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onRefreshBalance(account.id)}>
+                          {t('accountCard.refreshBalance')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(account)}>
+                          {t('accountCard.edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onToggle(account)}>
+                          {account.enabled ? t('accountCard.disable') : t('accountCard.enable')}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onDelete(account)}
+                          className="text-destructive"
+                        >
+                          {t('accountCard.delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </td>
+              </>
+            );
+          }}
+        />
+      )}
+    </div>
+  );
+}

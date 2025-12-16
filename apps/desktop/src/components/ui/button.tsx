@@ -4,22 +4,24 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-base ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[var(--scale-active)]',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm hover:shadow-md',
-        outline: 'border-2 border-border bg-background hover:bg-accent hover:border-accent-foreground/20',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm',
+        default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-hover-sm',
+        destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-hover-sm',
+        outline: 'border-2 border-border bg-background hover:bg-accent hover:border-accent-foreground/20 hover:shadow-sm',
+        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-hover-sm',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-8 px-3 text-xs rounded-sm',
-        lg: 'h-12 px-6 text-base rounded-lg',
-        icon: 'h-10 w-10',
+        default: 'h-btn px-[var(--control-button-padding-x-default)]',
+        sm: 'h-btn-sm px-[var(--control-button-padding-x-sm)] text-xs rounded-sm',
+        lg: 'h-btn-lg px-[var(--control-button-padding-x-lg)] text-base rounded-lg',
+        icon: 'h-btn-icon w-btn-icon p-0',
+        'icon-sm': 'h-btn-icon-sm w-btn-icon-sm p-0',
+        'icon-lg': 'h-btn-icon-lg w-btn-icon-lg p-0',
       },
     },
     defaultVariants: {

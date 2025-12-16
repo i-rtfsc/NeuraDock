@@ -6,7 +6,7 @@
   "nav": {
     "dashboard": "Home",
     "accounts": "Accounts",
-    "streaks": "Check-in",
+    "streaks": "Records",
     "tokens": "Tokens",
     "settings": "Settings"
   },
@@ -74,7 +74,10 @@
     "refreshBalances": "Refresh Balances",
     "refreshAllBalances": "Refresh all account balances",
     "balancesRefreshed": "Balances refreshed",
-    "noEnabledAccounts": "No enabled accounts"
+    "noEnabledAccounts": "No enabled accounts",
+    "tryDifferentSearch": "Try different search criteria",
+    "clearFilters": "Clear filters",
+    "accountNotFound": "Account not found"
   },
   "batchUpdate": {
     "title": "Batch Update Cookies",
@@ -109,6 +112,7 @@
     "disable": "Disable",
     "enable": "Enable",
     "delete": "Delete",
+    "deleted": "Account deleted",
     "created": "Created",
     "remaining": "Remaining",
     "checkIn": "Check In",
@@ -221,6 +225,8 @@
     "failed": "Check-in failed",
     "batchTitle": "Batch Check-in Results",
     "batchDescription": "View detailed results of the batch check-in operation",
+    "batchSuccess": "Batch check-in successful",
+    "batchPartial": "Batch check-in partially successful",
     "close": "Close",
     "succeeded": "succeeded",
     "failedCount": "failed",
@@ -228,7 +234,7 @@
     "balance": "Balance"
   },
   "streaks": {
-    "pageTitle": "Check-in",
+    "pageTitle": "Check-in Records",
     "emptyTitle": "No check-in data",
     "emptyDescription": "Run a check-in to start building streak statistics.",
     "allAccountsNotice": "Showing all accounts. Select one to view detailed check-in data.",
@@ -262,6 +268,7 @@
     "trendTitle": "Income Trend (Last 30 Days)",
     "trendDailyIncrement": "Daily Increment",
     "trendTotalIncome": "Total Income",
+    "trendBalance": "Current Balance",
     "trendNoData": "No data",
     "checkInStatus": "Check-in status",
     "checkedIn": "Checked in",
@@ -322,6 +329,14 @@
     "sidebarIconWithText": "Icon + Text",
     "sidebarExpandedDesc": "Show icon and text label",
     "sidebarCollapsedDesc": "Show icon only to save space",
+    "appearanceThemeDescription": "Select your preferred interface theme.",
+    "appearanceLanguageDescription": "Select your preferred language for the interface.",
+    "storageTitle": "Storage Overview",
+    "localDatabase": "Local Database",
+    "localDatabaseDescription": "Local storage usage for accounts and logs",
+    "temporaryFiles": "Temporary Files",
+    "temporaryFilesDescription": "Cached images and session data",
+    "empty": "Empty",
     "cacheControl": "Cache Control",
     "systemInfo": "System Information",
     "openLogFolder": "Open Log Folder",
@@ -480,6 +495,27 @@
         "geminiDesc": "Google AI"
       }
     }
+  },
+  "management": {
+    "accountName": "Account Name",
+    "provider": "Provider",
+    "status": "Status",
+    "balance": "Balance",
+    "totalIncome": "Total Income",
+    "lastCheckIn": "Last Check-in",
+    "actions": "Actions",
+    "overview": "Overview",
+    "tokens": "Tokens",
+    "records": "Records",
+    "settings": "Settings",
+    "accountStatus": "Account Status",
+    "quickActions": "Quick Actions",
+    "tokenManagement": "Token Management",
+    "available": "Available",
+    "checkInRecords": "Check-in Records",
+    "viewFullRecords": "Click to view full check-in calendar",
+    "accountSettings": "Account Settings",
+    "editInDialog": "Please use the edit button to modify account settings"
   },
   "notification": {
     "addChannel": "Add Channel",

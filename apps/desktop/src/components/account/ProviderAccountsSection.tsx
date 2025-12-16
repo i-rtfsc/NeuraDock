@@ -75,7 +75,7 @@ export function ProviderAccountsSection({
                     handleRefresh();
                   }}
                   disabled={isRefreshing}
-                  className="rounded-full h-8 px-3 hover:bg-white/50 dark:hover:bg-white/10"
+                  className="rounded-full hover:bg-white/50 dark:hover:bg-white/10"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
                   <span className="text-xs">{t("accounts.refreshBalances")}</span>

@@ -57,19 +57,44 @@ wire_api = "responses"
         let model_name = model.unwrap_or("gpt-5");
         format!(
             r#"model = "{}"
-model_provider = "openai-chat-completions"
+model_provider = "agentrouter"
 preferred_auth_method = "apikey"
 
 
-[model_providers.openai-chat-completions]
-name = "OpenAI using Chat Completions"
+[model_providers.agentrouter]
+name = "Agent Router"
 base_url = "{}/v1"
-#env_key = "AGENT_ROUTER_TOKEN"
-wire_api = "chat"
+wire_api = "responses"
 query_params = {{}}
 stream_idle_timeout_ms = 300000
 "#,
             model_name, base_url
+        )
+    }
+
+    /// Generate config.toml content for generic OpenAI-compatible provider (for independent keys)
+    fn generate_generic_config(base_url: &str, model: Option<&str>) -> String {
+        let model_name = model.unwrap_or("gpt-4o");
+        let base_url_v1 = if base_url.ends_with("/v1") {
+            base_url.to_string()
+        } else if base_url.ends_with('/') {
+            format!("{}v1", base_url)
+        } else {
+            format!("{}/v1", base_url)
+        };
+
+        format!(
+            r#"model = "{}"
+model_provider = "openai_compatible"
+preferred_auth_method = "apikey"
+
+
+[model_providers.openai_compatible]
+name = "OpenAI Compatible API"
+base_url = "{}"
+wire_api = "responses"
+"#,
+            model_name, base_url_v1
         )
     }
 
@@ -152,6 +177,57 @@ stream_idle_timeout_ms = 300000
         &self,
         _token: &ApiToken,
         _provider_id: &str,
+        _base_url: &str,
+        _model: Option<&str>,
+    ) -> Result<String> {
+        Err(anyhow::anyhow!(
+            "Temporary configuration is currently unavailable. Please use global configuration instead."
+        ))
+    }
+
+    /// Configure Codex globally with API key string (for independent keys)
+    pub fn configure_global_with_key(
+        &self,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+    ) -> Result<String> {
+        let codex_dir = Self::get_codex_dir()?;
+        let config_path = Self::get_codex_config_path()?;
+        let auth_path = Self::get_codex_auth_path()?;
+
+        // Ensure directory exists
+        fs::create_dir_all(&codex_dir)?;
+
+        // Generate generic OpenAI-compatible config
+        let config_content = Self::generate_generic_config(base_url, model);
+
+        // Write config.toml
+        fs::write(&config_path, &config_content)?;
+        log::info!("Codex config.toml written to: {}", config_path.display());
+
+        // Create auth.json with API key (ensure sk- prefix)
+        let api_key = Self::ensure_sk_prefix(api_key);
+        let auth_content = json!({
+            "OPENAI_API_KEY": api_key
+        });
+
+        let auth_json = serde_json::to_string_pretty(&auth_content)?;
+        fs::write(&auth_path, auth_json)?;
+        log::info!("Codex auth.json written to: {}", auth_path.display());
+
+        Ok(format!(
+            "Successfully configured Codex globally:\n  - config.toml: {}\n  - auth.json: {}",
+            config_path.display(),
+            auth_path.display()
+        ))
+    }
+
+    /// Generate temporary export commands with API key string (for independent keys)
+    #[allow(dead_code)]
+    pub fn generate_temp_commands_with_key(
+        &self,
+        _api_key: &str,
         _base_url: &str,
         _model: Option<&str>,
     ) -> Result<String> {

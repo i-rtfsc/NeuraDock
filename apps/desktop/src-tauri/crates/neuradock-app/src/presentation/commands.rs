@@ -14,9 +14,11 @@ use std::sync::Arc;
 use tauri::{Manager, State};
 use tracing::warn;
 
+pub mod independent_key;
 pub mod token;
 
-// Re-export token commands
+// Re-export commands
+pub use independent_key::*;
 pub use token::*;
 
 /// Get built-in providers

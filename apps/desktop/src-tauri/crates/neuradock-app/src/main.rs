@@ -77,6 +77,17 @@ async fn main() {
             fetch_provider_models,
             refresh_provider_models_with_waf,
             get_cached_provider_models,
+            // Independent API Key commands
+            get_all_independent_keys,
+            get_independent_key_by_id,
+            create_independent_key,
+            update_independent_key,
+            delete_independent_key,
+            toggle_independent_key,
+            configure_independent_key_claude,
+            generate_independent_key_claude_temp,
+            configure_independent_key_codex,
+            generate_independent_key_codex_temp,
             // System & Logging commands
             get_app_version,
             log_from_frontend,

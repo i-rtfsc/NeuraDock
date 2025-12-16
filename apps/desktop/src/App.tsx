@@ -5,8 +5,9 @@ import { ThemeProvider } from './hooks/useTheme';
 import { MainLayout } from './components/layout/MainLayout';
 import { Toaster } from './components/ui/toaster';
 import { DashboardPage } from './pages/DashboardPage';
-import { AccountsPage } from './pages/AccountsPage';
-import { CheckInStreaksPage } from './pages/CheckInStreaksPage';
+import { AccountsTablePage } from './pages/AccountsTablePage';
+import { AccountDetailPage } from './pages/AccountDetailPage';
+import { AccountRecordsPage } from './pages/AccountRecordsPage';
 import { TokenManagerPage } from './pages/TokenManagerPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -20,8 +21,9 @@ function App() {
             <MainLayout>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
-                <Route path="/accounts" element={<AccountsPage />} />
-                <Route path="/streaks" element={<CheckInStreaksPage />} />
+                <Route path="/accounts" element={<AccountsTablePage />} />
+                <Route path="/accounts/:accountId" element={<AccountDetailPage />} />
+                <Route path="/account/:accountId/records" element={<AccountRecordsPage />} />
                 <Route path="/tokens" element={<TokenManagerPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>

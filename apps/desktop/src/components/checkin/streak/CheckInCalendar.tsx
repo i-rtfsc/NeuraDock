@@ -99,7 +99,7 @@ export function CheckInCalendar({
   const weekdayHeader = (
     <div className="grid grid-cols-7 gap-2 text-center mb-2">
       {(weekdayLabels.length ? weekdayLabels : DEFAULT_WEEKDAYS).map((day) => (
-        <div key={day} className="text-xs font-medium text-muted-foreground py-2">
+        <div key={day} className="text-xs font-medium text-muted-foreground">
           {day}
         </div>
       ))}
@@ -107,7 +107,7 @@ export function CheckInCalendar({
   );
 
   const calendarGrid = (
-    <div className="grid grid-cols-7 gap-2 text-center">
+    <div className="grid grid-cols-7 gap-2 justify-items-center">
       {Array.from({ length: firstDayOfWeek }).map((_, i) => (
         <div key={`empty-${i}`} />
       ))}
@@ -121,13 +121,13 @@ export function CheckInCalendar({
             key={day}
             onClick={() => dayData && onDateClick(dayData.date)}
             className={cn(
-              'aspect-square p-2 rounded-lg text-sm font-medium transition-colors',
+              'w-10 h-10 rounded-md text-sm font-medium transition-colors flex items-center justify-center',
               'hover:bg-accent hover:text-accent-foreground',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               dayData?.is_checked_in
                 ? 'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700'
                 : 'bg-muted text-muted-foreground',
-              today && 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-background'
+              today && 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-background'
             )}
             disabled={!dayData}
           >
@@ -139,7 +139,7 @@ export function CheckInCalendar({
   );
 
   const legend = (
-    <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
+    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
       <div className="flex items-center gap-1">
         <div className="w-4 h-4 rounded bg-green-500 dark:bg-green-600" />
         <span>{t('streaks.legendChecked')}</span>
@@ -157,11 +157,11 @@ export function CheckInCalendar({
 
   if (variant === 'inline') {
     return (
-      <div className={cn('space-y-4', className)}>
+      <div className={cn(className)}>
         {header}
-        {weekdayHeader}
-        {calendarGrid}
-        {legend}
+        <div className="mt-4">{weekdayHeader}</div>
+        <div className="mt-2">{calendarGrid}</div>
+        <div className="mt-8">{legend}</div>
       </div>
     );
   }

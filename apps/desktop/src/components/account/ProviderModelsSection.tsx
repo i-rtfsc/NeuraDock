@@ -135,7 +135,7 @@ export function ProviderModelsSection({
           size="sm"
           onClick={handleRefresh}
           disabled={refreshMutation.isPending || isLoading}
-          className="h-7 gap-1.5"
+          className="gap-1.5"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
           {t('common.refresh') || 'Refresh'}

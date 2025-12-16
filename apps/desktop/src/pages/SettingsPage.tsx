@@ -1,59 +1,104 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 import {
-  Moon, Sun, Monitor, Palette, Zap, Code, Bell, Info,
-  AlertTriangle, Scale,
+  Info, Sun,
   Database, Trash2,
-  Terminal
+  Terminal,
+  FolderOpen,
+  ChevronRight,
+  Languages,
+  AlertTriangle,
+  Scale
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
 import { NotificationChannelList } from '@/components/notification/NotificationChannelList';
 import { useNotificationChannels } from '@/hooks/useNotificationChannels';
 import { cn } from '@/lib/utils';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { PageContent } from '@/components/layout/PageContent';
 
-// --- Types & Constants ---
-type SettingSection = 'appearance' | 'performance' | 'notifications' | 'developer' | 'about';
+// --- Reusable Layout Components ---
 
-interface NavigationItem {
-  id: SettingSection;
-  icon: React.ElementType;
-  labelKey: string;
-  descKey: string;
+interface SettingsGroupProps {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+  contentClassName?: string;
 }
 
-const navigationItems: NavigationItem[] = [
-  { id: 'appearance', icon: Palette, labelKey: 'settings.appearance', descKey: 'settings.appearanceDescription' },
-  { id: 'performance', icon: Zap, labelKey: 'settings.dataPerformance', descKey: 'settings.dataPerformanceDescription' },
-  { id: 'notifications', icon: Bell, labelKey: 'settings.notification', descKey: 'settings.notificationDescription' },
-  { id: 'developer', icon: Code, labelKey: 'settings.developer', descKey: 'settings.developerDescription' },
-  { id: 'about', icon: Info, labelKey: 'settings.about', descKey: 'settings.aboutDescription' },
-];
+const SettingsGroup = ({ title, children, className, contentClassName }: SettingsGroupProps) => (
+  <div className={cn("space-y-element-gap w-full", className)}>
+    {title && (
+      <h3 className="text-sm font-semibold text-foreground/70 px-1 ml-1 uppercase tracking-wide">
+        {title}
+      </h3>
+    )}
+    <div className={cn(
+      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full",
+      contentClassName
+    )}>
+      <div className="flex flex-col w-full">
+        {children}
+      </div>
+    </div>
+  </div>
+);
+
+interface SettingsRowProps {
+  icon?: React.ElementType;
+  label: string;
+  description?: string;
+  children?: ReactNode;
+  onClick?: () => void;
+  className?: string;
+  action?: ReactNode;
+  isLast?: boolean;
+}
+
+const SettingsRow = ({ icon: Icon, label, description, children, onClick, className, action, isLast }: SettingsRowProps) => (
+  <div className="relative group w-full">
+    <div
+      className={cn(
+        "flex items-center gap-element-gap px-[var(--layout-page-content-padding)] py-5 min-h-[4rem] transition-all duration-200 hover:bg-muted/30 w-full",
+        onClick && "cursor-pointer active:bg-muted/50",
+        className
+      )}
+      onClick={onClick}
+    >
+      {Icon && (
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all shrink-0">
+          <Icon className="h-5 w-5" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <Label className={cn("text-base font-medium text-foreground", onClick && "cursor-pointer")}>
+          {label}
+        </Label>
+        {description && <p className="text-sm text-muted-foreground mt-1 leading-normal">{description}</p>}
+      </div>
+      <div className="shrink-0 flex items-center gap-element-gap pl-4">
+        {children}
+        {action}
+        {onClick && !action && !children && <ChevronRight className="h-5 w-5 text-muted-foreground/40" />}
+      </div>
+    </div>
+    {!isLast && (
+      <div className="absolute bottom-0 left-20 right-0 h-px bg-border/40" />
+    )}
+  </div>
+);
 
 // --- Sub-Components ---
 
 const AppearanceSettings = () => {
   const { theme, setTheme } = useTheme();
   const { t, i18n } = useTranslation();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('sidebarCollapsed') === 'true';
-  });
-
-  const handleSidebarToggle = (checked: boolean) => {
-    setSidebarCollapsed(checked);
-    localStorage.setItem('sidebarCollapsed', checked.toString());
-    window.dispatchEvent(new Event('sidebarToggle'));
-    toast.success(t('common.success'));
-  };
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -62,89 +107,44 @@ const AppearanceSettings = () => {
   };
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">{t('settings.appearance')}</h2>
-        <p className="text-muted-foreground text-sm">{t('settings.appearanceDescription')}</p>
-      </div>
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
       
-      {/* Theme Selection - Stable Icon Cards */}
-      <section className="space-y-4">
-        <Label className="text-base font-semibold">{t('settings.theme')}</Label>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { value: 'light', icon: Sun, label: t('settings.light') },
-            { value: 'dark', icon: Moon, label: t('settings.dark') },
-            { value: 'system', icon: Monitor, label: t('settings.system') },
-          ].map((item) => (
-            <div
-              key={item.value}
-              onClick={() => setTheme(item.value as 'light' | 'dark' | 'system')}
-              className={cn(
-                "cursor-pointer flex flex-col items-center gap-3 rounded-xl border-2 p-4 transition-all hover:bg-accent hover:text-accent-foreground",
-                theme === item.value 
-                  ? "border-primary bg-primary/5" 
-                  : "border-muted bg-card"
-              )}
-            >
-              <div className={cn(
-                "p-3 rounded-full ring-1 ring-border",
-                theme === item.value ? "bg-primary text-primary-foreground ring-primary border-transparent" : "bg-background"
-              )}>
-                <item.icon className="h-6 w-6" />
-              </div>
-              <span className="font-medium text-sm">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <SettingsGroup title={t('settings.appearance', { defaultValue: 'Appearance' })}>
+        <SettingsRow 
+          icon={Sun} // Re-using Sun as a generic theme icon. Can be changed if needed.
+          label={t('settings.theme')}
+          description={t('settings.appearanceThemeDescription')}
+        >
+          <Select value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
+            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">{t('settings.light')}</SelectItem>
+              <SelectItem value="dark">{t('settings.dark')}</SelectItem>
+              <SelectItem value="system">{t('settings.system')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingsRow>
 
-      <div className="h-px bg-border/50" />
+        <SettingsRow
+          icon={Languages}
+          label={t('settings.language')}
+          description={t('settings.appearanceLanguageDescription')}
+          isLast
+        >
+          <Select value={i18n.language} onValueChange={handleLanguageChange}>
+            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="zh-CN">🇨🇳 简体中文</SelectItem>
+              <SelectItem value="en-US">🇺🇸 English</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingsRow>
+      </SettingsGroup>
 
-      {/* General Settings List */}
-      <section className="space-y-6">
-         {/* Language */}
-         <div className="flex items-center justify-between">
-            <div className="space-y-1">
-               <Label className="text-base font-medium">{t('settings.language')}</Label>
-               <p className="text-sm text-muted-foreground">
-                 {t('settings.appearanceDescription').split(' ')[0]} language preference.
-               </p>
-            </div>
-            <Select value={i18n.language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="zh-CN">
-                  🇨🇳 简体中文
-                </SelectItem>
-                <SelectItem value="en-US">
-                  🇺🇸 English
-                </SelectItem>
-              </SelectContent>
-            </Select>
-         </div>
-
-         {/* Sidebar Mode */}
-         <div className="flex items-center justify-between">
-            <div className="space-y-1">
-               <Label className="text-base font-medium">{t('settings.sidebarMode')}</Label>
-               <p className="text-sm text-muted-foreground max-w-[300px]">
-                 {sidebarCollapsed ? t('settings.sidebarCollapsedDesc') : t('settings.sidebarExpandedDesc')}
-               </p>
-            </div>
-            <div className="flex items-center gap-3">
-               <span className={cn("text-sm", !sidebarCollapsed && "font-medium")}>{t('settings.sidebarIconWithText')}</span>
-               <Switch
-                 checked={sidebarCollapsed}
-                 onCheckedChange={handleSidebarToggle}
-               />
-               <span className={cn("text-sm", sidebarCollapsed && "font-medium")}>{t('settings.sidebarIconOnly')}</span>
-            </div>
-         </div>
-      </section>
     </div>
   );
 };
@@ -160,106 +160,89 @@ const PerformanceSettings = () => {
     }
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem('maxCacheAgeHours', cacheAgeHours.toString());
-    toast.success(t('settings.cacheAgeSaved'));
+  const handleSaveCache = (val: number) => {
+    setCacheAgeHours(val);
+    localStorage.setItem('maxCacheAgeHours', val.toString());
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight mb-1">{t('settings.dataPerformance')}</h2>
-        <p className="text-muted-foreground mb-6">{t('settings.dataPerformanceDescription')}</p>
-
-        <div className="grid gap-6">
-          <Card className="border-none shadow-md bg-gradient-to-br from-background to-muted/20 overflow-hidden">
-            <div className="absolute top-0 right-0 p-3 opacity-10">
-               <Database className="w-32 h-32" />
-            </div>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-primary" />
-                {t('settings.cacheControl')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6 relative">
-              <div className="space-y-4">
-                 <div className="flex justify-between items-end">
-                    <Label className="text-base">{t('settings.cacheAge')}</Label>
-                    <div className="text-2xl font-bold text-primary tabular-nums">
-                      {cacheAgeHours} <span className="text-sm font-normal text-muted-foreground">{t('settings.hours')}</span>
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      <SettingsGroup title={t('settings.cacheControl')}>
+        <div className="p-5 space-y-6 group">
+           {/* Top Row: Icon/Info and Value */}
+           <div className="flex items-start justify-between">
+               <div className="flex gap-4">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
+                       <Database className="h-5 w-5" />
                     </div>
-                 </div>
-                 
-                 <div className="pt-2">
-                   <input
-                     type="range"
-                     min="1"
-                     max="24"
-                     step="1"
-                     value={cacheAgeHours}
-                     onChange={(e) => setCacheAgeHours(parseInt(e.target.value))}
-                     className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                   />
-                   <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                     <span>1 {t('settings.hour')}</span>
-                     <span>12 {t('settings.hours')}</span>
-                     <span>24 {t('settings.hours')}</span>
-                   </div>
-                 </div>
+                    <div className="space-y-1">
+                       <Label className="text-base font-medium text-foreground">
+                           {t('settings.cacheAge')}
+                       </Label>
+                       <p className="text-sm text-muted-foreground leading-snug max-w-[280px] md:max-w-md">
+                           {t('settings.cacheAgeDescription')}
+                       </p>
+                    </div>
+               </div>
+               
+               <div className="flex flex-col items-end shrink-0">
+                    <div className="flex items-baseline gap-1">
+                       <span className="text-2xl font-bold tabular-nums text-primary">{cacheAgeHours}</span>
+                       <span className="text-sm font-medium text-muted-foreground">{t('settings.hours')}</span>
+                    </div>
+               </div>
+           </div>
 
-                 <div className="flex items-center justify-between pt-2">
-                    <p className="text-sm text-muted-foreground max-w-[70%]">
-                      {t('settings.cacheAgeDescription')}
-                    </p>
-                    <Button onClick={handleSave} className="rounded-full shadow-lg hover:shadow-xl transition-all">
-                      {t('common.save')}
-                    </Button>
-                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Placeholder for future Storage Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-muted/30 border-none shadow-sm">
-               <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2 opacity-50">
-                  <Database className="h-8 w-8 mb-2" />
-                  <div className="font-semibold">Local Database</div>
-                  <div className="text-xs">12.5 MB used</div>
-               </CardContent>
-            </Card>
-             <Card className="bg-muted/30 border-none shadow-sm">
-               <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2 opacity-50">
-                  <Trash2 className="h-8 w-8 mb-2" />
-                  <div className="font-semibold">Temp Files</div>
-                  <div className="text-xs">Empty</div>
-               </CardContent>
-            </Card>
-          </div>
+           {/* Bottom Row: Interactive Slider */}
+           <div className="pt-2 transition-opacity duration-300">
+               <input
+                   type="range"
+                   min="1"
+                   max="24"
+                   step="1"
+                   value={cacheAgeHours}
+                   onChange={(e) => handleSaveCache(parseInt(e.target.value))}
+                   className="w-full h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+               />
+               <div className="relative mt-3 h-4 text-xs font-medium text-muted-foreground/50 select-none">
+                   <span className="absolute left-[0%] -translate-x-1/2">1h</span>
+                   <span className="absolute left-[calc(5/23*100%)] -translate-x-1/2">6h</span>
+                   <span className="absolute left-[calc(11/23*100%)] -translate-x-1/2">12h</span>
+                   <span className="absolute left-[calc(17/23*100%)] -translate-x-1/2">18h</span>
+                   <span className="absolute left-[100%] -translate-x-1/2">24h</span>
+               </div>
+           </div>
         </div>
-      </div>
+      </SettingsGroup>
+
+      <SettingsGroup title={t('settings.storageTitle')}>
+        <SettingsRow 
+          icon={Database}
+          label={t('settings.localDatabase')}
+          description={t('settings.localDatabaseDescription')}
+          action={<span className="text-xs font-semibold text-foreground bg-muted/60 px-3 py-1.5 rounded-lg border border-border/40 tabular-nums">12.5 MB</span>}
+        />
+        <SettingsRow 
+           icon={Trash2}
+           label={t('settings.temporaryFiles')}
+           description={t('settings.temporaryFilesDescription')}
+           action={<span className="text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/30">{t('settings.empty')}</span>}
+           isLast
+        />
+      </SettingsGroup>
     </div>
   );
 };
 
 const NotificationSettings = () => {
-  const { t } = useTranslation();
   const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
-      <div className="flex-none">
-        <h2 className="text-2xl font-bold tracking-tight mb-1">{t('settings.notification')}</h2>
-        <p className="text-muted-foreground mb-6">{t('settings.notificationDescription')}</p>
-      </div>
-
-      <div className="flex-1 min-h-0">
-        <NotificationChannelList
-          channels={notificationChannels}
-          onUpdate={refetchChannels}
-        />
-      </div>
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      <NotificationChannelList
+        channels={notificationChannels}
+        onUpdate={refetchChannels}
+      />
     </div>
   );
 };
@@ -267,7 +250,6 @@ const NotificationSettings = () => {
 const DeveloperSettings = () => {
   const { t } = useTranslation();
   const [logLevel, setLogLevel] = useState<string>('info');
-  const [isOpeningLogs, setIsOpeningLogs] = useState(false);
 
   useEffect(() => {
     invoke<string>('get_log_level').then(setLogLevel).catch(console.error);
@@ -285,179 +267,132 @@ const DeveloperSettings = () => {
 
   const handleOpenLogs = async () => {
     try {
-      setIsOpeningLogs(true);
       const logPath = await invoke<string>('open_log_dir');
       toast.success(t('settings.logFolderOpened', { path: logPath }));
     } catch (error) {
       toast.error(t('settings.failedToOpenLogs') + ': ' + String(error));
-    } finally {
-      setIsOpeningLogs(false);
     }
   };
 
-  const levels = ['error', 'warn', 'info', 'debug', 'trace'];
-  const levelColors: Record<string, string> = {
-    error: 'text-red-500 bg-red-500/10 border-red-500/20 ring-red-500/20',
-    warn: 'text-amber-500 bg-amber-500/10 border-amber-500/20 ring-amber-500/20',
-    info: 'text-blue-500 bg-blue-500/10 border-blue-500/20 ring-blue-500/20',
-    debug: 'text-purple-500 bg-purple-500/10 border-purple-500/20 ring-purple-500/20',
-    trace: 'text-gray-500 bg-gray-500/10 border-gray-500/20 ring-gray-500/20',
-  };
-
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight mb-1 flex items-center gap-2">
-          <Terminal className="h-6 w-6 text-primary" />
-          {t('settings.developer')}
-        </h2>
-        <p className="text-muted-foreground mb-6">{t('settings.developerDescription')}</p>
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      <SettingsGroup title={t('settings.debugConfig', { defaultValue: 'Debug Configuration' })}>
+        <SettingsRow 
+          icon={Terminal}
+          label={t('settings.logLevel')}
+          description={t('settings.restartRequired')}
+        >
+           <Select value={logLevel} onValueChange={handleLogLevelChange}>
+             <SelectTrigger className="w-[140px] h-input text-sm font-mono border-border/50 bg-background/50">
+               <SelectValue />
+             </SelectTrigger>
+             <SelectContent>
+               {['error', 'warn', 'info', 'debug', 'trace'].map(level => (
+                 <SelectItem key={level} value={level} className="font-mono text-xs">
+                   {level.toUpperCase()}
+                 </SelectItem>
+               ))}
+             </SelectContent>
+           </Select>
+        </SettingsRow>
 
-        <div className="grid gap-6">
-          {/* Log Level Console */}
-          <Card className="border-border shadow-sm overflow-hidden bg-card">
-             <CardHeader className="bg-muted/30 py-3 px-4 border-b border-border flex flex-row items-center justify-between space-y-0">
-                   <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground truncate mr-2">Log Level Configuration</span>
-                   <div className="flex gap-1.5 opacity-60 shrink-0">
-                      <div className="w-3 h-3 rounded-full bg-red-400/80" />
-                      <div className="w-3 h-3 rounded-full bg-amber-400/80" />
-                      <div className="w-3 h-3 rounded-full bg-green-400/80" />
-                   </div>
-             </CardHeader>
-             <CardContent className="p-6 space-y-6">
-                <div className="flex flex-wrap gap-2">
-                   {levels.map(level => (
-                     <button
-                       key={level}
-                       onClick={() => handleLogLevelChange(level)}
-                       className={cn(
-                         "px-4 py-2 rounded-md font-mono text-sm transition-all border",
-                         logLevel === level
-                           ? levelColors[level] + " ring-1 ring-offset-1 ring-offset-background font-bold shadow-sm"
-                           : "bg-muted/40 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-                       )}
-                     >
-                       {level.toUpperCase()}
-                     </button>
-                   ))}
-                </div>
-                
-                <div className="p-4 rounded-lg bg-muted/50 font-mono text-xs border border-border/50 overflow-hidden">
-                   <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="text-green-600 dark:text-green-500 shrink-0">➜</span>
-                      <span className="shrink-0">~</span>
-                      <span className="opacity-50 truncate">config set log_level</span>
-                   </div>
-                   <div className="mt-2 pl-4 border-l-2 border-border/50">
-                       <div className="flex gap-2 flex-wrap">
-                           <span className="text-blue-600 dark:text-blue-500 shrink-0">current_value</span>
-                           <span className="text-muted-foreground shrink-0">=</span> 
-                           <span className={cn("font-bold", levelColors[logLevel].split(' ')[0])}>"{logLevel}"</span>
-                       </div>
-                       <div className="mt-1 text-muted-foreground/60 italic">
-                           # {t('settings.restartRequired')}
-                       </div>
-                   </div>
-                </div>
-             </CardContent>
-          </Card>
-
-          {/* Log Folder Access */}
-          <Card className="border-border shadow-sm bg-card relative overflow-hidden">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Terminal className="h-5 w-5 text-primary" />
-                {t('settings.openLogFolder')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground max-w-xl">
-                {t('settings.logFolderDescription')}
-              </p>
-              <Button
-                variant="outline"
-                className="self-start"
-                onClick={handleOpenLogs}
-                disabled={isOpeningLogs}
-              >
-                <Terminal className="h-4 w-4 mr-2" />
-                {isOpeningLogs ? t('settings.opening') : t('settings.openLogFolder')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        <SettingsRow 
+          icon={FolderOpen}
+          label={t('settings.openLogFolder')}
+          description={t('settings.logFolderDescription')}
+          onClick={handleOpenLogs}
+          isLast
+        />
+      </SettingsGroup>
     </div>
   );
 };
 
 const AboutSettings = () => {
   const { t } = useTranslation();
-  const [version, setVersion] = useState<string>('Loading...');
+  const [appVersion, setAppVersion] = useState<{ version: string; profile: string }>({ version: 'Loading...', profile: 'Unknown' });
 
   useEffect(() => {
-    // 获取应用版本
     invoke<string>('get_app_version')
-      .then(setVersion)
-      .catch(() => setVersion('Unknown'));
+      .then(fullVersion => {
+        const match = fullVersion.match(/^(.*) \((.*)\)$/);
+        if (match && match.length === 3) {
+          setAppVersion({ version: match[1], profile: match[2] });
+        } else {
+          setAppVersion({ version: fullVersion, profile: 'Unknown' });
+        }
+      })
+      .catch(() => setAppVersion({ version: 'Unknown', profile: 'Unknown' }));
   }, []);
 
+  const profileText = appVersion.profile; // e.g., "Debug" or "Release"
+  const profileColorClass = profileText === 'Debug' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-         <h2 className="text-2xl font-bold tracking-tight mb-6">{t('settings.about')}</h2>
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      {/* App Info Group */}
+      <SettingsGroup title={t('settings.about')}>
+        <div className="p-8 flex flex-col items-center text-center gap-5 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent">
+           <div className="w-20 h-20 rounded-[1.5rem] bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+              <span className="text-4xl font-bold">N</span>
+           </div>
+           
+           <div className="space-y-1.5">
+              <h3 className="text-2xl font-bold tracking-tight text-foreground">NeuraDock</h3>
+              <div className="flex items-center gap-2 justify-center">
+                 <span className="text-muted-foreground font-mono text-sm">v{appVersion.version}</span>
+                 <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", profileColorClass)}>
+                   {profileText}
+                 </span>
+              </div>
+           </div>
+        </div>
+        
+        <SettingsRow 
+           icon={Info} 
+           label={t('settings.copyright')} 
+           action={<span className="text-sm font-medium text-muted-foreground">© 2025 NeuraDock</span>}
+           isLast
+        />
+      </SettingsGroup>
 
-         <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-b from-primary/5 to-transparent rounded-3xl mb-8 border border-border/20">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">NeuraDock</h3>
-            <p className="text-muted-foreground font-mono mt-2">{version}</p>
-         </div>
-
-         <div className="max-w-3xl mx-auto space-y-6">
-            <div className="grid gap-4">
-               <div className="p-4 rounded-xl bg-muted/30 border border-border/50 flex justify-between items-center">
-                  <span className="font-medium text-muted-foreground">{t('settings.copyright')}</span>
-                  <span>© 2025 NeuraDock</span>
+      {/* Legal & Disclaimer Group */}
+      <SettingsGroup title={t('disclaimer.title')}>
+         <div className="p-6 space-y-8">
+            {/* Liability Section */}
+            <div className="flex gap-5 items-start">
+               <div className="shrink-0 w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 border border-amber-500/20">
+                  <AlertTriangle className="h-5 w-5" />
+               </div>
+               <div className="space-y-3 flex-1">
+                  <h4 className="text-base font-semibold text-foreground">{t('disclaimer.liability.title')}</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {t('disclaimer.liability.description')}
+                  </p>
+                  <div className="text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-500/5 px-3 py-2 rounded-lg border border-amber-500/10">
+                    ⚠️ {t('disclaimer.liability.warning')}
+                  </div>
                </div>
             </div>
 
-            {/* Disclaimer - Using raw div instead of Alert to prevent potential rendering issues */}
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-6 flex gap-4">
-              <div className="shrink-0 mt-1">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-              </div>
-              <div className="space-y-4 w-full">
-                <div>
-                  <div className="font-bold text-base text-amber-900 dark:text-amber-100">{t('disclaimer.title')}</div>
-                  <div className="space-y-2 text-sm text-amber-900/80 dark:text-amber-100/80 leading-relaxed mt-2">
-                    <p className="font-semibold">
-                      {t('disclaimer.liability.title')}
-                    </p>
-                    <p>
-                      {t('disclaimer.liability.description')}
-                    </p>
-                    <p className="font-semibold">
-                      ⚠️ {t('disclaimer.liability.warning')}
-                    </p>
-                  </div>
-                </div>
+            <div className="w-full h-px bg-border/40" />
 
-                <div className="pt-4 border-t border-amber-500/20">
-                  <div className="flex items-center gap-2 font-semibold text-sm text-amber-900 dark:text-amber-100 mb-2">
-                    <Scale className="h-4 w-4" />
-                    {t('disclaimer.license.title')}
-                  </div>
-                  <div className="space-y-2 text-sm text-amber-900/80 dark:text-amber-100/80 leading-relaxed">
+            {/* License Section */}
+            <div className="flex gap-5 items-start">
+               <div className="shrink-0 w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 border border-blue-500/20">
+                  <Scale className="h-5 w-5" />
+               </div>
+               <div className="space-y-3 flex-1">
+                  <h4 className="text-base font-semibold text-foreground">{t('disclaimer.license.title')}</h4>
+                  <div className="text-sm text-muted-foreground leading-relaxed space-y-3">
                     <p>{t('disclaimer.license.description')}</p>
-                    <p className="font-semibold">{t('disclaimer.license.commercial')}</p>
-                    <p className="italic opacity-80">
-                      {t('disclaimer.license.footer')}
-                    </p>
+                    <p className="font-medium text-foreground/90 bg-muted/30 px-3 py-2 rounded-lg">{t('disclaimer.license.commercial')}</p>
+                    <p className="text-xs italic opacity-70">{t('disclaimer.license.footer')}</p>
                   </div>
-                </div>
-              </div>
+               </div>
             </div>
          </div>
-      </div>
+      </SettingsGroup>
     </div>
   );
 };
@@ -466,64 +401,44 @@ const AboutSettings = () => {
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState<SettingSection>('appearance');
-
-  const sidebarContent = (
-    <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden">
-      <ScrollArea className="h-full">
-        <div className="p-2 space-y-1">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className={cn(
-                  "text-sm font-medium leading-none",
-                  isActive && "font-semibold"
-                )}>
-                  {t(item.labelKey)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </Card>
-  );
-
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'appearance': return <AppearanceSettings />;
-      case 'performance': return <PerformanceSettings />;
-      case 'notifications': return <NotificationSettings />;
-      case 'developer': return <DeveloperSettings />;
-      case 'about': return <AboutSettings />;
-      default: return null;
-    }
-  };
 
   return (
-    <PageContainer 
-      className="h-full overflow-hidden"
-      title={t('settings.title')}
-    >
-      <SidebarPageLayout sidebar={sidebarContent}>
-        <div className="max-w-4xl mx-auto space-y-6 pb-20">
-          {renderContent()}
-        </div>
-      </SidebarPageLayout>
-    </PageContainer>
+    <Tabs defaultValue="appearance" className="h-full flex flex-col w-full bg-background/95">
+      <PageContainer 
+        className="h-full p-0 bg-muted/10 w-full" 
+        title={t('settings.title')}
+        actions={
+          <TabsList className="h-11 bg-muted/50 border border-border/50 p-1 rounded-full inline-flex items-center justify-center">
+            <TabsTrigger value="appearance" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.appearance')}</TabsTrigger>
+            <TabsTrigger value="performance" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.dataPerformance')}</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.notification')}</TabsTrigger>
+            <TabsTrigger value="developer" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.developer')}</TabsTrigger>
+            <TabsTrigger value="about" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.about')}</TabsTrigger>
+          </TabsList>
+        }
+      >
+        <PageContent maxWidth="sm" className="h-full p-[var(--layout-page-content-padding)] md:p-8">
+          <ScrollArea className="h-full w-full rounded-2xl">
+             <div className="pb-32 w-full">
+                <TabsContent value="appearance" className="mt-0 outline-none w-full">
+                  <AppearanceSettings />
+                </TabsContent>
+                <TabsContent value="performance" className="mt-0 outline-none w-full">
+                  <PerformanceSettings />
+                </TabsContent>
+                <TabsContent value="notifications" className="mt-0 outline-none w-full">
+                  <NotificationSettings />
+                </TabsContent>
+                <TabsContent value="developer" className="mt-0 outline-none w-full">
+                  <DeveloperSettings />
+                </TabsContent>
+                <TabsContent value="about" className="mt-0 outline-none w-full">
+                  <AboutSettings />
+                </TabsContent>
+             </div>
+          </ScrollArea>
+        </PageContent>
+      </PageContainer>
+    </Tabs>
   );
 }
-

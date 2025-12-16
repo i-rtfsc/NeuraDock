@@ -47,7 +47,149 @@
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
     --radius-full: 9999px;
-    
+
+    /* ============================================
+       LAYOUT TOKENS - 布局尺寸统一配置
+       ============================================ */
+
+    /* Page Header - 页面头部 */
+    --layout-page-header-height: 3.5rem;      /* 56px - 默认header高度 */
+    --layout-page-header-height-compact: 3rem; /* 48px - 紧凑模式header高度 */
+    --layout-page-header-padding-x: 1.5rem;   /* 24px - 水平padding */
+    --layout-page-header-padding-y: 0.75rem;  /* 12px - 垂直padding */
+    --layout-page-header-padding-y-compact: 0.5rem; /* 8px - 紧凑模式垂直padding */
+
+    /* Page Content - 页面内容区域 */
+    --layout-page-content-padding: 1.5rem;    /* 24px - 内容区左右下padding */
+    --layout-page-content-padding-top: 0.125rem; /* 2px - 内容区顶部padding */
+    --layout-page-content-max-width-sm: 64rem;   /* 1024px - 小内容区（表单/设置） */
+    --layout-page-content-max-width-md: 80rem;   /* 1280px - 中内容区（列表） */
+    --layout-page-content-max-width-lg: 100rem;  /* 1600px - 大内容区（仪表板） */
+
+    /* Sidebar - 侧边栏 */
+    --layout-sidebar-width: 10rem;            /* 160px - 展开状态 */
+    --layout-sidebar-width-collapsed: 4.5rem; /* 72px - 折叠状态 */
+    --layout-sidebar-page-width: 15rem;       /* 240px - 页面内侧边栏（如AccountsPage） */
+
+    /* ============================================
+       SPACING TOKENS - 间距统一配置
+       ============================================ */
+
+    /* Section Spacing - Section之间的间距 */
+    --spacing-section-gap: 2rem;              /* 32px - 大section间距 */
+    --spacing-section-gap-sm: 1.5rem;         /* 24px - 小section间距 */
+
+    /* Card Grid Spacing - 卡片网格间距 */
+    --spacing-card-gap: 1rem;                 /* 16px - 卡片之间的间距 */
+    --spacing-card-gap-sm: 0.75rem;           /* 12px - 紧凑卡片间距 */
+
+    /* Element Spacing - 元素间距 */
+    --spacing-element-gap: 0.75rem;           /* 12px - header内元素间距 */
+    --spacing-element-gap-sm: 0.5rem;         /* 8px - 小元素间距 */
+
+    /* ============================================
+       COMPONENT TOKENS - 组件尺寸配置
+       ============================================ */
+
+    /* Card - 卡片组件 */
+    --component-card-padding: 1.5rem;         /* 24px - 卡片默认padding */
+    --component-card-padding-sm: 1rem;        /* 16px - 小卡片padding */
+    --component-card-padding-lg: 2rem;        /* 32px - 大卡片padding */
+    --component-card-max-width: none;         /* 卡片最大宽度（由grid控制） */
+
+    /* Stats Card - 统计卡片 */
+    --component-stats-card-padding: 1.25rem;  /* 20px - 统计卡片padding */
+
+    /* ============================================
+       UI CONTROLS TOKENS - UI控件统一尺寸
+       ============================================ */
+
+    /* Button - 按钮 */
+    --control-button-height-sm: 2rem;         /* 32px - 小按钮 */
+    --control-button-height-default: 2.5rem;  /* 40px - 默认按钮 */
+    --control-button-height-lg: 3rem;         /* 48px - 大按钮 */
+    --control-button-icon-sm: 2rem;           /* 32px - 小图标按钮 */
+    --control-button-icon-default: 2.5rem;    /* 40px - 默认图标按钮 */
+    --control-button-icon-lg: 3rem;           /* 48px - 大图标按钮 */
+    --control-button-padding-x-sm: 0.75rem;   /* 12px - 小按钮水平padding */
+    --control-button-padding-x-default: 1rem; /* 16px - 默认水平padding */
+    --control-button-padding-x-lg: 1.5rem;    /* 24px - 大按钮水平padding */
+
+    /* Input & Select - 输入框和选择框 */
+    --control-input-height-sm: 2rem;          /* 32px - 小输入框 */
+    --control-input-height-default: 2.5rem;   /* 40px - 默认输入框 */
+    --control-input-height-lg: 3rem;          /* 48px - 大输入框 */
+    --control-input-padding-x: 0.75rem;       /* 12px - 输入框水平padding */
+    --control-input-padding-y: 0.5rem;        /* 8px - 输入框垂直padding */
+
+    /* Badge - 徽章 */
+    --control-badge-height: 1.25rem;          /* 20px - Badge高度 */
+    --control-badge-padding-x: 0.5rem;        /* 8px - Badge水平padding */
+    --control-badge-font-size: 0.75rem;       /* 12px - Badge字体大小 */
+
+    /* Icon - 图标 */
+    --control-icon-size-sm: 0.875rem;         /* 14px - 小图标 */
+    --control-icon-size-default: 1rem;        /* 16px - 默认图标 */
+    --control-icon-size-md: 1.25rem;          /* 20px - 中图标 */
+    --control-icon-size-lg: 1.5rem;           /* 24px - 大图标 */
+
+    /* ============================================
+       SHADOW TOKENS - 阴影系统（适配圆角）
+       参考Tailwind CSS + Material Design，更明显的阴影效果
+       ============================================ */
+
+    /* Light Mode Shadows - 清晰可见的阴影 */
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+    /* Hover Shadows - 悬浮时明显提升 */
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.08);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -4px rgba(0, 0, 0, 0.08);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 8px 16px -8px rgba(0, 0, 0, 0.1);
+
+    /* ============================================
+       ANIMATION TOKENS - 动画系统
+       流畅的timing和easing，打造现代化体验
+       ============================================ */
+
+    /* Transition Duration - 时长 */
+    --duration-instant: 0ms;
+    --duration-fast: 150ms;
+    --duration-base: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 500ms;
+
+    /* Transition Timing Function - 缓动函数 */
+    --ease-linear: cubic-bezier(0, 0, 1, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.6, 1);  /* 推荐默认 */
+
+    /* Scale Values - 缩放值 */
+    --scale-hover: 1.02;
+    --scale-active: 0.98;
+    --scale-pop: 1.05;
+
+    /* ============================================
+       GRID TOKENS - 网格布局配置
+       注意：这些是建议的列数，实际使用时在Tailwind中引用
+       ============================================ */
+    --grid-stats-cols-mobile: 1;
+    --grid-stats-cols-tablet: 2;
+    --grid-stats-cols-desktop: 3;
+    --grid-stats-cols-wide: 4;
+
+    --grid-cards-cols-mobile: 1;
+    --grid-cards-cols-tablet: 2;
+    --grid-cards-cols-desktop: 3;
+    --grid-cards-cols-wide: 4;
+
     /* Layout Colors - Light */
     --sidebar-background: 0 0% 96%;
     --sidebar-foreground: 240 5% 26%;
@@ -119,6 +261,19 @@
     --warning-foreground: 0 0% 100%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
+
+    /* Dark Mode Shadows - 强烈对比，清晰可见 */
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.7);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+
+    /* Dark Mode Hover Shadows */
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.6), 0 1px 4px -1px rgba(0, 0, 0, 0.5);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.7), 0 4px 8px -4px rgba(0, 0, 0, 0.6);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.8), 0 8px 16px -8px rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -133,36 +288,36 @@
     -moz-osx-font-smoothing: grayscale;
   }
   
-  /* macOS-style smooth transitions */
+  /* Modern smooth transitions */
   button, a, [role="button"] {
-    @apply transition-all duration-200 ease-out;
+    @apply transition-all duration-base ease-smooth;
   }
-  
-  /* macOS-style focus */
+
+  /* Focus styles */
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 }
 
 @layer utilities {
-  /* macOS-style glassmorphism */
+  /* Glassmorphism effects */
   .glass {
     @apply backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-white/10;
   }
-  
+
   .glass-card {
-    @apply glass rounded-2xl shadow-macos dark:shadow-macos-dark;
+    @apply glass rounded-2xl shadow-md transition-all duration-base ease-smooth hover:shadow-hover-lg;
   }
-  
-  /* macOS-style hover effects */
-  .macos-hover {
-    @apply hover:shadow-macos-hover hover:scale-[1.01] transition-all duration-300 ease-out;
+
+  /* Modern hover effects */
+  .card-hover {
+    @apply hover:shadow-hover-md hover:scale-[var(--scale-hover)] transition-all duration-base ease-smooth;
   }
-  
-  .macos-active {
-    @apply active:scale-[0.98] active:shadow-macos-active transition-all duration-100;
+
+  .button-active {
+    @apply active:scale-[var(--scale-active)] transition-all duration-fast ease-smooth;
   }
-  
+
   /* macOS-style scrollbar */
   .macos-scrollbar::-webkit-scrollbar {
     @apply w-1.5;

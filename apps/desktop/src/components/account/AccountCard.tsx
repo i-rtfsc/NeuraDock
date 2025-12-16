@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Account } from '@/lib/tauri-commands';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
   Power,
   PowerOff,
   Clock,
+  ChevronRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -31,6 +33,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account, onEdit }: AccountCardProps) {
+  const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { t } = useTranslation();
 
@@ -60,6 +63,15 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   const autoCheckinEnabled = account.auto_checkin_enabled || false;
   const autoCheckinTime = `${String(account.auto_checkin_hour || 9).padStart(2, '0')}:${String(account.auto_checkin_minute || 0).padStart(2, '0')}`;
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // 忽略按钮点击事件
+    if ((e.target as HTMLElement).closest('button, a')) {
+      return;
+    }
+    // 跳转到统计详情页
+    navigate(`/account/${account.id}/records`);
+  };
+
   return (
     <motion.div
       layout
@@ -70,14 +82,20 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       whileHover={{ y: -2 }}
       className="h-full group"
     >
-      <Card className={`relative h-full transition-all duration-300 rounded-xl border-border/40 bg-card/50 backdrop-blur-sm ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}>
+      <Card 
+        className={`relative h-full transition-all duration-300 rounded-xl border-border/40 bg-card/50 backdrop-blur-sm cursor-pointer ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}
+        onClick={handleCardClick}
+      >
         <div className="p-4 flex flex-col h-full gap-4">
           {/* Header: Name & Status */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 space-y-1">
-              <h3 className="font-semibold text-sm truncate" title={account.name}>
-                {account.name}
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-semibold text-sm truncate" title={account.name}>
+                  {account.name}
+                </h3>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className={cn("flex h-2 w-2 rounded-full", account.enabled ? "bg-green-500" : "bg-muted-foreground")} />
                 <span className="truncate opacity-80">{account.provider_name}</span>
@@ -86,7 +104,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -mr-2 -mt-2">
+                <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -mr-2 -mt-2">
                   <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -157,7 +175,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
                 accountName={account.name}
                 size="sm"
                 variant="ghost"
-                className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
+                className="text-xs hover:bg-primary/10 hover:text-primary"
               />
             </div>
           )}

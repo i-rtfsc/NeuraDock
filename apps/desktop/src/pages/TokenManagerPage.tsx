@@ -1,20 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
-import { TokenList } from '@/components/token/TokenList';
-import { ConfigDialog } from '@/components/token/ConfigDialog';
+import { IndependentKeyDialog } from '@/components/token/IndependentKeyDialog';
+import { IndependentKeyConfigDialog } from '@/components/token/IndependentKeyConfigDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -22,446 +15,450 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Plus, Trash2, Server, XCircle, Search, Box } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Plus,
+  Search,
+  Key,
+  Globe,
+  Settings2,
+  Edit,
+  Trash2,
+  Power,
+  PowerOff,
+  ArrowRight,
+  Info,
+  MoreVertical,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { TokenDto, AccountDto, ProviderNode } from '@/types/token';
+import type { IndependentKeyDto } from '@/types/independentKey';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { PageContainer } from '@/components/layout/PageContainer';
-import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
+
+type ProviderFilter = 'all' | 'openai' | 'anthropic' | 'custom';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export function TokenManagerPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-  const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<TokenDto | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Node management state
-  const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>('anyrouter');
-  const [newNodeName, setNewNodeName] = useState('');
-  const [newNodeUrl, setNewNodeUrl] = useState('');
+  // Independent Key Dialog
+  const [keyDialogOpen, setKeyDialogOpen] = useState(false);
+  const [keyToEdit, setKeyToEdit] = useState<IndependentKeyDto | null>(null);
 
-  // Clear config state
-  const [clearConfigDialogOpen, setClearConfigDialogOpen] = useState(false);
-  const [selectedToolToClear, setSelectedToolToClear] = useState<string>('claude');
+  // Independent Key Config Dialog
+  const [keyConfigDialogOpen, setKeyConfigDialogOpen] = useState(false);
+  const [keyToConfig, setKeyToConfig] = useState<IndependentKeyDto | null>(null);
+  const [configDefaultTool, setConfigDefaultTool] = useState<'claude' | 'codex'>('claude');
 
-  // Get accounts
-  const { data: accounts = [] } = useQuery<AccountDto[]>({
-    queryKey: ['accounts'],
-    queryFn: () => invoke('get_all_accounts', { enabledOnly: false }),
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [keyToDelete, setKeyToDelete] = useState<IndependentKeyDto | null>(null);
+
+  // Get independent keys
+  const { data: independentKeys = [] } = useQuery<IndependentKeyDto[]>({
+    queryKey: ['independent-keys'],
+    queryFn: () => invoke('get_all_independent_keys'),
   });
 
-  // Filter to AnyRouter/AgentRouter accounts
-  const tokenProviders = useMemo(() => {
-    const filtered = accounts.filter(
-      (acc) => acc.provider_id === 'anyrouter' || acc.provider_id === 'agentrouter'
-    );
+  // Filter keys
+  const filteredKeys = useMemo(() => {
+    let filtered = independentKeys;
+
+    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      return filtered.filter(
-        (acc) =>
-          acc.name.toLowerCase().includes(query) ||
-          acc.provider_name.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (key) =>
+          key.name.toLowerCase().includes(query) ||
+          key.provider_type_display.toLowerCase().includes(query) ||
+          key.base_url.toLowerCase().includes(query) ||
+          (key.description && key.description.toLowerCase().includes(query))
       );
     }
+
+    // Provider filter
+    if (providerFilter !== 'all') {
+      filtered = filtered.filter((key) => key.provider_type === providerFilter);
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      const isActive = statusFilter === 'active';
+      filtered = filtered.filter((key) => key.is_active === isActive);
+    }
+
     return filtered;
-  }, [accounts, searchQuery]);
+  }, [independentKeys, searchQuery, providerFilter, statusFilter]);
 
-  // Group accounts by provider
-  const providerGroups = useMemo(() => {
-    const groupsMap = new Map<string, { providerId: string; providerName: string; accounts: AccountDto[] }>();
-
-    tokenProviders.forEach((account) => {
-      if (!groupsMap.has(account.provider_id)) {
-        groupsMap.set(account.provider_id, {
-          providerId: account.provider_id,
-          providerName: account.provider_name,
-          accounts: [],
-        });
-      }
-      groupsMap.get(account.provider_id)!.accounts.push(account);
-    });
-
-    return Array.from(groupsMap.values());
-  }, [tokenProviders]);
-
-  // Get tokens for selected account
-  const {
-    data: tokens = [],
-    isLoading,
-    refetch,
-  } = useQuery<TokenDto[]>({
-    queryKey: ['tokens', selectedAccount],
-    queryFn: () =>
-      invoke<TokenDto[]>('fetch_account_tokens', {
-        accountId: selectedAccount!,
-        forceRefresh: false,
+  const toggleMutation = useMutation({
+    mutationFn: (key: IndependentKeyDto) =>
+      invoke('toggle_independent_key', {
+        keyId: key.id,
+        isActive: !key.is_active,
       }),
-    enabled: !!selectedAccount,
-    staleTime: 0,
-    gcTime: 0,
-  });
-
-  // Get nodes for selected provider
-  const { data: nodes = [], refetch: refetchNodes } = useQuery<ProviderNode[]>({
-    queryKey: ['provider-nodes', selectedProvider],
-    queryFn: () => invoke('get_provider_nodes', { providerId: selectedProvider }),
-    enabled: nodeDialogOpen,
-  });
-
-  // Add node mutation
-  const addNodeMutation = useMutation({
-    mutationFn: () =>
-      invoke<string>('add_custom_node', {
-        providerId: selectedProvider,
-        name: newNodeName,
-        baseUrl: newNodeUrl,
-      }),
-    onSuccess: (message) => {
-      toast.success(message);
-      setNewNodeName('');
-      setNewNodeUrl('');
-      refetchNodes();
-      // Also invalidate provider-nodes queries for ConfigDialog
-      queryClient.invalidateQueries({ queryKey: ['provider-nodes'] });
-    },
-    onError: (error: Error) => {
-      toast.error(t('token.addNodeError', 'Failed to add node: ') + error.message);
-    },
-  });
-
-  // Delete node mutation
-  const deleteNodeMutation = useMutation({
-    mutationFn: (nodeId: number) => invoke<string>('delete_custom_node', { nodeId }),
     onSuccess: () => {
-      toast.success(t('token.nodeDeleted', 'Node deleted successfully'));
-      refetchNodes();
-      queryClient.invalidateQueries({ queryKey: ['provider-nodes'] });
+      queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+      toast.success(t('independentKey.toggleSuccess', 'API Key status updated'));
     },
     onError: (error: Error) => {
-      toast.error(t('token.deleteNodeError', 'Failed to delete node: ') + error.message);
+      toast.error(t('independentKey.toggleError', 'Failed to toggle key: ') + error.message);
     },
   });
 
-  // Clear config mutation
-  const clearConfigMutation = useMutation({
-    mutationFn: (tool: string) => {
-      if (tool === 'claude') {
-        return invoke<string>('clear_claude_global');
-      } else {
-        return invoke<string>('clear_codex_global');
-      }
-    },
-    onSuccess: (message) => {
-      toast.success(message);
-      setClearConfigDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast.error(t('token.clearConfigError', 'Failed to clear config: ') + error.message);
-    },
-  });
-
-  // Refresh mutation
-  const refreshMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedAccount) throw new Error('No account selected');
-      await invoke('fetch_account_tokens', {
-        accountId: selectedAccount,
-        forceRefresh: true,
-      });
-    },
+  const deleteMutation = useMutation({
+    mutationFn: (keyId: number) => invoke('delete_independent_key', { keyId }),
     onSuccess: () => {
-      refetch();
-      toast.success(t('token.refreshSuccess', 'Tokens refreshed successfully'));
+      queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+      toast.success(t('independentKey.deleted', 'API Key deleted successfully'));
+      setDeleteDialogOpen(false);
+      setKeyToDelete(null);
     },
     onError: (error: Error) => {
-      console.error(error);
-      toast.error(error.message || t('token.refreshError', 'Failed to refresh tokens'));
+      toast.error(t('independentKey.deleteError', 'Failed to delete key: ') + error.message);
     },
   });
 
-  const handleRefresh = () => {
-    refreshMutation.mutate();
+  const handleAddKey = () => {
+    setKeyToEdit(null);
+    setKeyDialogOpen(true);
   };
 
-  const handleConfigureToken = (token: TokenDto) => {
-    setSelectedToken(token);
-    setConfigDialogOpen(true);
+  const handleEditKey = (key: IndependentKeyDto) => {
+    setKeyToEdit(key);
+    setKeyDialogOpen(true);
   };
 
-  const handleDeleteNode = (nodeId: string) => {
-    if (nodeId.startsWith('custom_')) {
-      const id = parseInt(nodeId.substring(7));
-      deleteNodeMutation.mutate(id);
+  const handleConfigureKey = (key: IndependentKeyDto, tool: 'claude' | 'codex' = 'claude') => {
+    setKeyToConfig(key);
+    setConfigDefaultTool(tool);
+    setKeyConfigDialogOpen(true);
+  };
+
+  const handleDeleteKey = (key: IndependentKeyDto) => {
+    setKeyToDelete(key);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleToggleKey = (key: IndependentKeyDto) => {
+    toggleMutation.mutate(key);
+  };
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
     }
   };
 
-  const sidebarContent = (
-    <>
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={t('accounts.searchPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
-        />
-      </div>
-      
-      <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="p-2 space-y-1">
-            {providerGroups.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                {t('token.noAccounts', 'No accounts found')}
-              </div>
-            ) : (
-              providerGroups.map((group) => (
-                <div key={group.providerId} className="mt-4 first:mt-2">
-                  <div className="px-3 mb-1 text-xs font-semibold text-muted-foreground/50 tracking-wider flex items-center gap-2">
-                    <Box className="h-3 w-3" />
-                    {group.providerName}
-                  </div>
-                  <div className="space-y-1">
-                    {group.accounts.map((account) => {
-                      const isActive = selectedAccount === account.id;
-                      return (
-                        <button
-                          key={account.id}
-                          onClick={() => setSelectedAccount(account.id)}
-                          title={account.name}
-                          className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                            isActive 
-                              ? "bg-primary text-primary-foreground shadow-sm" 
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          )}
-                        >
-                          <span className="truncate">{account.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </Card>
-    </>
-  );
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
 
   return (
-    <PageContainer 
-      className="h-full overflow-hidden"
-      title={t('token.title', 'Token Manager')}
+    <PageContainer
+      title={
+        <div className="flex items-center gap-2">
+          <Key className="h-5 w-5" />
+          {t('token.independentKeys', 'Independent API Keys')}
+        </div>
+      }
       actions={
         <>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setClearConfigDialogOpen(true)}
+            onClick={handleAddKey}
           >
-            <XCircle className="mr-2 h-4 w-4" />
-            {t('token.clearConfig', 'Clear Config')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setNodeDialogOpen(true)}
-          >
-            <Server className="mr-2 h-4 w-4" />
-            {t('token.manageNodes', 'Manage Nodes')}
-          </Button>
-          <Button
-            onClick={handleRefresh}
-            disabled={!selectedAccount || refreshMutation.isPending}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-            {t('common.refresh', 'Refresh')}
+            <Plus className="mr-2 h-4 w-4" />
+            {t('token.addKey', 'Add API Key')}
           </Button>
         </>
       }
     >
-      <SidebarPageLayout sidebar={sidebarContent}>
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {selectedAccount ? (
-            <TokenList
-              tokens={tokens}
-              isLoading={isLoading}
-              onConfigureToken={handleConfigureToken}
-            />
-          ) : (
-            <Card className="border-dashed bg-muted/30">
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <p className="text-muted-foreground">{t('token.selectAccountPlaceholder', 'Select an account to view tokens')}</p>
-              </div>
-            </Card>
-          )}
-        </div>
-      </SidebarPageLayout>
-
-      {/* Config Dialog */}
-      <ConfigDialog
-        open={configDialogOpen}
-        onOpenChange={setConfigDialogOpen}
-        token={selectedToken}
-        account={tokenProviders.find((acc) => acc.id === selectedAccount) ?? null}
-      />
-
-      {/* Node Management Dialog */}
-      <Dialog open={nodeDialogOpen} onOpenChange={setNodeDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('token.nodeManagement', 'Node Management')}</DialogTitle>
-            <DialogDescription>
-              {t('token.nodeManagementDesc', 'Manage custom nodes for each provider.')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Provider Selector */}
-            <div className="space-y-2">
-              <Label>{t('token.selectProvider', 'Provider')}</Label>
-              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="anyrouter">AnyRouter</SelectItem>
-                  <SelectItem value="agentrouter">AgentRouter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Add Node Form */}
-            <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
-              <Label className="text-sm font-medium">{t('token.addNewNode', 'Add New Node')}</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder={t('token.nodeName', 'Node Name')}
-                  value={newNodeName}
-                  onChange={(e) => setNewNodeName(e.target.value)}
-                />
-                <Input
-                  placeholder="https://example.com"
-                  value={newNodeUrl}
-                  onChange={(e) => setNewNodeUrl(e.target.value)}
-                />
-              </div>
+      <div className="space-y-5">
+        {/* Info Alert */}
+        <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+          <div className="flex items-center gap-3">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <div className="flex items-center justify-between gap-4 flex-1 min-w-0">
+              <span className="text-sm text-blue-900 dark:text-blue-100">
+                {t(
+                  'token.relayTokensHint',
+                  '中转站 Tokens 配置：请前往账户管理 → 账户详情 → 配置'
+                )}
+              </span>
               <Button
+                variant="ghost"
                 size="sm"
-                onClick={() => addNodeMutation.mutate()}
-                disabled={!newNodeName || !newNodeUrl || addNodeMutation.isPending}
-                className="w-full"
+                className="h-7 px-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0"
+                onClick={() => navigate('/accounts')}
               >
-                <Plus className="h-4 w-4 mr-1" />
-                {addNodeMutation.isPending ? t('common.adding', 'Adding...') : t('common.add', 'Add')}
+                {t('token.goToAccounts', '前往账户管理')}
+                <ArrowRight className="ml-1.5 h-3 w-3" />
               </Button>
             </div>
+          </div>
+        </Alert>
 
-            {/* Node List */}
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              <Label className="text-sm font-medium">{t('token.existingNodes', 'Existing Nodes')}</Label>
-              {nodes.map((node) => (
-                <div
-                  key={node.id}
-                  className="flex items-center justify-between p-2 border rounded bg-background"
-                >
-                  <div className="flex-1 min-w-0 mr-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{node.name}</span>
-                      {node.id.startsWith('custom_') && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                          {t('token.customNode', 'Custom')}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground truncate block">
-                      {node.base_url}
-                    </span>
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={t('token.searchPlaceholder', 'Search by name, provider, URL...')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 bg-background transition-shadow focus:shadow-sm"
+            />
+          </div>
+          <Select value={providerFilter} onValueChange={(v) => setProviderFilter(v as ProviderFilter)}>
+            <SelectTrigger className="w-full sm:w-[160px] h-9">
+              <SelectValue placeholder={t('token.filterProvider', 'Provider')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all', 'All Providers')}</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
+              <SelectItem value="anthropic">Anthropic</SelectItem>
+              <SelectItem value="custom">{t('token.customProvider', 'Custom')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-full sm:w-[130px] h-9">
+              <SelectValue placeholder={t('token.filterStatus', 'Status')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all', 'All Status')}</SelectItem>
+              <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
+              <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Keys List - Grid Layout */}
+        <AnimatePresence mode="wait">
+          {filteredKeys.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card className="border-dashed border-2 bg-muted/20">
+                <div className="flex flex-col items-center justify-center py-20 px-6 gap-4">
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-muted to-muted/50 shadow-sm">
+                    <Key className="h-10 w-10 text-muted-foreground/60" />
                   </div>
-                  {node.id.startsWith('custom_') && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteNode(node.id)}
-                      disabled={deleteNodeMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
+                  <div className="text-center space-y-2 max-w-sm">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
+                        ? t('token.noKeysFound', 'No API keys found')
+                        : t('token.noKeysYet', 'No API keys yet')}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
+                        ? t('token.tryDifferentFilters', 'Try adjusting your filters')
+                        : t('token.addFirstKey', 'Add your first API key to get started')}
+                    </p>
+                  </div>
+                  {!searchQuery && providerFilter === 'all' && statusFilter === 'all' && (
+                    <Button onClick={handleAddKey} size="default" className="mt-2">
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t('token.addKey', 'Add API Key')}
                     </Button>
                   )}
                 </div>
+              </Card>
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {filteredKeys.map((key) => (
+                <motion.div key={key.id} variants={itemVariants} layout>
+                  <Card
+                    className={cn(
+                      'group relative overflow-hidden transition-all duration-300',
+                      key.is_active
+                        ? 'border-border/60 bg-card hover:shadow-lg hover:border-primary/50 hover:-translate-y-1'
+                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'
+                    )}
+                  >
+                    <div className="p-4 space-y-3">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-base font-semibold text-foreground truncate leading-tight">
+                              {key.name}
+                            </h3>
+                            {key.is_active ? (
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                            ) : (
+                              <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                            )}
+                          </div>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                            {key.provider_type_display}
+                          </Badge>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="h-8 w-8 -mr-2 -mt-2 opacity-60 hover:opacity-100 hover:bg-muted"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => handleEditKey(key)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              {t('common.edit', 'Edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleKey(key)}>
+                              {key.is_active ? (
+                                <>
+                                  <PowerOff className="mr-2 h-4 w-4" />
+                                  {t('common.disable', 'Disable')}
+                                </>
+                              ) : (
+                                <>
+                                  <Power className="mr-2 h-4 w-4" />
+                                  {t('common.enable', 'Enable')}
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteKey(key)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {t('common.delete', 'Delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Info Grid */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-1.5 rounded-md">
+                          <Key className="h-3.5 w-3.5 shrink-0" />
+                          <code className="font-mono truncate select-all">{key.masked_key}</code>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground px-1.5">
+                          <Globe className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate" title={key.base_url}>
+                            {key.base_url}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      {key.is_active && (
+                        <div className="pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs font-medium bg-background/50 hover:bg-background hover:text-primary transition-colors border-dashed hover:border-solid"
+                            onClick={() => handleConfigureKey(key, 'claude')}
+                          >
+                            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                            {t('token.configureAI', '配置 AI 工具')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
               ))}
-              {nodes.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {t('token.noNodes', 'No nodes available')}
-                </p>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* Clear Config Dialog */}
-      <Dialog open={clearConfigDialogOpen} onOpenChange={setClearConfigDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('token.clearConfigTitle', 'Clear Global Configuration')}</DialogTitle>
-            <DialogDescription>
-              {t('token.clearConfigDesc', 'This will only remove configurations managed by NeuraDock, preserving your other settings.')}
-            </DialogDescription>
-          </DialogHeader>
+      {/* Independent Key Dialog */}
+      <IndependentKeyDialog
+        open={keyDialogOpen}
+        onOpenChange={setKeyDialogOpen}
+        keyToEdit={keyToEdit}
+      />
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('token.selectTool', 'Select AI Tool')}</Label>
-              <Select value={selectedToolToClear} onValueChange={setSelectedToolToClear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="claude">Claude Code</SelectItem>
-                  <SelectItem value="codex">Codex</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Independent Key Config Dialog */}
+      <IndependentKeyConfigDialog
+        open={keyConfigDialogOpen}
+        onOpenChange={setKeyConfigDialogOpen}
+        keyData={keyToConfig}
+        defaultTool={configDefaultTool}
+      />
 
-            <div className="text-sm text-muted-foreground">
-              {selectedToolToClear === 'claude' ? (
-                <p>{t('token.clearClaudeDesc', 'Clears ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL and other managed settings from ~/.claude/settings.json')}</p>
-              ) : (
-                <p>{t('token.clearCodexDesc', 'Removes ~/.codex/auth.json file')}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setClearConfigDialogOpen(false)}
-              >
-                {t('common.cancel', 'Cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => clearConfigMutation.mutate(selectedToolToClear)}
-                disabled={clearConfigMutation.isPending}
-              >
-                {clearConfigMutation.isPending
-                  ? t('common.clearing', 'Clearing...')
-                  : t('token.clearConfigBtn', 'Clear Configuration')}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('independentKey.deleteConfirmTitle', 'Delete API Key?')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {keyToDelete &&
+                t(
+                  'independentKey.deleteConfirmDescription',
+                  'Are you sure you want to delete "{name}"? This action cannot be undone.',
+                  { name: keyToDelete.name }
+                )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => keyToDelete && deleteMutation.mutate(keyToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? t('common.deleting', 'Deleting...') : t('common.delete', 'Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   );
 }
