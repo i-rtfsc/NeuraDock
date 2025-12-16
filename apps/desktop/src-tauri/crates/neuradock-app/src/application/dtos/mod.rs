@@ -188,6 +188,14 @@ pub struct ProviderDto {
     pub domain: String,
     pub is_builtin: bool,
     pub account_count: i32,
+    // API configuration fields
+    pub login_path: String,
+    pub sign_in_path: Option<String>,
+    pub user_info_path: String,
+    pub token_api_path: Option<String>,
+    pub models_path: Option<String>,
+    pub api_user_key: String,
+    pub needs_waf_bypass: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -513,10 +521,10 @@ impl IndependentKeyDto {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateIndependentKeyInput {
     pub name: String,
-    pub provider_type: String,  // "openai", "anthropic", "custom"
-    pub custom_provider_name: Option<String>,  // Required if provider_type is "custom"
+    pub provider_type: String, // "openai", "anthropic", "custom"
+    pub custom_provider_name: Option<String>, // Required if provider_type is "custom"
     pub api_key: String,
-    pub base_url: Option<String>,  // Optional, will use default if not provided
+    pub base_url: Option<String>, // Optional, will use default if not provided
     pub organization_id: Option<String>,
     pub description: Option<String>,
 }
@@ -530,4 +538,3 @@ pub struct UpdateIndependentKeyInput {
     pub organization_id: Option<String>,
     pub description: Option<String>,
 }
-

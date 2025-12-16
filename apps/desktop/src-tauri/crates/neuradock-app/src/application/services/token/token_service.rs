@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use neuradock_domain::account::{Account, AccountRepository};
-use neuradock_domain::shared::AccountId;
+use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::shared::{AccountId, ProviderId};
 use neuradock_domain::token::{ApiToken, ModelLimits, TokenId, TokenRepository, TokenStatus};
 use neuradock_infrastructure::http::token::{TokenClient, TokenData};
 use neuradock_infrastructure::http::WafBypassService;
@@ -12,6 +13,7 @@ use neuradock_infrastructure::persistence::repositories::SqliteWafCookiesReposit
 pub struct TokenService {
     token_repo: Arc<dyn TokenRepository>,
     account_repo: Arc<dyn AccountRepository>,
+    provider_repo: Arc<dyn ProviderRepository>,
     http_client: TokenClient,
     waf_service: WafBypassService,
     waf_cookies_repo: Option<Arc<SqliteWafCookiesRepository>>,
@@ -21,10 +23,12 @@ impl TokenService {
     pub fn new(
         token_repo: Arc<dyn TokenRepository>,
         account_repo: Arc<dyn AccountRepository>,
+        provider_repo: Arc<dyn ProviderRepository>,
     ) -> Result<Self> {
         Ok(Self {
             token_repo,
             account_repo,
+            provider_repo,
             http_client: TokenClient::new()?,
             waf_service: WafBypassService::new(true), // headless by default
             waf_cookies_repo: None,
@@ -97,15 +101,31 @@ impl TokenService {
         }
 
         // 4. Fetch from API
-        let (base_url, token_api_path) = self.get_provider_urls(&account)?;
-        let provider_id = account.provider_id().as_str();
+        let provider = self.load_provider(account.provider_id()).await?;
+        let provider_id_str = provider.id().as_str().to_string();
+        let base_url = provider.domain().trim_end_matches('/').to_string();
+        let token_api_path = provider
+            .token_api_path()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Provider {} is missing token API endpoint configuration",
+                    provider.name()
+                )
+            })?
+            .to_string();
+        let api_user_header = provider.api_user_key();
+        let api_user_header_opt = if api_user_header.is_empty() {
+            None
+        } else {
+            Some(api_user_header)
+        };
 
         // Build initial cookie string with cached WAF cookies if available
         let mut cookies_map = account.credentials().cookies().clone();
 
         // Try to get cached WAF cookies first
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-            match waf_cookies_repo.get_valid(provider_id).await {
+            match waf_cookies_repo.get_valid(&provider_id_str).await {
                 Ok(Some(cached_waf)) => {
                     log::info!(
                         "Using cached WAF cookies (expires at {})",
@@ -143,6 +163,7 @@ impl TokenService {
                 &base_url,
                 &token_api_path,
                 &cookie_string,
+                api_user_header_opt,
                 api_user_opt,
                 0,
                 10,
@@ -159,7 +180,7 @@ impl TokenService {
 
                 // Invalidate cached WAF cookies first (they are clearly invalid)
                 if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-                    if let Err(e) = waf_cookies_repo.delete(provider_id).await {
+                    if let Err(e) = waf_cookies_repo.delete(&provider_id_str).await {
                         log::warn!("Failed to delete cached WAF cookies: {}", e);
                     } else {
                         log::info!("Invalidated cached WAF cookies");
@@ -167,7 +188,7 @@ impl TokenService {
                 }
 
                 // Get fresh WAF cookies via browser bypass
-                let waf_cookies = self.get_fresh_waf_cookies(provider_id, &account).await?;
+                let waf_cookies = self.get_fresh_waf_cookies(&provider, &account).await?;
 
                 // Merge new WAF cookies with existing cookies
                 cookies_map.extend(waf_cookies);
@@ -184,6 +205,7 @@ impl TokenService {
                         &base_url,
                         &token_api_path,
                         &updated_cookies,
+                        api_user_header_opt,
                         api_user_opt,
                         0,
                         10,
@@ -224,23 +246,6 @@ impl TokenService {
             .map_err(Into::into)
     }
 
-    fn get_provider_urls(&self, account: &Account) -> Result<(String, String)> {
-        let provider_id = account.provider_id();
-
-        let (base_url, token_api_path) = match provider_id.to_string().as_str() {
-            "anyrouter" => (
-                "https://anyrouter.top".to_string(),
-                "/api/token/".to_string(),
-            ),
-            "agentrouter" => (
-                "https://agentrouter.org".to_string(),
-                "/api/token/".to_string(),
-            ),
-            _ => anyhow::bail!("Unknown provider: {}", provider_id),
-        };
-
-        Ok((base_url, token_api_path))
-    }
 
     fn convert_to_domain(&self, data: TokenData, account_id: AccountId) -> Result<ApiToken> {
         let expired_time = if data.expired_time == -1 {
@@ -306,6 +311,13 @@ impl TokenService {
         ModelLimits { allowed, denied }
     }
 
+    async fn load_provider(&self, provider_id: &ProviderId) -> Result<Provider> {
+        self.provider_repo
+            .find_by_id(provider_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Provider not found: {}", provider_id))
+    }
+
     /// Build cookie string from HashMap
     fn build_cookie_string(&self, cookies: &HashMap<String, String>) -> String {
         cookies
@@ -315,43 +327,13 @@ impl TokenService {
             .join("; ")
     }
 
-    /// Get WAF cookies with caching support
-    async fn get_waf_cookies_with_cache(
-        &self,
-        provider_id: &str,
-        account: &Account,
-    ) -> Result<HashMap<String, String>> {
-        // Try to get cached WAF cookies first
-        if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-            match waf_cookies_repo.get_valid(provider_id).await {
-                Ok(Some(cached_waf)) => {
-                    log::info!(
-                        "Using cached WAF cookies for WAF challenge (expires at {})",
-                        cached_waf.expires_at
-                    );
-                    return Ok(cached_waf.cookies);
-                }
-                Ok(None) => {
-                    log::info!("No valid cached WAF cookies, running WAF bypass...");
-                }
-                Err(e) => {
-                    log::warn!("Failed to check cached WAF cookies: {}, running bypass", e);
-                }
-            }
-        }
-
-        self.get_fresh_waf_cookies(provider_id, account).await
-    }
-
     /// Get fresh WAF cookies via browser bypass (skips cache)
     async fn get_fresh_waf_cookies(
         &self,
-        provider_id: &str,
+        provider: &Provider,
         account: &Account,
     ) -> Result<HashMap<String, String>> {
-        // Run WAF bypass
-        let (base_url, _) = self.get_provider_urls(account)?;
-        let login_url = format!("{}/console/token", base_url);
+        let login_url = provider.login_url();
 
         let waf_cookies = self
             .waf_service
@@ -366,7 +348,10 @@ impl TokenService {
 
         // Cache the new WAF cookies
         if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-            if let Err(e) = waf_cookies_repo.save(provider_id, &waf_cookies).await {
+            if let Err(e) = waf_cookies_repo
+                .save(provider.id().as_str(), &waf_cookies)
+                .await
+            {
                 log::warn!("Failed to cache WAF cookies: {}", e);
             } else {
                 log::info!("WAF cookies cached for 24 hours");

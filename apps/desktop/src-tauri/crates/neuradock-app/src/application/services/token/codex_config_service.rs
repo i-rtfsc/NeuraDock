@@ -34,54 +34,57 @@ impl CodexConfigService {
         }
     }
 
-    /// Generate config.toml content for AnyRouter
-    fn generate_anyrouter_config(base_url: &str, model: Option<&str>) -> String {
-        let model_name = model.unwrap_or("gpt-5-codex");
+    fn sanitize_provider_slug(provider_id: &str) -> String {
+        provider_id
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '_'
+                }
+            })
+            .collect()
+    }
+
+    fn ensure_v1_base_url(base_url: &str) -> String {
+        let trimmed = base_url.trim_end_matches('/');
+        if trimmed.ends_with("/v1") {
+            trimmed.to_string()
+        } else {
+            format!("{}/v1", trimmed)
+        }
+    }
+
+    fn generate_provider_config(
+        provider_slug: &str,
+        provider_name: &str,
+        base_url: &str,
+        model: Option<&str>,
+    ) -> String {
+        let model_name = model.unwrap_or("gpt-5");
+        let base_url_v1 = Self::ensure_v1_base_url(base_url);
+
         format!(
             r#"model = "{}"
-model_provider = "anyrouter"
+model_provider = "{}"
 preferred_auth_method = "apikey"
 
 
-[model_providers.anyrouter]
-name = "Any Router"
-base_url = "{}/v1"
+[model_providers.{}]
+name = "{}"
+base_url = "{}"
 wire_api = "responses"
 "#,
-            model_name, base_url
+            model_name, provider_slug, provider_slug, provider_name, base_url_v1
         )
     }
 
     /// Generate config.toml content for AgentRouter
-    fn generate_agentrouter_config(base_url: &str, model: Option<&str>) -> String {
-        let model_name = model.unwrap_or("gpt-5");
-        format!(
-            r#"model = "{}"
-model_provider = "agentrouter"
-preferred_auth_method = "apikey"
-
-
-[model_providers.agentrouter]
-name = "Agent Router"
-base_url = "{}/v1"
-wire_api = "responses"
-query_params = {{}}
-stream_idle_timeout_ms = 300000
-"#,
-            model_name, base_url
-        )
-    }
-
     /// Generate config.toml content for generic OpenAI-compatible provider (for independent keys)
     fn generate_generic_config(base_url: &str, model: Option<&str>) -> String {
         let model_name = model.unwrap_or("gpt-4o");
-        let base_url_v1 = if base_url.ends_with("/v1") {
-            base_url.to_string()
-        } else if base_url.ends_with('/') {
-            format!("{}v1", base_url)
-        } else {
-            format!("{}/v1", base_url)
-        };
+        let base_url_v1 = Self::ensure_v1_base_url(base_url);
 
         format!(
             r#"model = "{}"
@@ -103,6 +106,7 @@ wire_api = "responses"
         &self,
         token: &ApiToken,
         provider_id: &str,
+        provider_name: &str,
         base_url: &str,
         model: Option<&str>,
     ) -> Result<String> {
@@ -113,12 +117,15 @@ wire_api = "responses"
         // Ensure directory exists
         fs::create_dir_all(&codex_dir)?;
 
-        // Generate config.toml based on provider
-        let config_content = match provider_id {
-            "anyrouter" => Self::generate_anyrouter_config(base_url, model),
-            "agentrouter" => Self::generate_agentrouter_config(base_url, model),
-            _ => return Err(anyhow::anyhow!("Unsupported provider: {}", provider_id)),
+        // Generate config.toml based on provider metadata
+        let provider_slug = Self::sanitize_provider_slug(provider_id);
+        let display_name = if provider_name.is_empty() {
+            provider_id
+        } else {
+            provider_name
         };
+        let config_content =
+            Self::generate_provider_config(&provider_slug, display_name, base_url, model);
 
         // Write config.toml
         fs::write(&config_path, &config_content)?;
@@ -177,6 +184,7 @@ wire_api = "responses"
         &self,
         _token: &ApiToken,
         _provider_id: &str,
+        _provider_name: &str,
         _base_url: &str,
         _model: Option<&str>,
     ) -> Result<String> {

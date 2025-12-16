@@ -208,108 +208,14 @@ impl CheckInExecutor {
                 }
             }
         } else {
-            // No sign_in_url specified - for AgentRouter-like providers, call API endpoints to trigger balance update
             info!(
-                "[{}] Calling API endpoints to trigger balance update...",
-                account_name
-            );
-
-            // For AgentRouter, call all 4 API endpoints that are triggered during re-login
-            let api_endpoints = vec![
-                format!("{}/api/status", provider.domain()),
-                format!("{}/api/user/models", provider.domain()),
-                format!("{}/api/user/self/groups", provider.domain()),
-                format!("{}/api/token/?p=1&size=10", provider.domain()),
-            ];
-
-            let mut success_count = 0;
-            let mut waf_refreshed = false;
-            let mut current_cookies = cookies.clone();
-
-            for endpoint in &api_endpoints {
-                let result = self
-                    .http_client
-                    .call_api_endpoint(
-                        endpoint,
-                        &current_cookies,
-                        provider.api_user_key(),
-                        api_user,
-                    )
-                    .await;
-
-                match result {
-                    Ok(_) => {
-                        info!(
-                            "[{}] API endpoint called successfully: {}",
-                            account_name, endpoint
-                        );
-                        success_count += 1;
-                    }
-                    Err(e) if self.is_waf_challenge_error(&e) && !waf_refreshed => {
-                        warn!(
-                            "[{}] WAF challenge during API endpoint {}, refreshing cookies...",
-                            account_name, endpoint
-                        );
-
-                        // Refresh WAF cookies and retry
-                        if let Ok(fresh_cookies) = self
-                            .refresh_waf_cookies_and_retry(
-                                &account_name,
-                                provider,
-                                account.credentials().cookies(),
-                            )
-                            .await
-                        {
-                            current_cookies = fresh_cookies;
-                            waf_refreshed = true;
-
-                            // Retry this endpoint
-                            if self
-                                .http_client
-                                .call_api_endpoint(
-                                    endpoint,
-                                    &current_cookies,
-                                    provider.api_user_key(),
-                                    api_user,
-                                )
-                                .await
-                                .is_ok()
-                            {
-                                info!(
-                                    "[{}] API endpoint retry successful: {}",
-                                    account_name, endpoint
-                                );
-                                success_count += 1;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!(
-                            "[{}] Failed to call API endpoint {} (non-critical): {}",
-                            account_name, endpoint, e
-                        );
-                    }
-                }
-            }
-
-            // Update cookies for subsequent operations if WAF was refreshed
-            if waf_refreshed {
-                cookies = current_cookies;
-            }
-
-            info!(
-                "[{}] Check-in completed ({}/{} API endpoints called successfully)",
+                "[{}] Provider {} does not require an explicit check-in request, skipping API call",
                 account_name,
-                success_count,
-                api_endpoints.len()
+                provider.name()
             );
             CheckInResult {
                 success: true,
-                message: format!(
-                    "Check-in completed ({}/{} API calls)",
-                    success_count,
-                    api_endpoints.len()
-                ),
+                message: "Provider does not require explicit check-in".to_string(),
             }
         };
 

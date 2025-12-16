@@ -11,7 +11,7 @@ use crate::application::commands::command_handler::CommandHandler;
 use crate::application::dtos::BalanceDto;
 use crate::application::services::{CheckInExecutor, NotificationService};
 use neuradock_domain::account::AccountRepository;
-use neuradock_domain::check_in::Provider;
+use neuradock_domain::check_in::{Provider, ProviderRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
 use neuradock_infrastructure::http::token::TokenClient;
 use neuradock_infrastructure::persistence::repositories::{
@@ -21,10 +21,10 @@ use neuradock_infrastructure::persistence::repositories::{
 /// Execute check-in command handler
 pub struct ExecuteCheckInCommandHandler {
     account_repo: Arc<dyn AccountRepository>,
+    provider_repo: Arc<dyn ProviderRepository>,
     notification_service: Option<Arc<NotificationService>>,
     provider_models_repo: Arc<SqliteProviderModelsRepository>,
     waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
-    providers: HashMap<String, Provider>,
     headless_browser: bool,
     pool: Arc<SqlitePool>,
 }
@@ -32,18 +32,18 @@ pub struct ExecuteCheckInCommandHandler {
 impl ExecuteCheckInCommandHandler {
     pub fn new(
         account_repo: Arc<dyn AccountRepository>,
+        provider_repo: Arc<dyn ProviderRepository>,
         provider_models_repo: Arc<SqliteProviderModelsRepository>,
         waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
-        providers: HashMap<String, Provider>,
         headless_browser: bool,
         pool: Arc<SqlitePool>,
     ) -> Self {
         Self {
             account_repo,
+            provider_repo,
             notification_service: None,
             provider_models_repo,
             waf_cookies_repo,
-            providers,
             headless_browser,
             pool,
         }
@@ -62,8 +62,8 @@ impl ExecuteCheckInCommandHandler {
         api_user: &str,
     ) {
         // Check if provider has models API
-        let models_url = match provider.models_url() {
-            Some(url) => url,
+        let models_path = match provider.models_path() {
+            Some(path) => path,
             None => {
                 info!(
                     "Provider {} does not have models API, skipping",
@@ -72,10 +72,14 @@ impl ExecuteCheckInCommandHandler {
                 return;
             }
         };
-
-        // Extract path from URL
-        let models_path = models_url.replace(provider.domain(), "");
         let provider_id = provider.id().as_str();
+        let base_url = provider.domain().trim_end_matches('/').to_string();
+        let api_user_header = provider.api_user_key();
+        let api_user_header_opt = if api_user_header.is_empty() {
+            None
+        } else {
+            Some(api_user_header)
+        };
 
         // Build cookies with WAF cookies from cache
         let mut all_cookies = cookies.clone();
@@ -119,9 +123,10 @@ impl ExecuteCheckInCommandHandler {
 
         match client
             .fetch_provider_models(
-                provider.domain(),
-                &models_path,
+                &base_url,
+                models_path,
                 &cookie_string,
+                api_user_header_opt,
                 api_user_opt,
             )
             .await
@@ -239,10 +244,14 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
             })?;
 
         // Get provider from account's provider_id
-        let provider_id = account.provider_id().as_str();
-        let provider = self.providers.get(provider_id).ok_or_else(|| {
-            DomainError::ProviderNotFound(format!("Provider not found: {}", provider_id))
-        })?;
+        let provider_id = account.provider_id().as_str().to_string();
+        let provider = self
+            .provider_repo
+            .find_by_id(account.provider_id())
+            .await?
+            .ok_or_else(|| {
+                DomainError::ProviderNotFound(format!("Provider not found: {}", provider_id))
+            })?;
 
         let account_name = account.name().to_string();
 
@@ -253,7 +262,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
         // Execute check-in
         let result = executor
-            .execute_check_in(&cmd.account_id, provider)
+            .execute_check_in(&cmd.account_id, &provider)
             .await
             .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
 
@@ -311,7 +320,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
                         .await
                     {
                         self.fetch_and_save_provider_models(
-                            provider,
+                            &provider,
                             updated_acc.credentials().cookies(),
                             updated_acc.credentials().api_user(),
                         )
@@ -372,10 +381,10 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 /// Batch execute check-in command handler
 pub struct BatchExecuteCheckInCommandHandler {
     account_repo: Arc<dyn AccountRepository>,
+    provider_repo: Arc<dyn ProviderRepository>,
     notification_service: Option<Arc<NotificationService>>,
     provider_models_repo: Arc<SqliteProviderModelsRepository>,
     waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
-    providers: HashMap<String, Provider>,
     headless_browser: bool,
     pool: Arc<SqlitePool>,
 }
@@ -383,18 +392,18 @@ pub struct BatchExecuteCheckInCommandHandler {
 impl BatchExecuteCheckInCommandHandler {
     pub fn new(
         account_repo: Arc<dyn AccountRepository>,
+        provider_repo: Arc<dyn ProviderRepository>,
         provider_models_repo: Arc<SqliteProviderModelsRepository>,
         waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
-        providers: HashMap<String, Provider>,
         headless_browser: bool,
         pool: Arc<SqlitePool>,
     ) -> Self {
         Self {
             account_repo,
+            provider_repo,
             notification_service: None,
             provider_models_repo,
             waf_cookies_repo,
-            providers,
             headless_browser,
             pool,
         }
@@ -413,8 +422,8 @@ impl BatchExecuteCheckInCommandHandler {
         api_user: &str,
     ) {
         // Check if provider has models API
-        let models_url = match provider.models_url() {
-            Some(url) => url,
+        let models_path = match provider.models_path() {
+            Some(path) => path,
             None => {
                 info!(
                     "Provider {} does not have models API, skipping",
@@ -423,10 +432,14 @@ impl BatchExecuteCheckInCommandHandler {
                 return;
             }
         };
-
-        // Extract path from URL
-        let models_path = models_url.replace(provider.domain(), "");
         let provider_id = provider.id().as_str();
+        let base_url = provider.domain().trim_end_matches('/').to_string();
+        let api_user_header = provider.api_user_key();
+        let api_user_header_opt = if api_user_header.is_empty() {
+            None
+        } else {
+            Some(api_user_header)
+        };
 
         // Build cookies with WAF cookies from cache
         let mut all_cookies = cookies.clone();
@@ -470,9 +483,10 @@ impl BatchExecuteCheckInCommandHandler {
 
         match client
             .fetch_provider_models(
-                provider.domain(),
-                &models_path,
+                &base_url,
+                models_path,
                 &cookie_string,
+                api_user_header_opt,
                 api_user_opt,
             )
             .await
@@ -620,10 +634,10 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             };
 
             // Get provider from account's provider_id
-            let provider_id = account.provider_id().as_str();
-            let provider = match self.providers.get(provider_id) {
-                Some(p) => p,
-                None => {
+            let provider_id = account.provider_id().as_str().to_string();
+            let provider = match self.provider_repo.find_by_id(account.provider_id()).await {
+                Ok(Some(provider)) => provider,
+                Ok(None) => {
                     error!("Provider not found: {}", provider_id);
                     failed += 1;
                     results.push(CheckInCommandResult {
@@ -633,9 +647,19 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     });
                     continue;
                 }
+                Err(e) => {
+                    error!("Failed to load provider {}: {}", provider_id, e);
+                    failed += 1;
+                    results.push(CheckInCommandResult {
+                        success: false,
+                        message: format!("Failed to load provider {}: {}", provider_id, e),
+                        balance: None,
+                    });
+                    continue;
+                }
             };
 
-            match executor.execute_check_in(&account_id, provider).await {
+            match executor.execute_check_in(&account_id, &provider).await {
                 Ok(result) => {
                     // Update account balance cache and save to balance_history if we have new balance data
                     let balance_dto = if result.success && result.user_info.is_some() {
@@ -685,7 +709,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                                     .await
                                 {
                                     self.fetch_and_save_provider_models(
-                                        provider,
+                                        &provider,
                                         updated_acc.credentials().cookies(),
                                         updated_acc.credentials().api_user(),
                                     )

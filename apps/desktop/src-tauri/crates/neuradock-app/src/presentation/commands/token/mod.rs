@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::application::dtos::{ProviderNodeDto, TokenDto};
 use crate::presentation::state::AppState;
-use neuradock_domain::shared::AccountId;
+use neuradock_domain::shared::{AccountId, ProviderId};
 
 #[tauri::command]
 #[specta::specta]
@@ -39,10 +39,12 @@ pub async fn fetch_account_tokens(
         .ok_or_else(|| "Account not found".to_string())?;
 
     // Get provider info
-    let provider_id = account.provider_id();
-    let providers = crate::presentation::commands::get_builtin_providers();
-    let provider = providers
-        .get(&provider_id.to_string())
+    let provider_id = account.provider_id().as_str().to_string();
+    let provider = state
+        .provider_repo
+        .find_by_id(account.provider_id())
+        .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
     // Convert to DTOs
@@ -132,46 +134,21 @@ pub async fn get_provider_nodes(
     provider_id: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<ProviderNodeDto>, String> {
-    let mut nodes = vec![];
+    let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
-    // Add built-in nodes
-    match provider_id.as_str() {
-        "anyrouter" => {
-            nodes.extend(vec![
-                ProviderNodeDto {
-                    id: "anytop".to_string(),
-                    name: "AnyRouter Top".to_string(),
-                    base_url: "https://anyrouter.top".to_string(),
-                },
-                ProviderNodeDto {
-                    id: "rainapp".to_string(),
-                    name: "RainApp".to_string(),
-                    base_url: "https://pmpjfbhq.cn-nb1.rainapp.top".to_string(),
-                },
-                ProviderNodeDto {
-                    id: "cspok".to_string(),
-                    name: "CSPok".to_string(),
-                    base_url: "https://c.cspok.cn".to_string(),
-                },
-                ProviderNodeDto {
-                    id: "shanghai".to_string(),
-                    name: "Shanghai".to_string(),
-                    base_url: "https://a-ocnfniawgw.cn-shanghai.fcapp.run".to_string(),
-                },
-            ]);
-        }
-        "agentrouter" => {
-            nodes.push(ProviderNodeDto {
-                id: "agentrouter".to_string(),
-                name: "AgentRouter".to_string(),
-                base_url: "https://agentrouter.org".to_string(),
-            });
-        }
-        _ => return Err("Unknown provider".to_string()),
-    }
+    let mut nodes = vec![ProviderNodeDto {
+        id: provider_id.clone(),
+        name: provider.name().to_string(),
+        base_url: provider.domain().to_string(),
+    }];
 
     // Add custom nodes
-    let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
     let custom_nodes = state
         .custom_node_repo
         .find_by_provider(&provider_id_obj)
@@ -255,10 +232,24 @@ pub async fn configure_codex_global(
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| "Token not found".to_string())?;
 
+    let provider_id_obj = ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
     // Configure to Codex
     let result = state
         .codex_config_service
-        .configure_global(token, &provider_id, &base_url, model.as_deref())
+        .configure_global(
+            token,
+            provider.id().as_str(),
+            provider.name(),
+            &base_url,
+            model.as_deref(),
+        )
         .map_err(|e| e.to_string())?;
 
     Ok(result)
@@ -289,10 +280,24 @@ pub async fn generate_codex_temp_commands(
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| "Token not found".to_string())?;
 
+    let provider_id_obj = ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
     // Generate temp commands (currently unavailable)
     let commands = state
         .codex_config_service
-        .generate_temp_commands(token, &provider_id, &base_url, model.as_deref())
+        .generate_temp_commands(
+            token,
+            provider.id().as_str(),
+            provider.name(),
+            &base_url,
+            model.as_deref(),
+        )
         .map_err(|e| e.to_string())?;
 
     Ok(commands)
@@ -418,18 +423,26 @@ pub async fn fetch_provider_models(
         .ok_or_else(|| "Account not found".to_string())?;
 
     // Get provider configuration
-    let providers = crate::presentation::commands::get_builtin_providers();
-    let provider = providers
-        .get(&provider_id)
+    let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
     // Check if provider supports models API
     let models_path = provider
-        .models_url()
-        .ok_or_else(|| "Provider does not support models API".to_string())?;
-
-    // Extract just the path from full URL
-    let models_path = models_path.replace(provider.domain(), "");
+        .models_path()
+        .ok_or_else(|| "Provider does not support models API".to_string())?
+        .to_string();
+    let base_url = provider.domain().trim_end_matches('/').to_string();
+    let api_user_header = provider.api_user_key();
+    let api_user_header_opt = if api_user_header.is_empty() {
+        None
+    } else {
+        Some(api_user_header)
+    };
 
     // Prepare cookies - start with account cookies
     let mut cookies = account.credentials().cookies().clone();
@@ -479,9 +492,10 @@ pub async fn fetch_provider_models(
     // Try to fetch models
     let models_result = client
         .fetch_provider_models(
-            provider.domain(),
+            &base_url,
             &models_path,
             &cookie_string,
+            api_user_header_opt,
             Some(api_user),
         )
         .await;
@@ -558,16 +572,26 @@ pub async fn refresh_provider_models_with_waf(
         .ok_or_else(|| "Account not found".to_string())?;
 
     // Get provider configuration
-    let providers = crate::presentation::commands::get_builtin_providers();
-    let provider = providers
-        .get(&provider_id)
+    let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
     // Check if provider supports models API
-    let models_url = provider
-        .models_url()
-        .ok_or_else(|| "Provider does not support models API".to_string())?;
-    let models_path = models_url.replace(provider.domain(), "");
+    let models_path = provider
+        .models_path()
+        .ok_or_else(|| "Provider does not support models API".to_string())?
+        .to_string();
+    let base_url = provider.domain().trim_end_matches('/').to_string();
+    let api_user_header = provider.api_user_key();
+    let api_user_header_opt = if api_user_header.is_empty() {
+        None
+    } else {
+        Some(api_user_header)
+    };
 
     // Prepare cookies - start with account cookies
     let mut cookies = account.credentials().cookies().clone();
@@ -667,9 +691,10 @@ pub async fn refresh_provider_models_with_waf(
     let client = TokenClient::new().map_err(|e| e.to_string())?;
     let models_result = client
         .fetch_provider_models(
-            provider.domain(),
+            &base_url,
             &models_path,
             &cookie_string,
+            api_user_header_opt,
             Some(api_user),
         )
         .await;
@@ -726,9 +751,10 @@ pub async fn refresh_provider_models_with_waf(
                 log::info!("Retrying model fetch with fresh WAF cookies...");
                 client
                     .fetch_provider_models(
-                        provider.domain(),
+                        &base_url,
                         &models_path,
                         &fresh_cookie_string,
+                        api_user_header_opt,
                         Some(api_user),
                     )
                     .await

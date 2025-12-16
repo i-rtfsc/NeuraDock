@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::application::services::AutoCheckInScheduler;
 use neuradock_domain::account::AccountRepository;
-use neuradock_domain::check_in::Provider;
+use neuradock_domain::check_in::{Provider, ProviderRepository};
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::event_bus::EventHandler;
 use neuradock_domain::shared::DomainError;
@@ -16,7 +16,7 @@ use neuradock_domain::shared::DomainError;
 pub struct SchedulerReloadEventHandler {
     scheduler: Arc<AutoCheckInScheduler>,
     account_repo: Arc<dyn AccountRepository>,
-    providers: HashMap<String, Provider>,
+    provider_repo: Arc<dyn ProviderRepository>,
     app_handle: tauri::AppHandle,
 }
 
@@ -24,13 +24,13 @@ impl SchedulerReloadEventHandler {
     pub fn new(
         scheduler: Arc<AutoCheckInScheduler>,
         account_repo: Arc<dyn AccountRepository>,
-        providers: HashMap<String, Provider>,
+        provider_repo: Arc<dyn ProviderRepository>,
         app_handle: tauri::AppHandle,
     ) -> Self {
         Self {
             scheduler,
             account_repo,
-            providers,
+            provider_repo,
             app_handle,
         }
     }
@@ -38,9 +38,15 @@ impl SchedulerReloadEventHandler {
     async fn reload_schedules(&self) -> Result<(), DomainError> {
         info!("🔄 [SCHEDULER] Reloading schedules due to account change");
 
+        let provider_list = self.provider_repo.find_all().await?;
+        let providers: HashMap<String, Provider> = provider_list
+            .into_iter()
+            .map(|provider| (provider.id().as_str().to_string(), provider))
+            .collect();
+
         self.scheduler
             .reload_schedules(
-                self.providers.clone(),
+                providers,
                 self.account_repo.clone(),
                 self.app_handle.clone(),
             )

@@ -7,6 +7,14 @@ export interface ProviderDto {
   domain: string;
   is_builtin: boolean;
   account_count: number;
+  // API configuration fields
+  login_path: string;
+  sign_in_path: string | null;
+  user_info_path: string;
+  token_api_path: string | null;
+  models_path: string | null;
+  api_user_key: string;
+  needs_waf_bypass: boolean;
 }
 
 // Query: Get all providers

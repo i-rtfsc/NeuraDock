@@ -1,6 +1,8 @@
 use tauri::State;
 
-use crate::application::dtos::{CreateIndependentKeyInput, IndependentKeyDto, UpdateIndependentKeyInput};
+use crate::application::dtos::{
+    CreateIndependentKeyInput, IndependentKeyDto, UpdateIndependentKeyInput,
+};
 use crate::presentation::state::AppState;
 use neuradock_domain::independent_key::{IndependentApiKey, IndependentKeyId, KeyProviderType};
 

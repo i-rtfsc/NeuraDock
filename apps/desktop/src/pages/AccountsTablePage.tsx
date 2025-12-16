@@ -76,14 +76,20 @@ export function AccountsTablePage() {
 
   // Get unique providers from accounts
   const allProviders = useMemo(() => {
+    if (providers && providers.length > 0) {
+      return providers.map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+      }));
+    }
+
     if (!accounts) return [];
     const uniqueIds = new Set(accounts.map((a) => a.provider_id));
     return Array.from(uniqueIds).map((id) => {
       const account = accounts.find((a) => a.provider_id === id);
-      const provider = providers?.find((p) => p.id === id);
       return {
         id,
-        name: provider?.name || account?.provider_name || 'Unknown',
+        name: account?.provider_name || 'Unknown',
       };
     });
   }, [accounts, providers]);

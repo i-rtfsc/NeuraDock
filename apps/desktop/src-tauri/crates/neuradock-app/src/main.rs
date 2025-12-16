@@ -40,6 +40,9 @@ async fn main() {
             // Provider commands
             add_provider,
             get_all_providers,
+            create_provider,
+            update_provider,
+            delete_provider,
             // Query commands
             get_all_accounts,
             get_account_detail,

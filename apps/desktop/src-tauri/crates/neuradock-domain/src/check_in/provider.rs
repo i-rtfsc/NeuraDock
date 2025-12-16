@@ -21,6 +21,10 @@ pub struct Provider {
 }
 
 impl Provider {
+    fn normalize_domain(domain: String) -> String {
+        domain.trim_end_matches('/').to_string()
+    }
+
     pub fn new(
         name: String,
         domain: String,
@@ -35,7 +39,7 @@ impl Provider {
         Self {
             id: ProviderId::new(),
             name,
-            domain,
+            domain: Self::normalize_domain(domain),
             login_path,
             sign_in_path,
             user_info_path,
@@ -63,7 +67,7 @@ impl Provider {
         Self {
             id: ProviderId::from_string(id),
             name,
-            domain,
+            domain: Self::normalize_domain(domain),
             login_path,
             sign_in_path,
             user_info_path,
@@ -73,6 +77,37 @@ impl Provider {
             bypass_method,
             is_builtin: true,
             created_at: Utc::now(),
+        }
+    }
+
+    /// Create a provider with a specific ID (used for updates)
+    pub fn with_id(
+        id: ProviderId,
+        name: String,
+        domain: String,
+        login_path: String,
+        sign_in_path: Option<String>,
+        user_info_path: String,
+        token_api_path: Option<String>,
+        models_path: Option<String>,
+        api_user_key: String,
+        bypass_method: Option<String>,
+        is_builtin: bool,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            domain: Self::normalize_domain(domain),
+            login_path,
+            sign_in_path,
+            user_info_path,
+            token_api_path,
+            models_path,
+            api_user_key,
+            bypass_method,
+            is_builtin,
+            created_at,
         }
     }
 
@@ -86,6 +121,26 @@ impl Provider {
 
     pub fn domain(&self) -> &str {
         &self.domain
+    }
+
+    pub fn login_path(&self) -> &str {
+        &self.login_path
+    }
+
+    pub fn sign_in_path(&self) -> Option<&str> {
+        self.sign_in_path.as_deref()
+    }
+
+    pub fn user_info_path(&self) -> &str {
+        &self.user_info_path
+    }
+
+    pub fn token_api_path(&self) -> Option<&str> {
+        self.token_api_path.as_deref()
+    }
+
+    pub fn models_path(&self) -> Option<&str> {
+        self.models_path.as_deref()
     }
 
     pub fn login_url(&self) -> String {
@@ -124,5 +179,9 @@ impl Provider {
 
     pub fn is_builtin(&self) -> bool {
         self.is_builtin
+    }
+
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
     }
 }

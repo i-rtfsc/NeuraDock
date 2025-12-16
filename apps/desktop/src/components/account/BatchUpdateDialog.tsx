@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useProviders } from '@/hooks/useProviders';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,10 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
     }>;
     error?: string;
   } | null>(null);
+
+  const { data: providers = [] } = useProviders();
+  const fallbackProviderId = providers[0]?.id || '';
+  const providerPlaceholder = fallbackProviderId || 'provider_id';
 
   const queryClient = useQueryClient();
 
@@ -111,7 +116,7 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
 
       const accounts = parsed.map((account: any, index: number) => ({
         name: account.name || `Account ${index + 1}`,
-        provider: account.provider || account.provider_id || 'anyrouter',
+        provider: account.provider || account.provider_id || providerPlaceholder,
         hasCookies: !!account.cookies && typeof account.cookies === 'object' && Object.keys(account.cookies).length > 0,
       }));
 
@@ -155,7 +160,7 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
   const exampleJson = [
     {
       name: 'account1@example.com',
-      provider: 'anyrouter',
+      provider: providerPlaceholder,
       cookies: {
         session: 'new_session_value_1',
       },
@@ -163,7 +168,7 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
     },
     {
       name: 'account2@example.com',
-      provider: 'agentrouter',
+      provider: providerPlaceholder,
       cookies: {
         session: 'new_session_value_2',
       },

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useProviders } from '@/hooks/useProviders';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,10 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
     error?: string;
   } | null>(null);
   const [importMode, setImportMode] = useState<'single' | 'batch'>('single');
+
+  const { data: providers = [] } = useProviders();
+  const fallbackProviderId = providers[0]?.id || '';
+  const providerPlaceholder = fallbackProviderId || 'provider_id';
 
   const queryClient = useQueryClient();
 
@@ -86,7 +91,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
         // Batch mode
         const accounts = parsed.map((account: any, index: number) => ({
           name: account.name || `Account ${index + 1}`,
-          provider: account.provider || account.provider_id || 'anyrouter',
+          provider: account.provider || account.provider_id || providerPlaceholder,
           valid: !!account.cookies && (typeof account.cookies === 'object' || typeof account.cookies === 'string'),
         }));
 
@@ -103,7 +108,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
           accounts: [
             {
               name: parsed.name || 'Unnamed Account',
-              provider: parsed.provider || parsed.provider_id || 'anyrouter',
+              provider: parsed.provider || parsed.provider_id || providerPlaceholder,
               valid,
             },
           ],
@@ -148,7 +153,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
 
   const exampleSingle = {
     name: 'My Account',
-    provider: 'anyrouter',
+    provider: providerPlaceholder,
     cookies: {
       session: 'your_session_value',
     },
@@ -158,13 +163,13 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   const exampleBatch = [
     {
       name: 'Account 1',
-      provider: 'anyrouter',
+      provider: providerPlaceholder,
       cookies: { session: 'session_1' },
       api_user: '12345',
     },
     {
       name: 'Account 2',
-      provider: 'agentrouter',
+      provider: providerPlaceholder,
       cookies: { session: 'session_2' },
       api_user: '67890',
     },

@@ -93,7 +93,7 @@ export function AccountDialog({
   const formDefaultValues = defaultValues
     ? {
         name: defaultValues.name || '',
-        provider_id: defaultValues.provider_id || 'anyrouter',
+        provider_id: defaultValues.provider_id || '',
         cookies_json: defaultValues.cookies
           ? JSON.stringify(defaultValues.cookies, null, 2)
           : '{"session": ""}',

@@ -106,9 +106,11 @@ impl TokenClient {
         base_url: &str,
         models_path: &str,
         cookie_string: &str,
+        api_user_header: Option<&str>,
         api_user: Option<&str>,
     ) -> Result<Vec<String>> {
-        let url = format!("{}{}", base_url, models_path);
+        let url = Self::build_url(base_url, models_path);
+        let normalized_base = base_url.trim_end_matches('/');
 
         log::info!("Fetching provider models from: {}", url);
 
@@ -119,11 +121,11 @@ impl TokenClient {
             .header("Accept", "application/json")
             .header("Accept-Encoding", "gzip, deflate, br")
             .header("Cache-Control", "no-store")
-            .header("Referer", format!("{}/console", base_url));
+            .header("Referer", format!("{}/console", normalized_base));
 
-        // Add New-API-User header if provided
         if let Some(user) = api_user {
-            request = request.header("New-API-User", user);
+            let header_name = api_user_header.unwrap_or("New-API-User");
+            request = request.header(header_name, user);
         }
 
         let response = request.send().await?;
@@ -167,11 +169,18 @@ impl TokenClient {
         base_url: &str,
         token_api_path: &str,
         cookie_string: &str,
+        api_user_header: Option<&str>,
         api_user: Option<&str>,
         page: u32,
         size: u32,
     ) -> Result<TokenResponse> {
-        let url = format!("{}{}?p={}&size={}", base_url, token_api_path, page, size);
+        let url = format!(
+            "{}?p={}&size={}",
+            Self::build_url(base_url, token_api_path),
+            page,
+            size
+        );
+        let normalized_base = base_url.trim_end_matches('/');
 
         log::info!("Fetching tokens from: {}", url);
         log::debug!(
@@ -187,12 +196,12 @@ impl TokenClient {
             .header("Accept", "application/json")
             .header("Accept-Encoding", "gzip, deflate, br")
             .header("Cache-Control", "no-store")
-            .header("Referer", format!("{}/console/token", base_url));
+            .header("Referer", format!("{}/console/token", normalized_base));
 
-        // Add New-API-User header if provided
         if let Some(user) = api_user {
-            log::debug!("Adding New-API-User header: {}", user);
-            request = request.header("New-API-User", user);
+            let header_name = api_user_header.unwrap_or("New-API-User");
+            log::debug!("Adding {} header: {}", header_name, user);
+            request = request.header(header_name, user);
         }
 
         let response = request.send().await?;
@@ -238,6 +247,18 @@ impl TokenClient {
         );
 
         Ok(token_response)
+    }
+
+    fn build_url(base: &str, path: &str) -> String {
+        if path.starts_with("http://") || path.starts_with("https://") {
+            path.to_string()
+        } else {
+            format!(
+                "{}/{}",
+                base.trim_end_matches('/'),
+                path.trim_start_matches('/')
+            )
+        }
     }
 }
 

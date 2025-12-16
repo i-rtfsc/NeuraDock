@@ -3,6 +3,7 @@ import {
   Home,
   UserCircle,
   Key,
+  Server,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -26,6 +27,7 @@ export function Sidebar() {
     { name: t('nav.dashboard'), href: '/', icon: Home },
     { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
     { name: t('nav.tokens'), href: '/tokens', icon: Key },
+    { name: '中转站', href: '/providers', icon: Server },
   ];
 
   // Helper for rendering links to avoid duplication between nav and settings

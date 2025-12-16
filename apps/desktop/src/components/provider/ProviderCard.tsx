@@ -1,0 +1,176 @@
+import { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  MoreVertical,
+  Edit,
+  Trash2,
+  Globe,
+  Shield,
+  ShieldOff,
+  Users,
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { ProviderDto } from '@/hooks/useProviders';
+
+interface ProviderCardProps {
+  provider: ProviderDto;
+  onEdit: (provider: ProviderDto) => void;
+  onDelete: (providerId: string) => void;
+  isDeleting?: boolean;
+}
+
+export function ProviderCard({
+  provider,
+  onEdit,
+  onDelete,
+  isDeleting = false,
+}: ProviderCardProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    await onDelete(provider.id);
+    setShowDeleteConfirm(false);
+  };
+
+  const needsWafBypass = provider.needs_waf_bypass;
+
+  return (
+    <>
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
+        <Card
+          className={cn(
+            'group relative overflow-hidden transition-all duration-200',
+            'hover:shadow-md hover:border-primary/20',
+            'bg-card/50 backdrop-blur-sm'
+          )}
+        >
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold truncate">
+                    {provider.name}
+                  </h3>
+                  {provider.is_builtin && (
+                    <Badge variant="secondary" className="shrink-0">
+                      内置
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="h-3.5 w-3.5" />
+                  <span className="truncate">{provider.domain}</span>
+                </div>
+              </div>
+
+              {/* Actions Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => onEdit(provider)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isDeleting}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center gap-4 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {provider.account_count || 0} 个账号
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm">
+                {needsWafBypass ? (
+                  <>
+                    <Shield className="h-4 w-4 text-yellow-500" />
+                    <span className="text-muted-foreground">WAF保护</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">无WAF</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除中转站 "{provider.name}" 吗？
+              {provider.account_count && provider.account_count > 0 && (
+                <span className="block mt-2 text-destructive font-medium">
+                  警告：该中转站下还有 {provider.account_count} 个账号，删除后这些账号将无法继续使用。
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

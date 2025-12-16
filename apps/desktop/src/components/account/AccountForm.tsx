@@ -12,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useProviders } from '@/hooks/useProviders';
 
 // Validation schema
 const getAccountFormSchema = (t: any) => z.object({
@@ -56,8 +57,11 @@ export function AccountForm({
 }: AccountFormProps) {
   const [cookiesError, setCookiesError] = useState<string | null>(null);
   const { t } = useTranslation();
+  const { data: providers = [], isLoading: isLoadingProviders } = useProviders();
 
   const accountFormSchema = getAccountFormSchema(t);
+  const initialProviderId =
+    defaultValues?.provider_id || (providers.length > 0 ? providers[0].id : '');
 
   const {
     register,
@@ -69,7 +73,7 @@ export function AccountForm({
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
       name: defaultValues?.name || '',
-      provider_id: defaultValues?.provider_id || 'anyrouter',
+      provider_id: initialProviderId,
       cookies_json: defaultValues?.cookies_json || '{"session": ""}',
       api_user: defaultValues?.api_user || '',
       auto_checkin_enabled: defaultValues?.auto_checkin_enabled ?? false,
@@ -77,6 +81,12 @@ export function AccountForm({
       auto_checkin_minute: defaultValues?.auto_checkin_minute ?? 0,
     },
   });
+
+  useEffect(() => {
+    if (!defaultValues?.provider_id && providers.length > 0) {
+      setValue('provider_id', providers[0].id);
+    }
+  }, [defaultValues?.provider_id, providers, setValue]);
 
   const provider_id = watch('provider_id');
   const autoCheckinEnabled = watch('auto_checkin_enabled');
@@ -134,14 +144,24 @@ export function AccountForm({
         <Select
           value={provider_id}
           onValueChange={(value) => setValue('provider_id', value)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoadingProviders}
         >
           <SelectTrigger id="provider">
             <SelectValue placeholder={t('accountForm.selectProvider')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="anyrouter">AnyRouter</SelectItem>
-            <SelectItem value="agentrouter">AgentRouter</SelectItem>
+            {isLoadingProviders ? (
+              <SelectItem value="loading" disabled>加载中...</SelectItem>
+            ) : providers.length === 0 ? (
+              <SelectItem value="none" disabled>暂无可用中转站</SelectItem>
+            ) : (
+              providers.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name}
+                  {provider.is_builtin && <span className="text-xs text-muted-foreground ml-2">(内置)</span>}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
         {errors.provider_id && (

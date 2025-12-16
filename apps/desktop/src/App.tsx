@@ -9,6 +9,7 @@ import { AccountsTablePage } from './pages/AccountsTablePage';
 import { AccountDetailPage } from './pages/AccountDetailPage';
 import { AccountRecordsPage } from './pages/AccountRecordsPage';
 import { TokenManagerPage } from './pages/TokenManagerPage';
+import { ProvidersPage } from './pages/ProvidersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -25,6 +26,7 @@ function App() {
                 <Route path="/accounts/:accountId" element={<AccountDetailPage />} />
                 <Route path="/account/:accountId/records" element={<AccountRecordsPage />} />
                 <Route path="/tokens" element={<TokenManagerPage />} />
+                <Route path="/providers" element={<ProvidersPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </MainLayout>

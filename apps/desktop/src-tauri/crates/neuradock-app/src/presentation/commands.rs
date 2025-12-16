@@ -21,47 +21,6 @@ pub mod token;
 pub use independent_key::*;
 pub use token::*;
 
-/// Get built-in providers
-pub fn get_builtin_providers() -> HashMap<String, Provider> {
-    let mut providers = HashMap::new();
-
-    // AnyRouter provider
-    providers.insert(
-        "anyrouter".to_string(),
-        Provider::builtin(
-            "anyrouter",
-            "AnyRouter".to_string(),
-            "https://anyrouter.top".to_string(),
-            "/login".to_string(),
-            Some("/api/user/sign_in".to_string()),
-            "/api/user/self".to_string(),
-            Some("/api/token/".to_string()),
-            Some("/api/user/models".to_string()),
-            "new-api-user".to_string(),
-            Some("waf_cookies".to_string()),
-        ),
-    );
-
-    // AgentRouter provider
-    providers.insert(
-        "agentrouter".to_string(),
-        Provider::builtin(
-            "agentrouter",
-            "AgentRouter".to_string(),
-            "https://agentrouter.org".to_string(),
-            "/login".to_string(),
-            None, // Auto check-in: balance updates when querying user info
-            "/api/user/self".to_string(),
-            Some("/api/token/".to_string()),
-            Some("/api/user/models".to_string()),
-            "new-api-user".to_string(),
-            None, // No WAF bypass needed
-        ),
-    );
-
-    providers
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn create_account(
@@ -623,30 +582,77 @@ pub async fn check_browser_available() -> Result<BrowserInfoDto, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<ProviderDto>, String> {
-    let providers = get_builtin_providers();
+    log::info!("🔍 get_all_providers called");
+
+    // Get all providers (builtin + custom from database)
+    let mut all_providers = state.provider_repo.find_all().await.map_err(|e| {
+        log::error!("❌ Failed to fetch providers from database: {}", e);
+        e.to_string()
+    })?;
+
+    log::info!("📊 Found {} providers from database", all_providers.len());
+    for p in &all_providers {
+        log::info!("  - DB provider: {} ({})", p.name(), p.id().as_str());
+    }
+
+    log::info!("📊 Total providers loaded: {}", all_providers.len());
+
     let accounts = state
         .account_repo
         .find_all()
         .await
         .map_err(|e| e.to_string())?;
 
-    let dtos: Vec<ProviderDto> = providers
+    let dtos: Vec<ProviderDto> = all_providers
         .iter()
-        .map(|(id, provider)| {
+        .map(|provider| {
             let account_count = accounts
                 .iter()
-                .filter(|acc| acc.provider_id().as_str() == id)
+                .filter(|acc| acc.provider_id() == provider.id())
                 .count();
 
             ProviderDto {
-                id: id.clone(),
+                id: provider.id().as_str().to_string(),
                 name: provider.name().to_string(),
                 domain: provider.domain().to_string(),
                 is_builtin: provider.is_builtin(),
                 account_count: account_count as i32,
+                // API configuration
+                login_path: provider
+                    .login_url()
+                    .trim_start_matches(provider.domain())
+                    .to_string(),
+                sign_in_path: provider
+                    .sign_in_url()
+                    .as_ref()
+                    .map(|url| url.trim_start_matches(provider.domain()).to_string()),
+                user_info_path: provider
+                    .user_info_url()
+                    .trim_start_matches(provider.domain())
+                    .to_string(),
+                token_api_path: provider
+                    .token_api_url()
+                    .as_ref()
+                    .map(|url| url.trim_start_matches(provider.domain()).to_string()),
+                models_path: provider
+                    .models_url()
+                    .as_ref()
+                    .map(|url| url.trim_start_matches(provider.domain()).to_string()),
+                api_user_key: provider.api_user_key().to_string(),
+                needs_waf_bypass: provider.needs_waf_bypass(),
             }
         })
         .collect();
+
+    log::info!("✅ Returning {} provider DTOs", dtos.len());
+    for dto in &dtos {
+        log::info!(
+            "  - DTO: {} ({}) builtin={}",
+            dto.name,
+            dto.id,
+            dto.is_builtin
+        );
+    }
 
     Ok(dtos)
 }
@@ -657,7 +663,7 @@ pub async fn get_all_accounts(
     enabled_only: bool,
     state: State<'_, AppState>,
 ) -> Result<Vec<AccountDto>, String> {
-    let providers = get_builtin_providers();
+    let providers = state.provider_map().await.map_err(|e| e.to_string())?;
 
     state
         .account_queries
@@ -682,7 +688,7 @@ pub async fn get_account_detail(
 
     use crate::application::dtos::AccountDetailDtoMapper;
 
-    let providers = get_builtin_providers();
+    let providers = state.provider_map().await.map_err(|e| e.to_string())?;
     let provider_name = providers
         .get(account.provider_id().as_str())
         .map(|p| p.name().to_string())
@@ -732,7 +738,6 @@ pub async fn fetch_account_balance(
 ) -> Result<BalanceDto, String> {
     const MAX_CACHE_AGE_HOURS: i64 = 1;
 
-    let providers = get_builtin_providers();
     let force_refresh = force_refresh.unwrap_or(false);
 
     // Get account
@@ -761,9 +766,12 @@ pub async fn fetch_account_balance(
     }
 
     // Cache is stale or doesn't exist, or force_refresh is true - fetch fresh balance
-    let provider_id = account.provider_id().as_str();
-    let provider = providers
-        .get(provider_id)
+    let provider_id = account.provider_id().as_str().to_string();
+    let provider = state
+        .provider_repo
+        .find_by_id(account.provider_id())
+        .await
+        .map_err(|e| e.to_string())?
         .ok_or(format!("Provider {} not found", provider_id))?;
 
     // Create executor
@@ -772,7 +780,7 @@ pub async fn fetch_account_balance(
 
     // Fetch balance only (without triggering check-in)
     let user_info = executor
-        .fetch_balance_only(&account_id, provider)
+        .fetch_balance_only(&account_id, &provider)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -841,7 +849,7 @@ pub async fn get_balance_statistics(
         .find_enabled()
         .await
         .map_err(|e| e.to_string())?;
-    let providers = get_builtin_providers();
+    let providers = state.provider_map().await.map_err(|e| e.to_string())?;
 
     let mut provider_stats: HashMap<String, ProviderBalanceDto> = HashMap::new();
     let mut total_current_balance = 0.0;
@@ -1246,4 +1254,59 @@ pub async fn open_log_dir(app: tauri::AppHandle) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     Ok(log_dir.display().to_string())
+}
+
+// ============================================================
+// Provider Management Commands
+// ============================================================
+
+/// Create a custom provider
+#[tauri::command]
+#[specta::specta]
+pub async fn create_provider(
+    input: crate::application::commands::provider_commands::CreateProviderCommand,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let result = state
+        .command_handlers
+        .create_provider
+        .handle(input)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(result.provider_id)
+}
+
+/// Update a custom provider
+#[tauri::command]
+#[specta::specta]
+pub async fn update_provider(
+    input: crate::application::commands::provider_commands::UpdateProviderCommand,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    state
+        .command_handlers
+        .update_provider
+        .handle(input)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(true)
+}
+
+/// Delete a custom provider
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_provider(
+    input: crate::application::commands::provider_commands::DeleteProviderCommand,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    state
+        .command_handlers
+        .delete_provider
+        .handle(input)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(true)
 }

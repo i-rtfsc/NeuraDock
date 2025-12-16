@@ -12,20 +12,21 @@ use crate::application::services::{
     NotificationService, TokenService,
 };
 use neuradock_domain::account::AccountRepository;
-use neuradock_domain::check_in::Provider;
+use neuradock_domain::check_in::{Provider, ProviderRepository};
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::events::EventBus;
 use neuradock_domain::independent_key::IndependentKeyRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
 use neuradock_domain::session::SessionRepository;
+use neuradock_domain::shared::DomainError;
 use neuradock_domain::token::TokenRepository;
 use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::persistence::{
     repositories::{
         SqliteAccountRepository, SqliteCustomProviderNodeRepository,
-        SqliteIndependentKeyRepository, SqliteProviderModelsRepository,
+        SqliteIndependentKeyRepository, SqliteProviderModelsRepository, SqliteProviderRepository,
         SqliteSessionRepository, SqliteTokenRepository, SqliteWafCookiesRepository,
     },
     Database,
@@ -44,6 +45,9 @@ pub struct CommandHandlers {
     pub update_notification_channel: Arc<UpdateNotificationChannelHandler>,
     pub delete_notification_channel: Arc<DeleteNotificationChannelHandler>,
     pub test_notification_channel: Arc<TestNotificationChannelHandler>,
+    pub create_provider: Arc<CreateProviderCommandHandler>,
+    pub update_provider: Arc<UpdateProviderCommandHandler>,
+    pub delete_provider: Arc<DeleteProviderCommandHandler>,
 }
 
 pub struct AppState {
@@ -55,6 +59,7 @@ pub struct AppState {
     pub token_repo: Arc<dyn TokenRepository>,
     pub custom_node_repo: Arc<dyn CustomProviderNodeRepository>,
     pub independent_key_repo: Arc<dyn IndependentKeyRepository>,
+    pub provider_repo: Arc<dyn ProviderRepository>,
     pub provider_models_repo: Arc<SqliteProviderModelsRepository>,
     pub waf_cookies_repo: Arc<SqliteWafCookiesRepository>,
     pub notification_service: Arc<NotificationService>,
@@ -137,6 +142,8 @@ impl AppState {
             pool.clone(),
             encryption_service.clone(),
         )) as Arc<dyn IndependentKeyRepository>;
+        let provider_repo =
+            Arc::new(SqliteProviderRepository::new(pool.clone())) as Arc<dyn ProviderRepository>;
         let provider_models_repo = Arc::new(SqliteProviderModelsRepository::new(pool.clone()));
         let waf_cookies_repo = Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
         let notification_service = Arc::new(NotificationService::new(
@@ -149,7 +156,7 @@ impl AppState {
         // Initialize token services
         info!("🔧 Initializing token services...");
         let token_service = Arc::new(
-            TokenService::new(token_repo.clone(), account_repo.clone())
+            TokenService::new(token_repo.clone(), account_repo.clone(), provider_repo.clone())
                 .map_err(|e| format!("Failed to initialize token service: {}", e))?
                 .with_waf_cookies_repo(waf_cookies_repo.clone()),
         );
@@ -170,42 +177,38 @@ impl AppState {
         info!("🔧 Initializing event bus...");
         let event_bus = Arc::new(InMemoryEventBus::new());
 
-        // Get providers for event handlers
-        use crate::presentation::commands::get_builtin_providers;
-        let providers = get_builtin_providers();
-
         // Register SchedulerReloadEventHandler for account events
         let scheduler_reload_handler = SchedulerReloadEventHandler::new(
             scheduler.clone(),
             account_repo.clone(),
-            providers.clone(),
+            provider_repo.clone(),
             app_handle.clone(),
         );
 
         use neuradock_domain::events::TypedEventHandlerWrapper;
 
-        event_bus
+        let _ = event_bus
             .subscribe::<AccountCreated>(Arc::new(
                 TypedEventHandlerWrapper::<AccountCreated, _>::new(
                     scheduler_reload_handler.clone(),
                 ),
             ))
             .await;
-        event_bus
+        let _ = event_bus
             .subscribe::<AccountUpdated>(Arc::new(
                 TypedEventHandlerWrapper::<AccountUpdated, _>::new(
                     scheduler_reload_handler.clone(),
                 ),
             ))
             .await;
-        event_bus
+        let _ = event_bus
             .subscribe::<AccountDeleted>(Arc::new(
                 TypedEventHandlerWrapper::<AccountDeleted, _>::new(
                     scheduler_reload_handler.clone(),
                 ),
             ))
             .await;
-        event_bus
+        let _ = event_bus
             .subscribe::<AccountToggled>(Arc::new(
                 TypedEventHandlerWrapper::<AccountToggled, _>::new(scheduler_reload_handler),
             ))
@@ -215,17 +218,19 @@ impl AppState {
 
         // Load existing schedules from database
         info!("📋 Loading auto check-in schedules...");
-        let providers = get_builtin_providers();
-        info!("📦 Got {} providers", providers.len());
+        let provider_list = provider_repo
+            .find_all()
+            .await
+            .map_err(|e| format!("Failed to load providers: {}", e))?;
+        info!("📦 Got {} providers", provider_list.len());
 
-        // Create a HashMap for command handlers (providers don't need Arc)
-        let providers_map: HashMap<String, Provider> = providers
-            .iter()
-            .map(|(k, v)| (k.to_string(), (*v).clone()))
+        let providers_map: HashMap<String, Provider> = provider_list
+            .into_iter()
+            .map(|provider| (provider.id().as_str().to_string(), provider))
             .collect();
 
         if let Err(e) = scheduler
-            .reload_schedules(providers.clone(), account_repo.clone(), app_handle.clone())
+            .reload_schedules(providers_map, account_repo.clone(), app_handle.clone())
             .await
         {
             warn!("⚠️  Failed to load schedules: {}", e);
@@ -255,9 +260,9 @@ impl AppState {
             execute_check_in: Arc::new(
                 ExecuteCheckInCommandHandler::new(
                     account_repo.clone(),
+                    provider_repo.clone(),
                     provider_models_repo.clone(),
                     waf_cookies_repo.clone(),
-                    providers_map.clone(),
                     true, // headless_browser
                     pool.clone(),
                 )
@@ -266,9 +271,9 @@ impl AppState {
             batch_execute_check_in: Arc::new(
                 BatchExecuteCheckInCommandHandler::new(
                     account_repo.clone(),
+                    provider_repo.clone(),
                     provider_models_repo.clone(),
                     waf_cookies_repo.clone(),
-                    providers_map,
                     true, // headless_browser
                     pool.clone(),
                 )
@@ -286,6 +291,9 @@ impl AppState {
             test_notification_channel: Arc::new(TestNotificationChannelHandler::new(
                 notification_channel_repo.clone(),
             )),
+            create_provider: Arc::new(CreateProviderCommandHandler::new(provider_repo.clone())),
+            update_provider: Arc::new(UpdateProviderCommandHandler::new(provider_repo.clone())),
+            delete_provider: Arc::new(DeleteProviderCommandHandler::new(provider_repo.clone())),
         };
         info!("✓ Command handlers initialized");
 
@@ -306,6 +314,7 @@ impl AppState {
             token_repo,
             custom_node_repo,
             independent_key_repo,
+            provider_repo,
             provider_models_repo,
             waf_cookies_repo,
             notification_service,
@@ -321,5 +330,13 @@ impl AppState {
             config_service,
             app_handle,
         })
+    }
+
+    pub async fn provider_map(&self) -> Result<HashMap<String, Provider>, DomainError> {
+        let providers = self.provider_repo.find_all().await?;
+        Ok(providers
+            .into_iter()
+            .map(|provider| (provider.id().as_str().to_string(), provider))
+            .collect())
     }
 }
