@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -79,11 +80,17 @@ export function ConfirmModal({
   description,
   onConfirm,
   onCancel,
-  confirmText = "确认",
-  cancelText = "取消",
+  confirmText,
+  cancelText,
   variant = "default",
   loading = false,
 }: ConfirmModalProps) {
+  const { t } = useTranslation();
+
+  const actualConfirmText = confirmText || t('common.confirm');
+  const actualCancelText = cancelText || t('common.cancel');
+  const loadingText = t('common.loading');
+
   const handleCancel = () => {
     onCancel?.();
     onOpenChange(false);
@@ -108,7 +115,7 @@ export function ConfirmModal({
             disabled={loading}
             className="rounded-full"
           >
-            {cancelText}
+            {actualCancelText}
           </Button>
           <Button
             variant={variant}
@@ -116,7 +123,7 @@ export function ConfirmModal({
             disabled={loading}
             className="rounded-full"
           >
-            {loading ? "处理中..." : confirmText}
+            {loading ? loadingText : actualConfirmText}
           </Button>
         </>
       }
