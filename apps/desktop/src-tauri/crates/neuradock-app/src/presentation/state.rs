@@ -6,6 +6,7 @@ use tracing::{info, warn};
 
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
+use crate::application::provider_seeder::seed_builtin_providers;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::{
     AutoCheckInScheduler, ClaudeConfigService, CodexConfigService, ConfigService,
@@ -144,6 +145,11 @@ impl AppState {
         )) as Arc<dyn IndependentKeyRepository>;
         let provider_repo =
             Arc::new(SqliteProviderRepository::new(pool.clone())) as Arc<dyn ProviderRepository>;
+
+        seed_builtin_providers(provider_repo.clone())
+            .await
+            .map_err(|e| format!("Failed to seed built-in providers: {}", e))?;
+
         let provider_models_repo = Arc::new(SqliteProviderModelsRepository::new(pool.clone()));
         let waf_cookies_repo = Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
         let notification_service = Arc::new(NotificationService::new(
@@ -156,9 +162,13 @@ impl AppState {
         // Initialize token services
         info!("🔧 Initializing token services...");
         let token_service = Arc::new(
-            TokenService::new(token_repo.clone(), account_repo.clone(), provider_repo.clone())
-                .map_err(|e| format!("Failed to initialize token service: {}", e))?
-                .with_waf_cookies_repo(waf_cookies_repo.clone()),
+            TokenService::new(
+                token_repo.clone(),
+                account_repo.clone(),
+                provider_repo.clone(),
+            )
+            .map_err(|e| format!("Failed to initialize token service: {}", e))?
+            .with_waf_cookies_repo(waf_cookies_repo.clone()),
         );
         let claude_config_service = Arc::new(ClaudeConfigService::new());
         let codex_config_service = Arc::new(CodexConfigService::new());

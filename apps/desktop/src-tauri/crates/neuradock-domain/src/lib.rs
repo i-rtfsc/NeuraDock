@@ -8,7 +8,6 @@ pub mod custom_node;
 pub mod events;
 pub mod independent_key;
 pub mod notification;
-pub mod plugins;
 pub mod session;
 pub mod shared;
 pub mod token;

@@ -44,6 +44,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProviders } from '@/hooks/useProviders';
+import type { ProviderDto } from '@/hooks/useProviders';
 import { useAccountActions } from '@/hooks/useAccountActions';
 import { AccountsTable } from '@/components/account/AccountsTable';
 import { AccountDialog } from '@/components/account/AccountDialog';
@@ -59,6 +60,15 @@ export function AccountsTablePage() {
   const queryClient = useQueryClient();
   const { data: accounts = [], isLoading } = useAccounts();
   const { data: providers } = useProviders();
+  const providersById = useMemo(() => {
+    if (!providers) {
+      return {} as Record<string, ProviderDto>;
+    }
+    return providers.reduce((acc, provider) => {
+      acc[provider.id] = provider;
+      return acc;
+    }, {} as Record<string, ProviderDto>);
+  }, [providers]);
   const {
     editingAccount,
     dialogOpen: accountDialogOpen,
@@ -534,6 +544,7 @@ export function AccountsTablePage() {
               checkingInIds={checkingInIds}
               sortConfig={sortConfig}
               onSortChange={setSortConfig}
+              providersById={providersById}
             />
           )}
         </div>

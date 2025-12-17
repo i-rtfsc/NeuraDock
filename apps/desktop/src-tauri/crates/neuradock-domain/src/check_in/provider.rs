@@ -16,6 +16,8 @@ pub struct Provider {
     models_path: Option<String>,
     api_user_key: String,
     bypass_method: Option<String>,
+    supports_check_in: bool,
+    check_in_bugged: bool,
     is_builtin: bool,
     created_at: DateTime<Utc>,
 }
@@ -35,6 +37,8 @@ impl Provider {
         models_path: Option<String>,
         api_user_key: String,
         bypass_method: Option<String>,
+        supports_check_in: bool,
+        check_in_bugged: bool,
     ) -> Self {
         Self {
             id: ProviderId::new(),
@@ -47,6 +51,8 @@ impl Provider {
             models_path,
             api_user_key,
             bypass_method,
+            supports_check_in,
+            check_in_bugged,
             is_builtin: false,
             created_at: Utc::now(),
         }
@@ -63,6 +69,8 @@ impl Provider {
         models_path: Option<String>,
         api_user_key: String,
         bypass_method: Option<String>,
+        supports_check_in: bool,
+        check_in_bugged: bool,
     ) -> Self {
         Self {
             id: ProviderId::from_string(id),
@@ -75,6 +83,8 @@ impl Provider {
             models_path,
             api_user_key,
             bypass_method,
+            supports_check_in,
+            check_in_bugged,
             is_builtin: true,
             created_at: Utc::now(),
         }
@@ -92,6 +102,8 @@ impl Provider {
         models_path: Option<String>,
         api_user_key: String,
         bypass_method: Option<String>,
+        supports_check_in: bool,
+        check_in_bugged: bool,
         is_builtin: bool,
         created_at: DateTime<Utc>,
     ) -> Self {
@@ -106,6 +118,8 @@ impl Provider {
             models_path,
             api_user_key,
             bypass_method,
+            supports_check_in,
+            check_in_bugged,
             is_builtin,
             created_at,
         }
@@ -175,6 +189,14 @@ impl Provider {
 
     pub fn needs_waf_bypass(&self) -> bool {
         self.bypass_method.as_deref() == Some("waf_cookies")
+    }
+
+    pub fn supports_check_in(&self) -> bool {
+        self.supports_check_in
+    }
+
+    pub fn check_in_bugged(&self) -> bool {
+        self.check_in_bugged
     }
 
     pub fn is_builtin(&self) -> bool {

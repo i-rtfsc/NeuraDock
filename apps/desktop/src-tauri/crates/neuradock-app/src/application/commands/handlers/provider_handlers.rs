@@ -35,6 +35,9 @@ impl CommandHandler<CreateProviderCommand> for CreateProviderCommandHandler {
             ));
         }
 
+        let supports_check_in = cmd.supports_check_in.unwrap_or(true);
+        let check_in_bugged = cmd.check_in_bugged.unwrap_or(false);
+
         // Use provided values or new-api defaults
         let provider = Provider::new(
             cmd.name.clone(),
@@ -52,6 +55,8 @@ impl CommandHandler<CreateProviderCommand> for CreateProviderCommandHandler {
             } else {
                 None
             },
+            supports_check_in,
+            check_in_bugged,
         );
 
         let provider_id = provider.id().as_str().to_string();
@@ -132,6 +137,8 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
         let current_domain = existing.domain().to_string();
         let current_api_user_key = existing.api_user_key().to_string();
         let current_needs_waf = existing.needs_waf_bypass();
+        let current_supports_check_in = existing.supports_check_in();
+        let current_check_in_bugged = existing.check_in_bugged();
         let current_is_builtin = existing.is_builtin();
         let current_created_at = existing.created_at();
 
@@ -152,6 +159,9 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
             } else {
                 None
             },
+            cmd.supports_check_in
+                .unwrap_or(current_supports_check_in),
+            cmd.check_in_bugged.unwrap_or(current_check_in_bugged),
             current_is_builtin,
             current_created_at,
         );

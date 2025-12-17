@@ -10,7 +10,7 @@
 - [IPC 通信机制](#ipc-通信机制)
 - [浏览器自动化](#浏览器自动化)
 - [调度系统](#调度系统)
-- [插件系统](#插件系统)
+- [内置中转站配置](#内置中转站配置)
 - [安全机制](#安全机制)
 - [性能优化](#性能优化)
 
@@ -70,8 +70,6 @@ neuradock-domain/src/
 │   ├── aggregate.rs      # ApiToken 聚合根
 │   └── repository.rs     # TokenRepository trait
 ├── custom_node/          # 自定义节点
-├── plugins/              # 插件系统
-│   └── registry.rs       # PluginRegistry
 ├── shared/               # 共享类型
 │   ├── ids.rs            # 类型安全 ID
 │   ├── errors.rs         # DomainError
@@ -79,6 +77,8 @@ neuradock-domain/src/
 └── events/               # 领域事件
     └── mod.rs            # DomainEvent trait
 ```
+
+> **内置中转站配置**：默认的 AnyRouter、AgentRouter 等中转站定义在 `apps/desktop/src-tauri/config/providers/builtin_providers.json` 中，应用首次运行且 `providers` 表为空时会自动写入数据库，后续如需新增内置中转站仅需更新该 JSON。
 
 #### 核心聚合设计
 
@@ -302,12 +302,9 @@ neuradock-infrastructure/src/
 │   └── email.rs          # 邮件通知
 ├── security/             # 安全服务
 │   └── encryption.rs     # AES-GCM 加密
-├── plugins/              # 插件实现
-│   ├── anyrouter.rs      # AnyRouter 插件
-│   └── agentrouter.rs    # AgentRouter 插件
 ├── monitoring/           # 性能监控
 │   └── metrics.rs        # 指标收集
-└── config/               # 配置管理
+└── config/               # 配置管理（包括 `providers/` 内置中转站 JSON）
     └── mod.rs            # 配置加载
 ```
 
@@ -1047,136 +1044,44 @@ let local_scheduled = Local::today()
 
 ---
 
-## 插件系统
+## 内置中转站配置
 
-### 插件架构
+### JSON 驱动的默认服务商
 
-#### ProviderPlugin Trait
+- **配置文件**：`apps/desktop/src-tauri/config/providers/builtin_providers.json`
+- **内容**：一个数组，每项定义了中转站的 `id`、`name`、`domain`、`login_path`、`sign_in_path`、`user_info_path`、`token_api_path`、`models_path`、`api_user_key`、`bypass_method` 等字段。
+- **维护方式**：新增或调整默认中转站只需修改该 JSON，不再需要单独的 Rust 插件代码。
 
-```rust
-#[async_trait]
-pub trait ProviderPlugin: Send + Sync {
-    /// 插件唯一标识符
-    fn id(&self) -> &str;
-    
-    /// 插件名称
-    fn name(&self) -> &str;
-    
-    /// 服务商域名
-    fn domain(&self) -> &str;
-    
-    /// 执行签到
-    async fn check_in(
-        &self,
-        account: &Account,
-        headless: bool,
-    ) -> Result<CheckInResult, DomainError>;
-    
-    /// 验证凭证格式
-    fn validate_credentials(&self, account: &Account) -> bool;
-    
-    /// 获取插件元数据
-    fn metadata(&self) -> PluginMetadata {
-        PluginMetadata {
-            id: self.id().to_string(),
-            name: self.name().to_string(),
-            domain: self.domain().to_string(),
-            version: "1.0.0".to_string(),
-        }
-    }
-}
+```jsonc
+[
+  {
+    "id": "anyrouter",
+    "name": "AnyRouter",
+    "domain": "https://anyrouter.top",
+    "login_path": "/login",
+    "sign_in_path": "/api/user/sign_in",
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": "waf_cookies"
+  }
+]
 ```
 
-#### AnyRouter 插件实现
+> JSON 仅示例一项，其余内置中转站同样在该文件维护。
 
-```rust
-pub struct AnyRouterPlugin {
-    http_client: Arc<HttpClient>,
-    waf_bypass: Arc<WafBypassService>,
-}
+### 首次运行自动写入数据库
 
-#[async_trait]
-impl ProviderPlugin for AnyRouterPlugin {
-    fn id(&self) -> &str {
-        "anyrouter"
-    }
-    
-    fn name(&self) -> &str {
-        "AnyRouter"
-    }
-    
-    fn domain(&self) -> &str {
-        "https://anyrouter.top"
-    }
-    
-    async fn check_in(
-        &self,
-        account: &Account,
-        headless: bool,
-    ) -> Result<CheckInResult, DomainError> {
-        // 1. 获取 WAF Cookies
-        let waf_cookies = self.waf_bypass
-            .get_waf_cookies(self.domain(), headless)
-            .await?;
-        
-        // 2. 合并 Cookies
-        let mut all_cookies = account.credentials().cookies().clone();
-        all_cookies.extend(waf_cookies);
-        
-        // 3. 调用签到 API
-        let response = self.http_client
-            .post(&format!("{}/api/user/sign_in", self.domain()))
-            .header("Cookie", format_cookies(&all_cookies))
-            .send()
-            .await?;
-        
-        // 4. 解析响应
-        let result: ApiResponse = response.json().await?;
-        
-        // 5. 返回结果
-        Ok(CheckInResult {
-            success: result.success,
-            message: result.message,
-            balance_increment: result.data.and_then(|d| d.increment),
-        })
-    }
-    
-    fn validate_credentials(&self, account: &Account) -> bool {
-        account.credentials().cookies().contains_key("session")
-    }
-}
-```
+1. `AppState::new` 初始化 `SqliteProviderRepository` 后调用 `seed_builtin_providers`。
+2. Seeder 检查 `providers` 表是否为空；若为空则解析 JSON 并使用 `Provider::builtin` 构造实体。
+3. 通过 `ProviderRepository::save` 持久化，并设置 `is_builtin = true`。
+4. 这样前端 Provider 管理与账号页面在首次启动时即可看到默认中转站，同时仍支持用户自定义增删。
 
-#### 插件注册
+### 运行期行为
 
-```rust
-pub struct PluginRegistry {
-    plugins: HashMap<String, Arc<dyn ProviderPlugin>>,
-}
-
-impl PluginRegistry {
-    pub fn new() -> Self {
-        let mut plugins = HashMap::new();
-        
-        // 注册内置插件
-        plugins.insert(
-            "anyrouter".to_string(),
-            Arc::new(AnyRouterPlugin::new()) as Arc<dyn ProviderPlugin>
-        );
-        
-        plugins.insert(
-            "agentrouter".to_string(),
-            Arc::new(AgentRouterPlugin::new()) as Arc<dyn ProviderPlugin>
-        );
-        
-        Self { plugins }
-    }
-    
-    pub fn get(&self, id: &str) -> Option<&Arc<dyn ProviderPlugin>> {
-        self.plugins.get(id)
-    }
-}
-```
+- 所有 HTTP/WAF/token/model 逻辑直接读取数据库中的 Provider 配置，彻底去除对具体服务商的硬编码。
+- 新增内置中转站流程：编辑 JSON → 打包发布；无需再编写/注册插件。
 
 ---
 

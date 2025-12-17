@@ -184,8 +184,7 @@ NeuraDock/
 │               │       ├── balance/         # 余额聚合
 │               │       ├── check_in/        # 签到聚合
 │               │       ├── session/         # 会话聚合
-│               │       ├── notification/    # 通知聚合
-│               │       └── plugins/         # 插件系统
+│               │       └── notification/    # 通知聚合
 │               └── neuradock-infrastructure/ # 基础设施层
 │                   ├── src/
 │                   │   ├── persistence/     # SQLite 仓储
@@ -198,6 +197,8 @@ NeuraDock/
 │   └── en/                         # 英文文档
 └── CLAUDE.md                       # Claude Code 项目指南
 ```
+
+> 内置中转站配置位于 `apps/desktop/src-tauri/config/providers/builtin_providers.json`，应用首次运行会自动将该文件写入数据库。
 
 ---
 

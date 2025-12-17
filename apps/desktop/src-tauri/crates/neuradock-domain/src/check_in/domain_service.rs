@@ -54,6 +54,18 @@ impl CheckInDomainService {
             ));
         }
 
+        if !provider.supports_check_in() {
+            return Err(DomainError::Validation(
+                "This provider does not support automated check-in".to_string(),
+            ));
+        }
+
+        if provider.check_in_bugged() {
+            return Err(DomainError::Validation(
+                "Check-in temporarily disabled due to known issue".to_string(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -116,8 +128,12 @@ mod tests {
             "/login".to_string(),
             Some("/checkin".to_string()),
             "/userinfo".to_string(),
+            Some("/token".to_string()),
+            Some("/models".to_string()),
             "user".to_string(),
             None,
+            true,
+            false,
         )
     }
 

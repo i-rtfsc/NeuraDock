@@ -7,6 +7,8 @@ export interface ProviderDto {
   domain: string;
   is_builtin: boolean;
   account_count: number;
+  supports_check_in: boolean;
+  check_in_bugged: boolean;
   // API configuration fields
   login_path: string;
   sign_in_path: string | null;

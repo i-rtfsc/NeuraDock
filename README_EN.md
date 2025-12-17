@@ -184,8 +184,7 @@ NeuraDock/
 │               │       ├── balance/         # Balance aggregate
 │               │       ├── check_in/        # Check-in aggregate
 │               │       ├── session/         # Session aggregate
-│               │       ├── notification/    # Notification aggregate
-│               │       └── plugins/         # Plugin system
+│               │       └── notification/    # Notification aggregate
 │               └── neuradock-infrastructure/ # Infrastructure layer
 │                   ├── src/
 │                   │   ├── persistence/     # SQLite repositories
@@ -198,6 +197,8 @@ NeuraDock/
 │   └── en/                         # English documentation
 └── CLAUDE.md                       # Claude Code project guide
 ```
+
+> Built-in relay definitions live in `apps/desktop/src-tauri/config/providers/builtin_providers.json` and are inserted into the database automatically on first launch.
 
 ---
 

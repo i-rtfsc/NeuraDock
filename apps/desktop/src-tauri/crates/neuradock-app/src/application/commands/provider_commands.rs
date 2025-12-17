@@ -8,6 +8,8 @@ pub struct CreateProviderCommand {
     pub name: String,
     pub domain: String,
     pub needs_waf_bypass: bool,
+    pub supports_check_in: Option<bool>,
+    pub check_in_bugged: Option<bool>,
     // Optional API paths (with defaults)
     pub login_path: Option<String>,
     pub sign_in_path: Option<String>,
@@ -32,6 +34,8 @@ pub struct UpdateProviderCommand {
     pub name: Option<String>,
     pub domain: Option<String>,
     pub needs_waf_bypass: Option<bool>,
+    pub supports_check_in: Option<bool>,
+    pub check_in_bugged: Option<bool>,
     // Optional API paths
     pub login_path: Option<String>,
     pub sign_in_path: Option<String>,

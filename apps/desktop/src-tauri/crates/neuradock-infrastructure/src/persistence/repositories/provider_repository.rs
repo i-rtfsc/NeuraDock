@@ -21,6 +21,8 @@ struct ProviderRow {
     models_path: Option<String>,
     api_user_key: String,
     bypass_method: Option<String>,
+    supports_check_in: bool,
+    check_in_bugged: bool,
     is_builtin: bool,
     created_at: String,
 }
@@ -52,6 +54,8 @@ impl SqliteProviderRepository {
             row.models_path,
             row.api_user_key,
             row.bypass_method,
+            row.supports_check_in,
+            row.check_in_bugged,
             row.is_builtin,
             created_at,
         );
@@ -70,9 +74,10 @@ impl ProviderRepository for SqliteProviderRepository {
             INSERT INTO providers (
                 id, name, domain, login_path, sign_in_path, user_info_path,
                 token_api_path, models_path, api_user_key, bypass_method,
+                supports_check_in, check_in_bugged,
                 is_builtin, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 domain = excluded.domain,
@@ -82,7 +87,9 @@ impl ProviderRepository for SqliteProviderRepository {
                 token_api_path = excluded.token_api_path,
                 models_path = excluded.models_path,
                 api_user_key = excluded.api_user_key,
-                bypass_method = excluded.bypass_method
+                bypass_method = excluded.bypass_method,
+                supports_check_in = excluded.supports_check_in,
+                check_in_bugged = excluded.check_in_bugged
             "#,
         )
         .bind(provider.id().as_str())
@@ -118,6 +125,8 @@ impl ProviderRepository for SqliteProviderRepository {
         } else {
             None
         })
+        .bind(provider.supports_check_in())
+        .bind(provider.check_in_bugged())
         .bind(provider.is_builtin())
         .bind(created_at)
         .execute(self.base.pool())
@@ -132,6 +141,7 @@ impl ProviderRepository for SqliteProviderRepository {
             r#"
             SELECT id, name, domain, login_path, sign_in_path, user_info_path,
                    token_api_path, models_path, api_user_key, bypass_method,
+                   supports_check_in, check_in_bugged,
                    is_builtin, created_at
             FROM providers
             WHERE id = ?
@@ -153,6 +163,7 @@ impl ProviderRepository for SqliteProviderRepository {
             r#"
             SELECT id, name, domain, login_path, sign_in_path, user_info_path,
                    token_api_path, models_path, api_user_key, bypass_method,
+                   supports_check_in, check_in_bugged,
                    is_builtin, created_at
             FROM providers
             ORDER BY is_builtin DESC, created_at ASC
@@ -162,7 +173,9 @@ impl ProviderRepository for SqliteProviderRepository {
         .await
         .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all providers"))?;
 
-        rows.into_iter().map(|row| self.row_to_domain(row)).collect()
+        rows.into_iter()
+            .map(|row| self.row_to_domain(row))
+            .collect()
     }
 
     async fn delete(&self, id: &ProviderId) -> Result<(), DomainError> {

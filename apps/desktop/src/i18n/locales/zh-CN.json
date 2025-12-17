@@ -231,7 +231,10 @@
     "succeeded": "成功",
     "failedCount": "失败",
     "total": "总计",
-    "balance": "余额"
+    "balance": "余额",
+    "disabled": "签到不可用",
+    "unsupportedProvider": "该中转站仅支持刷新余额",
+    "buggedProvider": "签到功能暂不可用，继续点击按钮则只会刷新余额"
   },
   "streaks": {
     "pageTitle": "签到记录",

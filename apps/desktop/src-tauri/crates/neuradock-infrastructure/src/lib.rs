@@ -9,5 +9,4 @@ pub mod logging;
 pub mod monitoring;
 pub mod notification;
 pub mod persistence;
-pub mod plugins;
 pub mod security;

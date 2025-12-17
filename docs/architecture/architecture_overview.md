@@ -79,9 +79,9 @@ NeuraDock 采用 Rust workspace 多 crate 架构，实现更好的模块化和�
   - `check_in/`: CheckIn 聚合、Provider 配置
   - `session/`: Session 聚合（会话管理）
   - `notification/`: Notification 聚合（通知管理）
-  - `plugins/`: 插件系统
   - `shared/`: 共享值对象、ID 类型、错误
   - `events/`: 领域事件
+  - `config/providers/`: 内置中转站（relay）配置 JSON（首次运行时自动写入数据库）
 
 ### 基础设施层
 - **位置**: `src-tauri/crates/neuradock-infrastructure/src/`

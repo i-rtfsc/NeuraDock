@@ -1,0 +1,44 @@
+[
+  {
+    "id": "anyrouter",
+    "name": "AnyRouter",
+    "domain": "https://anyrouter.top",
+    "login_path": "/login",
+    "sign_in_path": "/api/user/sign_in",
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": "waf_cookies",
+    "supports_check_in": true,
+    "check_in_bugged": false
+  },
+  {
+    "id": "agentrouter",
+    "name": "AgentRouter",
+    "domain": "https://agentrouter.org",
+    "login_path": "/login",
+    "sign_in_path": null,
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": null,
+    "supports_check_in": true,
+    "check_in_bugged": true
+  },
+  {
+    "id": "coderouter",
+    "name": "CodeRouter",
+    "domain": "https://api.codemirror.codes",
+    "login_path": "/login",
+    "sign_in_path": null,
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": null,
+    "supports_check_in": false,
+    "check_in_bugged": false
+  }
+]

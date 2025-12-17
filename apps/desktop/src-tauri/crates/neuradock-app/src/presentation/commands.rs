@@ -617,6 +617,8 @@ pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<Provide
                 domain: provider.domain().to_string(),
                 is_builtin: provider.is_builtin(),
                 account_count: account_count as i32,
+                supports_check_in: provider.supports_check_in(),
+                check_in_bugged: provider.check_in_bugged(),
                 // API configuration
                 login_path: provider
                     .login_url()

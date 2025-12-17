@@ -188,6 +188,8 @@ pub struct ProviderDto {
     pub domain: String,
     pub is_builtin: bool,
     pub account_count: i32,
+    pub supports_check_in: bool,
+    pub check_in_bugged: bool,
     // API configuration fields
     pub login_path: String,
     pub sign_in_path: Option<String>,

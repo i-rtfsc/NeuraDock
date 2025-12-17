@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { MoreVertical, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreVertical, Calendar, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
 import { TableVirtuoso } from 'react-virtuoso';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import type { ProviderDto } from '@/hooks/useProviders';
 import { Account } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -26,6 +32,7 @@ interface AccountsTableProps {
   checkingInIds?: Set<string>;
   sortConfig?: { key: keyof Account; direction: 'asc' | 'desc' } | null;
   onSortChange?: (config: { key: keyof Account; direction: 'asc' | 'desc' } | null) => void;
+  providersById?: Record<string, ProviderDto>;
 }
 
 export function AccountsTable({
@@ -39,6 +46,7 @@ export function AccountsTable({
   checkingInIds = new Set(),
   sortConfig,
   onSortChange,
+  providersById = {},
 }: AccountsTableProps) {
   const { t } = useTranslation();
 
@@ -219,25 +227,73 @@ export function AccountsTable({
                   </span>
                 </td>
                 <td className="p-2 align-middle pr-6">
-                  <div className="flex items-center justify-center gap-1">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCheckIn(account.id);
-                      }}
-                      disabled={!account.enabled || isChecking}
-                      className={cn(
-                        "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-300",
-                        "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
-                        "disabled:opacity-50 disabled:cursor-not-allowed",
-                        isChecking && "animate-pulse"
-                      )}
-                    >
-                      <Calendar className="mr-1.5 h-3.5 w-3.5" />
-                      {isChecking ? t('checkIn.checking', '签到中...') : t('checkIn.checkIn', '签到')}
-                    </Button>
+                  <div className="flex items-start justify-center gap-2">
+                    <div className="flex flex-col items-center gap-1">
+                      {(() => {
+                        const provider = providersById[account.provider_id];
+                        const supportsCheckIn = provider?.supports_check_in ?? true;
+                        const checkInBugged = provider?.check_in_bugged ?? false;
+                        const isBugged = supportsCheckIn && checkInBugged;
+                        const buttonDisabled = !account.enabled || (supportsCheckIn && isChecking);
+                        const buttonLabel = !supportsCheckIn
+                          ? t('accountCard.refreshBalance')
+                          : isChecking
+                          ? t('checkIn.checking', '签到中...')
+                          : t('checkIn.checkIn', '签到');
+                        const buttonIcon = supportsCheckIn ? (
+                          <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                        ) : (
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        );
+                        const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.stopPropagation();
+                          if (!supportsCheckIn || isBugged) {
+                            onRefreshBalance(account.id);
+                            return;
+                          }
+                          onCheckIn(account.id);
+                        };
+                        const button = (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleClick}
+                            disabled={buttonDisabled}
+                            className={cn(
+                              "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-300",
+                              supportsCheckIn
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700',
+                              'disabled:opacity-50 disabled:cursor-not-allowed',
+                              isChecking && supportsCheckIn && 'animate-pulse'
+                            )}
+                          >
+                            {buttonIcon}
+                            {buttonLabel}
+                          </Button>
+                        );
+
+                        const tooltipMessage = !supportsCheckIn
+                          ? t('checkIn.unsupportedProvider', '该中转站仅支持刷新余额')
+                          : isBugged
+                          ? t('checkIn.buggedProvider', '签到功能暂不可用，请刷新余额')
+                          : null;
+
+                        if (tooltipMessage) {
+                          return (
+                            <Tooltip>
+                              <TooltipTrigger asChild>{button}</TooltipTrigger>
+                              <TooltipContent>
+                                <p>{tooltipMessage}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        }
+
+                        return button;
+                      })()}
+                    </div>
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon-sm" className="h-8 w-8 hover:bg-muted">

@@ -79,9 +79,9 @@ NeuraDock uses a Rust workspace multi-crate architecture for better modularity a
   - `check_in/`: CheckIn aggregate, Provider configuration
   - `session/`: Session aggregate (session management)
   - `notification/`: Notification aggregate (notification management)
-  - `plugins/`: Plugin system
   - `shared/`: Shared value objects, ID types, errors
   - `events/`: Domain events
+  - `config/providers/`: Built-in relay definitions (seeded into the database on first launch)
 
 ### Infrastructure Layer
 - **Location**: `src-tauri/crates/neuradock-infrastructure/src/`

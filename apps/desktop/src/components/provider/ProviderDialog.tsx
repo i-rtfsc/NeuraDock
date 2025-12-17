@@ -27,6 +27,8 @@ export interface ProviderFormValues {
   name: string;
   domain: string;
   needs_waf_bypass: boolean;
+  supports_check_in: boolean;
+  check_in_bugged: boolean;
   // Optional fields
   login_path?: string;
   sign_in_path?: string;
@@ -68,6 +70,8 @@ export function ProviderDialog({
       name: '',
       domain: '',
       needs_waf_bypass: false,
+      supports_check_in: true,
+      check_in_bugged: false,
       login_path: '/login',
       sign_in_path: '/api/user/sign_in',
       user_info_path: '/api/user/self',
@@ -78,6 +82,8 @@ export function ProviderDialog({
   });
 
   const needsWafBypass = watch('needs_waf_bypass');
+  const supportsCheckIn = watch('supports_check_in');
+  const checkInBugged = watch('check_in_bugged');
 
   useEffect(() => {
     if (open && defaultValues) {
@@ -85,6 +91,8 @@ export function ProviderDialog({
         name: defaultValues.name || '',
         domain: defaultValues.domain || '',
         needs_waf_bypass: defaultValues.needs_waf_bypass ?? false,
+        supports_check_in: defaultValues.supports_check_in ?? true,
+        check_in_bugged: defaultValues.check_in_bugged ?? false,
         login_path: defaultValues.login_path || '/login',
         sign_in_path: defaultValues.sign_in_path || '/api/user/sign_in',
         user_info_path: defaultValues.user_info_path || '/api/user/self',
@@ -191,6 +199,46 @@ export function ProviderDialog({
                   id="needs_waf_bypass"
                   checked={needsWafBypass}
                   onCheckedChange={(checked) => setValue('needs_waf_bypass', checked)}
+                />
+              </div>
+
+              {/* Supports check-in */}
+              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="supports_check_in" className="text-base">
+                    支持自动签到
+                  </Label>
+                  <div className="text-sm text-muted-foreground">
+                    如果中转站仅提供余额查询，请关闭此选项
+                  </div>
+                </div>
+                <Switch
+                  id="supports_check_in"
+                  checked={supportsCheckIn}
+                  onCheckedChange={(checked) => {
+                    setValue('supports_check_in', checked);
+                    if (!checked) {
+                      setValue('check_in_bugged', false);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Known bug toggle */}
+              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="check_in_bugged" className="text-base">
+                    签到功能暂不可用
+                  </Label>
+                  <div className="text-sm text-muted-foreground">
+                    如果当前版本存在已知问题，请开启该选项并提示用户刷新余额
+                  </div>
+                </div>
+                <Switch
+                  id="check_in_bugged"
+                  checked={checkInBugged}
+                  disabled={!supportsCheckIn}
+                  onCheckedChange={(checked) => setValue('check_in_bugged', checked)}
                 />
               </div>
             </TabsContent>

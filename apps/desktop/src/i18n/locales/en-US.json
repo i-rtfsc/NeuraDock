@@ -231,7 +231,10 @@
     "succeeded": "succeeded",
     "failedCount": "failed",
     "total": "total",
-    "balance": "Balance"
+    "balance": "Balance",
+    "disabled": "Check-in unavailable",
+    "unsupportedProvider": "This relay only supports refreshing balance",
+    "buggedProvider": "Check-in temporarily unavailable. Clicking will refresh the balance instead."
   },
   "streaks": {
     "pageTitle": "Check-in Records",

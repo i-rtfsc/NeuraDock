@@ -14,6 +14,8 @@ export function useProviderActions() {
       name: string;
       domain: string;
       needs_waf_bypass: boolean;
+      supports_check_in?: boolean;
+      check_in_bugged?: boolean;
       login_path?: string;
       sign_in_path?: string;
       user_info_path?: string;
@@ -39,6 +41,8 @@ export function useProviderActions() {
       name?: string;
       domain?: string;
       needs_waf_bypass?: boolean;
+      supports_check_in?: boolean;
+      check_in_bugged?: boolean;
       login_path?: string;
       sign_in_path?: string;
       user_info_path?: string;
