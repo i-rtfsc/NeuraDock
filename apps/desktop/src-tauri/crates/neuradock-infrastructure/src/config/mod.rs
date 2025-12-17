@@ -1,1 +1,3 @@
-// Config placeholder
+pub mod timeouts;
+
+pub use timeouts::TimeoutConfig;

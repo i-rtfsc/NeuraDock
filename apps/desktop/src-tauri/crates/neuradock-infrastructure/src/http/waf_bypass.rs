@@ -1,15 +1,15 @@
 use anyhow::{Context, Result};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
-use log::{info, warn};
+use log::{error, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinHandle;
+use crate::config::TimeoutConfig;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 const REQUIRED_WAF_COOKIES: &[&str] = &["acw_tc", "cdn_sec_tc", "acw_sc__v2"];
-const BROWSER_CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Helper to clean up browser resources with timeout
 async fn cleanup_browser(
@@ -18,11 +18,13 @@ async fn cleanup_browser(
     temp_dir: PathBuf,
     account_name: &str,
 ) {
+    let config = TimeoutConfig::global();
+    
     // Abort the handler task first
     handler_task.abort();
     
     // Try to close browser with timeout
-    match tokio::time::timeout(BROWSER_CLOSE_TIMEOUT, browser.close()).await {
+    match tokio::time::timeout(config.browser_close, browser.close()).await {
         Ok(Ok(_)) => {
             info!("[{}] Browser closed successfully", account_name);
         }
@@ -248,8 +250,9 @@ impl WafBypassService {
         info!("[{}] Browser config created, launching...", account_name);
 
         // Launch browser with timeout
+        let timeout_config = TimeoutConfig::global();
         let launch_result =
-            tokio::time::timeout(Duration::from_secs(30), Browser::launch(config)).await;
+            tokio::time::timeout(timeout_config.browser_launch, Browser::launch(config)).await;
 
         let (mut browser, mut handler) = match launch_result {
             Ok(Ok(browser_handler)) => browser_handler,
@@ -305,8 +308,9 @@ impl WafBypassService {
 
         info!("[{}] Page loaded, waiting for WAF cookies...", account_name);
 
-        // Wait for cookies to be set (increased timeout)
-        tokio::time::sleep(Duration::from_secs(8)).await;
+        // Wait for cookies to be set (configurable timeout)
+        let timeout_config = TimeoutConfig::global();
+        tokio::time::sleep(timeout_config.waf_wait).await;
 
         // Get all cookies
         let cookies = page.get_cookies().await.map_err(|e| {
