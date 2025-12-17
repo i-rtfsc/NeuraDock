@@ -463,18 +463,32 @@ impl CheckInExecutor {
         let mut success_count = 0;
         let mut failed_count = 0;
 
+        // Batch load all accounts at once to avoid N+1 queries
+        let account_id_objs: Vec<AccountId> = account_ids
+            .iter()
+            .map(|id| AccountId::from_string(id))
+            .collect();
+        
+        let accounts = match self.account_repo.find_by_ids(&account_id_objs).await {
+            Ok(accs) => accs,
+            Err(e) => {
+                error!("Failed to batch load accounts: {}", e);
+                return Err(anyhow::anyhow!("Failed to load accounts: {}", e));
+            }
+        };
+
+        // Create a map for quick lookup
+        let account_map: HashMap<String, Account> = accounts
+            .into_iter()
+            .map(|acc| (acc.id().as_str().to_string(), acc))
+            .collect();
+
         for account_id in account_ids {
-            // Load account to get provider_id
-            let account_id_obj = AccountId::from_string(&account_id);
-            let account = match self.account_repo.find_by_id(&account_id_obj).await {
-                Ok(Some(acc)) => acc,
-                Ok(None) => {
+            // Get account from pre-loaded map
+            let account = match account_map.get(&account_id) {
+                Some(acc) => acc,
+                None => {
                     warn!("Account {} not found", account_id);
-                    failed_count += 1;
-                    continue;
-                }
-                Err(e) => {
-                    error!("Failed to load account {}: {}", account_id, e);
                     failed_count += 1;
                     continue;
                 }
