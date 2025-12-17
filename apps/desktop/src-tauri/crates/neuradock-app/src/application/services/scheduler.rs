@@ -138,21 +138,39 @@ impl AutoCheckInScheduler {
         let handle = tokio::spawn(async move {
             loop {
                 let now = Local::now();
-                let target_hour = hour as u32;
-                let target_minute = minute as u32;
+                // Validate and clamp hour/minute to valid ranges to prevent panics
+                let target_hour = (hour as u32).min(23);
+                let target_minute = (minute as u32).min(59);
 
-                // Calculate next execution time
-                let mut next_run = now
+                // Warn if values were clamped
+                if hour > 23 || minute > 59 {
+                    error!(
+                        "⚠️  Invalid schedule time for account '{}': {}:{} (clamped to {}:{})",
+                        account_name, hour, minute, target_hour, target_minute
+                    );
+                }
+
+                // Calculate next execution time with proper error handling
+                let next_run = match now
                     .date_naive()
                     .and_hms_opt(target_hour, target_minute, 0)
-                    .unwrap()
-                    .and_local_timezone(now.timezone())
-                    .unwrap();
-
-                // If the target time has already passed today, schedule for tomorrow
-                if next_run <= now {
-                    next_run = next_run + chrono::Duration::days(1);
-                }
+                    .and_then(|dt| dt.and_local_timezone(now.timezone()).single())
+                {
+                    Some(mut next) => {
+                        // If the target time has already passed today, schedule for tomorrow
+                        if next <= now {
+                            next = next + chrono::Duration::days(1);
+                        }
+                        next
+                    }
+                    None => {
+                        error!(
+                            "❌ Failed to calculate next run time for account '{}' with time {}:{}. Task will exit.",
+                            account_name, target_hour, target_minute
+                        );
+                        break; // Exit the loop to stop this task
+                    }
+                };
 
                 let duration_until_next =
                     (next_run - now).to_std().unwrap_or(Duration::from_secs(60));

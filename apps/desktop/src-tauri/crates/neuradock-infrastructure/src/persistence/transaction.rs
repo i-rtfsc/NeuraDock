@@ -4,13 +4,18 @@ use sqlx::{Pool, Sqlite, Transaction as SqlxTransaction};
 use std::sync::Arc;
 
 /// Sqlite implementation of TransactionContext
+/// Holds a reference to the pool to ensure it outlives the transaction
 pub struct SqliteTransactionContext<'a> {
     tx: Option<SqlxTransaction<'a, Sqlite>>,
+    _pool: Arc<Pool<Sqlite>>, // Keep pool alive during transaction
 }
 
 impl<'a> SqliteTransactionContext<'a> {
-    pub fn new(tx: SqlxTransaction<'a, Sqlite>) -> Self {
-        Self { tx: Some(tx) }
+    pub fn new(tx: SqlxTransaction<'a, Sqlite>, pool: Arc<Pool<Sqlite>>) -> Self {
+        Self {
+            tx: Some(tx),
+            _pool: pool,
+        }
     }
 
     /// Get mutable reference to the underlying transaction
@@ -63,12 +68,15 @@ impl UnitOfWork for SqliteUnitOfWork {
             .await
             .map_err(|e| UnitOfWorkError::TransactionFailed(e.to_string()))?;
 
-        // SAFETY: We're converting the transaction to 'static lifetime
-        // This is safe because the transaction will be committed or rolled back
-        // before the pool is dropped
+        // SAFETY: We're converting the transaction to 'static lifetime.
+        // This is now safe because SqliteTransactionContext holds an Arc<Pool>
+        // reference, ensuring the pool outlives the transaction.
         let static_tx: SqlxTransaction<'static, Sqlite> = unsafe { std::mem::transmute(tx) };
 
-        Ok(Box::new(SqliteTransactionContext::new(static_tx)))
+        Ok(Box::new(SqliteTransactionContext::new(
+            static_tx,
+            Arc::clone(&self.pool),
+        )))
     }
 }
 
@@ -93,5 +101,36 @@ mod tests {
 
         let tx = uow.begin().await.unwrap();
         tx.rollback().await.unwrap();
+    }
+
+    /// Test that transaction holds pool reference and prevents premature drop
+    #[sqlx::test]
+    async fn test_transaction_safety_with_pool_reference() {
+        let pool = Arc::new(SqlitePool::connect(":memory:").await.unwrap());
+        let uow = SqliteUnitOfWork::new(Arc::clone(&pool));
+
+        // Begin transaction - it should hold a reference to the pool
+        let tx = uow.begin().await.unwrap();
+
+        // Drop the original pool Arc - transaction should still be valid
+        // because SqliteTransactionContext holds its own Arc<Pool> reference
+        drop(pool);
+
+        // Transaction should still work
+        tx.commit().await.unwrap();
+    }
+
+    /// Test that multiple concurrent transactions can coexist
+    #[sqlx::test]
+    async fn test_concurrent_transactions() {
+        let pool = Arc::new(SqlitePool::connect(":memory:").await.unwrap());
+        let uow = SqliteUnitOfWork::new(Arc::clone(&pool));
+
+        let tx1 = uow.begin().await.unwrap();
+        let tx2 = uow.begin().await.unwrap();
+
+        // Both transactions should be independent
+        tx1.commit().await.unwrap();
+        tx2.rollback().await.unwrap();
     }
 }
