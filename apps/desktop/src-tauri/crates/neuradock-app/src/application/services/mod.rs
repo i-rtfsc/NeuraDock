@@ -1,4 +1,5 @@
 mod check_in_executor;
+mod check_in_helpers;
 mod config_service;
 mod i18n;
 mod notification_service;
