@@ -58,7 +58,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 type ProviderFilter = 'all' | 'openai' | 'anthropic' | 'custom';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-export function TokenManagerPage() {
+export function TokensPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

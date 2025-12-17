@@ -10,7 +10,7 @@ import { useProviders } from '@/hooks/useProviders';
 import { useProviderActions } from '@/hooks/useProviderActions';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function ProvidersPage() {
+export function RelayStationsPage() {
   const { t } = useTranslation();
   const { data: providers = [], isLoading } = useProviders();
   const {

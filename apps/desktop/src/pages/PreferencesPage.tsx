@@ -399,7 +399,7 @@ const AboutSettings = () => {
 
 // --- Main Page Component ---
 
-export function SettingsPage() {
+export function PreferencesPage() {
   const { t } = useTranslation();
 
   return (

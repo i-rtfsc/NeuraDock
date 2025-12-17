@@ -36,7 +36,7 @@ import { useAccountActions } from '@/hooks/useAccountActions';
 import { useCheckInCalendar, useCheckInTrend, useCheckInStreak, useCheckInDayDetail } from '@/hooks/useCheckInStreak';
 import { cn } from '@/lib/utils';
 
-export function AccountDetailPage() {
+export function AccountOverviewPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();

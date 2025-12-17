@@ -4,13 +4,13 @@ import { queryClient } from './lib/query-client';
 import { ThemeProvider } from './hooks/useTheme';
 import { MainLayout } from './components/layout/MainLayout';
 import { Toaster } from './components/ui/toaster';
-import { DashboardPage } from './pages/DashboardPage';
-import { AccountsTablePage } from './pages/AccountsTablePage';
-import { AccountDetailPage } from './pages/AccountDetailPage';
-import { AccountRecordsPage } from './pages/AccountRecordsPage';
-import { TokenManagerPage } from './pages/TokenManagerPage';
-import { ProvidersPage } from './pages/ProvidersPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { HomePage } from './pages/HomePage';
+import { AccountsPage } from './pages/AccountsPage';
+import { AccountOverviewPage } from './pages/AccountOverviewPage';
+import { AccountActivityPage } from './pages/AccountActivityPage';
+import { TokensPage } from './pages/TokensPage';
+import { RelayStationsPage } from './pages/RelayStationsPage';
+import { PreferencesPage } from './pages/PreferencesPage';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 function App() {
@@ -21,13 +21,13 @@ function App() {
           <BrowserRouter>
             <MainLayout>
               <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/accounts" element={<AccountsTablePage />} />
-                <Route path="/accounts/:accountId" element={<AccountDetailPage />} />
-                <Route path="/account/:accountId/records" element={<AccountRecordsPage />} />
-                <Route path="/tokens" element={<TokenManagerPage />} />
-                <Route path="/providers" element={<ProvidersPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/" element={<HomePage />} />
+                <Route path="/accounts" element={<AccountsPage />} />
+                <Route path="/accounts/:accountId" element={<AccountOverviewPage />} />
+                <Route path="/account/:accountId/records" element={<AccountActivityPage />} />
+                <Route path="/tokens" element={<TokensPage />} />
+                <Route path="/providers" element={<RelayStationsPage />} />
+                <Route path="/settings" element={<PreferencesPage />} />
               </Routes>
             </MainLayout>
             <Toaster />

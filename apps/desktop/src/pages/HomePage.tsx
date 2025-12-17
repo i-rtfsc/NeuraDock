@@ -12,7 +12,7 @@ import { PageContent, Section } from '@/components/layout/PageContent';
 import { BentoGrid } from '@/components/layout/CardGrid';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 
-export function DashboardPage() {
+export function HomePage() {
   const { data: accounts, isLoading } = useAccounts();
   const { data: statistics, isLoading: statsLoading } = useBalanceStatistics();
   const { t } = useTranslation();

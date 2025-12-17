@@ -1,65 +1,114 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Upload, RefreshCw, Search, Wallet, TrendingUp, History, Layers, Box } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Plus, 
+  Upload, 
+  Search, 
+  Download, 
+  Wallet, 
+  TrendingUp, 
+  History, 
+  Layers, 
+  Box, 
+  Calendar, 
+  RefreshCw
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { toast } from 'sonner';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
 
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProviders } from '@/hooks/useProviders';
-import { useBalanceStatistics, useRefreshAllBalances } from '@/hooks/useBalance';
+import type { ProviderDto } from '@/hooks/useProviders';
 import { useAccountActions } from '@/hooks/useAccountActions';
-import { AccountCard } from '@/components/account/AccountCard';
+import { AccountsTable } from '@/components/account/AccountsTable';
 import { AccountDialog } from '@/components/account/AccountDialog';
 import { JsonImportDialog } from '@/components/account/JsonImportDialog';
 import { BatchUpdateDialog } from '@/components/account/BatchUpdateDialog';
-import { BatchCheckInButton } from '@/components/checkin/BatchCheckInButton';
-import { Account } from '@/lib/tauri-commands';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-
 import { PageContainer } from '@/components/layout/PageContainer';
-import { SidebarPageLayout } from '@/components/layout/SidebarPageLayout';
-import { CardGrid } from '@/components/layout/CardGrid';
-import { AccountListSkeleton } from '@/components/skeletons/AccountListSkeleton';
+import { Account } from '@/lib/tauri-commands';
+import { cn } from '@/lib/utils';
 
 export function AccountsPage() {
-  const { data: accounts, isLoading } = useAccounts();
-  const { data: providers } = useProviders();
-  const { data: statistics } = useBalanceStatistics();
-  const refreshAllBalancesMutation = useRefreshAllBalances();
-  const { 
-    editingAccount, 
-    dialogOpen: accountDialogOpen, 
-    handleEdit, 
-    handleCreate, 
-    handleDialogClose 
-  } = useAccountActions();
   const { t } = useTranslation();
-  
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedProvider = searchParams.get('provider') || 'all';
-  
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: accounts = [], isLoading } = useAccounts();
+  const { data: providers } = useProviders();
+  const providersById = useMemo(() => {
+    if (!providers) {
+      return {} as Record<string, ProviderDto>;
+    }
+    return providers.reduce((acc, provider) => {
+      acc[provider.id] = provider;
+      return acc;
+    }, {} as Record<string, ProviderDto>);
+  }, [providers]);
+  const {
+    editingAccount,
+    dialogOpen: accountDialogOpen,
+    handleEdit,
+    handleCreate,
+    handleDialogClose,
+  } = useAccountActions();
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [providerFilter, setProviderFilter] = useState<string>('all');
   const [jsonImportDialogOpen, setJsonImportDialogOpen] = useState(false);
   const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false);
+  const [checkingInIds, setCheckingInIds] = useState<Set<string>>(new Set());
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Account; direction: 'asc' | 'desc' } | null>(null);
 
-  const setSelectedProvider = (value: string) => {
-    setSearchParams(prev => {
-      prev.set('provider', value);
-      return prev;
+  // Get unique providers from accounts
+  const allProviders = useMemo(() => {
+    if (providers && providers.length > 0) {
+      return providers.map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+      }));
+    }
+
+    if (!accounts) return [];
+    const uniqueIds = new Set(accounts.map((a) => a.provider_id));
+    return Array.from(uniqueIds).map((id) => {
+      const account = accounts.find((a) => a.provider_id === id);
+      return {
+        id,
+        name: account?.provider_name || 'Unknown',
+      };
     });
-  };
+  }, [accounts, providers]);
 
   // Filter accounts
   const filteredAccounts = useMemo(() => {
     if (!accounts) return [];
     let result = accounts;
-    
+
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -70,193 +119,207 @@ export function AccountsPage() {
       );
     }
 
-    // Filter by selected provider tab
-    if (selectedProvider !== 'all') {
-      result = result.filter(a => a.provider_id === selectedProvider);
+    // Filter by provider
+    if (providerFilter !== 'all') {
+      result = result.filter((a) => a.provider_id === providerFilter);
     }
-    
+
+    // Sort
+    if (sortConfig) {
+      result = [...result].sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue === bValue) return 0;
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
     return result;
-  }, [accounts, searchQuery, selectedProvider]);
+  }, [accounts, searchQuery, providerFilter, sortConfig]);
 
-  // Get all unique providers from the *original* accounts list for the tabs
-  const allProviders = useMemo(() => {
-    if (!accounts) return [];
-    const uniqueIds = new Set(accounts.map(a => a.provider_id));
-    return Array.from(uniqueIds).map(id => {
-      const account = accounts.find(a => a.provider_id === id);
-      const provider = providers?.find(p => p.id === id);
-      return {
-        id,
-        name: provider?.name || account?.provider_name || 'Unknown'
-      };
-    });
-  }, [accounts, providers]);
-
-  // Group accounts by provider
-  const accountsByProvider = useMemo(() => {
-    if (!filteredAccounts) return {};
-    
-    return filteredAccounts.reduce((acc, account) => {
-      const providerId = account.provider_id;
-      if (!acc[providerId]) {
-        acc[providerId] = [];
-      }
-      acc[providerId].push(account);
-      return acc;
-    }, {} as Record<string, Account[]>);
-  }, [filteredAccounts]);
-
-  // Calculate filtered statistics based on selected provider
+  // Calculate filtered statistics based on actual filtered accounts
   const filteredStatistics = useMemo(() => {
-    if (!statistics) return null;
-    
-    if (selectedProvider === 'all') {
-      return statistics;
-    }
+    if (!filteredAccounts || filteredAccounts.length === 0) return null;
 
-    const providerStats = statistics.providers.find(p => p.provider_id === selectedProvider);
-    if (!providerStats) return null;
+    // Calculate statistics from filtered accounts
+    const total_current_balance = filteredAccounts.reduce(
+      (sum, acc) => sum + (acc.current_balance || 0),
+      0
+    );
+    const total_income = filteredAccounts.reduce(
+      (sum, acc) => sum + (acc.total_income || 0),
+      0
+    );
+    const total_consumed = filteredAccounts.reduce(
+      (sum, acc) => sum + (acc.total_consumed || 0),
+      0
+    );
 
     return {
-      ...statistics,
-      total_income: providerStats.total_income,
-      total_consumed: providerStats.total_consumed,
-      total_current_balance: providerStats.current_balance,
+      total_current_balance,
+      total_income,
+      total_consumed,
     };
-  }, [statistics, selectedProvider]);
+  }, [filteredAccounts]);
 
-  const handleRefreshProviderBalances = async (providerAccounts: Account[]) => {
-    const enabledAccountIds = providerAccounts.filter(a => a.enabled).map(a => a.id);
-    if (enabledAccountIds.length === 0) {
-      toast.error(t('accounts.noEnabledAccounts') || 'No enabled accounts');
+  // Batch check-in mutation
+  const batchCheckInMutation = useMutation({
+    mutationFn: async (accountIds: string[]) => {
+      const results = await Promise.allSettled(
+        accountIds.map((id) => invoke('execute_check_in', { accountId: id }))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      return { succeeded, failed, total: accountIds.length };
+    },
+    onSuccess: ({ succeeded, failed, total }) => {
+      if (failed === 0) {
+        toast.success(t('checkIn.batchSuccess', `成功签到 ${succeeded} 个账号`));
+      } else {
+        toast.warning(
+          t('checkIn.batchPartial', `成功 ${succeeded} 个，失败 ${failed} 个，共 ${total} 个`)
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Single check-in mutation
+  const checkInMutation = useMutation({
+    mutationFn: (accountId: string) =>
+      invoke('execute_check_in', { accountId }),
+    onMutate: (accountId) => {
+      setCheckingInIds((prev) => new Set(prev).add(accountId));
+    },
+    onSettled: (_, __, accountId) => {
+      setCheckingInIds((prev) => {
+        const next = new Set(prev);
+        next.delete(accountId);
+        return next;
+      });
+    },
+    onSuccess: () => {
+      toast.success(t('checkIn.success'));
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('checkIn.failed'));
+    },
+  });
+
+  // Refresh balance mutation
+  const refreshBalanceMutation = useMutation({
+    mutationFn: (accountId: string) =>
+      invoke('fetch_account_balance', {
+        accountId,
+        forceRefresh: true,
+      }),
+    onSuccess: () => {
+      toast.success(t('accountCard.balanceRefreshed'));
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Batch refresh balances
+  const batchRefreshMutation = useMutation({
+    mutationFn: async (accountIds: string[]) => {
+      await Promise.all(
+        accountIds.map((id) =>
+          invoke('fetch_account_balance', {
+            accountId: id,
+            forceRefresh: true,
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      toast.success(t('accounts.balancesRefreshed'));
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Toggle account enabled
+  const toggleMutation = useMutation({
+    mutationFn: (account: Account) =>
+      invoke('toggle_account_enabled', {
+        accountId: account.id,
+        enabled: !account.enabled,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Delete account
+  const deleteMutation = useMutation({
+    mutationFn: (accountId: string) =>
+      invoke('delete_account', { accountId }),
+    onSuccess: () => {
+      toast.success(t('accountCard.deleted', '账号已删除'));
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleAccountClick = (account: Account) => {
+    navigate(`/accounts/${account.id}`);
+  };
+
+  const handleBatchCheckIn = () => {
+    const enabledIds = filteredAccounts
+      .filter((a) => a.enabled)
+      .map((a) => a.id);
+
+    if (enabledIds.length === 0) {
+      toast.error(t('accounts.noEnabledAccounts', '没有启用的账号'));
       return;
     }
 
-    try {
-      await refreshAllBalancesMutation.mutateAsync(enabledAccountIds);
-      toast.success(t('accounts.balancesRefreshed') || 'Balances refreshed');
-    } catch (error) {
-      console.error('Failed to refresh balances:', error);
-      toast.error(t('common.error'));
-    }
+    batchCheckInMutation.mutate(enabledIds);
   };
 
-  const sidebarContent = (
-    <>
-      {/* Statistics Summary Card */}
-      {filteredStatistics && (
-        <Card className="p-5 border-border/50 shadow-md bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-blue-950/30 dark:via-background dark:to-green-950/30">
-          <div className="space-y-4">
-            {/* Current Balance */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 shadow-sm">
-                  <Wallet className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.currentBalance')}</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono">
-                    ${filteredStatistics.total_current_balance.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
+  const handleBatchRefresh = () => {
+    const enabledIds = filteredAccounts
+      .filter((a) => a.enabled)
+      .map((a) => a.id);
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+    if (enabledIds.length === 0) {
+      toast.error(t('accounts.noEnabledAccounts', '没有启用的账号'));
+      return;
+    }
 
-            {/* Total Income */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.totalIncome')}</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono">
-                    ${filteredStatistics.total_income.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
+    batchRefreshMutation.mutate(enabledIds);
+  };
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Historical Consumption */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 shadow-sm">
-                  <History className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.historicalConsumption')}</p>
-                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">
-                    ${filteredStatistics.total_consumed.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      <Card className="flex-1 border-border/50 shadow-sm bg-background/50 backdrop-blur-sm overflow-hidden transition-all duration-base ease-smooth hover:shadow-hover-md hover:border-border">
-        <ScrollArea className="h-full">
-          <div className="p-2 space-y-1">
-            <button
-              onClick={() => setSelectedProvider('all')}
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                selectedProvider === 'all'
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4" />
-                <span>{t('accounts.allProviders')}</span>
-              </div>
-              <span className={cn("text-xs", selectedProvider === 'all' ? "opacity-90" : "opacity-70")}>
-                {accounts?.length || 0}
-              </span>
-            </button>
-
-            <div className="my-2 px-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
-              {t('accounts.providersLabel')}
-            </div>
-
-            {allProviders.map(p => {
-              const count = accounts?.filter(a => a.provider_id === p.id).length || 0;
-              const isActive = selectedProvider === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedProvider(p.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Box className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{p.name}</span>
-                  </div>
-                  <span className={cn("text-xs", isActive ? "opacity-90" : "opacity-70")}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      </Card>
-    </>
-  );
+  const hasEnabledAccounts = filteredAccounts.filter(a => a.enabled).length > 0;
 
   return (
-    <PageContainer 
-      className="h-full overflow-hidden"
+    <PageContainer
+      className="h-full flex flex-col"
       title={
         <div className="flex items-center gap-3">
           <span className="text-2xl font-bold tracking-tight">{t('accounts.title')}</span>
@@ -281,7 +344,7 @@ export function AccountsPage() {
           </div>
 
           {/* Provider Filter */}
-          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+          <Select value={providerFilter} onValueChange={setProviderFilter}>
             <SelectTrigger className="w-40 h-9 shadow-sm border-border/50">
               <SelectValue placeholder={t('accounts.allProviders')} />
             </SelectTrigger>
@@ -305,117 +368,187 @@ export function AccountsPage() {
 
           <div className="w-px h-6 bg-border" />
 
-          <Button variant="ghost" size="icon" onClick={() => setBatchUpdateDialogOpen(true)} title={t('accounts.batchUpdate')}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setJsonImportDialogOpen(true)} title={t('accounts.importJSON')}>
-            <Upload className="h-4 w-4" />
-          </Button>
-          <Button size="sm" onClick={handleCreate} className="shadow-sm">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('accounts.addAccount')}
-          </Button>
+          {/* Batch Check-in Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBatchCheckIn}
+                disabled={batchCheckInMutation.isPending || !hasEnabledAccounts}
+                title={t('checkIn.batchCheckIn')}
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('checkIn.batchCheckIn', '批量签到')}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Batch Refresh Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBatchRefresh}
+                disabled={batchRefreshMutation.isPending || !hasEnabledAccounts}
+                title={t('accounts.refreshBalances')}
+              >
+                <RefreshCw className={cn("h-4 w-4", batchRefreshMutation.isPending && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('accounts.refreshBalances', '批量刷新余额')}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <div className="w-px h-6 bg-border" />
+
+          {/* Add/Manage Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('accounts.addAndManage', '添加/管理')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>{t('accounts.accountOperations', '账号操作')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                <span>{t('accounts.addAccount')}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>{t('accounts.dataManagement', '数据管理')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setBatchUpdateDialogOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                <span>{t('accounts.batchUpdate')}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setJsonImportDialogOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                <span>{t('accounts.importJSON')}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       }
     >
-      <SidebarPageLayout sidebar={sidebarContent}>
-        <div className="space-y-section-gap">
-          {/* Accounts List */}
-          {isLoading ? (
-            <AccountListSkeleton />
-          ) : filteredAccounts && filteredAccounts.length > 0 ? (
-            <div className="space-y-section-gap">
-              {Object.entries(accountsByProvider).map(([providerId, providerAccounts]) => {
-                const providerInfo = providers?.find(p => p.id === providerId);
-                const providerName = providerInfo?.name || providerAccounts[0]?.provider_name || 'Unknown';
-                const enabledCount = providerAccounts.filter(a => a.enabled).length;
-
-                return (
-                  <Card key={providerId} className="animate-in fade-in slide-in-from-bottom-4 duration-500 border-border/50 shadow-sm overflow-hidden">
-                    {/* Provider Header */}
-                    <div className="flex items-center justify-between px-[var(--layout-page-content-padding)] py-3 bg-muted/30">
-                      <div className="flex items-center gap-element-gap">
-                        <h2 className="text-base font-semibold tracking-tight">{providerName}</h2>
-                        <Badge variant="secondary" className="rounded-full px-2.5 text-xs bg-background/50">
-                          {providerAccounts.length}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {enabledCount > 0 && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground hover:text-foreground hover:bg-background/50"
-                              onClick={() => handleRefreshProviderBalances(providerAccounts)}
-                              disabled={refreshAllBalancesMutation.isPending}
-                            >
-                              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshAllBalancesMutation.isPending ? 'animate-spin' : ''}`} />
-                              <span className="text-xs">{t('accounts.refreshBalances')}</span>
-                            </Button>
-                            <BatchCheckInButton
-                              accountIds={providerAccounts.filter(a => a.enabled).map(a => a.id)}
-                              onComplete={() => {}}
-                            />
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Accounts Grid - 使用统一的CardGrid组件 */}
-                    <div className="p-[var(--layout-page-content-padding)]">
-                      <CardGrid variant="cards">
-                        {providerAccounts.map((account) => (
-                          <AccountCard
-                            key={account.id}
-                            account={account}
-                            onEdit={handleEdit}
-                          />
-                        ))}
-                      </CardGrid>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : accounts && accounts.length > 0 && searchQuery ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Search className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold">{t('accounts.noResultsFor')} "{searchQuery}"</h3>
-              <p className="text-muted-foreground mt-1">{t('accounts.tryDifferentSearch')}</p>
-              <Button variant="link" onClick={() => setSearchQuery('')} className="mt-2">
-                {t('accounts.clearSearch')}
-              </Button>
-            </div>
-          ) : (
-            <Card className="border-dashed bg-muted/30">
-              <div className="p-12 text-center space-y-6">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Plus className="h-8 w-8 text-primary" />
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+        {/* Statistics Cards */}
+        {filteredStatistics && (
+          <Card className="p-5 border-border/50 shadow-md bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-blue-950/30 dark:via-background dark:to-green-950/30">
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex-1 grid grid-cols-3 gap-6">
+                {/* Current Balance */}
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 shadow-sm">
+                    <Wallet className="h-5 w-5" />
                   </div>
-                  <h3 className="text-2xl font-bold">{t('accounts.noAccounts')}</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.currentBalance')}</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono">
+                      ${filteredStatistics.total_current_balance.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total Income */}
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.totalIncome')}</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono">
+                      ${filteredStatistics.total_income.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Historical Consumption */}
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 shadow-sm">
+                    <History className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.historicalConsumption')}</p>
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">
+                      ${filteredStatistics.total_consumed.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-muted-foreground">{t('accounts.loading')}</div>
+            </div>
+          ) : filteredAccounts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              {searchQuery || providerFilter !== 'all' ? (
+                <>
+                  <p className="text-lg font-semibold">{t('accounts.noResults')}</p>
+                  <p className="text-muted-foreground mt-1">
+                    {t('accounts.tryDifferentSearch', '尝试其他搜索条件')}
+                  </p>
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setProviderFilter('all');
+                    }}
+                    className="mt-2"
+                  >
+                    {t('accounts.clearFilters', '清除筛选')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold">{t('accounts.noAccounts')}</p>
+                  <p className="text-muted-foreground mt-1">
                     {t('accounts.noAccountsDescription')}
                   </p>
-                </div>
-                <div className="flex gap-3 justify-center">
-                  <Button variant="default" onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t('accounts.addAccount')}
-                  </Button>
-                  <Button variant="secondary" onClick={() => setJsonImportDialogOpen(true)}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {t('accounts.importJSON')}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={handleCreate}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t('accounts.addAccount')}
+                    </Button>
+                    <Button variant="outline" onClick={() => setJsonImportDialogOpen(true)}>
+                      <Upload className="mr-2 h-4 w-4" />
+                      {t('accounts.importJSON')}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <AccountsTable
+              accounts={filteredAccounts}
+              onAccountClick={handleAccountClick}
+              onCheckIn={(id) => checkInMutation.mutate(id)}
+              onEdit={handleEdit}
+              onToggle={(account) => toggleMutation.mutate(account)}
+              onDelete={(account) => {
+                if (window.confirm(t('accountCard.deleteWarning'))) {
+                  deleteMutation.mutate(account.id);
+                }
+              }}
+              onRefreshBalance={(id) => refreshBalanceMutation.mutate(id)}
+              checkingInIds={checkingInIds}
+              sortConfig={sortConfig}
+              onSortChange={setSortConfig}
+              providersById={providersById}
+            />
           )}
         </div>
-      </SidebarPageLayout>
+      </div>
 
       {/* Dialogs */}
       <AccountDialog
@@ -423,26 +556,24 @@ export function AccountsPage() {
         onOpenChange={handleDialogClose}
         mode={editingAccount ? 'edit' : 'create'}
         accountId={editingAccount?.id}
-        defaultValues={editingAccount ? {
-          name: editingAccount.name,
-          provider_id: editingAccount.provider_id,
-          cookies: editingAccount.cookies,
-          api_user: editingAccount.api_user,
-          auto_checkin_enabled: editingAccount.auto_checkin_enabled,
-          auto_checkin_hour: editingAccount.auto_checkin_hour,
-          auto_checkin_minute: editingAccount.auto_checkin_minute,
-        } : undefined}
+        defaultValues={
+          editingAccount
+            ? {
+                name: editingAccount.name,
+                provider_id: editingAccount.provider_id,
+                cookies: editingAccount.cookies,
+                api_user: editingAccount.api_user,
+                auto_checkin_enabled: editingAccount.auto_checkin_enabled,
+                auto_checkin_hour: editingAccount.auto_checkin_hour,
+                auto_checkin_minute: editingAccount.auto_checkin_minute,
+              }
+            : undefined
+        }
       />
 
-      <JsonImportDialog
-        open={jsonImportDialogOpen}
-        onOpenChange={setJsonImportDialogOpen}
-      />
+      <JsonImportDialog open={jsonImportDialogOpen} onOpenChange={setJsonImportDialogOpen} />
 
-      <BatchUpdateDialog
-        open={batchUpdateDialogOpen}
-        onOpenChange={setBatchUpdateDialogOpen}
-      />
+      <BatchUpdateDialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen} />
     </PageContainer>
   );
 }

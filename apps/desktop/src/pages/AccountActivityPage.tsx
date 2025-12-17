@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { BentoGrid } from '@/components/layout/CardGrid';
 
-export function AccountRecordsPage() {
+export function AccountActivityPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
