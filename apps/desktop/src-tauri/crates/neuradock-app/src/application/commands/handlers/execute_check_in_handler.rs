@@ -273,7 +273,15 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
         // Update account balance cache and save to balance_history if we have new balance data
         let balance_dto = if result.success && result.user_info.is_some() {
-            let user_info = result.user_info.as_ref().unwrap();
+            let user_info = match result.user_info.as_ref() {
+                Some(info) => info,
+                None => {
+                    warn!("Check-in succeeded but no user_info returned");
+                    return Err(DomainError::Validation(
+                        "Check-in response missing user_info".to_string()
+                    ));
+                }
+            };
             let mut updated_account = account;
             updated_account.update_balance(
                 user_info.quota,
@@ -663,7 +671,13 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                 Ok(result) => {
                     // Update account balance cache and save to balance_history if we have new balance data
                     let balance_dto = if result.success && result.user_info.is_some() {
-                        let user_info = result.user_info.as_ref().unwrap();
+                        let user_info = match result.user_info.as_ref() {
+                            Some(info) => info,
+                            None => {
+                                warn!("Check-in succeeded but no user_info returned for account {}", account_id);
+                                continue;
+                            }
+                        };
                         let mut updated_account = account;
                         updated_account.update_balance(
                             user_info.quota,
