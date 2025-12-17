@@ -538,6 +538,53 @@
       "feishu": "Feishu",
       "dingtalk": "DingTalk",
       "email": "Email"
+    },
+    "dialog": {
+      "createTitle": "Add Notification Channel",
+      "editTitle": "Edit Notification Channel",
+      "description": "Configure notification channel, notifications will be sent automatically on check-in success/failure",
+      "channelType": "Channel Type",
+      "feishuOption": "Feishu",
+      "dingtalkOption": "DingTalk (Coming Soon)",
+      "emailOption": "Email (Coming Soon)",
+      "webhookKeyLabel": "Webhook Key",
+      "webhookKeyPlaceholder": "Extract key from Feishu bot URL",
+      "webhookKeyHelp": "Feishu bot URL format: https://open.feishu.cn/open-apis/bot/v2/hook/",
+      "webhookKeyHelpSuffix": "Please fill in the xxx part",
+      "dingtalkWebhookPlaceholder": "Extract key from DingTalk bot URL",
+      "secretLabel": "Secret (Optional)",
+      "secretPlaceholder": "Signing secret",
+      "dingtalkComingSoon": "DingTalk notification support is coming soon",
+      "smtpHostLabel": "SMTP Server",
+      "smtpHostPlaceholder": "smtp.example.com",
+      "smtpPortLabel": "Port",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "your@email.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Password or authorization code",
+      "fromLabel": "From Address",
+      "fromPlaceholder": "sender@example.com",
+      "toLabel": "To Address",
+      "toPlaceholder": "Separate multiple email addresses with commas",
+      "emailComingSoon": "Email notification support is coming soon",
+      "buttonCancel": "Cancel",
+      "buttonSaving": "Saving...",
+      "buttonUpdate": "Update",
+      "buttonCreate": "Create"
+    },
+    "validation": {
+      "webhookKeyRequired": "Please enter Webhook Key",
+      "smtpHostRequired": "Please enter SMTP server",
+      "usernameRequired": "Please enter username",
+      "passwordRequired": "Please enter password",
+      "fromRequired": "Please enter sender address",
+      "toRequired": "Please enter recipient address"
+    },
+    "toast": {
+      "channelUpdated": "Notification channel updated",
+      "channelCreated": "Notification channel created",
+      "updateFailed": "Update failed",
+      "createFailed": "Create failed"
     }
   },
   "disclaimer": {

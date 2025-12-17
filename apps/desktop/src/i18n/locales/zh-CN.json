@@ -539,6 +539,53 @@
       "feishu": "飞书",
       "dingtalk": "钉钉",
       "email": "邮件"
+    },
+    "dialog": {
+      "createTitle": "添加通知渠道",
+      "editTitle": "编辑通知渠道",
+      "description": "配置通知渠道，签到成功/失败时将自动发送通知",
+      "channelType": "渠道类型",
+      "feishuOption": "飞书",
+      "dingtalkOption": "钉钉 (即将支持)",
+      "emailOption": "邮件 (即将支持)",
+      "webhookKeyLabel": "Webhook Key",
+      "webhookKeyPlaceholder": "从飞书机器人 URL 中提取的 key",
+      "webhookKeyHelp": "飞书机器人 URL 格式: https://open.feishu.cn/open-apis/bot/v2/hook/",
+      "webhookKeyHelpSuffix": "请填写 xxx 部分",
+      "dingtalkWebhookPlaceholder": "从钉钉机器人 URL 中提取的 key",
+      "secretLabel": "加签密钥 (可选)",
+      "secretPlaceholder": "加签密钥",
+      "dingtalkComingSoon": "钉钉通知功能即将支持",
+      "smtpHostLabel": "SMTP 服务器",
+      "smtpHostPlaceholder": "smtp.example.com",
+      "smtpPortLabel": "端口",
+      "usernameLabel": "用户名",
+      "usernamePlaceholder": "your@email.com",
+      "passwordLabel": "密码",
+      "passwordPlaceholder": "密码或授权码",
+      "fromLabel": "发件人地址",
+      "fromPlaceholder": "sender@example.com",
+      "toLabel": "收件人地址",
+      "toPlaceholder": "用逗号分隔多个邮箱地址",
+      "emailComingSoon": "邮件通知功能即将支持",
+      "buttonCancel": "取消",
+      "buttonSaving": "保存中...",
+      "buttonUpdate": "更新",
+      "buttonCreate": "创建"
+    },
+    "validation": {
+      "webhookKeyRequired": "请输入 Webhook Key",
+      "smtpHostRequired": "请输入 SMTP 服务器",
+      "usernameRequired": "请输入用户名",
+      "passwordRequired": "请输入密码",
+      "fromRequired": "请输入发件人地址",
+      "toRequired": "请输入收件人地址"
+    },
+    "toast": {
+      "channelUpdated": "通知渠道已更新",
+      "channelCreated": "通知渠道已创建",
+      "updateFailed": "更新失败",
+      "createFailed": "创建失败"
     }
   },
   "disclaimer": {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ interface EmailConfig {
 type ChannelConfig = FeishuConfig | DingTalkConfig | EmailConfig;
 
 export function NotificationChannelDialog({ open, onClose, channel }: NotificationChannelDialogProps) {
+  const { t } = useTranslation();
   const [channelType, setChannelType] = useState<ChannelType>('feishu');
   const [webhookKey, setWebhookKey] = useState('');
   const [secret, setSecret] = useState('');
@@ -118,33 +120,33 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
   const validateForm = (): boolean => {
     if (channelType === 'feishu') {
       if (!webhookKey.trim()) {
-        toast.error('请输入 Webhook Key');
+        toast.error(t('notification.validation.webhookKeyRequired'));
         return false;
       }
     } else if (channelType === 'dingtalk') {
       if (!webhookKey.trim()) {
-        toast.error('请输入 Webhook Key');
+        toast.error(t('notification.validation.webhookKeyRequired'));
         return false;
       }
     } else if (channelType === 'email') {
       if (!smtpHost.trim()) {
-        toast.error('请输入 SMTP 服务器');
+        toast.error(t('notification.validation.smtpHostRequired'));
         return false;
       }
       if (!username.trim()) {
-        toast.error('请输入用户名');
+        toast.error(t('notification.validation.usernameRequired'));
         return false;
       }
       if (!password.trim()) {
-        toast.error('请输入密码');
+        toast.error(t('notification.validation.passwordRequired'));
         return false;
       }
       if (!from.trim()) {
-        toast.error('请输入发件人地址');
+        toast.error(t('notification.validation.fromRequired'));
         return false;
       }
       if (!to.trim()) {
-        toast.error('请输入收件人地址');
+        toast.error(t('notification.validation.toRequired'));
         return false;
       }
     }
@@ -169,7 +171,7 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
             enabled: null,
           },
         });
-        toast.success('通知渠道已更新');
+        toast.success(t('notification.toast.channelUpdated'));
       } else {
         // Create new channel
         await invoke('create_notification_channel', {
@@ -178,12 +180,12 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
             config: config,
           },
         });
-        toast.success('通知渠道已创建');
+        toast.success(t('notification.toast.channelCreated'));
       }
 
       onClose(true);
     } catch (err) {
-      toast.error(channel ? '更新失败' : '创建失败', {
+      toast.error(channel ? t('notification.toast.updateFailed') : t('notification.toast.createFailed'), {
         description: String(err),
       });
     } finally {
@@ -195,16 +197,16 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(false)}>
       <DialogContent className="sm:max-w-[500px] rounded-2xl">
         <DialogHeader>
-          <DialogTitle>{channel ? '编辑通知渠道' : '添加通知渠道'}</DialogTitle>
+          <DialogTitle>{channel ? t('notification.dialog.editTitle') : t('notification.dialog.createTitle')}</DialogTitle>
           <DialogDescription>
-            配置通知渠道，签到成功/失败时将自动发送通知
+            {t('notification.dialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Channel Type */}
           <div className="space-y-2">
-            <Label>渠道类型</Label>
+            <Label>{t('notification.dialog.channelType')}</Label>
             <Select
               value={channelType}
               onValueChange={(value) => setChannelType(value as ChannelType)}
@@ -214,9 +216,9 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="feishu">飞书</SelectItem>
-                <SelectItem value="dingtalk">钉钉 (即将支持)</SelectItem>
-                <SelectItem value="email">邮件 (即将支持)</SelectItem>
+                <SelectItem value="feishu">{t('notification.dialog.feishuOption')}</SelectItem>
+                <SelectItem value="dingtalk">{t('notification.dialog.dingtalkOption')}</SelectItem>
+                <SelectItem value="email">{t('notification.dialog.emailOption')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -224,18 +226,18 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
           {/* Feishu Config */}
           {channelType === 'feishu' && (
             <div className="space-y-2">
-              <Label htmlFor="webhook-key">Webhook Key *</Label>
+              <Label htmlFor="webhook-key">{t('notification.dialog.webhookKeyLabel')} *</Label>
               <Input
                 id="webhook-key"
                 value={webhookKey}
                 onChange={(e) => setWebhookKey(e.target.value)}
-                placeholder="从飞书机器人 URL 中提取的 key"
+                placeholder={t('notification.dialog.webhookKeyPlaceholder')}
                 className="rounded-lg"
               />
               <p className="text-xs text-muted-foreground">
-                飞书机器人 URL 格式: https://open.feishu.cn/open-apis/bot/v2/hook/<strong>xxx</strong>
+                {t('notification.dialog.webhookKeyHelp')}<strong>xxx</strong>
                 <br />
-                请填写 xxx 部分
+                {t('notification.dialog.webhookKeyHelpSuffix')}
               </p>
             </div>
           )}
@@ -244,29 +246,29 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
           {channelType === 'dingtalk' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="webhook-key-dt">Webhook Key *</Label>
+                <Label htmlFor="webhook-key-dt">{t('notification.dialog.webhookKeyLabel')} *</Label>
                 <Input
                   id="webhook-key-dt"
                   value={webhookKey}
                   onChange={(e) => setWebhookKey(e.target.value)}
-                  placeholder="从钉钉机器人 URL 中提取的 key"
+                  placeholder={t('notification.dialog.dingtalkWebhookPlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="secret">加签密钥 (可选)</Label>
+                <Label htmlFor="secret">{t('notification.dialog.secretLabel')}</Label>
                 <Input
                   id="secret"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
-                  placeholder="加签密钥"
+                  placeholder={t('notification.dialog.secretPlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
               <p className="text-xs text-yellow-600">
-                钉钉通知功能即将支持
+                {t('notification.dialog.dingtalkComingSoon')}
               </p>
             </>
           )}
@@ -276,18 +278,18 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="smtp-host">SMTP 服务器 *</Label>
+                  <Label htmlFor="smtp-host">{t('notification.dialog.smtpHostLabel')} *</Label>
                   <Input
                     id="smtp-host"
                     value={smtpHost}
                     onChange={(e) => setSmtpHost(e.target.value)}
-                    placeholder="smtp.example.com"
+                    placeholder={t('notification.dialog.smtpHostPlaceholder')}
                     className="rounded-lg"
                     disabled
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="smtp-port">端口 *</Label>
+                  <Label htmlFor="smtp-port">{t('notification.dialog.smtpPortLabel')} *</Label>
                   <Input
                     id="smtp-port"
                     type="number"
@@ -301,56 +303,56 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="username">用户名 *</Label>
+                <Label htmlFor="username">{t('notification.dialog.usernameLabel')} *</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder={t('notification.dialog.usernamePlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">密码 *</Label>
+                <Label htmlFor="password">{t('notification.dialog.passwordLabel')} *</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="密码或授权码"
+                  placeholder={t('notification.dialog.passwordPlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="from">发件人地址 *</Label>
+                <Label htmlFor="from">{t('notification.dialog.fromLabel')} *</Label>
                 <Input
                   id="from"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
-                  placeholder="sender@example.com"
+                  placeholder={t('notification.dialog.fromPlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="to">收件人地址 *</Label>
+                <Label htmlFor="to">{t('notification.dialog.toLabel')} *</Label>
                 <Input
                   id="to"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  placeholder="用逗号分隔多个邮箱地址"
+                  placeholder={t('notification.dialog.toPlaceholder')}
                   className="rounded-lg"
                   disabled
                 />
               </div>
 
               <p className="text-xs text-yellow-600">
-                邮件通知功能即将支持
+                {t('notification.dialog.emailComingSoon')}
               </p>
             </>
           )}
@@ -358,14 +360,14 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onClose(false)} className="rounded-full">
-            取消
+            {t('notification.dialog.buttonCancel')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving || (channelType !== 'feishu')}
             className="rounded-full"
           >
-            {saving ? '保存中...' : channel ? '更新' : '创建'}
+            {saving ? t('notification.dialog.buttonSaving') : channel ? t('notification.dialog.buttonUpdate') : t('notification.dialog.buttonCreate')}
           </Button>
         </DialogFooter>
       </DialogContent>
