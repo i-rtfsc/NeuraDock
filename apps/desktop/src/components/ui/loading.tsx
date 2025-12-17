@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg";
@@ -30,10 +31,13 @@ interface LoadingStateProps {
 }
 
 export function LoadingState({
-  message = "加载中...",
+  message,
   size = "md",
   className,
 }: LoadingStateProps) {
+  const { t } = useTranslation();
+  const defaultMessage = t('common.loading');
+
   return (
     <div
       className={cn(
@@ -42,8 +46,8 @@ export function LoadingState({
       )}
     >
       <LoadingSpinner size={size} />
-      {message && (
-        <p className="text-sm text-muted-foreground animate-pulse">{message}</p>
+      {(message ?? defaultMessage) && (
+        <p className="text-sm text-muted-foreground animate-pulse">{message ?? defaultMessage}</p>
       )}
     </div>
   );
