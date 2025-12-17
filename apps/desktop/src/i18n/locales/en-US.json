@@ -552,5 +552,79 @@
       "commercial": "Closed-source distribution, SaaS, or commercial deployments require purchasing an official NeuraDock commercial license.",
       "footer": "Contact the NeuraDock team via official channels to buy a commercial license or confirm permitted use cases."
     }
+  },
+  "providerDialog": {
+    "createTitle": "Add Provider",
+    "editTitle": "Edit Provider",
+    "createDescription": "Configure new provider information. Basic information is required, API configuration is optional (uses new-api standard defaults).",
+    "editDescription": "Modify provider configuration.",
+    "tabs": {
+      "basic": "Basic Information",
+      "advanced": "API Configuration (Optional)"
+    },
+    "fields": {
+      "name": {
+        "label": "Provider Name",
+        "placeholder": "e.g., My Provider",
+        "required": "Please enter provider name"
+      },
+      "domain": {
+        "label": "Domain Address",
+        "placeholder": "https://api.example.com",
+        "tooltip": "Must start with http:// or https://",
+        "required": "Please enter domain",
+        "invalidFormat": "Domain must start with http:// or https://"
+      },
+      "needsWafBypass": {
+        "label": "Needs WAF Bypass",
+        "description": "Enable Cloudflare and other WAF protection bypass (requires local browser)"
+      },
+      "supportsCheckIn": {
+        "label": "Supports Check-in",
+        "description": "Whether this provider supports automatic check-in"
+      },
+      "checkInBugged": {
+        "label": "Check-in Bugged",
+        "description": "Mark check-in as temporarily unavailable (will only refresh balance)"
+      },
+      "loginPath": {
+        "label": "Login Page Path",
+        "placeholder": "/login",
+        "tooltip": "Path to the user login page"
+      },
+      "signInPath": {
+        "label": "Check-in API Path",
+        "placeholder": "/api/user/sign_in",
+        "tooltip": "API path for executing check-in operations"
+      },
+      "userInfoPath": {
+        "label": "User Info API",
+        "placeholder": "/api/user/self",
+        "tooltip": "API path for getting user info and balance"
+      },
+      "tokenApiPath": {
+        "label": "Token API Path",
+        "placeholder": "/api/token/",
+        "tooltip": "Path for getting API token list"
+      },
+      "modelsPath": {
+        "label": "Models List API",
+        "placeholder": "/api/user/models",
+        "tooltip": "API path for getting available models list"
+      },
+      "apiUserKey": {
+        "label": "API User Header",
+        "placeholder": "new-api-user",
+        "tooltip": "Request header field name for identifying users"
+      }
+    },
+    "buttons": {
+      "cancel": "Cancel",
+      "create": "Create Provider",
+      "save": "Save Changes",
+      "creating": "Creating...",
+      "saving": "Saving..."
+    },
+    "requiredField": "*"
   }
 }

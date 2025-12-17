@@ -553,5 +553,79 @@
       "commercial": "如需闭源发行、SaaS 或商业部署，必须购买 NeuraDock 官方商业许可以获得合法授权。",
       "footer": "请通过官方渠道联系我们以购买商业许可或确认可用的授权范围。"
     }
+  },
+  "providerDialog": {
+    "createTitle": "添加中转站",
+    "editTitle": "编辑中转站",
+    "createDescription": "配置新的中转站信息。基本信息为必填，API配置为可选（使用new-api标准默认值）。",
+    "editDescription": "修改中转站配置信息。",
+    "tabs": {
+      "basic": "基本信息",
+      "advanced": "API配置（可选）"
+    },
+    "fields": {
+      "name": {
+        "label": "中转站名称",
+        "placeholder": "例如：我的中转站",
+        "required": "请输入中转站名称"
+      },
+      "domain": {
+        "label": "域名地址",
+        "placeholder": "https://api.example.com",
+        "tooltip": "必须以 http:// 或 https:// 开头",
+        "required": "请输入域名",
+        "invalidFormat": "域名必须以 http:// 或 https:// 开头"
+      },
+      "needsWafBypass": {
+        "label": "需要 WAF 绕过",
+        "description": "启用 Cloudflare 等 WAF 保护绕过（需要本地浏览器）"
+      },
+      "supportsCheckIn": {
+        "label": "支持自动签到",
+        "description": "该中转站是否支持自动签到功能"
+      },
+      "checkInBugged": {
+        "label": "签到功能有问题",
+        "description": "标记签到功能暂时不可用（将只刷新余额）"
+      },
+      "loginPath": {
+        "label": "登录页路径",
+        "placeholder": "/login",
+        "tooltip": "用户登录页面的路径"
+      },
+      "signInPath": {
+        "label": "签到接口路径",
+        "placeholder": "/api/user/sign_in",
+        "tooltip": "执行签到操作的 API 路径"
+      },
+      "userInfoPath": {
+        "label": "用户信息接口",
+        "placeholder": "/api/user/self",
+        "tooltip": "获取用户信息和余额的 API 路径"
+      },
+      "tokenApiPath": {
+        "label": "Token API 路径",
+        "placeholder": "/api/token/",
+        "tooltip": "获取 API token 列表的路径"
+      },
+      "modelsPath": {
+        "label": "模型列表接口",
+        "placeholder": "/api/user/models",
+        "tooltip": "获取可用模型列表的 API 路径"
+      },
+      "apiUserKey": {
+        "label": "API User 请求头",
+        "placeholder": "new-api-user",
+        "tooltip": "用于标识用户的请求头字段名"
+      }
+    },
+    "buttons": {
+      "cancel": "取消",
+      "create": "创建中转站",
+      "save": "保存更改",
+      "creating": "创建中...",
+      "saving": "保存中..."
+    },
+    "requiredField": "*"
   }
 }

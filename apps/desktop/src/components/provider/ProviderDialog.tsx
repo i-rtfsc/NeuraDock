@@ -119,20 +119,20 @@ export function ProviderDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'create' ? '添加中转站' : '编辑中转站'}
+            {mode === 'create' ? t('providerDialog.createTitle') : t('providerDialog.editTitle')}
           </DialogTitle>
           <DialogDescription>
             {mode === 'create'
-              ? '配置新的中转站信息。基本信息为必填，API配置为可选（使用new-api标准默认值）。'
-              : '修改中转站配置信息。'}
+              ? t('providerDialog.createDescription')
+              : t('providerDialog.editDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">基本信息</TabsTrigger>
-              <TabsTrigger value="advanced">API配置（可选）</TabsTrigger>
+              <TabsTrigger value="basic">{t('providerDialog.tabs.basic')}</TabsTrigger>
+              <TabsTrigger value="advanced">{t('providerDialog.tabs.advanced')}</TabsTrigger>
             </TabsList>
 
             {/* Basic Tab */}
