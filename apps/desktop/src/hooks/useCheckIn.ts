@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 // Types for check-in
 export interface CheckInResult {
@@ -34,30 +35,45 @@ async function executeBatchCheckIn(accountIds: string[]): Promise<BatchCheckInRe
 // Single check-in hook
 export function useCheckIn() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: executeCheckIn,
     onSuccess: (data, accountId) => {
-      // Invalidate accounts query to refresh balance
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      // Also invalidate the specific account's balance query
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       queryClient.invalidateQueries({ queryKey: ['balance', accountId] });
-      // Invalidate balance statistics
       queryClient.invalidateQueries({ queryKey: ['balance-statistics'] });
-      
+
       if (data.success) {
         const balanceInfo = data.balance
-          ? ` Balance: $${data.balance.current_balance.toFixed(2)}`
+          ? t('checkIn.balanceInfo', {
+              defaultValue: ' 余额: ${{amount}}',
+              amount: data.balance.current_balance.toFixed(2),
+            })
           : '';
-        toast.success(`Check-in successful!${balanceInfo}`);
+        toast.success(`${t('checkIn.success', '签到成功！')}${balanceInfo}`);
       } else {
-        toast.error(`Check-in failed: ${data.error || 'Unknown error'}`);
+        toast.error(
+          t('checkIn.failedWithReason', {
+            defaultValue: '签到失败: {{reason}}',
+            reason: data.error || t('common.unknownError', '未知错误'),
+          })
+        );
       }
     },
-    onError: (error: any) => {
+    onError: (error: any, accountId?: string) => {
       console.error('Check-in error:', error);
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      toast.error(`Check-in failed: ${errorMessage}`);
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      }
+      const errorMessage = error?.message || error?.toString() || t('common.unknownError', '未知错误');
+      toast.error(
+        t('checkIn.failedWithReason', {
+          defaultValue: '签到失败: {{reason}}',
+          reason: errorMessage,
+        })
+      );
     },
   });
 }
@@ -65,33 +81,43 @@ export function useCheckIn() {
 // Batch check-in hook
 export function useBatchCheckIn() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: executeBatchCheckIn,
     onSuccess: (data) => {
-      // Invalidate accounts query to refresh all balances
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      // Invalidate all balance queries
       queryClient.invalidateQueries({ queryKey: ['balance'] });
-      // Invalidate balance statistics
       queryClient.invalidateQueries({ queryKey: ['balance-statistics'] });
-      
+
       if (data.succeeded > 0) {
         toast.success(
-          `Batch check-in completed: ${data.succeeded}/${data.total} successful`
+          t('checkIn.batchSummary', {
+            defaultValue: '批量签到完成：{{succeeded}}/{{total}} 成功',
+            succeeded: data.succeeded,
+            total: data.total,
+          })
         );
       }
-      
+
       if (data.failed > 0) {
         toast.warning(
-          `${data.failed} account(s) failed to check in. Check details for more info.`
+          t('checkIn.batchFailedCount', {
+            defaultValue: '{{failed}} 个账号签到失败，请查看详情。',
+            failed: data.failed,
+          })
         );
       }
     },
     onError: (error: any) => {
       console.error('Batch check-in error:', error);
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      toast.error(`Batch check-in failed: ${errorMessage}`);
+      const errorMessage = error?.message || error?.toString() || t('common.unknownError', '未知错误');
+      toast.error(
+        t('checkIn.batchFailed', {
+          defaultValue: '批量签到失败：{{reason}}',
+          reason: errorMessage,
+        })
+      );
     },
   });
 }

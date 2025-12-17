@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export interface BalanceDto {
   current_balance: number;
@@ -40,16 +42,26 @@ export function useFetchAccountBalance(accountId: string, enabled = true) {
 // Mutation: Refresh account balance (force refresh)
 export function useRefreshAccountBalance() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: (accountId: string) =>
       invoke<BalanceDto>('fetch_account_balance', { accountId, forceRefresh: true }),
     onSuccess: (data, accountId) => {
-      // Update the cache with the new balance
       queryClient.setQueryData(['balance', accountId], data);
-      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       queryClient.invalidateQueries({ queryKey: ['balance-statistics'] });
+      toast.success(t('accountCard.balanceRefreshed', '余额已刷新'));
+    },
+    onError: (error: any) => {
+      const message = error?.message || String(error);
+      toast.error(
+        t('accountCard.balanceRefreshFailed', {
+          defaultValue: '刷新余额失败：{{message}}',
+          message,
+        })
+      );
     },
   });
 }
@@ -57,23 +69,32 @@ export function useRefreshAccountBalance() {
 // Mutation: Refresh all account balances (force refresh)
 export function useRefreshAllBalances() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: (accountIds: string[]) =>
       invoke<Record<string, BalanceDto | null>>('fetch_accounts_balances', {
         accountIds,
-        forceRefresh: true
+        forceRefresh: true,
       }),
     onSuccess: (data) => {
-      // Update cache for each account
       Object.entries(data).forEach(([accountId, balance]) => {
         if (balance) {
           queryClient.setQueryData(['balance', accountId], balance);
         }
       });
-      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['balance-statistics'] });
+      toast.success(t('accounts.balancesRefreshed', '所有余额已刷新'));
+    },
+    onError: (error: any) => {
+      const message = error?.message || String(error);
+      toast.error(
+        t('accounts.refreshFailed', {
+          defaultValue: '批量刷新失败：{{message}}',
+          message,
+        })
+      );
     },
   });
 }

@@ -39,10 +39,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-
-import { useAccounts } from '@/hooks/useAccounts';
+import { useAccounts, useDeleteAccount, useToggleAccount } from '@/hooks/useAccounts';
 import { useProviders } from '@/hooks/useProviders';
 import type { ProviderDto } from '@/hooks/useProviders';
 import { useAccountActions } from '@/hooks/useAccountActions';
@@ -53,11 +50,12 @@ import { BatchUpdateDialog } from '@/components/account/BatchUpdateDialog';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Account } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
+import { useCheckIn, useBatchCheckIn } from '@/hooks/useCheckIn';
+import { useRefreshAccountBalance, useRefreshAllBalances } from '@/hooks/useBalance';
 
 export function AccountsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: accounts = [], isLoading } = useAccounts();
   const { data: providers } = useProviders();
   const providersById = useMemo(() => {
@@ -76,6 +74,13 @@ export function AccountsPage() {
     handleCreate,
     handleDialogClose,
   } = useAccountActions();
+
+  const checkInMutation = useCheckIn();
+  const batchCheckInMutation = useBatchCheckIn();
+  const refreshBalanceMutation = useRefreshAccountBalance();
+  const refreshAllBalancesMutation = useRefreshAllBalances();
+  const toggleMutation = useToggleAccount();
+  const deleteMutation = useDeleteAccount();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [providerFilter, setProviderFilter] = useState<string>('all');
@@ -172,122 +177,25 @@ export function AccountsPage() {
     };
   }, [filteredAccounts]);
 
-  // Batch check-in mutation
-  const batchCheckInMutation = useMutation({
-    mutationFn: async (accountIds: string[]) => {
-      const results = await Promise.allSettled(
-        accountIds.map((id) => invoke('execute_check_in', { accountId: id }))
-      );
-      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-      const failed = results.filter((r) => r.status === 'rejected').length;
-      return { succeeded, failed, total: accountIds.length };
-    },
-    onSuccess: ({ succeeded, failed, total }) => {
-      if (failed === 0) {
-        toast.success(t('checkIn.batchSuccess', `成功签到 ${succeeded} 个账号`));
-      } else {
-        toast.warning(
-          t('checkIn.batchPartial', `成功 ${succeeded} 个，失败 ${failed} 个，共 ${total} 个`)
-        );
-      }
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Single check-in mutation
-  const checkInMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      invoke('execute_check_in', { accountId }),
-    onMutate: (accountId) => {
-      setCheckingInIds((prev) => new Set(prev).add(accountId));
-    },
-    onSettled: (_, __, accountId) => {
-      setCheckingInIds((prev) => {
-        const next = new Set(prev);
-        next.delete(accountId);
-        return next;
-      });
-    },
-    onSuccess: () => {
-      toast.success(t('checkIn.success'));
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t('checkIn.failed'));
-    },
-  });
-
-  // Refresh balance mutation
-  const refreshBalanceMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      invoke('fetch_account_balance', {
-        accountId,
-        forceRefresh: true,
-      }),
-    onSuccess: () => {
-      toast.success(t('accountCard.balanceRefreshed'));
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Batch refresh balances
-  const batchRefreshMutation = useMutation({
-    mutationFn: async (accountIds: string[]) => {
-      await Promise.all(
-        accountIds.map((id) =>
-          invoke('fetch_account_balance', {
-            accountId: id,
-            forceRefresh: true,
-          })
-        )
-      );
-    },
-    onSuccess: () => {
-      toast.success(t('accounts.balancesRefreshed'));
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Toggle account enabled
-  const toggleMutation = useMutation({
-    mutationFn: (account: Account) =>
-      invoke('toggle_account_enabled', {
-        accountId: account.id,
-        enabled: !account.enabled,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Delete account
-  const deleteMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      invoke('delete_account', { accountId }),
-    onSuccess: () => {
-      toast.success(t('accountCard.deleted', '账号已删除'));
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
   const handleAccountClick = (account: Account) => {
     navigate(`/accounts/${account.id}`);
   };
+
+  const handleAccountCheckIn = (accountId: string) => {
+    checkInMutation.mutate(accountId, {
+      onMutate: () => {
+        setCheckingInIds((prev) => new Set(prev).add(accountId));
+      },
+      onSettled: () => {
+        setCheckingInIds((prev) => {
+          const next = new Set(prev);
+          next.delete(accountId);
+          return next;
+        });
+      },
+    });
+  };
+
 
   const handleBatchCheckIn = () => {
     const enabledIds = filteredAccounts
@@ -312,7 +220,7 @@ export function AccountsPage() {
       return;
     }
 
-    batchRefreshMutation.mutate(enabledIds);
+    refreshAllBalancesMutation.mutate(enabledIds);
   };
 
   const hasEnabledAccounts = filteredAccounts.filter(a => a.enabled).length > 0;
@@ -393,10 +301,13 @@ export function AccountsPage() {
                 variant="ghost"
                 size="icon"
                 onClick={handleBatchRefresh}
-                disabled={batchRefreshMutation.isPending || !hasEnabledAccounts}
+                disabled={refreshAllBalancesMutation.isPending || !hasEnabledAccounts}
                 title={t('accounts.refreshBalances')}
               >
-                <RefreshCw className={cn("h-4 w-4", batchRefreshMutation.isPending && "animate-spin")} />
+                <RefreshCw className={cn(
+                  "h-4 w-4",
+                  refreshAllBalancesMutation.isPending && "animate-spin"
+                )} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -532,9 +443,11 @@ export function AccountsPage() {
             <AccountsTable
               accounts={filteredAccounts}
               onAccountClick={handleAccountClick}
-              onCheckIn={(id) => checkInMutation.mutate(id)}
+              onCheckIn={handleAccountCheckIn}
               onEdit={handleEdit}
-              onToggle={(account) => toggleMutation.mutate(account)}
+              onToggle={(account) =>
+                toggleMutation.mutate({ accountId: account.id, enabled: !account.enabled })
+              }
               onDelete={(account) => {
                 if (window.confirm(t('accountCard.deleteWarning'))) {
                   deleteMutation.mutate(account.id);
