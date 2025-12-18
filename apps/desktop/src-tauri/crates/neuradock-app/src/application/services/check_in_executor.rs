@@ -9,8 +9,11 @@ use neuradock_domain::{
     check_in::{CheckInDomainService, Provider},
     shared::AccountId,
 };
-use neuradock_infrastructure::http::{CheckInResult, HttpClient, UserInfo, WafBypassService};
+use neuradock_infrastructure::http::{CheckInResult, HttpClient, UserInfo};
 use neuradock_infrastructure::persistence::repositories::SqliteWafCookiesRepository;
+
+use super::waf_cookie_manager::WafCookieManager;
+use crate::application::config::TimeoutConfig;
 
 /// Check-in result for a single account
 #[derive(Debug, Clone)]
@@ -34,27 +37,27 @@ pub struct BatchCheckInResult {
 /// Check-in executor service
 pub struct CheckInExecutor {
     http_client: HttpClient,
-    waf_service: WafBypassService,
+    waf_manager: WafCookieManager,
     account_repo: Arc<dyn AccountRepository>,
-    waf_cookies_repo: Option<Arc<SqliteWafCookiesRepository>>,
+    timeout_config: TimeoutConfig,
 }
 
 impl CheckInExecutor {
     pub fn new(account_repo: Arc<dyn AccountRepository>, headless_browser: bool) -> Result<Self> {
         let http_client = HttpClient::new()?;
-        let waf_service = WafBypassService::new(headless_browser);
+        let waf_manager = WafCookieManager::new(headless_browser);
 
         Ok(Self {
             http_client,
-            waf_service,
+            waf_manager,
             account_repo,
-            waf_cookies_repo: None,
+            timeout_config: TimeoutConfig::default(),
         })
     }
 
     /// Set WAF cookies repository for caching
     pub fn with_waf_cookies_repo(mut self, repo: Arc<SqliteWafCookiesRepository>) -> Self {
-        self.waf_cookies_repo = Some(repo);
+        self.waf_manager = self.waf_manager.with_cookies_repo(repo);
         self
     }
 
@@ -137,12 +140,12 @@ impl CheckInExecutor {
                         }
                         result
                     }
-                    Err(e) if self.is_waf_challenge_error(&e) => {
+                    Err(e) if self.waf_manager.is_waf_challenge_error(&e) => {
                         warn!("[{}] WAF challenge detected during check-in, refreshing cookies and retrying...", account_name);
 
                         // Refresh WAF cookies and retry
-                        match self
-                            .refresh_waf_cookies_and_retry(
+                        match self.waf_manager
+                            .refresh_waf_cookies(
                                 &account_name,
                                 provider,
                                 account.credentials().cookies(),
@@ -228,7 +231,7 @@ impl CheckInExecutor {
             );
 
             // Wait for server to process check-in
-            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            tokio::time::sleep(self.timeout_config.check_in_processing).await;
 
             match self
                 .http_client
@@ -295,7 +298,7 @@ impl CheckInExecutor {
         );
 
         // Prepare cookies
-        let cookies = self
+        let cookies = self.waf_manager
             .prepare_cookies(&account_name, provider, account.credentials().cookies())
             .await?;
 
@@ -374,7 +377,7 @@ impl CheckInExecutor {
         account_name: &str,
     ) -> Result<(HashMap<String, String>, Option<UserInfo>)> {
         // Prepare cookies (with WAF cookies from cache or bypass)
-        let mut cookies = self
+        let mut cookies = self.waf_manager
             .prepare_cookies(account_name, provider, account.credentials().cookies())
             .await?;
 
@@ -400,15 +403,15 @@ impl CheckInExecutor {
                 );
                 Some(info.clone())
             }
-            Err(e) if self.is_waf_challenge_error(e) => {
+            Err(e) if self.waf_manager.is_waf_challenge_error(e) => {
                 warn!(
                     "[{}] WAF challenge detected, invalidating cache and retrying...",
                     account_name
                 );
 
                 // Invalidate WAF cache and get fresh cookies
-                cookies = self
-                    .refresh_waf_cookies_and_retry(
+                cookies = self.waf_manager
+                    .refresh_waf_cookies(
                         account_name,
                         provider,
                         account.credentials().cookies(),
@@ -537,143 +540,6 @@ impl CheckInExecutor {
             failed_count,
             results,
         })
-    }
-
-    /// Prepare cookies with WAF bypass if needed (with caching support)
-    async fn prepare_cookies(
-        &self,
-        account_name: &str,
-        provider: &Provider,
-        user_cookies: &HashMap<String, String>,
-    ) -> Result<HashMap<String, String>> {
-        let mut cookies = user_cookies.clone();
-
-        if provider.needs_waf_bypass() {
-            let provider_id = provider.id().as_str();
-
-            // Try to use cached WAF cookies first
-            if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-                match waf_cookies_repo.get_valid(provider_id).await {
-                    Ok(Some(cached_waf)) => {
-                        info!(
-                            "[{}] Using cached WAF cookies (expires at {})",
-                            account_name, cached_waf.expires_at
-                        );
-                        cookies.extend(cached_waf.cookies);
-                        return Ok(cookies);
-                    }
-                    Ok(None) => {
-                        info!("[{}] No valid cached WAF cookies found", account_name);
-                    }
-                    Err(e) => {
-                        warn!(
-                            "[{}] Failed to check cached WAF cookies: {}",
-                            account_name, e
-                        );
-                    }
-                }
-            }
-
-            // No valid cache, run WAF bypass
-            info!(
-                "[{}] WAF bypass required, getting WAF cookies via browser...",
-                account_name
-            );
-
-            let waf_cookies = self
-                .waf_service
-                .get_waf_cookies(&provider.login_url(), account_name)
-                .await
-                .context("Failed to get WAF cookies")?;
-
-            // Cache the new WAF cookies
-            if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-                if let Err(e) = waf_cookies_repo.save(provider_id, &waf_cookies).await {
-                    warn!("[{}] Failed to cache WAF cookies: {}", account_name, e);
-                } else {
-                    info!("[{}] WAF cookies cached for 24 hours", account_name);
-                }
-            }
-
-            // Merge WAF cookies with user cookies
-            cookies.extend(waf_cookies);
-        } else {
-            info!("[{}] No WAF bypass required", account_name);
-        }
-
-        Ok(cookies)
-    }
-
-    /// Check if an error indicates a WAF challenge response
-    fn is_waf_challenge_error(&self, error: &anyhow::Error) -> bool {
-        let error_str = error.to_string();
-        let error_lower = error_str.to_lowercase();
-        // WAF challenge indicators:
-        // - WAF_CHALLENGE marker from HTTP client
-        // - JavaScript challenge page with acw_sc__v2 cookie generation
-        // - Cloudflare challenge page
-        // - 403 with challenge content
-        error_str.contains("WAF_CHALLENGE")
-            || error_lower.contains("acw_sc__v2")
-            || error_lower.contains("waf")
-            || error_str.contains("<script>var arg1=")
-            || error_lower.contains("just a moment")
-            || error_lower.contains("checking your browser")
-    }
-
-    /// Invalidate WAF cache and get fresh cookies
-    async fn refresh_waf_cookies_and_retry(
-        &self,
-        account_name: &str,
-        provider: &Provider,
-        user_cookies: &HashMap<String, String>,
-    ) -> Result<HashMap<String, String>> {
-        let provider_id = provider.id().as_str();
-
-        // Delete cached WAF cookies
-        if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-            if let Err(e) = waf_cookies_repo.delete(provider_id).await {
-                warn!(
-                    "[{}] Failed to delete cached WAF cookies: {}",
-                    account_name, e
-                );
-            } else {
-                info!("[{}] Invalidated cached WAF cookies", account_name);
-            }
-        }
-
-        // Run fresh WAF bypass
-        info!(
-            "[{}] Running fresh WAF bypass after challenge detection...",
-            account_name
-        );
-
-        let waf_cookies = self
-            .waf_service
-            .get_waf_cookies(&provider.login_url(), account_name)
-            .await
-            .context("Failed to get fresh WAF cookies after challenge")?;
-
-        info!(
-            "[{}] Got {} fresh WAF cookies",
-            account_name,
-            waf_cookies.len()
-        );
-
-        // Cache the new WAF cookies
-        if let Some(ref waf_cookies_repo) = self.waf_cookies_repo {
-            if let Err(e) = waf_cookies_repo.save(provider_id, &waf_cookies).await {
-                warn!("[{}] Failed to cache new WAF cookies: {}", account_name, e);
-            } else {
-                info!("[{}] New WAF cookies cached for 24 hours", account_name);
-            }
-        }
-
-        // Merge with user cookies
-        let mut cookies = user_cookies.clone();
-        cookies.extend(waf_cookies);
-
-        Ok(cookies)
     }
 }
 

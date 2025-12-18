@@ -70,6 +70,19 @@ export function TokensPage() {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [keyToEdit, setKeyToEdit] = useState<IndependentKeyDto | null>(null);
 
+  // Handle dialog close - refetch data when dialog closes
+  const handleKeyDialogChange = (open: boolean) => {
+    console.log('[TokensPage] Dialog state changed:', open);
+    setKeyDialogOpen(open);
+    // When dialog closes, refetch the data to ensure we have the latest
+    if (!open) {
+      console.log('[TokensPage] Dialog closed, triggering refetch...');
+      setTimeout(() => {
+        refetch();
+      }, 100); // Small delay to ensure dialog animations complete
+    }
+  };
+
   // Independent Key Config Dialog
   const [keyConfigDialogOpen, setKeyConfigDialogOpen] = useState(false);
   const [keyToConfig, setKeyToConfig] = useState<IndependentKeyDto | null>(null);
@@ -80,13 +93,29 @@ export function TokensPage() {
   const [keyToDelete, setKeyToDelete] = useState<IndependentKeyDto | null>(null);
 
   // Get independent keys
-  const { data: independentKeys = [] } = useQuery<IndependentKeyDto[]>({
+  const { data: independentKeys = [], refetch, isLoading } = useQuery<IndependentKeyDto[]>({
     queryKey: ['independent-keys'],
-    queryFn: () => invoke('get_all_independent_keys'),
+    queryFn: async () => {
+      console.log('[TokensPage] Fetching independent keys...');
+      const result = await invoke<IndependentKeyDto[]>('get_all_independent_keys');
+      console.log('[TokensPage] Fetched keys:', result?.length || 0);
+      return result;
+    },
+    staleTime: 0, // Always stale - always refetch
+    gcTime: 0, // Don't cache at all
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    enabled: true, // Always enabled
   });
+
+  // Expose refetch to child components via a callback
+  const handleDataChange = () => {
+    refetch();
+  };
 
   // Filter keys
   const filteredKeys = useMemo(() => {
+    console.log('[TokensPage] Computing filteredKeys, independentKeys length:', independentKeys?.length || 0);
     let filtered = independentKeys;
 
     // Search filter
@@ -112,6 +141,7 @@ export function TokensPage() {
       filtered = filtered.filter((key) => key.is_active === isActive);
     }
 
+    console.log('[TokensPage] filteredKeys length:', filtered?.length || 0);
     return filtered;
   }, [independentKeys, searchQuery, providerFilter, statusFilter]);
 
@@ -268,6 +298,7 @@ export function TokensPage() {
         <AnimatePresence mode="wait">
           {filteredKeys.length === 0 ? (
             <motion.div
+              key="empty-state"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -301,9 +332,11 @@ export function TokensPage() {
             </motion.div>
           ) : (
             <motion.div
+              key="keys-grid"
               variants={containerVariants}
               initial="hidden"
               animate="show"
+              exit={{ opacity: 0 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
             >
               {filteredKeys.map((key) => (
@@ -419,7 +452,7 @@ export function TokensPage() {
       {/* Independent Key Dialog */}
       <IndependentKeyDialog
         open={keyDialogOpen}
-        onOpenChange={setKeyDialogOpen}
+        onOpenChange={handleKeyDialogChange}
         keyToEdit={keyToEdit}
       />
 

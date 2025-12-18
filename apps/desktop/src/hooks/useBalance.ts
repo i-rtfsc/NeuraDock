@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
+import { extractErrorMessage } from '@/lib/errorHandling';
 
 export interface BalanceDto {
   current_balance: number;
@@ -54,8 +55,8 @@ export function useRefreshAccountBalance() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accountCard.balanceRefreshed', '余额已刷新'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = extractErrorMessage(error);
       toast.error(
         t('accountCard.balanceRefreshFailed', {
           defaultValue: '刷新余额失败：{{message}}',
@@ -86,8 +87,8 @@ export function useRefreshAllBalances() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accounts.balancesRefreshed', '所有余额已刷新'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = extractErrorMessage(error);
       toast.error(
         t('accounts.refreshFailed', {
           defaultValue: '批量刷新失败：{{message}}',

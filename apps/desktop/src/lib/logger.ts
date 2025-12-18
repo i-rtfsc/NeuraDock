@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
 interface LogFields {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 class Logger {

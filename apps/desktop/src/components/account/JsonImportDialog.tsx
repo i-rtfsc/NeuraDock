@@ -12,10 +12,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { accountCommands } from '@/lib/tauri-commands';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { invalidateAccountCaches } from '@/hooks/useAccounts';
+import { cacheInvalidators } from '@/lib/cacheInvalidators';
 import { toast } from 'sonner';
 import { Upload, FileJson, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+interface ImportedAccountData {
+  name?: string;
+  provider?: string;
+  provider_id?: string;
+  cookies: Record<string, string> | string;
+  api_user?: string;
+}
 
 interface JsonImportDialogProps {
   open: boolean;
@@ -45,7 +53,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   const importSingleMutation = useMutation({
     mutationFn: accountCommands.importFromJson,
     onSuccess: () => {
-      invalidateAccountCaches(queryClient);
+      cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('jsonImport.importSuccess'));
       onOpenChange(false);
       setJsonInput('');
@@ -60,7 +68,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   const importBatchMutation = useMutation({
     mutationFn: accountCommands.importBatch,
     onSuccess: (accountIds) => {
-      invalidateAccountCaches(queryClient);
+      cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('jsonImport.importBatchSuccess', { count: accountIds.length }));
       onOpenChange(false);
       setJsonInput('');
@@ -73,6 +81,16 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
   });
 
   const isSubmitting = importSingleMutation.isPending || importBatchMutation.isPending;
+
+  // Helper function to validate imported account data
+  const isValidAccountData = (data: unknown): data is ImportedAccountData => {
+    if (typeof data !== 'object' || data === null) return false;
+    const account = data as Partial<ImportedAccountData>;
+    return !!(
+      account.cookies &&
+      (typeof account.cookies === 'object' || typeof account.cookies === 'string')
+    );
+  };
 
   const validateJson = () => {
     if (!jsonInput.trim()) {
@@ -89,11 +107,14 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
       // Check if it's an array (batch) or object (single)
       if (Array.isArray(parsed)) {
         // Batch mode
-        const accounts = parsed.map((account: any, index: number) => ({
-          name: account.name || `Account ${index + 1}`,
-          provider: account.provider || account.provider_id || providerPlaceholder,
-          valid: !!account.cookies && (typeof account.cookies === 'object' || typeof account.cookies === 'string'),
-        }));
+        const accounts = parsed.map((item: unknown, index: number) => {
+          const account = item as Partial<ImportedAccountData>;
+          return {
+            name: account.name || `Account ${index + 1}`,
+            provider: account.provider || account.provider_id || providerPlaceholder,
+            valid: isValidAccountData(item),
+          };
+        });
 
         setValidationResult({
           valid: accounts.every((a) => a.valid),

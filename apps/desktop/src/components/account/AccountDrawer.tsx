@@ -266,8 +266,10 @@ export function AccountDrawer({
                   >
                     {refreshBalanceMutation.isPending ? (
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    {t('accountCard.refreshBalance')}
+                    ) : (
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                    )}
+                    {t('accountCard.balance')}
                   </Button>
                   <Button
                     variant="outline"

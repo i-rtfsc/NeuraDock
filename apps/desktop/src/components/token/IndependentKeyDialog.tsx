@@ -84,21 +84,35 @@ export function IndependentKeyDialog({ open, onOpenChange, keyToEdit }: Independ
 
   const createMutation = useMutation({
     mutationFn: (input: CreateIndependentKeyInput) => invoke('create_independent_key', { input }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('[IndependentKeyDialog] Create success, invalidating queries...');
       toast.success(t('independentKey.created', 'API Key created successfully'));
-      queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+
+      // Invalidate and refetch to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+      console.log('[IndependentKeyDialog] Queries invalidated, refetching...');
+      await queryClient.refetchQueries({ queryKey: ['independent-keys'] });
+      console.log('[IndependentKeyDialog] Refetch complete');
+
+      // Close dialog after data is refreshed
       onOpenChange(false);
     },
     onError: (error: Error) => {
+      console.error('[IndependentKeyDialog] Create error:', error);
       toast.error(t('independentKey.createError', 'Failed to create API Key: ') + error.message);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (input: any) => invoke('update_independent_key', { input }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t('independentKey.updated', 'API Key updated successfully'));
-      queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+
+      // Invalidate and refetch to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
+      await queryClient.refetchQueries({ queryKey: ['independent-keys'] });
+
+      // Close dialog after data is refreshed
       onOpenChange(false);
     },
     onError: (error: Error) => {

@@ -4,15 +4,53 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import type { TokenDto, AccountDto, ProviderNode } from '@/types/token';
 
-type AITool = 'claude' | 'codex' | 'gemini';
+export type AITool = 'claude' | 'codex' | 'gemini';
 
-interface UseConfigDialogStateProps {
+interface UseConfigStateProps {
+  open: boolean;
   token: TokenDto | null;
   account: AccountDto | null;
-  open: boolean;
 }
 
-export function useConfigDialogState({ token, account, open }: UseConfigDialogStateProps) {
+interface UseConfigStateReturn {
+  // Tool selection
+  selectedTool: AITool;
+  setSelectedTool: (tool: AITool) => void;
+
+  // Node selection
+  selectedNode: string;
+  setSelectedNode: (node: string) => void;
+  nodes: ProviderNode[];
+
+  // Model selection
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
+  availableModels: string[];
+  filteredModels: string[];
+  isModelListLoading: boolean;
+
+  // Commands state
+  tempCommands: string;
+  setTempCommands: (commands: string) => void;
+  copied: boolean;
+  setCopied: (copied: boolean) => void;
+  isSingleLine: boolean;
+  setIsSingleLine: (singleLine: boolean) => void;
+  displayCommands: string;
+
+  // Compatibility
+  compatibilityWarning: string;
+  isCompatible: boolean;
+
+  // Token info
+  modelLimitsEnabled: boolean;
+}
+
+export function useConfigState({
+  open,
+  token,
+  account,
+}: UseConfigStateProps): UseConfigStateReturn {
   const { t } = useTranslation();
   const [selectedTool, setSelectedTool] = useState<AITool>('claude');
   const [selectedNode, setSelectedNode] = useState<string>('');
@@ -43,16 +81,20 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
       return models ?? [];
     },
     enabled: shouldLoadProviderModels,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
   const isModelListLoading = shouldLoadProviderModels && isFetchingProviderModels;
 
   // Determine available models based on token limits
   const availableModels = useMemo(() => {
     if (!token) return [];
+
+    // 1. If model_limits_enabled is true (1), use model_limits_allowed
     if (modelLimitsEnabled) {
       return token.model_limits_allowed || [];
     }
+
+    // 2. If model_limits_enabled is false (0), use all provider models
     return providerModels;
   }, [token, providerModels, modelLimitsEnabled]);
 
@@ -72,6 +114,15 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
       return true;
     });
   }, [availableModels, selectedTool]);
+
+  // Compute display commands based on single-line mode
+  const displayCommands = useMemo(() => {
+    if (!tempCommands) return '';
+    if (isSingleLine) {
+      return tempCommands.trim().split('\n').filter(line => line.trim()).join(' && ');
+    }
+    return tempCommands;
+  }, [tempCommands, isSingleLine]);
 
   // Reset selected model when tool changes
   useEffect(() => {
@@ -98,7 +149,7 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
     let hasCompatible = false;
 
     if (selectedTool === 'claude') {
-      hasCompatible = modelsLower.some(m => 
+      hasCompatible = modelsLower.some(m =>
         m.includes('claude') || m.includes('glm') || m.includes('deepseek')
       );
     } else if (selectedTool === 'codex') {
@@ -107,49 +158,69 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
       hasCompatible = modelsLower.some(m => m.includes('gemini'));
     }
 
-    setIsCompatible(hasCompatible);
     if (!hasCompatible) {
-      setCompatibilityWarning(
-        t('token.configDialog.noCompatibleModelsForTool', 
-          'No compatible models for selected tool')
-      );
+      setIsCompatible(false);
+      if (modelLimitsEnabled) {
+        setCompatibilityWarning(t('token.tokenRestrictedNoCompatibleModels', 'This token is restricted to specific models and does not support the selected tool.'));
+      } else {
+        setCompatibilityWarning(t('token.providerNoCompatibleModels', 'This provider does not support models compatible with the selected tool.'));
+      }
     } else {
+      setIsCompatible(true);
       setCompatibilityWarning('');
     }
-  }, [selectedTool, availableModels, token, open, t, isModelListLoading]);
+  }, [token, selectedTool, open, availableModels, t, isModelListLoading, modelLimitsEnabled]);
 
-  // Auto-select first node and model
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open && token) {
+      setTempCommands('');
+      setCopied(false);
+      setSelectedModel('');
+      setIsSingleLine(false);
+      setSelectedTool('claude'); // Reset to default
+
+      if (nodes.length > 0) {
+        setSelectedNode(nodes[0].base_url);
+      }
+    }
+  }, [open, token, nodes]);
+
+  // Auto-select first node if none selected
   useEffect(() => {
     if (nodes.length > 0 && !selectedNode) {
       setSelectedNode(nodes[0].base_url);
     }
   }, [nodes, selectedNode]);
 
+  // Reset generated commands when tool/model/node changes to avoid stale instructions
   useEffect(() => {
-    if (filteredModels.length > 0 && !selectedModel && open) {
-      setSelectedModel(filteredModels[0]);
-    }
-  }, [filteredModels, selectedModel, open]);
+    if (!open) return;
+    setTempCommands('');
+    setCopied(false);
+    setIsSingleLine(false);
+  }, [selectedTool, selectedModel, selectedNode, open]);
 
   return {
     selectedTool,
     setSelectedTool,
     selectedNode,
     setSelectedNode,
+    nodes,
     selectedModel,
     setSelectedModel,
+    availableModels,
+    filteredModels,
+    isModelListLoading,
     tempCommands,
     setTempCommands,
     copied,
     setCopied,
-    compatibilityWarning,
-    isCompatible,
     isSingleLine,
     setIsSingleLine,
+    displayCommands,
+    compatibilityWarning,
+    isCompatible,
     modelLimitsEnabled,
-    nodes,
-    availableModels,
-    filteredModels,
-    isModelListLoading,
   };
 }
