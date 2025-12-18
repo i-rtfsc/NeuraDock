@@ -13,15 +13,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, Globe, Shield, CalendarCheck, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Card } from '@/components/ui/card';
 
 export interface ProviderFormValues {
   name: string;
@@ -136,196 +136,182 @@ export function ProviderDialog({
             </TabsList>
 
             {/* Basic Tab */}
-            <TabsContent value="basic" className="space-y-4 mt-4">
-              {/* Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-2">
-                  {t('providerDialog.fields.name.label')} <span className="text-destructive">{t('providerDialog.requiredField')}</span>
-                </Label>
-                <Input
-                  id="name"
-                  placeholder={t('providerDialog.fields.name.placeholder')}
-                  {...register('name', {
-                    required: t('providerDialog.fields.name.required'),
-                  })}
-                  className={cn(errors.name && 'border-destructive')}
-                />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
-                )}
-              </div>
-
-              {/* Domain */}
-              <div className="space-y-2">
-                <Label htmlFor="domain" className="flex items-center gap-2">
-                  {t('providerDialog.fields.domain.label')} <span className="text-destructive">{t('providerDialog.requiredField')}</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{t('providerDialog.fields.domain.tooltip')}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <Input
-                  id="domain"
-                  placeholder={t('providerDialog.fields.domain.placeholder')}
-                  {...register('domain', {
-                    required: t('providerDialog.fields.domain.required'),
-                    pattern: {
-                      value: /^https?:\/\/.+/,
-                      message: t('providerDialog.fields.domain.invalidFormat'),
-                    },
-                  })}
-                  className={cn(errors.domain && 'border-destructive')}
-                />
-                {errors.domain && (
-                  <p className="text-sm text-destructive">{errors.domain.message}</p>
-                )}
-              </div>
-
-              {/* WAF Bypass */}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="needs_waf_bypass" className="text-base">
-                    {t('providerDialog.fields.needsWafBypass.label')}
+            <TabsContent value="basic" className="space-y-6 mt-6">
+              {/* Core Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="flex items-center gap-2">
+                    {t('providerDialog.fields.name.label')} <span className="text-destructive">*</span>
                   </Label>
-                  <div className="text-sm text-muted-foreground">
-                    {t('providerDialog.fields.needsWafBypass.description')}
+                  <Input
+                    id="name"
+                    placeholder={t('providerDialog.fields.name.placeholder')}
+                    {...register('name', {
+                      required: t('providerDialog.fields.name.required'),
+                    })}
+                    className={cn(errors.name && 'border-destructive')}
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">{errors.name.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="domain" className="flex items-center gap-2">
+                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                    {t('providerDialog.fields.domain.label')} <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="domain"
+                    placeholder={t('providerDialog.fields.domain.placeholder')}
+                    {...register('domain', {
+                      required: t('providerDialog.fields.domain.required'),
+                      pattern: {
+                        value: /^https?:\/\/.+/,
+                        message: t('providerDialog.fields.domain.invalidFormat'),
+                      },
+                    })}
+                    className={cn(errors.domain && 'border-destructive')}
+                  />
+                  {errors.domain && (
+                    <p className="text-sm text-destructive">{errors.domain.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Capabilities Card */}
+              <Card className="p-4 bg-muted/20 border-border/50">
+                <h3 className="text-sm font-medium mb-4 text-muted-foreground">Capabilities Configuration</h3>
+                <div className="space-y-4">
+                  {/* WAF Bypass */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-md bg-blue-500/10 text-blue-500 mt-0.5">
+                        <Shield className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label htmlFor="needs_waf_bypass" className="text-base cursor-pointer">
+                          {t('providerDialog.fields.needsWafBypass.label')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground max-w-[300px]">
+                          {t('providerDialog.fields.needsWafBypass.description')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="needs_waf_bypass"
+                      checked={needsWafBypass}
+                      onCheckedChange={(checked) => setValue('needs_waf_bypass', checked)}
+                    />
+                  </div>
+
+                  <div className="h-px bg-border/50" />
+
+                  {/* Check-in Support */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-md bg-green-500/10 text-green-500 mt-0.5">
+                        <CalendarCheck className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label htmlFor="supports_check_in" className="text-base cursor-pointer">
+                          {t('providerDialog.fields.supportsCheckIn.label')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground max-w-[300px]">
+                          {t('providerDialog.fields.supportsCheckIn.description')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="supports_check_in"
+                      checked={supportsCheckIn}
+                      onCheckedChange={(checked) => {
+                        setValue('supports_check_in', checked);
+                        if (!checked) setValue('check_in_bugged', false);
+                      }}
+                    />
+                  </div>
+
+                  {/* Bugged Toggle (Conditional) */}
+                  <div className={cn(
+                    "flex items-center justify-between transition-all duration-200 overflow-hidden",
+                    supportsCheckIn ? "opacity-100 max-h-20 pt-4 border-t border-border/50" : "opacity-0 max-h-0"
+                  )}>
+                    <div className="flex items-start gap-3 pl-2 border-l-2 border-orange-500/20">
+                      <div className="p-2 rounded-md bg-orange-500/10 text-orange-500 mt-0.5">
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label htmlFor="check_in_bugged" className="text-base cursor-pointer">
+                          {t('providerDialog.fields.checkInBugged.label')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground max-w-[300px]">
+                          {t('providerDialog.fields.checkInBugged.description')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="check_in_bugged"
+                      checked={checkInBugged}
+                      disabled={!supportsCheckIn}
+                      onCheckedChange={(checked) => setValue('check_in_bugged', checked)}
+                    />
                   </div>
                 </div>
-                <Switch
-                  id="needs_waf_bypass"
-                  checked={needsWafBypass}
-                  onCheckedChange={(checked) => setValue('needs_waf_bypass', checked)}
-                />
-              </div>
-
-              {/* Supports check-in */}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="supports_check_in" className="text-base">
-                    {t('providerDialog.fields.supportsCheckIn.label')}
-                  </Label>
-                  <div className="text-sm text-muted-foreground">
-                    {t('providerDialog.fields.supportsCheckIn.description')}
-                  </div>
-                </div>
-                <Switch
-                  id="supports_check_in"
-                  checked={supportsCheckIn}
-                  onCheckedChange={(checked) => {
-                    setValue('supports_check_in', checked);
-                    if (!checked) {
-                      setValue('check_in_bugged', false);
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Known bug toggle */}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="check_in_bugged" className="text-base">
-                    {t('providerDialog.fields.checkInBugged.label')}
-                  </Label>
-                  <div className="text-sm text-muted-foreground">
-                    {t('providerDialog.fields.checkInBugged.description')}
-                  </div>
-                </div>
-                <Switch
-                  id="check_in_bugged"
-                  checked={checkInBugged}
-                  disabled={!supportsCheckIn}
-                  onCheckedChange={(checked) => setValue('check_in_bugged', checked)}
-                />
-              </div>
+              </Card>
             </TabsContent>
 
             {/* Advanced Tab */}
-            <TabsContent value="advanced" className="space-y-4 mt-4">
-              <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground mb-4">
-                <p className="font-medium text-foreground mb-2">💡 {t('providerDialog.advancedNote.title', '默认值说明')}</p>
-                <p>{t('providerDialog.advancedNote.description', '以下配置项都是可选的，使用new-api标准默认值。如果你的中转站遵循new-api标准，可以不填写。')}</p>
+            <TabsContent value="advanced" className="space-y-6 mt-6">
+              <div className="rounded-lg border border-border/50 bg-blue-50/50 dark:bg-blue-950/20 p-4 text-sm text-blue-700 dark:text-blue-300 flex gap-3">
+                <Info className="h-5 w-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold mb-1">{t('providerDialog.advancedNote.title', 'Default Values Note')}</p>
+                  <p className="opacity-90">{t('providerDialog.advancedNote.description')}</p>
+                </div>
               </div>
 
-              {/* Login Path */}
-              <div className="space-y-2">
-                <Label htmlFor="login_path" className="flex items-center gap-2">
-                  {t('providerDialog.fields.loginPath.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.loginPath.placeholder')})</span>
-                </Label>
-                <Input
-                  id="login_path"
-                  placeholder={t('providerDialog.fields.loginPath.placeholder')}
-                  {...register('login_path')}
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Auth Group */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground border-b pb-2">Authentication</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="login_path" className="text-xs">{t('providerDialog.fields.loginPath.label')}</Label>
+                    <Input id="login_path" placeholder="/login" {...register('login_path')} className="h-8 text-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sign_in_path" className="text-xs">{t('providerDialog.fields.signInPath.label')}</Label>
+                    <Input id="sign_in_path" placeholder="/api/user/sign_in" {...register('sign_in_path')} className="h-8 text-sm" />
+                  </div>
+                </div>
 
-              {/* Sign In Path */}
-              <div className="space-y-2">
-                <Label htmlFor="sign_in_path" className="flex items-center gap-2">
-                  {t('providerDialog.fields.signInPath.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.signInPath.placeholder')})</span>
-                </Label>
-                <Input
-                  id="sign_in_path"
-                  placeholder={t('providerDialog.fields.signInPath.placeholder')}
-                  {...register('sign_in_path')}
-                />
-              </div>
+                {/* User Data Group */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground border-b pb-2">User Data</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="user_info_path" className="text-xs">{t('providerDialog.fields.userInfoPath.label')}</Label>
+                    <Input id="user_info_path" placeholder="/api/user/self" {...register('user_info_path')} className="h-8 text-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="api_user_key" className="text-xs">{t('providerDialog.fields.apiUserKey.label')}</Label>
+                    <Input id="api_user_key" placeholder="new-api-user" {...register('api_user_key')} className="h-8 text-sm" />
+                  </div>
+                </div>
 
-              {/* User Info Path */}
-              <div className="space-y-2">
-                <Label htmlFor="user_info_path" className="flex items-center gap-2">
-                  {t('providerDialog.fields.userInfoPath.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.userInfoPath.placeholder')})</span>
-                </Label>
-                <Input
-                  id="user_info_path"
-                  placeholder={t('providerDialog.fields.userInfoPath.placeholder')}
-                  {...register('user_info_path')}
-                />
-              </div>
-
-              {/* Token API Path */}
-              <div className="space-y-2">
-                <Label htmlFor="token_api_path" className="flex items-center gap-2">
-                  {t('providerDialog.fields.tokenApiPath.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.tokenApiPath.placeholder')})</span>
-                </Label>
-                <Input
-                  id="token_api_path"
-                  placeholder={t('providerDialog.fields.tokenApiPath.placeholder')}
-                  {...register('token_api_path')}
-                />
-              </div>
-
-              {/* Models Path */}
-              <div className="space-y-2">
-                <Label htmlFor="models_path" className="flex items-center gap-2">
-                  {t('providerDialog.fields.modelsPath.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.modelsPath.placeholder')})</span>
-                </Label>
-                <Input
-                  id="models_path"
-                  placeholder={t('providerDialog.fields.modelsPath.placeholder')}
-                  {...register('models_path')}
-                />
-              </div>
-
-              {/* API User Key */}
-              <div className="space-y-2">
-                <Label htmlFor="api_user_key" className="flex items-center gap-2">
-                  {t('providerDialog.fields.apiUserKey.label')}
-                  <span className="text-xs text-muted-foreground">({t('common.default', '默认')}: {t('providerDialog.fields.apiUserKey.placeholder')})</span>
-                </Label>
-                <Input
-                  id="api_user_key"
-                  placeholder={t('providerDialog.fields.apiUserKey.placeholder')}
-                  {...register('api_user_key')}
-                />
+                {/* Resources Group */}
+                <div className="space-y-4 md:col-span-2">
+                  <h4 className="text-sm font-medium text-muted-foreground border-b pb-2">Resources</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="token_api_path" className="text-xs">{t('providerDialog.fields.tokenApiPath.label')}</Label>
+                      <Input id="token_api_path" placeholder="/api/token/" {...register('token_api_path')} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="models_path" className="text-xs">{t('providerDialog.fields.modelsPath.label')}</Label>
+                      <Input id="models_path" placeholder="/api/user/models" {...register('models_path')} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
           </Tabs>

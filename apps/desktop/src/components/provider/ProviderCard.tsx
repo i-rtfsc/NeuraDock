@@ -68,8 +68,9 @@ export function ProviderCard({
         <Card
           className={cn(
             'group relative overflow-hidden transition-all duration-200',
-            'hover:shadow-md hover:border-primary/20',
-            'bg-card/50 backdrop-blur-sm'
+            'bg-card border shadow-sm',
+            'hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer',
+            'hover:border-primary/50'
           )}
         >
           <div className="p-6">
