@@ -316,6 +316,8 @@
   },
   "settings": {
     "title": "设置",
+    "general": "常规",
+    "system": "系统",
     "description": "自定义您的 NeuraDock 体验",
     "appearance": "外观",
     "appearanceDescription": "自定义应用程序的外观和语言",

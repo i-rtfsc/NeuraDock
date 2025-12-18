@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Languages,
   AlertTriangle,
-  Scale
+  Scale,
+  Settings,
+  HardDrive
 } from 'lucide-react';
 import { useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -40,7 +42,7 @@ const SettingsGroup = ({ title, children, className, contentClassName }: Setting
       </h3>
     )}
     <div className={cn(
-      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full",
+      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full transition-all duration-200 hover:shadow-md hover:scale-[1.005] hover:border-border/80",
       contentClassName
     )}>
       <div className="flex flex-col w-full">
@@ -66,7 +68,7 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
     <div
       className={cn(
         "flex items-center gap-element-gap px-[var(--layout-page-content-padding)] py-5 min-h-[4rem] transition-all duration-200 hover:bg-muted/30 w-full",
-        onClick && "cursor-pointer active:bg-muted/50",
+        onClick && "cursor-pointer active:bg-muted/50 active:scale-[0.99]",
         className
       )}
       onClick={onClick}
@@ -96,7 +98,7 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
 
 // --- Sub-Components ---
 
-const AppearanceSettings = () => {
+const GeneralSettings = () => {
   const { theme, setTheme } = useTheme();
   const { t, i18n } = useTranslation();
 
@@ -108,10 +110,9 @@ const AppearanceSettings = () => {
 
   return (
     <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
-      
       <SettingsGroup title={t('settings.appearance', { defaultValue: 'Appearance' })}>
         <SettingsRow 
-          icon={Sun} // Re-using Sun as a generic theme icon. Can be changed if needed.
+          icon={Sun}
           label={t('settings.theme')}
           description={t('settings.appearanceThemeDescription')}
         >
@@ -144,20 +145,21 @@ const AppearanceSettings = () => {
           </Select>
         </SettingsRow>
       </SettingsGroup>
-
     </div>
   );
 };
 
-const PerformanceSettings = () => {
+const SystemSettings = () => {
   const { t } = useTranslation();
   const [cacheAgeHours, setCacheAgeHours] = useState<number>(1);
+  const [logLevel, setLogLevel] = useState<string>('info');
 
   useEffect(() => {
     const stored = localStorage.getItem('maxCacheAgeHours');
     if (stored) {
       setCacheAgeHours(parseInt(stored, 10));
     }
+    invoke<string>('get_log_level').then(setLogLevel).catch(console.error);
   }, []);
 
   const handleSaveCache = (val: number) => {
@@ -165,11 +167,30 @@ const PerformanceSettings = () => {
     localStorage.setItem('maxCacheAgeHours', val.toString());
   };
 
+  const handleLogLevelChange = async (level: string) => {
+    try {
+      await invoke('set_log_level', { level });
+      setLogLevel(level);
+      toast.success(t('settings.logLevelUpdated'));
+    } catch (err) {
+      toast.error(t('common.error'));
+    }
+  };
+
+  const handleOpenLogs = async () => {
+    try {
+      const logPath = await invoke<string>('open_log_dir');
+      toast.success(t('settings.logFolderOpened', { path: logPath }));
+    } catch (error) {
+      toast.error(t('settings.failedToOpenLogs') + ': ' + String(error));
+    }
+  };
+
   return (
     <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      {/* Cache Control */}
       <SettingsGroup title={t('settings.cacheControl')}>
         <div className="p-5 space-y-6 group">
-           {/* Top Row: Icon/Info and Value */}
            <div className="flex items-start justify-between">
                <div className="flex gap-4">
                     <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
@@ -193,7 +214,6 @@ const PerformanceSettings = () => {
                </div>
            </div>
 
-           {/* Bottom Row: Interactive Slider */}
            <div className="pt-2 transition-opacity duration-300">
                <input
                    type="range"
@@ -215,9 +235,10 @@ const PerformanceSettings = () => {
         </div>
       </SettingsGroup>
 
+      {/* Storage */}
       <SettingsGroup title={t('settings.storageTitle')}>
         <SettingsRow 
-          icon={Database}
+          icon={HardDrive}
           label={t('settings.localDatabase')}
           description={t('settings.localDatabaseDescription')}
           action={<span className="text-xs font-semibold text-foreground bg-muted/60 px-3 py-1.5 rounded-lg border border-border/40 tabular-nums">12.5 MB</span>}
@@ -230,53 +251,9 @@ const PerformanceSettings = () => {
            isLast
         />
       </SettingsGroup>
-    </div>
-  );
-};
 
-const NotificationSettings = () => {
-  const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
-
-  return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
-      <NotificationChannelList
-        channels={notificationChannels}
-        onUpdate={refetchChannels}
-      />
-    </div>
-  );
-};
-
-const DeveloperSettings = () => {
-  const { t } = useTranslation();
-  const [logLevel, setLogLevel] = useState<string>('info');
-
-  useEffect(() => {
-    invoke<string>('get_log_level').then(setLogLevel).catch(console.error);
-  }, []);
-
-  const handleLogLevelChange = async (level: string) => {
-    try {
-      await invoke('set_log_level', { level });
-      setLogLevel(level);
-      toast.success(t('settings.logLevelUpdated'));
-    } catch (err) {
-      toast.error(t('common.error'));
-    }
-  };
-
-  const handleOpenLogs = async () => {
-    try {
-      const logPath = await invoke<string>('open_log_dir');
-      toast.success(t('settings.logFolderOpened', { path: logPath }));
-    } catch (error) {
-      toast.error(t('settings.failedToOpenLogs') + ': ' + String(error));
-    }
-  };
-
-  return (
-    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
-      <SettingsGroup title={t('settings.debugConfig', { defaultValue: 'Debug Configuration' })}>
+      {/* Developer */}
+      <SettingsGroup title={t('settings.developer')}>
         <SettingsRow 
           icon={Terminal}
           label={t('settings.logLevel')}
@@ -308,6 +285,19 @@ const DeveloperSettings = () => {
   );
 };
 
+const NotificationSettings = () => {
+  const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+      <NotificationChannelList
+        channels={notificationChannels}
+        onUpdate={refetchChannels}
+      />
+    </div>
+  );
+};
+
 const AboutSettings = () => {
   const { t } = useTranslation();
   const [appVersion, setAppVersion] = useState<{ version: string; profile: string }>({ version: 'Loading...', profile: 'Unknown' });
@@ -325,7 +315,7 @@ const AboutSettings = () => {
       .catch(() => setAppVersion({ version: 'Unknown', profile: 'Unknown' }));
   }, []);
 
-  const profileText = appVersion.profile; // e.g., "Debug" or "Release"
+  const profileText = appVersion.profile;
   const profileColorClass = profileText === 'Debug' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 
   return (
@@ -403,34 +393,52 @@ export function PreferencesPage() {
   const { t } = useTranslation();
 
   return (
-    <Tabs defaultValue="appearance" className="h-full flex flex-col w-full bg-background/95">
+    <Tabs defaultValue="general" className="h-full flex flex-col w-full bg-background/95">
       <PageContainer 
-        className="h-full p-0 bg-muted/10 w-full" 
+        className="h-full bg-muted/10 w-full" 
         title={t('settings.title')}
         actions={
-          <TabsList className="h-11 bg-muted/50 border border-border/50 p-1 rounded-full inline-flex items-center justify-center">
-            <TabsTrigger value="appearance" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.appearance')}</TabsTrigger>
-            <TabsTrigger value="performance" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.dataPerformance')}</TabsTrigger>
-            <TabsTrigger value="notifications" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.notification')}</TabsTrigger>
-            <TabsTrigger value="developer" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.developer')}</TabsTrigger>
-            <TabsTrigger value="about" className="text-sm font-medium px-6 h-btn-sm rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all">{t('settings.about')}</TabsTrigger>
+          <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-lg inline-flex items-center justify-center">
+            <TabsTrigger 
+              value="general" 
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              {t('settings.general', 'General')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="system" 
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+            >
+              <HardDrive className="w-4 h-4 mr-2" />
+              {t('settings.system', 'System')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="notifications" 
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+            >
+              {t('settings.notification')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="about" 
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+            >
+              {t('settings.about')}
+            </TabsTrigger>
           </TabsList>
         }
       >
-        <PageContent maxWidth="sm" className="h-full p-[var(--layout-page-content-padding)] md:p-8">
+        <PageContent maxWidth="lg" className="h-full">
           <ScrollArea className="h-full w-full rounded-2xl">
              <div className="pb-32 w-full">
-                <TabsContent value="appearance" className="mt-0 outline-none w-full">
-                  <AppearanceSettings />
+                <TabsContent value="general" className="mt-0 outline-none w-full">
+                  <GeneralSettings />
                 </TabsContent>
-                <TabsContent value="performance" className="mt-0 outline-none w-full">
-                  <PerformanceSettings />
+                <TabsContent value="system" className="mt-0 outline-none w-full">
+                  <SystemSettings />
                 </TabsContent>
                 <TabsContent value="notifications" className="mt-0 outline-none w-full">
                   <NotificationSettings />
-                </TabsContent>
-                <TabsContent value="developer" className="mt-0 outline-none w-full">
-                  <DeveloperSettings />
                 </TabsContent>
                 <TabsContent value="about" className="mt-0 outline-none w-full">
                   <AboutSettings />

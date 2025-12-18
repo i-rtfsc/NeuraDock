@@ -316,6 +316,8 @@
   },
   "settings": {
     "title": "Settings",
+    "general": "General",
+    "system": "System",
     "description": "Customize your NeuraDock experience",
     "appearance": "Appearance",
     "appearanceDescription": "Customize the look and language of the app",
