@@ -72,14 +72,11 @@ export function TokensPage() {
 
   // Handle dialog close - refetch data when dialog closes
   const handleKeyDialogChange = (open: boolean) => {
-    console.log('[TokensPage] Dialog state changed:', open);
     setKeyDialogOpen(open);
-    // When dialog closes, refetch the data to ensure we have the latest
     if (!open) {
-      console.log('[TokensPage] Dialog closed, triggering refetch...');
       setTimeout(() => {
         refetch();
-      }, 100); // Small delay to ensure dialog animations complete
+      }, 100);
     }
   };
 
@@ -96,26 +93,18 @@ export function TokensPage() {
   const { data: independentKeys = [], refetch, isLoading } = useQuery<IndependentKeyDto[]>({
     queryKey: ['independent-keys'],
     queryFn: async () => {
-      console.log('[TokensPage] Fetching independent keys...');
       const result = await invoke<IndependentKeyDto[]>('get_all_independent_keys');
-      console.log('[TokensPage] Fetched keys:', result?.length || 0);
       return result;
     },
-    staleTime: 0, // Always stale - always refetch
-    gcTime: 0, // Don't cache at all
-    refetchOnMount: 'always', // Always refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when window regains focus
-    enabled: true, // Always enabled
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    enabled: true,
   });
-
-  // Expose refetch to child components via a callback
-  const handleDataChange = () => {
-    refetch();
-  };
 
   // Filter keys
   const filteredKeys = useMemo(() => {
-    console.log('[TokensPage] Computing filteredKeys, independentKeys length:', independentKeys?.length || 0);
     let filtered = independentKeys;
 
     // Search filter
@@ -141,7 +130,6 @@ export function TokensPage() {
       filtered = filtered.filter((key) => key.is_active === isActive);
     }
 
-    console.log('[TokensPage] filteredKeys length:', filtered?.length || 0);
     return filtered;
   }, [independentKeys, searchQuery, providerFilter, statusFilter]);
 
@@ -219,20 +207,57 @@ export function TokensPage() {
       title={
         <div className="flex items-center gap-2">
           <Key className="h-5 w-5" />
-          {t('token.independentKeys', 'Independent API Keys')}
+          {t('token.title', 'API Key')}
         </div>
       }
       actions={
-        <>
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative w-48 lg:w-64 transition-all duration-200">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={t('token.searchPlaceholder', 'Search...')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 bg-background/50 hover:bg-background focus:bg-background border-border/50 text-xs"
+            />
+          </div>
+
+          {/* Provider Filter */}
+          <Select value={providerFilter} onValueChange={(v) => setProviderFilter(v as ProviderFilter)}>
+            <SelectTrigger className="w-[110px] h-8 text-xs border-border/50 bg-background/50">
+              <SelectValue placeholder={t('token.filterProvider', 'Provider')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
+              <SelectItem value="openai">{t('providers.openai', 'OpenAI')}</SelectItem>
+              <SelectItem value="anthropic">{t('providers.anthropic', 'Anthropic')}</SelectItem>
+              <SelectItem value="custom">{t('token.customProvider', 'Custom')}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-[100px] h-8 text-xs border-border/50 bg-background/50">
+              <SelectValue placeholder={t('token.filterStatus', 'Status')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
+              <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
+              <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Add Button */}
           <Button
-            variant="outline"
             size="sm"
             onClick={handleAddKey}
+            className="shadow-sm ml-2"
           >
             <Plus className="mr-2 h-4 w-4" />
             {t('token.addKey', 'Add API Key')}
           </Button>
-        </>
+        </div>
       }
     >
       <div className="space-y-5">
@@ -244,7 +269,7 @@ export function TokensPage() {
               <span className="text-sm text-blue-900 dark:text-blue-100">
                 {t(
                   'token.relayTokensHint',
-                  '中转站 Tokens 配置：请前往账户管理 → 账户详情 → 配置'
+                  'Relay API Key Configuration: Go to Account Management → Account Details → Configure'
                 )}
               </span>
               <Button
@@ -253,46 +278,12 @@ export function TokensPage() {
                 className="h-7 px-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0"
                 onClick={() => navigate('/accounts')}
               >
-                {t('token.goToAccounts', '前往账户管理')}
+                {t('token.goToAccounts', 'Go to Accounts')}
                 <ArrowRight className="ml-1.5 h-3 w-3" />
               </Button>
             </div>
           </div>
         </Alert>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder={t('token.searchPlaceholder', 'Search by name, provider, URL...')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 bg-background transition-shadow focus:shadow-sm"
-            />
-          </div>
-          <Select value={providerFilter} onValueChange={(v) => setProviderFilter(v as ProviderFilter)}>
-            <SelectTrigger className="w-full sm:w-[160px] h-9">
-              <SelectValue placeholder={t('token.filterProvider', 'Provider')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('common.all', 'All Providers')}</SelectItem>
-              <SelectItem value="openai">OpenAI</SelectItem>
-              <SelectItem value="anthropic">Anthropic</SelectItem>
-              <SelectItem value="custom">{t('token.customProvider', 'Custom')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-full sm:w-[130px] h-9">
-              <SelectValue placeholder={t('token.filterStatus', 'Status')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('common.all', 'All Status')}</SelectItem>
-              <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
-              <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
         {/* Keys List - Grid Layout */}
         <AnimatePresence mode="wait">
@@ -343,10 +334,10 @@ export function TokensPage() {
                 <motion.div key={key.id} variants={itemVariants} layout>
                   <Card
                     className={cn(
-                      'group relative overflow-hidden transition-all duration-300',
+                      'group relative overflow-hidden transition-all duration-200',
                       key.is_active
-                        ? 'border-border/60 bg-card hover:shadow-lg hover:border-primary/50 hover:-translate-y-1'
-                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'
+                        ? 'border-border/60 bg-card hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default'
                     )}
                   >
                     <div className="p-4 space-y-3">
@@ -436,7 +427,7 @@ export function TokensPage() {
                             onClick={() => handleConfigureKey(key, 'claude')}
                           >
                             <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-                            {t('token.configureAI', '配置 AI 工具')}
+                            {t('token.configureAI', 'Configure AI Tool')}
                           </Button>
                         </div>
                       )}
