@@ -354,4 +354,26 @@
   .rounded-ios-lg {
     @apply rounded-[1.75rem];
   }
+
+  /* Auto-hiding scrollbar (Show only on hover/scroll) */
+  .auto-hide-scrollbar {
+    /* No gutter reserved */
+  }
+  .auto-hide-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .auto-hide-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .auto-hide-scrollbar::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 99px;
+  }
+  .auto-hide-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+  }
+  .dark .auto-hide-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(75, 85, 99, 0.5);
+  }
 }

@@ -346,53 +346,55 @@ export function AccountsPage() {
         </div>
       }
     >
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-6 overflow-hidden pt-2">
         {/* Statistics Cards */}
         {filteredStatistics && (
-          <Card className="p-5 border-border/50 shadow-md bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-blue-950/30 dark:via-background dark:to-green-950/30">
-            <div className="flex items-center justify-between gap-6">
-              <div className="flex-1 grid grid-cols-3 gap-6">
-                {/* Current Balance */}
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 shadow-sm">
-                    <Wallet className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.currentBalance')}</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono">
-                      ${filteredStatistics.total_current_balance.toFixed(2)}
-                    </p>
-                  </div>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+            {/* Current Balance */}
+            <Card className="bg-card border shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] cursor-pointer">
+              <div className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono mt-1">
+                    ${filteredStatistics.total_current_balance.toFixed(2)}
+                  </p>
                 </div>
-
-                {/* Total Income */}
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm">
-                    <TrendingUp className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.totalIncome')}</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono">
-                      ${filteredStatistics.total_income.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Historical Consumption */}
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 shadow-sm">
-                    <History className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">{t('dashboard.stats.historicalConsumption')}</p>
-                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">
-                      ${filteredStatistics.total_consumed.toFixed(2)}
-                    </p>
-                  </div>
+                <div className="p-3 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                  <Wallet className="h-5 w-5" />
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+
+            {/* Total Income */}
+            <Card className="bg-card border shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] cursor-pointer">
+              <div className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalIncome')}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono mt-1">
+                    ${filteredStatistics.total_income.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+              </div>
+            </Card>
+
+            {/* Historical Consumption */}
+            <Card className="bg-card border shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] cursor-pointer">
+              <div className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono mt-1">
+                    ${filteredStatistics.total_consumed.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                  <History className="h-5 w-5" />
+                </div>
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* Table */}

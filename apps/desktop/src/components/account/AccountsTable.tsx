@@ -20,6 +20,7 @@ import type { ProviderDto } from '@/hooks/useProviders';
 import { Account } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 
 interface AccountsTableProps {
   accounts: Account[];
@@ -100,13 +101,19 @@ export function AccountsTable({
   );
 
   return (
-    <div className="h-full rounded-lg border border-border/50 shadow-sm bg-card overflow-hidden">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="h-full rounded-lg border border-border/50 shadow-sm bg-card/50 backdrop-blur-sm overflow-hidden"
+    >
       {accounts.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
            {t('accounts.noAccounts')}
         </div>
       ) : (
         <TableVirtuoso
+          className="auto-hide-scrollbar"
           style={{ height: '100%' }}
           data={accounts}
           components={{
@@ -114,20 +121,21 @@ export function AccountsTable({
               <table {...props} className="w-full caption-bottom text-sm border-collapse" />
             ),
             TableHead: React.forwardRef((props, ref) => (
-              <thead {...props} ref={ref} className="bg-muted/50 sticky top-0 z-20 shadow-sm [&_tr]:border-b" />
+              <thead {...props} ref={ref} className="bg-muted/50 sticky top-0 z-20 shadow-sm [&_tr]:border-b backdrop-blur-md" />
             )),
             TableRow: (props) => (
               <tr 
                 {...props} 
                 className={cn(
-                  "border-b transition-all duration-200 relative group",
-                  "hover:bg-accent/40 hover:shadow-md hover:scale-[1.002] hover:z-10",
+                  "border-b transition-all duration-200 relative group cursor-pointer",
+                  "hover:bg-accent/60 hover:shadow-md hover:-translate-y-[2px] hover:z-10",
+                  "active:scale-[0.995] active:translate-y-0 active:shadow-sm",
                   "data-[state=selected]:bg-muted"
                 )}
               />
             ),
             TableBody: React.forwardRef((props, ref) => (
-              <tbody {...props} ref={ref} className="[&_tr:last-child]:border-0 bg-card" />
+              <tbody {...props} ref={ref} className="[&_tr:last-child]:border-0 bg-transparent" />
             )),
           }}
           fixedHeaderContent={() => (
@@ -236,7 +244,7 @@ export function AccountsTable({
                         const isBugged = supportsCheckIn && checkInBugged;
                         const buttonDisabled = !account.enabled || (supportsCheckIn && isChecking);
                         const buttonLabel = !supportsCheckIn
-                          ? t('accountCard.refreshBalance')
+                          ? t('management.balance', '余额')
                           : isChecking
                           ? t('checkIn.checking', '签到中...')
                           : t('checkIn.checkIn', '签到');
@@ -326,6 +334,6 @@ export function AccountsTable({
           }}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

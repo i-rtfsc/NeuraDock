@@ -80,6 +80,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
       className="h-full group"
     >
       <Card 
