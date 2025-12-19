@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
 use neuradock_domain::shared::DomainError;
 use serde::Deserialize;
 use tracing::info;
@@ -55,17 +55,19 @@ pub async fn seed_builtin_providers(
 
         let provider = Provider::builtin(
             &config.id,
-            config.name.clone(),
-            config.domain.clone(),
-            config.login_path.clone(),
-            config.sign_in_path.clone(),
-            config.user_info_path.clone(),
-            config.token_api_path.clone(),
-            config.models_path.clone(),
-            config.api_user_key.clone(),
-            config.bypass_method.clone(),
-            config.supports_check_in.unwrap_or(true),
-            config.check_in_bugged.unwrap_or(false),
+            ProviderConfig {
+                name: config.name.clone(),
+                domain: config.domain.clone(),
+                login_path: config.login_path.clone(),
+                sign_in_path: config.sign_in_path.clone(),
+                user_info_path: config.user_info_path.clone(),
+                token_api_path: config.token_api_path.clone(),
+                models_path: config.models_path.clone(),
+                api_user_key: config.api_user_key.clone(),
+                bypass_method: config.bypass_method.clone(),
+                supports_check_in: config.supports_check_in.unwrap_or(true),
+                check_in_bugged: config.check_in_bugged.unwrap_or(false),
+            },
         );
         provider_repo.save(&provider).await?;
         seeded_count += 1;

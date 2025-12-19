@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
-use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
 use neuradock_domain::shared::{DomainError, ProviderId};
 
 use crate::persistence::unit_of_work::RepositoryErrorMapper;
@@ -43,19 +43,23 @@ impl SqliteProviderRepository {
             .map_err(|e| DomainError::Validation(format!("Invalid created_at: {}", e)))?
             .with_timezone(&Utc);
 
-        let provider = Provider::with_id(
+        let config = ProviderConfig {
+            name: row.name,
+            domain: row.domain,
+            login_path: row.login_path,
+            sign_in_path: row.sign_in_path,
+            user_info_path: row.user_info_path,
+            token_api_path: row.token_api_path,
+            models_path: row.models_path,
+            api_user_key: row.api_user_key,
+            bypass_method: row.bypass_method,
+            supports_check_in: row.supports_check_in,
+            check_in_bugged: row.check_in_bugged,
+        };
+
+        let provider = Provider::restore(
             ProviderId::from_string(&row.id),
-            row.name,
-            row.domain,
-            row.login_path,
-            row.sign_in_path,
-            row.user_info_path,
-            row.token_api_path,
-            row.models_path,
-            row.api_user_key,
-            row.bypass_method,
-            row.supports_check_in,
-            row.check_in_bugged,
+            config,
             row.is_builtin,
             created_at,
         );

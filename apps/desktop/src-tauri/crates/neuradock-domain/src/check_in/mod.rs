@@ -11,7 +11,7 @@ mod value_objects_test;
 
 pub use aggregate::CheckInJob;
 pub use domain_service::CheckInDomainService;
-pub use provider::Provider;
+pub use provider::{Provider, ProviderConfig};
 pub use repository::{CheckInJobRepository, ProviderRepository};
 pub use value_objects::Balance;
 #[allow(unused_imports)]

@@ -4,6 +4,22 @@ use specta::Type;
 
 use crate::shared::ProviderId;
 
+/// Configuration for creating a Provider
+#[derive(Debug, Clone)]
+pub struct ProviderConfig {
+    pub name: String,
+    pub domain: String,
+    pub login_path: String,
+    pub sign_in_path: Option<String>,
+    pub user_info_path: String,
+    pub token_api_path: Option<String>,
+    pub models_path: Option<String>,
+    pub api_user_key: String,
+    pub bypass_method: Option<String>,
+    pub supports_check_in: bool,
+    pub check_in_bugged: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Provider {
     id: ProviderId,
@@ -27,99 +43,64 @@ impl Provider {
         domain.trim_end_matches('/').to_string()
     }
 
-    pub fn new(
-        name: String,
-        domain: String,
-        login_path: String,
-        sign_in_path: Option<String>,
-        user_info_path: String,
-        token_api_path: Option<String>,
-        models_path: Option<String>,
-        api_user_key: String,
-        bypass_method: Option<String>,
-        supports_check_in: bool,
-        check_in_bugged: bool,
-    ) -> Self {
+    pub fn new(config: ProviderConfig) -> Self {
         Self {
             id: ProviderId::new(),
-            name,
-            domain: Self::normalize_domain(domain),
-            login_path,
-            sign_in_path,
-            user_info_path,
-            token_api_path,
-            models_path,
-            api_user_key,
-            bypass_method,
-            supports_check_in,
-            check_in_bugged,
+            name: config.name,
+            domain: Self::normalize_domain(config.domain),
+            login_path: config.login_path,
+            sign_in_path: config.sign_in_path,
+            user_info_path: config.user_info_path,
+            token_api_path: config.token_api_path,
+            models_path: config.models_path,
+            api_user_key: config.api_user_key,
+            bypass_method: config.bypass_method,
+            supports_check_in: config.supports_check_in,
+            check_in_bugged: config.check_in_bugged,
             is_builtin: false,
             created_at: Utc::now(),
         }
     }
 
-    pub fn builtin(
-        id: &str,
-        name: String,
-        domain: String,
-        login_path: String,
-        sign_in_path: Option<String>,
-        user_info_path: String,
-        token_api_path: Option<String>,
-        models_path: Option<String>,
-        api_user_key: String,
-        bypass_method: Option<String>,
-        supports_check_in: bool,
-        check_in_bugged: bool,
-    ) -> Self {
+    pub fn builtin(id: &str, config: ProviderConfig) -> Self {
         Self {
             id: ProviderId::from_string(id),
-            name,
-            domain: Self::normalize_domain(domain),
-            login_path,
-            sign_in_path,
-            user_info_path,
-            token_api_path,
-            models_path,
-            api_user_key,
-            bypass_method,
-            supports_check_in,
-            check_in_bugged,
+            name: config.name,
+            domain: Self::normalize_domain(config.domain),
+            login_path: config.login_path,
+            sign_in_path: config.sign_in_path,
+            user_info_path: config.user_info_path,
+            token_api_path: config.token_api_path,
+            models_path: config.models_path,
+            api_user_key: config.api_user_key,
+            bypass_method: config.bypass_method,
+            supports_check_in: config.supports_check_in,
+            check_in_bugged: config.check_in_bugged,
             is_builtin: true,
             created_at: Utc::now(),
         }
     }
 
-    /// Create a provider with a specific ID (used for updates)
-    pub fn with_id(
+    /// Restore a provider from persistence
+    pub fn restore(
         id: ProviderId,
-        name: String,
-        domain: String,
-        login_path: String,
-        sign_in_path: Option<String>,
-        user_info_path: String,
-        token_api_path: Option<String>,
-        models_path: Option<String>,
-        api_user_key: String,
-        bypass_method: Option<String>,
-        supports_check_in: bool,
-        check_in_bugged: bool,
+        config: ProviderConfig,
         is_builtin: bool,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
             id,
-            name,
-            domain: Self::normalize_domain(domain),
-            login_path,
-            sign_in_path,
-            user_info_path,
-            token_api_path,
-            models_path,
-            api_user_key,
-            bypass_method,
-            supports_check_in,
-            check_in_bugged,
+            name: config.name,
+            domain: Self::normalize_domain(config.domain),
+            login_path: config.login_path,
+            sign_in_path: config.sign_in_path,
+            user_info_path: config.user_info_path,
+            token_api_path: config.token_api_path,
+            models_path: config.models_path,
+            api_user_key: config.api_user_key,
+            bypass_method: config.bypass_method,
+            supports_check_in: config.supports_check_in,
+            check_in_bugged: config.check_in_bugged,
             is_builtin,
             created_at,
         }

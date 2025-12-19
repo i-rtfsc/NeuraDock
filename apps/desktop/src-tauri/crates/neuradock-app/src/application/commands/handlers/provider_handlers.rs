@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::commands::provider_commands::*;
-use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
 use neuradock_domain::shared::DomainError;
 
 /// Create provider command handler
@@ -39,25 +39,27 @@ impl CommandHandler<CreateProviderCommand> for CreateProviderCommandHandler {
         let check_in_bugged = cmd.check_in_bugged.unwrap_or(false);
 
         // Use provided values or new-api defaults
-        let provider = Provider::new(
-            cmd.name.clone(),
-            cmd.domain.clone(),
-            cmd.login_path.unwrap_or_else(|| "/login".to_string()),
-            cmd.sign_in_path.or(Some("/api/user/sign_in".to_string())),
-            cmd.user_info_path
+        let provider = Provider::new(ProviderConfig {
+            name: cmd.name.clone(),
+            domain: cmd.domain.clone(),
+            login_path: cmd.login_path.unwrap_or_else(|| "/login".to_string()),
+            sign_in_path: cmd.sign_in_path.or(Some("/api/user/sign_in".to_string())),
+            user_info_path: cmd
+                .user_info_path
                 .unwrap_or_else(|| "/api/user/self".to_string()),
-            cmd.token_api_path.or(Some("/api/token/".to_string())),
-            cmd.models_path.or(Some("/api/user/models".to_string())),
-            cmd.api_user_key
+            token_api_path: cmd.token_api_path.or(Some("/api/token/".to_string())),
+            models_path: cmd.models_path.or(Some("/api/user/models".to_string())),
+            api_user_key: cmd
+                .api_user_key
                 .unwrap_or_else(|| "new-api-user".to_string()),
-            if cmd.needs_waf_bypass {
+            bypass_method: if cmd.needs_waf_bypass {
                 Some("waf_cookies".to_string())
             } else {
                 None
             },
             supports_check_in,
             check_in_bugged,
-        );
+        });
 
         let provider_id = provider.id().as_str().to_string();
         info!("🆕 Creating provider with ID: {}", provider_id);
@@ -143,25 +145,28 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
         let current_created_at = existing.created_at();
 
         // Create updated provider using provided values or existing values as fallback
-        // IMPORTANT: Use with_id() to preserve the existing provider ID
-        let updated_provider = Provider::with_id(
+        // IMPORTANT: Use restore() to preserve the existing provider ID, is_builtin, and created_at
+        let updated_provider = Provider::restore(
             provider_id.clone(),
-            cmd.name.unwrap_or(current_name),
-            cmd.domain.unwrap_or(current_domain),
-            cmd.login_path.unwrap_or(current_login_path),
-            cmd.sign_in_path.or(current_sign_in_path),
-            cmd.user_info_path.unwrap_or(current_user_info_path),
-            cmd.token_api_path.or(current_token_api_path),
-            cmd.models_path.or(current_models_path),
-            cmd.api_user_key.unwrap_or(current_api_user_key),
-            if cmd.needs_waf_bypass.unwrap_or(current_needs_waf) {
-                Some("waf_cookies".to_string())
-            } else {
-                None
+            ProviderConfig {
+                name: cmd.name.unwrap_or(current_name),
+                domain: cmd.domain.unwrap_or(current_domain),
+                login_path: cmd.login_path.unwrap_or(current_login_path),
+                sign_in_path: cmd.sign_in_path.or(current_sign_in_path),
+                user_info_path: cmd.user_info_path.unwrap_or(current_user_info_path),
+                token_api_path: cmd.token_api_path.or(current_token_api_path),
+                models_path: cmd.models_path.or(current_models_path),
+                api_user_key: cmd.api_user_key.unwrap_or(current_api_user_key),
+                bypass_method: if cmd.needs_waf_bypass.unwrap_or(current_needs_waf) {
+                    Some("waf_cookies".to_string())
+                } else {
+                    None
+                },
+                supports_check_in: cmd
+                    .supports_check_in
+                    .unwrap_or(current_supports_check_in),
+                check_in_bugged: cmd.check_in_bugged.unwrap_or(current_check_in_bugged),
             },
-            cmd.supports_check_in
-                .unwrap_or(current_supports_check_in),
-            cmd.check_in_bugged.unwrap_or(current_check_in_bugged),
             current_is_builtin,
             current_created_at,
         );

@@ -122,19 +122,21 @@ mod tests {
     }
 
     fn create_test_provider() -> Provider {
-        Provider::new(
-            "Test Provider".to_string(),
-            "https://example.com".to_string(),
-            "/login".to_string(),
-            Some("/checkin".to_string()),
-            "/userinfo".to_string(),
-            Some("/token".to_string()),
-            Some("/models".to_string()),
-            "user".to_string(),
-            None,
-            true,
-            false,
-        )
+        use crate::check_in::ProviderConfig;
+
+        Provider::new(ProviderConfig {
+            name: "Test Provider".to_string(),
+            domain: "https://example.com".to_string(),
+            login_path: "/login".to_string(),
+            sign_in_path: Some("/checkin".to_string()),
+            user_info_path: "/userinfo".to_string(),
+            token_api_path: Some("/token".to_string()),
+            models_path: Some("/models".to_string()),
+            api_user_key: "user".to_string(),
+            bypass_method: None,
+            supports_check_in: true,
+            check_in_bugged: false,
+        })
     }
 
     #[test]
