@@ -1,0 +1,177 @@
+use tauri::State;
+use crate::application::ResultExt;
+
+
+use crate::presentation::state::AppState;
+use neuradock_domain::shared::AccountId;
+/// Fetch provider supported models
+/// If forceRefresh is true, will fetch from API regardless of cache
+/// Otherwise returns cached models if available and not stale (24 hours)
+#[tauri::command]
+#[specta::specta]
+pub async fn fetch_provider_models(
+    provider_id: String,
+    account_id: String,
+    force_refresh: bool,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    use neuradock_infrastructure::http::token::TokenClient;
+
+    log::info!(
+        "fetch_provider_models: provider_id={}, account_id={}, force_refresh={}",
+        provider_id,
+        account_id,
+        force_refresh
+    );
+
+    // Check cache first (unless force refresh)
+    if !force_refresh {
+        // Check if we have cached models that are not stale (24 hours)
+        let is_stale = state
+            .provider_models_repo
+            .is_stale(&provider_id, 24)
+            .await
+            .to_string_err()?;
+
+        if !is_stale {
+            if let Some(cached) = state
+                .provider_models_repo
+                .find_by_provider(&provider_id)
+                .await
+                .to_string_err()?
+            {
+                log::info!(
+                    "Returning {} cached models for provider {}",
+                    cached.models.len(),
+                    provider_id
+                );
+                return Ok(cached.models);
+            }
+        }
+    }
+
+    // Get account to retrieve cookies
+    let account_id_obj = AccountId::from_string(&account_id);
+    let account = state
+        .account_repo
+        .find_by_id(&account_id_obj)
+        .await
+        .to_string_err()?
+        .ok_or_else(|| "Account not found".to_string())?;
+
+    // Get provider configuration
+    let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
+    let provider = state
+        .provider_repo
+        .find_by_id(&provider_id_obj)
+        .await
+        .to_string_err()?
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
+    // Check if provider supports models API
+    let models_path = provider
+        .models_path()
+        .ok_or_else(|| "Provider does not support models API".to_string())?
+        .to_string();
+    let base_url = provider.domain().trim_end_matches('/').to_string();
+    let api_user_header = provider.api_user_key();
+    let api_user_header_opt = if api_user_header.is_empty() {
+        None
+    } else {
+        Some(api_user_header)
+    };
+
+    // Prepare cookies - start with account cookies
+    let mut cookies = account.credentials().cookies().clone();
+
+    // Handle WAF bypass with caching (if provider requires it)
+    if provider.needs_waf_bypass() {
+        // Check for cached WAF cookies first
+        match state.waf_cookies_repo.get_valid(&provider_id).await {
+            Ok(Some(cached_waf)) => {
+                log::info!(
+                    "Using cached WAF cookies for provider {} (expires at {})",
+                    provider_id,
+                    cached_waf.expires_at
+                );
+                // Merge cached WAF cookies
+                for (k, v) in cached_waf.cookies {
+                    cookies.insert(k, v);
+                }
+            }
+            Ok(None) => {
+                log::warn!(
+                    "No valid cached WAF cookies for provider {}, may encounter WAF challenge",
+                    provider_id
+                );
+                // Note: We don't run WAF bypass here to avoid blocking
+                // User can use refresh_provider_models_with_waf if they encounter WAF
+            }
+            Err(e) => {
+                log::warn!("Failed to check WAF cookies cache: {}", e);
+            }
+        }
+    }
+
+    // Create token client and fetch models
+    let client = TokenClient::new().to_string_err()?;
+
+    // Build cookie string from merged cookies
+    let cookie_string: String = cookies
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    // Get api_user from account credentials
+    let api_user = account.credentials().api_user();
+
+    // Try to fetch models
+    let models_result = client
+        .fetch_provider_models(
+            &base_url,
+            &models_path,
+            &cookie_string,
+            api_user_header_opt,
+            Some(api_user),
+        )
+        .await;
+
+    // Check if we got WAF challenge error
+    let models = match models_result {
+        Ok(models) => models,
+        Err(e) => {
+            // Check if it's a WAF challenge error
+            let error_msg = e.to_string();
+            if error_msg.contains("WAF_CHALLENGE:") {
+                log::warn!("WAF challenge detected despite cached cookies, deleting cache");
+
+                // Delete cached WAF cookies
+                if let Err(inv_err) = state.waf_cookies_repo.delete(&provider_id).await {
+                    log::warn!("Failed to delete WAF cookies cache: {}", inv_err);
+                }
+
+                // Return helpful error message
+                return Err("WAF challenge detected. Please use 'Refresh with WAF' button in account management to refresh cookies.".to_string());
+            }
+
+            // Other error, just propagate
+            return Err(error_msg);
+        }
+    };
+
+    // Cache the models
+    state
+        .provider_models_repo
+        .save(&provider_id, &models)
+        .await
+        .to_string_err()?;
+
+    log::info!(
+        "Fetched and cached {} models for provider {}",
+        models.len(),
+        provider_id
+    );
+
+    Ok(models)
+}
