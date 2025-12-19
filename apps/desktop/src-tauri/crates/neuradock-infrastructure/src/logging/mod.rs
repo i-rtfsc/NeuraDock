@@ -18,6 +18,9 @@
 //! - source: backend / frontend
 //! - version: 应用版本
 
+// Re-export log masking utilities for use in logging
+pub mod log_utils;
+
 use log::LevelFilter;
 use std::path::PathBuf;
 use std::sync::OnceLock;

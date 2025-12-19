@@ -76,7 +76,7 @@ impl TokenService {
             .session_token()
             .context("No session token available")?;
 
-        log::info!("Session token valid, length: {}", session_token.len());
+        log::info!("Session token valid for account {}", account_id);
 
         // 3. If not forcing refresh, try cache first
         if !force_refresh {

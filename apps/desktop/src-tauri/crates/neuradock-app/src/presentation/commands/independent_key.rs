@@ -3,6 +3,7 @@ use tauri::State;
 use crate::application::dtos::{
     CreateIndependentKeyInput, IndependentKeyDto, UpdateIndependentKeyInput,
 };
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::independent_key::{IndependentApiKey, IndependentKeyId, KeyProviderType};
 
@@ -10,12 +11,12 @@ use neuradock_domain::independent_key::{IndependentApiKey, IndependentKeyId, Key
 #[specta::specta]
 pub async fn get_all_independent_keys(
     state: State<'_, AppState>,
-) -> Result<Vec<IndependentKeyDto>, String> {
+) -> Result<Vec<IndependentKeyDto>, CommandError> {
     let keys = state
         .independent_key_repo
         .find_all()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     Ok(keys.iter().map(IndependentKeyDto::from_domain).collect())
 }
@@ -25,13 +26,13 @@ pub async fn get_all_independent_keys(
 pub async fn get_independent_key_by_id(
     key_id: i64,
     state: State<'_, AppState>,
-) -> Result<Option<IndependentKeyDto>, String> {
+) -> Result<Option<IndependentKeyDto>, CommandError> {
     let id = IndependentKeyId::new(key_id);
     let key = state
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     Ok(key.as_ref().map(IndependentKeyDto::from_domain))
 }
@@ -41,14 +42,14 @@ pub async fn get_independent_key_by_id(
 pub async fn create_independent_key(
     input: CreateIndependentKeyInput,
     state: State<'_, AppState>,
-) -> Result<IndependentKeyDto, String> {
+) -> Result<IndependentKeyDto, CommandError> {
     // Validate provider type
     let provider_type = KeyProviderType::from_str(&input.provider_type)
-        .ok_or_else(|| format!("Invalid provider_type: {}", input.provider_type))?;
+        .ok_or_else(|| CommandError::validation(format!("Invalid provider_type: {}", input.provider_type)))?;
 
     // Validate custom provider name for custom type
     if provider_type == KeyProviderType::Custom && input.custom_provider_name.is_none() {
-        return Err("custom_provider_name is required when provider_type is 'custom'".to_string());
+        return Err(CommandError::validation("custom_provider_name is required when provider_type is 'custom'"));
     }
 
     // Create domain object
@@ -67,15 +68,15 @@ pub async fn create_independent_key(
         .independent_key_repo
         .create(&key)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     // Retrieve the created key
     let created_key = state
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Failed to retrieve created key".to_string())?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::infrastructure("Failed to retrieve created key"))?;
 
     Ok(IndependentKeyDto::from_domain(&created_key))
 }
@@ -85,7 +86,7 @@ pub async fn create_independent_key(
 pub async fn update_independent_key(
     input: UpdateIndependentKeyInput,
     state: State<'_, AppState>,
-) -> Result<IndependentKeyDto, String> {
+) -> Result<IndependentKeyDto, CommandError> {
     let id = IndependentKeyId::new(input.key_id);
 
     // Retrieve existing key
@@ -93,8 +94,8 @@ pub async fn update_independent_key(
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", input.key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", input.key_id)))?;
 
     // Update fields
     key.update(
@@ -110,7 +111,7 @@ pub async fn update_independent_key(
         .independent_key_repo
         .update(&key)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     Ok(IndependentKeyDto::from_domain(&key))
 }
@@ -120,14 +121,14 @@ pub async fn update_independent_key(
 pub async fn delete_independent_key(
     key_id: i64,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     state
         .independent_key_repo
         .delete(&id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     Ok(format!("Independent key {} deleted successfully", key_id))
 }
@@ -138,15 +139,15 @@ pub async fn toggle_independent_key(
     key_id: i64,
     is_active: bool,
     state: State<'_, AppState>,
-) -> Result<IndependentKeyDto, String> {
+) -> Result<IndependentKeyDto, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     let mut key = state
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
 
     key.set_active(is_active);
 
@@ -154,7 +155,7 @@ pub async fn toggle_independent_key(
         .independent_key_repo
         .update(&key)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(CommandError::from)?;
 
     Ok(IndependentKeyDto::from_domain(&key))
 }
@@ -166,7 +167,7 @@ pub async fn configure_independent_key_claude(
     key_id: i64,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
@@ -174,12 +175,12 @@ pub async fn configure_independent_key_claude(
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
 
     // Check if key is active
     if !key.is_active() {
-        return Err("Cannot configure inactive API key. Please enable it first.".to_string());
+        return Err(CommandError::validation("Cannot configure inactive API key. Please enable it first."));
     }
 
     // Call Claude config service directly with API key
@@ -187,7 +188,7 @@ pub async fn configure_independent_key_claude(
     let service = ClaudeConfigService::new();
     service
         .configure_global_with_key(key.api_key(), key.base_url(), model.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(CommandError::from)
 }
 
 /// Generate temporary Claude Code commands for independent API key
@@ -197,7 +198,7 @@ pub async fn generate_independent_key_claude_temp(
     key_id: i64,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
@@ -205,15 +206,15 @@ pub async fn generate_independent_key_claude_temp(
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
 
     // Generate temp commands
     use crate::application::services::token::ClaudeConfigService;
     let service = ClaudeConfigService::new();
     service
         .generate_temp_commands_with_key(key.api_key(), key.base_url(), model.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(CommandError::from)
 }
 
 /// Configure independent API key to Codex globally
@@ -223,7 +224,7 @@ pub async fn configure_independent_key_codex(
     key_id: i64,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
@@ -231,12 +232,12 @@ pub async fn configure_independent_key_codex(
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
 
     // Check if key is active
     if !key.is_active() {
-        return Err("Cannot configure inactive API key. Please enable it first.".to_string());
+        return Err(CommandError::validation("Cannot configure inactive API key. Please enable it first."));
     }
 
     // Call Codex config service with API key
@@ -244,7 +245,7 @@ pub async fn configure_independent_key_codex(
     let service = CodexConfigService::new();
     service
         .configure_global_with_key(key.api_key(), key.base_url(), model.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(CommandError::from)
 }
 
 /// Generate temporary Codex commands for independent API key
@@ -254,7 +255,7 @@ pub async fn generate_independent_key_codex_temp(
     key_id: i64,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
@@ -262,13 +263,13 @@ pub async fn generate_independent_key_codex_temp(
         .independent_key_repo
         .find_by_id(&id)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Key with ID {} not found", key_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
 
     // Generate temp commands
     use crate::application::services::token::CodexConfigService;
     let service = CodexConfigService::new();
     service
         .generate_temp_commands_with_key(key.api_key(), key.base_url(), model.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(CommandError::from)
 }
