@@ -6,7 +6,8 @@ use std::sync::Arc;
 use crate::persistence::RepositoryErrorMapper;
 use crate::security::EncryptionService;
 use neuradock_domain::independent_key::{
-    IndependentApiKey, IndependentKeyId, IndependentKeyRepository, KeyProviderType,
+    IndependentApiKey, IndependentApiKeyConfig, IndependentKeyId, IndependentKeyRepository,
+    KeyProviderType,
 };
 use neuradock_domain::shared::DomainError;
 
@@ -48,15 +49,19 @@ impl IndependentKeyRow {
             .map_err(|e| DomainError::DataIntegrity(format!("Invalid updated_at: {}", e)))?
             .with_timezone(&Utc);
 
+        let config = IndependentApiKeyConfig {
+            name: self.name,
+            provider_type,
+            custom_provider_name: self.custom_provider_name,
+            api_key,
+            base_url: Some(self.base_url),
+            organization_id: self.organization_id,
+            description: self.description,
+        };
+
         Ok(IndependentApiKey::restore(
             IndependentKeyId::new(self.id),
-            self.name,
-            provider_type,
-            self.custom_provider_name,
-            api_key,
-            self.base_url,
-            self.organization_id,
-            self.description,
+            config,
             self.is_active != 0,
             created_at,
             updated_at,

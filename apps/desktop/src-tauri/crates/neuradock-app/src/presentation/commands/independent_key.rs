@@ -5,7 +5,9 @@ use crate::application::dtos::{
 };
 use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
-use neuradock_domain::independent_key::{IndependentApiKey, IndependentKeyId, KeyProviderType};
+use neuradock_domain::independent_key::{
+    IndependentApiKey, IndependentApiKeyConfig, IndependentKeyId, KeyProviderType,
+};
 
 #[tauri::command]
 #[specta::specta]
@@ -53,15 +55,15 @@ pub async fn create_independent_key(
     }
 
     // Create domain object
-    let key = IndependentApiKey::create(
-        input.name,
+    let key = IndependentApiKey::create(IndependentApiKeyConfig {
+        name: input.name,
         provider_type,
-        input.custom_provider_name,
-        input.api_key,
-        input.base_url,
-        input.organization_id,
-        input.description,
-    );
+        custom_provider_name: input.custom_provider_name,
+        api_key: input.api_key,
+        base_url: input.base_url,
+        organization_id: input.organization_id,
+        description: input.description,
+    });
 
     // Save to database
     let id = state

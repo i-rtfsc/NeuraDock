@@ -57,6 +57,18 @@ impl KeyProviderType {
     }
 }
 
+/// Configuration for creating an IndependentApiKey
+#[derive(Debug, Clone)]
+pub struct IndependentApiKeyConfig {
+    pub name: String,
+    pub provider_type: KeyProviderType,
+    pub custom_provider_name: Option<String>,
+    pub api_key: String,
+    pub base_url: Option<String>,
+    pub organization_id: Option<String>,
+    pub description: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndependentApiKey {
     id: Option<IndependentKeyId>,
@@ -73,54 +85,47 @@ pub struct IndependentApiKey {
 }
 
 impl IndependentApiKey {
-    pub fn create(
-        name: String,
-        provider_type: KeyProviderType,
-        custom_provider_name: Option<String>,
-        api_key: String,
-        base_url: Option<String>,
-        organization_id: Option<String>,
-        description: Option<String>,
-    ) -> Self {
-        let final_base_url = base_url.unwrap_or_else(|| provider_type.default_base_url().to_string());
+    pub fn create(config: IndependentApiKeyConfig) -> Self {
+        let final_base_url = config
+            .base_url
+            .unwrap_or_else(|| config.provider_type.default_base_url().to_string());
 
         Self {
             id: None,
-            name,
-            provider_type,
-            custom_provider_name,
-            api_key,
+            name: config.name,
+            provider_type: config.provider_type,
+            custom_provider_name: config.custom_provider_name,
+            api_key: config.api_key,
             base_url: final_base_url,
-            organization_id,
-            description,
+            organization_id: config.organization_id,
+            description: config.description,
             is_active: true,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
     }
 
+    /// Restore an IndependentApiKey from persistence
     pub fn restore(
         id: IndependentKeyId,
-        name: String,
-        provider_type: KeyProviderType,
-        custom_provider_name: Option<String>,
-        api_key: String,
-        base_url: String,
-        organization_id: Option<String>,
-        description: Option<String>,
+        config: IndependentApiKeyConfig,
         is_active: bool,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
     ) -> Self {
+        let final_base_url = config
+            .base_url
+            .unwrap_or_else(|| config.provider_type.default_base_url().to_string());
+
         Self {
             id: Some(id),
-            name,
-            provider_type,
-            custom_provider_name,
-            api_key,
-            base_url,
-            organization_id,
-            description,
+            name: config.name,
+            provider_type: config.provider_type,
+            custom_provider_name: config.custom_provider_name,
+            api_key: config.api_key,
+            base_url: final_base_url,
+            organization_id: config.organization_id,
+            description: config.description,
             is_active,
             created_at,
             updated_at,
@@ -231,15 +236,15 @@ mod tests {
 
     #[test]
     fn test_create_openai_key() {
-        let key = IndependentApiKey::create(
-            "My OpenAI Key".to_string(),
-            KeyProviderType::OpenAI,
-            None,
-            "sk-test123456".to_string(),
-            None,
-            None,
-            Some("Test key".to_string()),
-        );
+        let key = IndependentApiKey::create(IndependentApiKeyConfig {
+            name: "My OpenAI Key".to_string(),
+            provider_type: KeyProviderType::OpenAI,
+            custom_provider_name: None,
+            api_key: "sk-test123456".to_string(),
+            base_url: None,
+            organization_id: None,
+            description: Some("Test key".to_string()),
+        });
 
         assert_eq!(key.name(), "My OpenAI Key");
         assert_eq!(key.base_url(), "https://api.openai.com/v1");
@@ -249,15 +254,15 @@ mod tests {
 
     #[test]
     fn test_create_custom_key() {
-        let key = IndependentApiKey::create(
-            "Custom API".to_string(),
-            KeyProviderType::Custom,
-            Some("MyProvider".to_string()),
-            "custom-key-123".to_string(),
-            Some("https://custom.api.com/v1".to_string()),
-            None,
-            None,
-        );
+        let key = IndependentApiKey::create(IndependentApiKeyConfig {
+            name: "Custom API".to_string(),
+            provider_type: KeyProviderType::Custom,
+            custom_provider_name: Some("MyProvider".to_string()),
+            api_key: "custom-key-123".to_string(),
+            base_url: Some("https://custom.api.com/v1".to_string()),
+            organization_id: None,
+            description: None,
+        });
 
         assert_eq!(key.provider_display_name(), "MyProvider");
         assert_eq!(key.base_url(), "https://custom.api.com/v1");
@@ -265,15 +270,15 @@ mod tests {
 
     #[test]
     fn test_update_key() {
-        let mut key = IndependentApiKey::create(
-            "Test".to_string(),
-            KeyProviderType::OpenAI,
-            None,
-            "sk-old".to_string(),
-            None,
-            None,
-            None,
-        );
+        let mut key = IndependentApiKey::create(IndependentApiKeyConfig {
+            name: "Test".to_string(),
+            provider_type: KeyProviderType::OpenAI,
+            custom_provider_name: None,
+            api_key: "sk-old".to_string(),
+            base_url: None,
+            organization_id: None,
+            description: None,
+        });
 
         key.update(
             Some("Updated Name".to_string()),
