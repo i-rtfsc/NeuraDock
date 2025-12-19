@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
-use log::{error, info, warn};
+use log::{info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -415,7 +415,7 @@ impl WafBypassService {
     /// Returns (browser, cookies_result) to allow cleanup even on error
     async fn navigate_and_extract_cookies(
         &self,
-        mut browser: Browser,
+        browser: Browser,
         login_url: &str,
         account_name: &str,
     ) -> (Browser, Result<HashMap<String, String>>) {

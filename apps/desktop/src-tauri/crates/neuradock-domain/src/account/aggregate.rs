@@ -1,7 +1,6 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashMap;
 
 use super::value_objects::Credentials;
 use crate::shared::{AccountId, DomainError, ProviderId};

@@ -1,6 +1,4 @@
-use async_trait::async_trait;
 use sqlx::{Acquire, Sqlite, SqlitePool, Transaction};
-use std::sync::Arc;
 
 use neuradock_domain::shared::DomainError;
 

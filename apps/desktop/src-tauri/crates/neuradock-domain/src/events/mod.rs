@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::any::Any;
 
 pub mod account_events;

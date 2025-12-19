@@ -3,7 +3,6 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
-use crate::persistence::ResultExt;
 use neuradock_domain::session::{Session, SessionRepository};
 use neuradock_domain::shared::{AccountId, DomainError};
 
