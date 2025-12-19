@@ -9,8 +9,8 @@ use crate::application::event_handlers::SchedulerReloadEventHandler;
 use crate::application::provider_seeder::seed_builtin_providers;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::{
-    AutoCheckInScheduler, ClaudeConfigService, CodexConfigService, ConfigService,
-    NotificationService, TokenService,
+    AutoCheckInScheduler, BalanceHistoryService, ClaudeConfigService, CodexConfigService,
+    ConfigService, NotificationService, ProviderModelsService, TokenService,
 };
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::{Provider, ProviderRepository};
@@ -159,6 +159,13 @@ impl AppState {
         let account_queries = Arc::new(AccountQueryService::new(account_repo.clone()));
         let streak_queries = Arc::new(CheckInStreakQueries::new(pool.clone()));
 
+        // Initialize check-in related services
+        let provider_models_service = Arc::new(ProviderModelsService::new(
+            provider_models_repo.clone(),
+            waf_cookies_repo.clone(),
+        ));
+        let balance_history_service = Arc::new(BalanceHistoryService::new(pool.clone()));
+
         // Initialize token services
         info!("🔧 Initializing token services...");
         let token_service = Arc::new(
@@ -271,10 +278,10 @@ impl AppState {
                 ExecuteCheckInCommandHandler::new(
                     account_repo.clone(),
                     provider_repo.clone(),
-                    provider_models_repo.clone(),
+                    provider_models_service.clone(),
+                    balance_history_service.clone(),
                     waf_cookies_repo.clone(),
                     true, // headless_browser
-                    pool.clone(),
                 )
                 .with_notification_service(notification_service.clone()),
             ),
@@ -282,10 +289,10 @@ impl AppState {
                 BatchExecuteCheckInCommandHandler::new(
                     account_repo.clone(),
                     provider_repo.clone(),
-                    provider_models_repo.clone(),
+                    provider_models_service.clone(),
+                    balance_history_service.clone(),
                     waf_cookies_repo.clone(),
                     true, // headless_browser
-                    pool.clone(),
                 )
                 .with_notification_service(notification_service.clone()),
             ),

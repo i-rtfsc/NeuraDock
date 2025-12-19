@@ -1,15 +1,21 @@
+mod balance_history_service;
 mod check_in_executor;
 mod check_in_helpers;
 mod config_service;
 mod i18n;
 mod notification_service;
+mod provider_models_service;
 mod scheduler;
 pub mod token;
+mod user_info_service;
 mod waf_cookie_manager;
 
+pub use balance_history_service::BalanceHistoryService;
 pub use check_in_executor::CheckInExecutor;
 pub use config_service::{ConfigService, LogLevel};
 pub use notification_service::NotificationService;
+pub use provider_models_service::ProviderModelsService;
 pub use scheduler::AutoCheckInScheduler;
 pub use token::{ClaudeConfigService, CodexConfigService, TokenService};
+pub use user_info_service::UserInfoService;
 pub use waf_cookie_manager::WafCookieManager;

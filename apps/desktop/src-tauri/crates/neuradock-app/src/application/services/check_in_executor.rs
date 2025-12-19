@@ -12,6 +12,7 @@ use neuradock_domain::{
 use neuradock_infrastructure::http::{CheckInResult, HttpClient, UserInfo};
 use neuradock_infrastructure::persistence::repositories::SqliteWafCookiesRepository;
 
+use super::user_info_service::UserInfoService;
 use super::waf_cookie_manager::WafCookieManager;
 use crate::application::config::TimeoutConfig;
 
@@ -59,6 +60,11 @@ impl CheckInExecutor {
     pub fn with_waf_cookies_repo(mut self, repo: Arc<SqliteWafCookiesRepository>) -> Self {
         self.waf_manager = self.waf_manager.with_cookies_repo(repo);
         self
+    }
+
+    /// Create UserInfoService from current executor state
+    fn create_user_info_service(&self) -> UserInfoService {
+        UserInfoService::new(&self.http_client, &self.waf_manager)
     }
 
     /// Execute check-in for a single account
@@ -145,29 +151,18 @@ impl CheckInExecutor {
         );
 
         // Prepare cookies
-        let cookies = self.waf_manager
+        let cookies = self
+            .waf_manager
             .prepare_cookies(&account_name, provider, account.credentials().cookies())
             .await?;
 
+        let user_info_service = self.create_user_info_service();
         let api_user = account.credentials().api_user();
 
         // Get user info (balance)
-        let user_info = self
-            .http_client
-            .get_user_info(
-                &provider.user_info_url(),
-                &cookies,
-                provider.api_user_key(),
-                api_user,
-            )
-            .await?;
-
-        info!(
-            "[{}] Balance fetched: ${:.2}, Used: ${:.2}",
-            account_name, user_info.quota, user_info.used_quota
-        );
-
-        Ok(user_info)
+        user_info_service
+            .fetch_user_info(&account_name, provider, &cookies, api_user)
+            .await
     }
 
     // ========== Private helper methods for execute_check_in ==========
@@ -223,82 +218,17 @@ impl CheckInExecutor {
         provider: &Provider,
         account_name: &str,
     ) -> Result<(HashMap<String, String>, Option<UserInfo>)> {
-        // Prepare cookies (with WAF cookies from cache or bypass)
-        let mut cookies = self.waf_manager
-            .prepare_cookies(account_name, provider, account.credentials().cookies())
-            .await?;
-
+        let user_info_service = self.create_user_info_service();
         let api_user = account.credentials().api_user();
 
-        // Get user info first
-        let user_info_result = self
-            .http_client
-            .get_user_info(
-                &provider.user_info_url(),
-                &cookies,
-                provider.api_user_key(),
+        user_info_service
+            .fetch_user_info_with_retry(
+                account_name,
+                provider,
+                account.credentials().cookies(),
                 api_user,
             )
-            .await;
-
-        // Check if we got a WAF challenge and need to refresh cookies
-        let user_info = match &user_info_result {
-            Ok(info) => {
-                info!(
-                    "[{}] Current balance: ${:.2}, Used: ${:.2}",
-                    account_name, info.quota, info.used_quota
-                );
-                Some(info.clone())
-            }
-            Err(e) if self.waf_manager.is_waf_challenge_error(e) => {
-                warn!(
-                    "[{}] WAF challenge detected, invalidating cache and retrying...",
-                    account_name
-                );
-
-                // Invalidate WAF cache and get fresh cookies
-                cookies = self.waf_manager
-                    .refresh_waf_cookies(
-                        account_name,
-                        provider,
-                        account.credentials().cookies(),
-                    )
-                    .await?;
-
-                // Retry get user info
-                match self
-                    .http_client
-                    .get_user_info(
-                        &provider.user_info_url(),
-                        &cookies,
-                        provider.api_user_key(),
-                        api_user,
-                    )
-                    .await
-                {
-                    Ok(info) => {
-                        info!(
-                            "[{}] Retry successful, balance: ${:.2}",
-                            account_name, info.quota
-                        );
-                        Some(info)
-                    }
-                    Err(e) => {
-                        warn!(
-                            "[{}] Failed to get user info after retry: {}",
-                            account_name, e
-                        );
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("[{}] Failed to get user info: {}", account_name, e);
-                None
-            }
-        };
-
-        Ok((cookies, user_info))
+            .await
     }
 
     /// Perform check-in request (page visit or API call) with WAF retry logic
@@ -491,41 +421,12 @@ impl CheckInExecutor {
             return initial_user_info;
         }
 
-        info!(
-            "[{}] Fetching updated balance after check-in...",
-            account_name
-        );
-
-        // Wait for server to process check-in
-        tokio::time::sleep(self.timeout_config.check_in_processing).await;
-
+        let user_info_service = self.create_user_info_service();
         let api_user = account.credentials().api_user();
 
-        match self
-            .http_client
-            .get_user_info(
-                &provider.user_info_url(),
-                cookies,
-                provider.api_user_key(),
-                api_user,
-            )
+        user_info_service
+            .fetch_updated_balance(account_name, provider, cookies, api_user, initial_user_info)
             .await
-        {
-            Ok(updated_info) => {
-                info!(
-                    "[{}] Updated balance: ${:.2}, Used: ${:.2}",
-                    account_name, updated_info.quota, updated_info.used_quota
-                );
-                Some(updated_info)
-            }
-            Err(e) => {
-                warn!(
-                    "[{}] Failed to get updated balance: {}, using pre-check-in balance",
-                    account_name, e
-                );
-                initial_user_info
-            }
-        }
     }
 
     /// Execute batch check-in for multiple accounts
