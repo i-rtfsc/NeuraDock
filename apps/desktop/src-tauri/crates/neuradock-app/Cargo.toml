@@ -4,6 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+default-run = "NeuraDock"
 
 [lib]
 name = "neuradock_app_lib"

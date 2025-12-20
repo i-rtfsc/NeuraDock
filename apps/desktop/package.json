@@ -4,15 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "npm run gen:tauri && vite",
+    "build": "npm run gen:tauri && tsc && vite build",
     "preview": "vite preview",
+    "gen:tauri": "cd src-tauri && cargo run -p neuradock-app --bin export_ts_bindings",
     "tauri:dev": "npx --yes @tauri-apps/cli@2 dev",
     "tauri:build": "npx --yes @tauri-apps/cli@2 build",
     "setup": "npm install --legacy-peer-deps",
-    "test": "vitest",
+    "test": "npm run gen:tauri && vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "npm run gen:tauri && vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
