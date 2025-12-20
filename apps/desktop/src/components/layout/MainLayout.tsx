@@ -7,7 +7,11 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-sidebar text-foreground">
+    <div className="flex h-screen overflow-hidden bg-sidebar text-foreground relative">
+      <div
+        data-tauri-drag-region
+        className="h-6 w-full shrink-0 z-50 absolute top-0 left-0 pointer-events-none"
+      />
       {/* Sidebar sits directly on the base background */}
       <Sidebar />
       
