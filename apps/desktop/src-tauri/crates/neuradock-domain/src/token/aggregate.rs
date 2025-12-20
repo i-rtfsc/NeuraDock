@@ -158,7 +158,7 @@ impl ApiToken {
         if self.key.len() <= 12 {
             return "*".repeat(self.key.len());
         }
-        format!("{}...{}", &self.key[..6], &self.key[self.key.len() - 6..])
+        format!("{}...{}", &self.key[..6], &self.key[self.key.len() - 4..])
     }
 
     // Business logic
@@ -182,7 +182,7 @@ mod tests {
     fn test_token_masked_key() {
         let token = ApiToken::new(
             TokenId::new(1),
-            AccountId::from("acc-1".to_string()),
+            AccountId::from_string("acc-1"),
             ApiTokenConfig {
                 name: "test".to_string(),
                 key: "sk-123456789012".to_string(),
@@ -204,7 +204,7 @@ mod tests {
         let expired_time = Utc::now() - chrono::Duration::hours(1);
         let token = ApiToken::new(
             TokenId::new(1),
-            AccountId::from("acc-1".to_string()),
+            AccountId::from_string("acc-1"),
             ApiTokenConfig {
                 name: "test".to_string(),
                 key: "sk-test".to_string(),
@@ -226,7 +226,7 @@ mod tests {
     fn test_usage_percentage() {
         let token = ApiToken::new(
             TokenId::new(1),
-            AccountId::from("acc-1".to_string()),
+            AccountId::from_string("acc-1"),
             ApiTokenConfig {
                 name: "test".to_string(),
                 key: "sk-test".to_string(),
@@ -247,7 +247,7 @@ mod tests {
     fn test_unlimited_quota_usage_percentage() {
         let token = ApiToken::new(
             TokenId::new(1),
-            AccountId::from("acc-1".to_string()),
+            AccountId::from_string("acc-1"),
             ApiTokenConfig {
                 name: "test".to_string(),
                 key: "sk-test".to_string(),

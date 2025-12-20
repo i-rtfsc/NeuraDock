@@ -195,6 +195,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore = "Requires a local Chrome/Chromium runtime available to chromiumoxide"]
     async fn test_browser_pool_acquire() {
         let config = BrowserPoolConfig {
             max_size: 2,
@@ -221,6 +222,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires a local Chrome/Chromium runtime available to chromiumoxide"]
     async fn test_browser_pool_reuse() {
         let config = BrowserPoolConfig {
             max_size: 2,

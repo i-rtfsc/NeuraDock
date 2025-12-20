@@ -7,13 +7,16 @@ use neuradock_domain::shared::DomainError;
 /// to map various error types to DomainError with contextual information.
 ///
 /// # Example
-/// ```
-/// use result_ext::ResultExt;
+/// ```rust,no_run
+/// use neuradock_infrastructure::persistence::ResultExt;
 ///
-/// let result = sqlx::query("SELECT * FROM users")
-///     .fetch_one(&pool)
-///     .await
-///     .map_repo_error("Fetch user")?;
+/// async fn demo(pool: &sqlx::SqlitePool) -> Result<(), neuradock_domain::shared::DomainError> {
+///     let _row = sqlx::query("SELECT 1")
+///         .fetch_one(pool)
+///         .await
+///         .map_repo_error("Fetch user")?;
+///     Ok(())
+/// }
 /// ```
 pub trait ResultExt<T> {
     /// Map an error to a DomainError with context

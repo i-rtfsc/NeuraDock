@@ -4,6 +4,7 @@ use neuradock_lib::infrastructure::security::{EncryptionService, KeyManager};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::Instant;
+use tempfile::TempDir;
 
 /// Integration test that measures actual database query performance
 #[tokio::test]
@@ -16,15 +17,17 @@ async fn benchmark_account_queries() {
         .expect("Failed to create in-memory database");
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("./crates/neuradock-infrastructure/migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");
 
     // Initialize encryption
-    let salt_path = std::env::temp_dir().join("test_salt");
-    KeyManager::generate_and_save_salt(&salt_path).unwrap();
-    let encryption = EncryptionService::from_password("test_password", &salt_path).unwrap();
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let key_manager = KeyManager::new(temp_dir.path().to_path_buf());
+    let salt = key_manager.initialize().expect("Failed to initialize salt");
+    let encryption =
+        EncryptionService::from_password("test_password", &salt).expect("Create encryption");
 
     let repo = SqliteAccountRepository::new(Arc::new(pool), Arc::new(encryption));
 
@@ -76,9 +79,11 @@ async fn benchmark_account_queries() {
 async fn benchmark_encryption_performance() {
     println!("\n========== Performance Benchmark: Encryption ==========");
 
-    let salt_path = std::env::temp_dir().join("bench_salt");
-    KeyManager::generate_and_save_salt(&salt_path).unwrap();
-    let encryption = EncryptionService::from_password("test_password", &salt_path).unwrap();
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let key_manager = KeyManager::new(temp_dir.path().to_path_buf());
+    let salt = key_manager.initialize().expect("Failed to initialize salt");
+    let encryption =
+        EncryptionService::from_password("test_password", &salt).expect("Create encryption");
 
     let test_data = "This is test data for encryption benchmarking";
     let iterations = 1000;

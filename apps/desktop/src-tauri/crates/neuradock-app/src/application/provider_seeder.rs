@@ -23,10 +23,7 @@ struct BuiltinProviderConfig {
 }
 
 fn builtin_provider_configs() -> Result<Vec<BuiltinProviderConfig>, DomainError> {
-    const RAW_CONFIG: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../config/providers/builtin_providers.json"
-    ));
+    const RAW_CONFIG: &str = include_str!("../../../../config/providers/builtin_providers.json");
     serde_json::from_str(RAW_CONFIG).map_err(|e| {
         DomainError::Deserialization(format!("Failed to parse builtin providers: {e}"))
     })

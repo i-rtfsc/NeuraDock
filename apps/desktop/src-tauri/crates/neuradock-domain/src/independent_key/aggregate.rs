@@ -285,7 +285,7 @@ mod tests {
             Some("sk-new".to_string()),
             None,
             None,
-            Some(Some("New description".to_string())),
+            Some("New description".to_string()),
         );
 
         assert_eq!(key.name(), "Updated Name");

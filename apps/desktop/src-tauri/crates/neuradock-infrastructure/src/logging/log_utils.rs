@@ -7,13 +7,16 @@
 /// # Examples
 ///
 /// ```
-/// use neuradock_app::presentation::log_utils::mask_sensitive;
+/// use neuradock_infrastructure::logging::log_utils::mask_sensitive;
 ///
 /// // API keys
 /// assert_eq!(mask_sensitive("sk-proj-1234567890abcdef"), "sk-pr***cdef");
 ///
 /// // Tokens
-/// assert_eq!(mask_sensitive("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."), "eyJhb***VCJ9");
+/// assert_eq!(
+///     mask_sensitive("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"),
+///     "eyJhb***VCJ9"
+/// );
 ///
 /// // Short strings show first 3 and last 2 characters
 /// assert_eq!(mask_sensitive("abc123"), "abc***23");
@@ -49,7 +52,7 @@ pub fn mask_sensitive(value: &str) -> String {
 /// # Examples
 ///
 /// ```
-/// use neuradock_app::presentation::log_utils::mask_cookie;
+/// use neuradock_infrastructure::logging::log_utils::mask_cookie;
 /// use std::collections::HashMap;
 ///
 /// let mut cookies = HashMap::new();
@@ -57,7 +60,9 @@ pub fn mask_sensitive(value: &str) -> String {
 /// cookies.insert("session".to_string(), "another_secret".to_string());
 ///
 /// let masked = mask_cookie(&cookies);
-/// assert_eq!(masked, "acw_tc=sensi***t_123, session=anoth***ecret");
+/// // HashMap iteration order is not stable, so assert by substrings.
+/// assert!(masked.contains("acw_tc=sens***123"));
+/// assert!(masked.contains("session=anot***ret"));
 /// ```
 pub fn mask_cookie(cookies: &std::collections::HashMap<String, String>) -> String {
     cookies

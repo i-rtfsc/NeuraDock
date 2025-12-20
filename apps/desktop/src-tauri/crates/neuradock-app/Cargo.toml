@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "neuradock_lib"
+name = "neuradock_app_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bin]]

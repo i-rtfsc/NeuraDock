@@ -125,7 +125,7 @@ pub struct AccountStatistics {
 mod tests {
     use super::*;
     use neuradock_domain::account::{Account, Credentials};
-    use neuradock_domain::shared::ProviderId;
+    use neuradock_domain::shared::{AccountId, ProviderId};
     use std::collections::HashMap;
 
     struct MockAccountRepository {
@@ -149,14 +149,14 @@ mod tests {
 
         async fn find_by_id(
             &self,
-            id: &crate::domain::shared::AccountId,
+            id: &AccountId,
         ) -> Result<Option<Account>, DomainError> {
             Ok(self.accounts.iter().find(|a| a.id() == id).cloned())
         }
 
         async fn find_by_ids(
             &self,
-            ids: &[crate::domain::shared::AccountId],
+            ids: &[AccountId],
         ) -> Result<Vec<Account>, DomainError> {
             Ok(self
                 .accounts
@@ -170,7 +170,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete(&self, _id: &crate::domain::shared::AccountId) -> Result<(), DomainError> {
+        async fn delete(&self, _id: &AccountId) -> Result<(), DomainError> {
             Ok(())
         }
     }
