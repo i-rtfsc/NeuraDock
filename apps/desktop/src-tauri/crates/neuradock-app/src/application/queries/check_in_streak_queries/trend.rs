@@ -142,19 +142,21 @@ pub async fn get_day_detail(
 
     if let Some(row) = row {
         // Get previous day's income to calculate increment
-        let prev_date = parsed_date.pred_opt().unwrap();
-        let prev_query = r#"
-            SELECT MAX(total_income)
-            FROM balance_history
-            WHERE account_id = ?1 AND DATE(recorded_at) = ?2
-        "#;
-
-        let prev_income: Option<f64> = sqlx::query_scalar(prev_query)
-            .bind(account_id)
-            .bind(prev_date.format("%Y-%m-%d").to_string())
-            .fetch_optional(&**db)
-            .await
-            .to_repo_err()?;
+        let prev_income: Option<f64> = if let Some(prev_date) = parsed_date.pred_opt() {
+            let prev_query = r#"
+                SELECT MAX(total_income)
+                FROM balance_history
+                WHERE account_id = ?1 AND DATE(recorded_at) = ?2
+            "#;
+            sqlx::query_scalar(prev_query)
+                .bind(account_id)
+                .bind(prev_date.format("%Y-%m-%d").to_string())
+                .fetch_optional(&**db)
+                .await
+                .to_repo_err()?
+        } else {
+            None
+        };
 
         let income_increment = prev_income
             .and_then(|prev| {

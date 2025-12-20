@@ -103,7 +103,7 @@ async fn save_balance_history(
     let today_start = now
         .date_naive()
         .and_hms_opt(0, 0, 0)
-        .expect("00:00:00 is always a valid time");
+        .ok_or_else(|| CommandError::infrastructure("Failed to compute start of day"))?;
     let today_start_str =
         chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(today_start, chrono::Utc)
             .to_rfc3339();

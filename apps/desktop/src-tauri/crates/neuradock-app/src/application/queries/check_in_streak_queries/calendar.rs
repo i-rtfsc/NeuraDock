@@ -26,17 +26,14 @@ pub async fn get_calendar(
     let first_day = NaiveDate::from_ymd_opt(year, month, 1)
         .ok_or_else(|| DomainError::Validation("Invalid date".to_string()))?;
 
-    let last_day = if month == 12 {
+    let first_day_next_month = if month == 12 {
         NaiveDate::from_ymd_opt(year + 1, 1, 1)
-            .unwrap()
-            .pred_opt()
-            .unwrap()
     } else {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
-            .unwrap()
-            .pred_opt()
-            .unwrap()
     };
+    let last_day = first_day_next_month
+        .and_then(|d| d.pred_opt())
+        .ok_or_else(|| DomainError::Validation("Invalid date".to_string()))?;
 
     // Query daily summaries for this month
     let query = r#"
@@ -99,7 +96,8 @@ pub async fn get_calendar(
     let total_days = last_day.day();
 
     for day in 1..=total_days {
-        let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+        let date = NaiveDate::from_ymd_opt(year, month, day)
+            .ok_or_else(|| DomainError::Validation("Invalid date".to_string()))?;
         let date_str = date.format("%Y-%m-%d").to_string();
 
         if let Some(row) = daily_map.get(&date_str) {

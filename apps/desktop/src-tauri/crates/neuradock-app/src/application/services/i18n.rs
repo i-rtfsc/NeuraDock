@@ -1,14 +1,21 @@
 use once_cell::sync::Lazy;
 use serde_json::Value;
+use tracing::error;
 
 static TRANSLATIONS_ZH: Lazy<Value> = Lazy::new(|| {
     let json_str = include_str!("i18n/locales/zh-CN.json");
-    serde_json::from_str(json_str).expect("Failed to parse zh-CN.json")
+    serde_json::from_str(json_str).unwrap_or_else(|e| {
+        error!("Failed to parse zh-CN.json: {}", e);
+        Value::Object(serde_json::Map::new())
+    })
 });
 
 static TRANSLATIONS_EN: Lazy<Value> = Lazy::new(|| {
     let json_str = include_str!("i18n/locales/en-US.json");
-    serde_json::from_str(json_str).expect("Failed to parse en-US.json")
+    serde_json::from_str(json_str).unwrap_or_else(|e| {
+        error!("Failed to parse en-US.json: {}", e);
+        Value::Object(serde_json::Map::new())
+    })
 });
 
 /// Get translation by key path (e.g., "notification.checkIn.success.title")
