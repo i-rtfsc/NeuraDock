@@ -1,5 +1,5 @@
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 /// Fetch provider supported models
@@ -11,7 +11,7 @@ pub async fn fetch_provider_models(
     provider_id: String,
     account_id: String,
     force_refresh: bool,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<String>, CommandError> {
     use neuradock_infrastructure::http::token::TokenClient;
 
@@ -25,16 +25,14 @@ pub async fn fetch_provider_models(
     // Check cache first (unless force refresh)
     if !force_refresh {
         // Check if we have cached models that are not stale (24 hours)
-        let is_stale = state
-            .repositories
+        let is_stale = repositories
             .provider_models
             .is_stale(&provider_id, 24)
             .await
             .map_err(CommandError::from)?;
 
         if !is_stale {
-            if let Some(cached) = state
-                .repositories
+            if let Some(cached) = repositories
                 .provider_models
                 .find_by_provider(&provider_id)
                 .await
@@ -52,8 +50,7 @@ pub async fn fetch_provider_models(
 
     // Get account to retrieve cookies
     let account_id_obj = AccountId::from_string(&account_id);
-    let account = state
-        .repositories
+    let account = repositories
         .account
         .find_by_id(&account_id_obj)
         .await
@@ -62,8 +59,7 @@ pub async fn fetch_provider_models(
 
     // Get provider configuration
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
         .await
@@ -89,7 +85,7 @@ pub async fn fetch_provider_models(
     // Handle WAF bypass with caching (if provider requires it)
     if provider.needs_waf_bypass() {
         // Check for cached WAF cookies first
-        match state.repositories.waf_cookies.get_valid(&provider_id).await {
+        match repositories.waf_cookies.get_valid(&provider_id).await {
             Ok(Some(cached_waf)) => {
                 log::info!(
                     "Using cached WAF cookies for provider {} (expires at {})",
@@ -149,7 +145,7 @@ pub async fn fetch_provider_models(
                 log::warn!("WAF challenge detected despite cached cookies, deleting cache");
 
                 // Delete cached WAF cookies
-                if let Err(inv_err) = state.repositories.waf_cookies.delete(&provider_id).await {
+                if let Err(inv_err) = repositories.waf_cookies.delete(&provider_id).await {
                     log::warn!("Failed to delete WAF cookies cache: {}", inv_err);
                 }
 
@@ -165,8 +161,7 @@ pub async fn fetch_provider_models(
     };
 
     // Cache the models
-    state
-        .repositories
+    repositories
         .provider_models
         .save(&provider_id, &models)
         .await

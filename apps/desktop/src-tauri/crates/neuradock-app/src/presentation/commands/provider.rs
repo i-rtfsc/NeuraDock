@@ -2,7 +2,7 @@ use crate::application::commands::command_handler::CommandHandler;
 use crate::application::commands::provider_commands::*;
 use crate::application::dtos::{AddProviderInput, BrowserInfoDto, ProviderDto};
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::{CommandHandlers, Repositories};
 use tauri::State;
 
 /// Add a provider (deprecated - use create_provider instead)
@@ -10,7 +10,7 @@ use tauri::State;
 #[specta::specta]
 pub async fn add_provider(
     input: AddProviderInput,
-    state: State<'_, AppState>,
+    state: State<'_, CommandHandlers>,
 ) -> Result<String, CommandError> {
     let _ = (input, state);
     Err(CommandError::infrastructure(
@@ -48,13 +48,12 @@ pub async fn check_browser_available() -> Result<BrowserInfoDto, CommandError> {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_all_providers(
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<ProviderDto>, CommandError> {
     log::info!("🔍 get_all_providers called");
 
     // Get all providers (builtin + custom from database)
-    let all_providers = state
-        .repositories
+    let all_providers = repositories
         .provider
         .find_all()
         .await
@@ -67,8 +66,7 @@ pub async fn get_all_providers(
 
     log::info!("📊 Total providers loaded: {}", all_providers.len());
 
-    let accounts = state
-        .repositories
+    let accounts = repositories
         .account
         .find_all()
         .await
@@ -135,10 +133,9 @@ pub async fn get_all_providers(
 #[specta::specta]
 pub async fn create_provider(
     input: CreateProviderCommand,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<String, CommandError> {
-    let result = state
-        .command_handlers
+    let result = handlers
         .create_provider
         .handle(input)
         .await
@@ -152,10 +149,9 @@ pub async fn create_provider(
 #[specta::specta]
 pub async fn update_provider(
     input: UpdateProviderCommand,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<bool, CommandError> {
-    state
-        .command_handlers
+    handlers
         .update_provider
         .handle(input)
         .await
@@ -169,10 +165,9 @@ pub async fn update_provider(
 #[specta::specta]
 pub async fn delete_provider(
     input: DeleteProviderCommand,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<bool, CommandError> {
-    state
-        .command_handlers
+    handlers
         .delete_provider
         .handle(input)
         .await

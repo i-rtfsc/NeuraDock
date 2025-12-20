@@ -1,17 +1,16 @@
 use crate::application::dtos::ProviderNodeDto;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use tauri::State;
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_provider_nodes(
     provider_id: String,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<ProviderNodeDto>, CommandError> {
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
         .await
@@ -25,8 +24,7 @@ pub async fn get_provider_nodes(
     }];
 
     // Add custom nodes
-    let custom_nodes = state
-        .repositories
+    let custom_nodes = repositories
         .custom_node
         .find_by_provider(&provider_id_obj)
         .await
@@ -49,7 +47,7 @@ pub async fn add_custom_node(
     provider_id: String,
     name: String,
     base_url: String,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
     let node = neuradock_domain::custom_node::CustomProviderNode::create(
@@ -58,8 +56,7 @@ pub async fn add_custom_node(
         base_url.clone(),
     );
 
-    state
-        .repositories
+    repositories
         .custom_node
         .create(&node)
         .await
@@ -72,12 +69,11 @@ pub async fn add_custom_node(
 #[specta::specta]
 pub async fn delete_custom_node(
     node_id: i64,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let id = neuradock_domain::custom_node::CustomNodeId::new(node_id);
 
-    state
-        .repositories
+    repositories
         .custom_node
         .delete(&id)
         .await

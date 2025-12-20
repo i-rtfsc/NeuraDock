@@ -1,8 +1,6 @@
 use crate::application::dtos::BalanceDto;
-use crate::application::services::CheckInExecutor;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
-use neuradock_domain::shared::AccountId;
+use crate::presentation::state::Services;
 use tauri::State;
 
 /// Fetch account balance with smart caching
@@ -13,148 +11,12 @@ use tauri::State;
 pub async fn fetch_account_balance(
     account_id: String,
     force_refresh: Option<bool>,
-    state: State<'_, AppState>,
+    state: State<'_, Services>,
 ) -> Result<BalanceDto, CommandError> {
-    const MAX_CACHE_AGE_HOURS: i64 = 1;
-
     let force_refresh = force_refresh.unwrap_or(false);
-
-    // Get account
-    let acc_id = AccountId::from_string(&account_id);
-    let mut account = state
-        .repositories
-        .account
-        .find_by_id(&acc_id)
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found(format!("Account not found: {}", account_id)))?;
-
-    // Check if we have valid cached balance (unless force_refresh is true)
-    if !force_refresh && !account.is_balance_stale(MAX_CACHE_AGE_HOURS) {
-        // Use cached balance
-        if let (Some(current_balance), Some(total_consumed), Some(total_income)) = (
-            account.current_balance(),
-            account.total_consumed(),
-            account.total_income(),
-        ) {
-            return Ok(BalanceDto {
-                current_balance,
-                total_consumed,
-                total_income,
-            });
-        }
-    }
-
-    // Cache is stale or doesn't exist, or force_refresh is true - fetch fresh balance
-    let provider_id = account.provider_id().as_str().to_string();
-    let provider = state
-        .repositories
-        .provider
-        .find_by_id(account.provider_id())
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
-
-    // Create executor
-    let executor = CheckInExecutor::new(state.repositories.account.clone(), true)
-        .map_err(CommandError::from)?;
-
-    // Fetch balance only (without triggering check-in)
-    let user_info = executor
-        .fetch_balance_only(&account_id, &provider)
-        .await
-        .map_err(CommandError::from)?;
-
-    // Note: API returns quota (current balance) and used_quota (total consumed)
-    let current_balance = user_info.quota;
-    let total_consumed = user_info.used_quota;
-    let balance_dto = BalanceDto {
-        current_balance,
-        total_consumed,
-        total_income: current_balance + total_consumed, // Total income = current balance + consumed
-    };
-
-    // Update account cache
-    account.update_balance(
-        balance_dto.current_balance,
-        balance_dto.total_consumed,
-        balance_dto.total_income,
-    );
     state
-        .repositories
-        .account
-        .save(&account)
+        .balance
+        .fetch_account_balance(&account_id, force_refresh)
         .await
-        .map_err(CommandError::from)?;
-
-    // Store balance history (only if significantly changed or first time)
-    save_balance_history(&account_id, &balance_dto, &state).await?;
-
-    Ok(balance_dto)
-}
-
-/// Helper function to save balance history (one record per day, always update if exists)
-async fn save_balance_history(
-    account_id: &str,
-    balance: &BalanceDto,
-    state: &State<'_, AppState>,
-) -> Result<(), CommandError> {
-    let pool = &*state.runtime.pool;
-    let id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now();
-
-    // Check if we already have a record today
-    let today_start = now
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .ok_or_else(|| CommandError::infrastructure("Failed to compute start of day"))?;
-    let today_start_str =
-        chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(today_start, chrono::Utc)
-            .to_rfc3339();
-
-    let existing: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM balance_history WHERE account_id = ? AND recorded_at >= ? LIMIT 1",
-    )
-    .bind(account_id)
-    .bind(&today_start_str)
-    .fetch_optional(pool)
-    .await
-    .map_err(CommandError::from)?;
-
-    match existing {
-        Some((existing_id,)) => {
-            // Record exists for today - always update with latest values
-            sqlx::query(
-                "UPDATE balance_history
-                 SET current_balance = ?, total_consumed = ?, total_income = ?, recorded_at = ?
-                 WHERE id = ?",
-            )
-            .bind(balance.current_balance)
-            .bind(balance.total_consumed)
-            .bind(balance.total_income)
-            .bind(now.to_rfc3339())
-            .bind(&existing_id)
-            .execute(pool)
-            .await
-            .map_err(CommandError::from)?;
-        }
-        None => {
-            // No record exists for today - insert new one
-            sqlx::query(
-                "INSERT INTO balance_history (id, account_id, current_balance, total_consumed, total_income, recorded_at)
-                 VALUES (?, ?, ?, ?, ?, ?)"
-            )
-            .bind(&id)
-            .bind(account_id)
-            .bind(balance.current_balance)
-            .bind(balance.total_consumed)
-            .bind(balance.total_income)
-            .bind(now.to_rfc3339())
-            .execute(pool)
-            .await
-            .map_err(CommandError::from)?;
-        }
-    }
-
-    Ok(())
+        .map_err(CommandError::from)
 }

@@ -7,12 +7,13 @@ use tracing::{info, warn};
 use crate::application::commands::handlers::*;
 use crate::application::event_handlers::SchedulerReloadEventHandler;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
+use crate::application::queries::BalanceStatisticsQueryService;
 use crate::application::services::{
-    AutoCheckInScheduler, BalanceHistoryService, ClaudeConfigService, CodexConfigService,
-    ConfigService, NotificationService, ProviderModelsService, TokenService,
+    AutoCheckInScheduler, BalanceHistoryService, BalanceService, ClaudeConfigService,
+    CodexConfigService, ConfigService, NotificationService, ProviderModelsService, TokenService,
 };
 use crate::presentation::state::{
-    AppState, CommandHandlers, Queries, Repositories, Runtime, Services,
+    AppState, CommandHandlers, Queries, Repositories, Services,
 };
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::{Provider, ProviderRepository};
@@ -163,6 +164,17 @@ pub async fn build_app_state(
         waf_cookies_repo.clone(),
     ));
     let balance_history_service = Arc::new(BalanceHistoryService::new(pool.clone()));
+    let balance_service = Arc::new(BalanceService::new(
+        account_repo.clone(),
+        provider_repo.clone(),
+        balance_history_service.clone(),
+        true,
+    ));
+    let balance_statistics_queries = Arc::new(BalanceStatisticsQueryService::new(
+        account_repo.clone(),
+        provider_repo.clone(),
+        balance_history_service.clone(),
+    ));
 
     info!("📊 Initializing scheduler...");
     let started_at = Instant::now();
@@ -307,18 +319,10 @@ pub async fn build_app_state(
     );
 
     Ok(AppState {
-        runtime: Runtime {
-            pool,
-            db,
-            encryption_service,
-            event_bus,
-            app_handle,
-        },
         repositories: Repositories {
             account: account_repo,
             session: session_repo,
             notification_channel: notification_channel_repo,
-            token: token_repo,
             custom_node: custom_node_repo,
             independent_key: independent_key_repo,
             provider: provider_repo,
@@ -326,16 +330,16 @@ pub async fn build_app_state(
             waf_cookies: waf_cookies_repo,
         },
         services: Services {
-            notification: notification_service,
             token: token_service,
             claude_config: claude_config_service,
             codex_config: codex_config_service,
-            scheduler,
             config: config_service,
+            balance: balance_service,
         },
         queries: Queries {
             account: account_queries,
             streak: streak_queries,
+            balance_statistics: balance_statistics_queries,
         },
         command_handlers,
     })

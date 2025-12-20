@@ -1,6 +1,6 @@
 use crate::application::dtos::BalanceDto;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Services;
 use std::collections::HashMap;
 use tauri::State;
 
@@ -12,7 +12,7 @@ use super::fetch::fetch_account_balance;
 pub async fn fetch_accounts_balances(
     account_ids: Vec<String>,
     force_refresh: Option<bool>,
-    state: State<'_, AppState>,
+    state: State<'_, Services>,
 ) -> Result<HashMap<String, Option<BalanceDto>>, CommandError> {
     let mut results = HashMap::new();
 

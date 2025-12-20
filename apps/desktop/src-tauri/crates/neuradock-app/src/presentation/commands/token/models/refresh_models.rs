@@ -1,5 +1,5 @@
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 /// Refresh provider models with WAF bypass
@@ -13,7 +13,7 @@ use tauri::State;
 pub async fn refresh_provider_models_with_waf(
     provider_id: String,
     account_id: String,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<String>, CommandError> {
     use neuradock_infrastructure::http::{token::TokenClient, WafBypassService};
 
@@ -25,8 +25,7 @@ pub async fn refresh_provider_models_with_waf(
 
     // Get account
     let account_id_obj = AccountId::from_string(&account_id);
-    let account = state
-        .repositories
+    let account = repositories
         .account
         .find_by_id(&account_id_obj)
         .await
@@ -35,8 +34,7 @@ pub async fn refresh_provider_models_with_waf(
 
     // Get provider configuration
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
         .await
@@ -62,7 +60,7 @@ pub async fn refresh_provider_models_with_waf(
     // Handle WAF bypass with caching
     if provider.needs_waf_bypass() {
         // Check for cached WAF cookies first
-        match state.repositories.waf_cookies.get_valid(&provider_id).await {
+        match repositories.waf_cookies.get_valid(&provider_id).await {
             Ok(Some(cached_waf)) => {
                 log::info!(
                     "Using cached WAF cookies for provider {} (expires at {})",
@@ -90,8 +88,7 @@ pub async fn refresh_provider_models_with_waf(
                         log::info!("WAF bypass successful, got {} cookies", new_cookies.len());
 
                         // Save WAF cookies to database for future use
-                        if let Err(e) = state
-                            .repositories
+                        if let Err(e) = repositories
                             .waf_cookies
                             .save(&provider_id, &new_cookies)
                             .await
@@ -125,8 +122,7 @@ pub async fn refresh_provider_models_with_waf(
                     .await
                 {
                     Ok(new_cookies) => {
-                        if let Err(e) = state
-                            .repositories
+                        if let Err(e) = repositories
                             .waf_cookies
                             .save(&provider_id, &new_cookies)
                             .await
@@ -179,7 +175,7 @@ pub async fn refresh_provider_models_with_waf(
                 log::warn!("WAF challenge detected despite cached cookies! Invalidating cache and retrying with WAF bypass...");
 
                 // Delete invalid cached cookies
-                if let Err(del_err) = state.repositories.waf_cookies.delete(&provider_id).await {
+                if let Err(del_err) = repositories.waf_cookies.delete(&provider_id).await {
                     log::warn!("Failed to delete invalid WAF cookies: {}", del_err);
                 }
 
@@ -199,8 +195,7 @@ pub async fn refresh_provider_models_with_waf(
                 );
 
                 // Save fresh cookies to cache
-                if let Err(save_err) = state
-                    .repositories
+                if let Err(save_err) = repositories
                     .waf_cookies
                     .save(&provider_id, &fresh_waf_cookies)
                     .await
@@ -246,8 +241,7 @@ pub async fn refresh_provider_models_with_waf(
     };
 
     // Save to database
-    state
-        .repositories
+    repositories
         .provider_models
         .save(&provider_id, &models)
         .await

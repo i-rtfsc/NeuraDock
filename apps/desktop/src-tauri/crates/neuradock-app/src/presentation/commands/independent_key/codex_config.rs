@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::application::services::token::CodexConfigService;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use neuradock_domain::independent_key::IndependentKeyId;
 
 /// Configure independent API key to Codex globally
@@ -11,13 +11,12 @@ use neuradock_domain::independent_key::IndependentKeyId;
 pub async fn configure_independent_key_codex(
     key_id: i64,
     model: Option<String>,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
-    let key = state
-        .repositories
+    let key = repositories
         .independent_key
         .find_by_id(&id)
         .await
@@ -44,13 +43,12 @@ pub async fn configure_independent_key_codex(
 pub async fn generate_independent_key_codex_temp(
     key_id: i64,
     model: Option<String>,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
-    let key = state
-        .repositories
+    let key = repositories
         .independent_key
         .find_by_id(&id)
         .await

@@ -1,6 +1,6 @@
 use crate::application::dtos::TokenDto;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 
@@ -9,7 +9,8 @@ use tauri::State;
 pub async fn fetch_account_tokens(
     account_id: String,
     force_refresh: bool,
-    state: State<'_, AppState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<TokenDto>, CommandError> {
     log::info!(
         "fetch_account_tokens called: account_id={}, force_refresh={}",
@@ -19,8 +20,7 @@ pub async fn fetch_account_tokens(
     let account_id = AccountId::from_string(&account_id);
 
     // Fetch tokens from service
-    let tokens = state
-        .services
+    let tokens = services
         .token
         .fetch_and_cache_tokens(&account_id, force_refresh)
         .await
@@ -32,8 +32,7 @@ pub async fn fetch_account_tokens(
     log::info!("Fetched {} tokens for account {}", tokens.len(), account_id);
 
     // Get account info to fill DTO
-    let account = state
-        .repositories
+    let account = repositories
         .account
         .find_by_id(&account_id)
         .await
@@ -42,8 +41,7 @@ pub async fn fetch_account_tokens(
 
     // Get provider info
     let provider_id = account.provider_id().as_str().to_string();
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(account.provider_id())
         .await

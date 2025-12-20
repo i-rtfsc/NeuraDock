@@ -1,10 +1,9 @@
 use crate::application::dtos::{BatchImportResult, ImportAccountInput, ImportItemResult};
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::{Repositories, Services};
 use tauri::State;
 use tracing::warn;
 
-use super::super::super::balance::fetch_account_balance;
 use super::helpers::import_single_account;
 
 /// Import multiple accounts from JSON (batch)
@@ -12,7 +11,8 @@ use super::helpers::import_single_account;
 #[specta::specta]
 pub async fn import_accounts_batch(
     json_data: String,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
+    services: State<'_, Services>,
 ) -> Result<BatchImportResult, CommandError> {
     let inputs: Vec<ImportAccountInput> =
         serde_json::from_str(&json_data).map_err(CommandError::from)?;
@@ -25,15 +25,17 @@ pub async fn import_accounts_batch(
         let account_name = input.name.clone();
         match import_single_account(
             input,
-            &state.repositories.account,
-            &state.repositories.session,
+            &repositories.account,
+            &repositories.session,
         )
         .await
         {
             Ok(account_id) => {
                 succeeded += 1;
-                if let Err(err) =
-                    fetch_account_balance(account_id.clone(), Some(true), state.clone()).await
+                if let Err(err) = services
+                    .balance
+                    .fetch_account_balance(&account_id, true)
+                    .await
                 {
                     warn!(
                         target: "neuradock::import",

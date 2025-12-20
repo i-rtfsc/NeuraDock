@@ -48,9 +48,12 @@ pub async fn update_and_save_balance(
     };
 
     // Save to balance_history table
-    balance_history_service
+    if let Err(e) = balance_history_service
         .save_balance_history(account_id, &balance)
-        .await;
+        .await
+    {
+        error!("Failed to save balance history: {}", e);
+    }
 
     Ok(balance)
 }

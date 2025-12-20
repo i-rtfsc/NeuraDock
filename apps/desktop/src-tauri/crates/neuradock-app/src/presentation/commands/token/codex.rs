@@ -1,5 +1,5 @@
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::shared::{AccountId, ProviderId};
 use tauri::State;
 
@@ -11,14 +11,14 @@ pub async fn configure_codex_global(
     provider_id: String,
     base_url: String,
     model: Option<String>,
-    state: State<'_, AppState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
     // Get token from cache
-    let tokens = state
-        .services
+    let tokens = services
         .token
         .get_cached_tokens(&account_id)
         .await
@@ -30,8 +30,7 @@ pub async fn configure_codex_global(
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     let provider_id_obj = ProviderId::from_string(&provider_id);
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
         .await
@@ -39,8 +38,7 @@ pub async fn configure_codex_global(
         .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Configure to Codex
-    let result = state
-        .services
+    let result = services
         .codex_config
         .configure_global(
             token,
@@ -62,14 +60,14 @@ pub async fn generate_codex_temp_commands(
     provider_id: String,
     base_url: String,
     model: Option<String>,
-    state: State<'_, AppState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
     // Get token from cache
-    let tokens = state
-        .services
+    let tokens = services
         .token
         .get_cached_tokens(&account_id)
         .await
@@ -81,8 +79,7 @@ pub async fn generate_codex_temp_commands(
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     let provider_id_obj = ProviderId::from_string(&provider_id);
-    let provider = state
-        .repositories
+    let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
         .await
@@ -90,8 +87,7 @@ pub async fn generate_codex_temp_commands(
         .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Generate temp commands
-    let commands = state
-        .services
+    let commands = services
         .codex_config
         .generate_temp_commands(
             token,
@@ -107,9 +103,8 @@ pub async fn generate_codex_temp_commands(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn clear_codex_global(state: State<'_, AppState>) -> Result<String, CommandError> {
-    state
-        .services
+pub async fn clear_codex_global(services: State<'_, Services>) -> Result<String, CommandError> {
+    services
         .codex_config
         .clear_global()
         .map_err(CommandError::from)

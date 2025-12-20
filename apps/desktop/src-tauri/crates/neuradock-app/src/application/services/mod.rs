@@ -1,4 +1,5 @@
 mod balance_history_service;
+mod balance_service;
 mod check_in_executor;
 mod check_in_helpers;
 mod config_service;
@@ -11,6 +12,7 @@ mod user_info_service;
 mod waf_cookie_manager;
 
 pub use balance_history_service::BalanceHistoryService;
+pub use balance_service::BalanceService;
 pub use check_in_executor::CheckInExecutor;
 pub use config_service::{ConfigService, LogLevel};
 pub use notification_service::NotificationService;

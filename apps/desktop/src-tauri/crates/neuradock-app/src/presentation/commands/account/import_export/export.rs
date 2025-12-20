@@ -1,6 +1,6 @@
 use crate::application::dtos::ExportAccountsInput;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 
@@ -9,11 +9,10 @@ use tauri::State;
 #[specta::specta]
 pub async fn export_accounts_to_json(
     input: ExportAccountsInput,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let accounts = if input.account_ids.is_empty() {
-        state
-            .repositories
+        repositories
             .account
             .find_all()
             .await
@@ -24,8 +23,7 @@ pub async fn export_accounts_to_json(
             .iter()
             .map(|id| AccountId::from_string(id))
             .collect();
-        state
-            .repositories
+        repositories
             .account
             .find_by_ids(&ids)
             .await

@@ -1,6 +1,6 @@
 use crate::application::dtos::{BatchUpdateResult, ImportAccountInput, UpdateItemResult};
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Repositories;
 use tauri::State;
 
 use super::helpers::{import_single_account, update_account_cookies};
@@ -12,14 +12,13 @@ use super::helpers::{import_single_account, update_account_cookies};
 pub async fn update_accounts_batch(
     json_data: String,
     create_if_not_exists: bool,
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<BatchUpdateResult, CommandError> {
     let inputs: Vec<ImportAccountInput> =
         serde_json::from_str(&json_data).map_err(CommandError::from)?;
 
     // Load all existing accounts for matching
-    let existing_accounts = state
-        .repositories
+    let existing_accounts = repositories
         .account
         .find_all()
         .await
@@ -47,8 +46,8 @@ pub async fn update_accounts_batch(
                     &account_id,
                     input.cookies,
                     input.api_user,
-                    &state.repositories.account,
-                    &state.repositories.session,
+                    &repositories.account,
+                    &repositories.session,
                 )
                 .await
                 {
@@ -79,8 +78,8 @@ pub async fn update_accounts_batch(
                     // Create new account
                     match import_single_account(
                         input,
-                        &state.repositories.account,
-                        &state.repositories.session,
+                        &repositories.account,
+                        &repositories.session,
                     )
                     .await
                     {

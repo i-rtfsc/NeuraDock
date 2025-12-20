@@ -4,7 +4,7 @@ use crate::application::dtos::{
     CreateNotificationChannelInput, NotificationChannelDto, UpdateNotificationChannelInput,
 };
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::{CommandHandlers, Repositories};
 use tauri::State;
 
 /// Create a notification channel
@@ -12,12 +12,11 @@ use tauri::State;
 #[specta::specta]
 pub async fn create_notification_channel(
     input: CreateNotificationChannelInput,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<NotificationChannelDto, CommandError> {
     let command = CreateNotificationChannelCommand { input };
 
-    state
-        .command_handlers
+    handlers
         .create_notification_channel
         .handle(command)
         .await
@@ -29,12 +28,11 @@ pub async fn create_notification_channel(
 #[specta::specta]
 pub async fn update_notification_channel(
     input: UpdateNotificationChannelInput,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<NotificationChannelDto, CommandError> {
     let command = UpdateNotificationChannelCommand { input };
 
-    state
-        .command_handlers
+    handlers
         .update_notification_channel
         .handle(command)
         .await
@@ -46,12 +44,11 @@ pub async fn update_notification_channel(
 #[specta::specta]
 pub async fn delete_notification_channel(
     channel_id: String,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<(), CommandError> {
     let command = DeleteNotificationChannelCommand { channel_id };
 
-    state
-        .command_handlers
+    handlers
         .delete_notification_channel
         .handle(command)
         .await
@@ -62,10 +59,9 @@ pub async fn delete_notification_channel(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_all_notification_channels(
-    state: State<'_, AppState>,
+    repositories: State<'_, Repositories>,
 ) -> Result<Vec<NotificationChannelDto>, CommandError> {
-    let channels = state
-        .repositories
+    let channels = repositories
         .notification_channel
         .find_all()
         .await
@@ -90,12 +86,11 @@ pub async fn get_all_notification_channels(
 #[specta::specta]
 pub async fn test_notification_channel(
     channel_id: String,
-    state: State<'_, AppState>,
+    handlers: State<'_, CommandHandlers>,
 ) -> Result<TestNotificationChannelResult, CommandError> {
     let command = TestNotificationChannelCommand { channel_id };
 
-    state
-        .command_handlers
+    handlers
         .test_notification_channel
         .handle(command)
         .await

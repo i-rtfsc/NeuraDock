@@ -1,5 +1,5 @@
 use crate::presentation::error::CommandError;
-use crate::presentation::state::AppState;
+use crate::presentation::state::Services;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 
@@ -10,14 +10,13 @@ pub async fn configure_claude_global(
     account_id: String,
     base_url: String,
     model: Option<String>,
-    state: State<'_, AppState>,
+    services: State<'_, Services>,
 ) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
     // Get token from cache
-    let tokens = state
-        .services
+    let tokens = services
         .token
         .get_cached_tokens(&account_id)
         .await
@@ -29,8 +28,7 @@ pub async fn configure_claude_global(
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     // Configure to Claude Code
-    let result = state
-        .services
+    let result = services
         .claude_config
         .configure_global(token, &base_url, model.as_deref())
         .map_err(CommandError::from)?;
@@ -45,14 +43,13 @@ pub async fn generate_claude_temp_commands(
     account_id: String,
     base_url: String,
     model: Option<String>,
-    state: State<'_, AppState>,
+    services: State<'_, Services>,
 ) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
     // Get token from cache
-    let tokens = state
-        .services
+    let tokens = services
         .token
         .get_cached_tokens(&account_id)
         .await
@@ -64,8 +61,7 @@ pub async fn generate_claude_temp_commands(
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     // Generate temp commands
-    let commands = state
-        .services
+    let commands = services
         .claude_config
         .generate_temp_commands(token, &base_url, model.as_deref())
         .map_err(CommandError::from)?;
@@ -75,9 +71,8 @@ pub async fn generate_claude_temp_commands(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn clear_claude_global(state: State<'_, AppState>) -> Result<String, CommandError> {
-    state
-        .services
+pub async fn clear_claude_global(services: State<'_, Services>) -> Result<String, CommandError> {
+    services
         .claude_config
         .clear_global()
         .map_err(CommandError::from)

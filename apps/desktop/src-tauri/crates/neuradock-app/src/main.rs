@@ -7,7 +7,7 @@ mod presentation;
 
 use presentation::commands::*;
 use presentation::ipc;
-use presentation::state::AppState;
+use presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use std::time::Instant;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
@@ -125,6 +125,15 @@ async fn main() {
             })?;
             match init_result {
                 Ok(app_state) => {
+                    let repositories: Repositories = app_state.repositories.clone();
+                    let services: Services = app_state.services.clone();
+                    let queries: Queries = app_state.queries.clone();
+                    let command_handlers: CommandHandlers = app_state.command_handlers.clone();
+
+                    app.manage(repositories);
+                    app.manage(services);
+                    app.manage(queries);
+                    app.manage(command_handlers);
                     app.manage(app_state);
                     tracing::info!(
                         "✅ App state initialized successfully ({}ms)",
