@@ -8,7 +8,8 @@ mod presentation;
 use presentation::commands::*;
 use presentation::ipc;
 use presentation::state::AppState;
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 fn install_panic_hook() {
     std::panic::set_hook(Box::new(|info| {
@@ -53,6 +54,20 @@ async fn main() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .on_window_event(|window, event| match event {
+            WindowEvent::Resized(_) | WindowEvent::Moved(_) => {
+                if let Err(e) = window.app_handle().save_window_state(StateFlags::all()) {
+                    tracing::warn!("Failed to save window state: {}", e);
+                }
+            }
+            WindowEvent::CloseRequested { .. } => {
+                if let Err(e) = window.app_handle().save_window_state(StateFlags::all()) {
+                    tracing::warn!("Failed to save window state on close: {}", e);
+                }
+            }
+            _ => {}
+        })
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let handle = app.handle().clone();

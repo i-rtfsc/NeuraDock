@@ -75,6 +75,7 @@ tauri-plugin-opener = "2.2"
 tauri-plugin-os = "2.2"
 tauri-plugin-shell = "2.2"
 tauri-plugin-store = "2.2"
+tauri-plugin-window-state = "2.2"
 
 # Type-safe IPC
 tauri-specta = { version = "2.0.0-rc.20", features = ["derive", "typescript"] }
@@ -122,6 +123,7 @@ tauri-plugin-opener = { workspace = true }
 tauri-plugin-os = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 tauri-plugin-store = { workspace = true }
+tauri-plugin-window-state = { workspace = true }
 
 # Type-safe IPC
 tauri-specta = { workspace = true }

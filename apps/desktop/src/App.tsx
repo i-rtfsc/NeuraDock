@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/query-client';
@@ -13,44 +12,8 @@ import { TokensPage } from './pages/TokensPage';
 import { ProvidersPage } from './pages/ProvidersPage';
 import { PreferencesPage } from './pages/PreferencesPage';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 
 function App() {
-  useEffect(() => {
-    const setupWindowSizePersistence = async () => {
-      const window = getCurrentWindow();
-
-      // Restore saved window size on startup
-      try {
-        const savedSize = localStorage.getItem('neuradock-window-size');
-        if (savedSize) {
-          const { width, height } = JSON.parse(savedSize);
-          await window.setSize({ width, height });
-        }
-      } catch (error) {
-        console.error('Failed to restore window size:', error);
-      }
-
-      // Listen for window resize events and save size
-      let resizeTimeout: number | undefined;
-      const unlisten = await window.onResized(async ({ payload: size }) => {
-        // Debounce: only save after user stops resizing for 500ms
-        if (resizeTimeout) clearTimeout(resizeTimeout);
-        resizeTimeout = window.setTimeout(() => {
-          localStorage.setItem('neuradock-window-size', JSON.stringify(size));
-        }, 500);
-      });
-
-      // Cleanup
-      return () => {
-        unlisten();
-        if (resizeTimeout) clearTimeout(resizeTimeout);
-      };
-    };
-
-    setupWindowSizePersistence();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
