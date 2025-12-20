@@ -1,6 +1,6 @@
 use chromiumoxide::browser::Browser;
 use log::{info, warn};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::task::JoinHandle;
 
@@ -63,7 +63,7 @@ pub(super) async fn cleanup_browser(
 }
 
 /// Force kill Chrome processes that might be using the temp directory
-async fn force_kill_chrome_processes(temp_dir: &PathBuf, account_name: &str) {
+async fn force_kill_chrome_processes(temp_dir: &Path, account_name: &str) {
     #[cfg(unix)]
     {
         use std::process::Command;

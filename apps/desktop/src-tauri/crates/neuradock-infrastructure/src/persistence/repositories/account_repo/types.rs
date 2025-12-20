@@ -30,6 +30,7 @@ pub(super) struct AccountRow {
 }
 
 impl AccountRow {
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_account(self, encryption: &EncryptionService) -> Result<Account, DomainError> {
         // Decrypt cookies JSON - fail if decryption fails (no fallback to plaintext)
         // This ensures all sensitive data is properly encrypted

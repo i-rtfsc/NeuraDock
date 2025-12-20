@@ -3,7 +3,7 @@ mod fetch;
 mod token_mapper;
 mod waf_handler;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 

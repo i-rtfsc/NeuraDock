@@ -21,7 +21,7 @@ mod types;
 mod validation;
 mod waf_handler;
 
-pub use types::{AccountCheckInResult, BatchCheckInResult};
+pub use types::AccountCheckInResult;
 
 /// Check-in executor service
 pub struct CheckInExecutor {

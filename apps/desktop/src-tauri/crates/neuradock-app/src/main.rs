@@ -4,7 +4,6 @@ mod application;
 mod presentation;
 
 // Use external crates
-use neuradock_domain as domain;
 
 use presentation::commands::*;
 use presentation::state::AppState;

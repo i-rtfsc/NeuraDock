@@ -1,4 +1,4 @@
-use sqlx::{Acquire, Sqlite, SqlitePool, Transaction};
+use sqlx::{Sqlite, SqlitePool, Transaction};
 
 use neuradock_domain::shared::DomainError;
 

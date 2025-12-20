@@ -13,6 +13,7 @@ use crate::persistence::SqliteRepositoryBase;
 
 #[derive(Debug, FromRow)]
 struct TokenRow {
+    #[allow(dead_code)]
     id: i64,
     account_id: String,
     token_id: i64,
@@ -63,7 +64,7 @@ impl SqliteTokenRepository {
             None
         };
 
-        let fetched_at = DateTime::parse_from_rfc3339(&row.fetched_at)
+        let _fetched_at = DateTime::parse_from_rfc3339(&row.fetched_at)
             .map_err(|e| DomainError::Validation(format!("Invalid fetched_at: {}", e)))?
             .with_timezone(&Utc);
 

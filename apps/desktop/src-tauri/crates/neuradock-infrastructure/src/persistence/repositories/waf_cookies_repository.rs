@@ -27,6 +27,7 @@ impl WafCookies {
 
 #[derive(Debug, FromRow)]
 struct WafCookiesRow {
+    #[allow(dead_code)]
     id: i64,
     provider_id: String,
     cookies: String, // JSON object

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{FromRow, Row, SqlitePool};
+use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
 use neuradock_domain::shared::DomainError;
@@ -16,6 +16,7 @@ pub struct ProviderModels {
 
 #[derive(Debug, FromRow)]
 struct ProviderModelsRow {
+    #[allow(dead_code)]
     id: i64,
     provider_id: String,
     models: String, // JSON array

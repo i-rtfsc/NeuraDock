@@ -6,10 +6,7 @@ use anyhow::Result;
 use reqwest::Client;
 
 // Re-export types
-pub use types::{
-    FetchTokensRequest, ProviderModelData, ProviderModelsResponse, TokenData, TokenDataWrapper,
-    TokenResponse, TokenResponseData,
-};
+pub use types::{FetchTokensRequest, TokenData, TokenResponse};
 
 pub struct TokenClient {
     pub(super) client: Client,

@@ -1,10 +1,9 @@
 use async_trait::async_trait;
-use log::{error, info};
+use log::info;
 use std::sync::Arc;
 
 use crate::application::commands::check_in_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
-use crate::application::dtos::BalanceDto;
 use crate::application::services::{
     BalanceHistoryService, CheckInExecutor, NotificationService, ProviderModelsService,
 };

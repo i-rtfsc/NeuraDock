@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{error, info};
 use std::sync::Arc;
 
 use crate::application::dtos::BalanceDto;

@@ -141,6 +141,7 @@ impl super::FeishuWebhookSender {
     }
 
     /// Build a simple text message for Feishu (fallback)
+    #[allow(dead_code)]
     pub(super) fn build_text_message(&self, message: &NotificationMessage) -> serde_json::Value {
         let text = if message.link.is_some() {
             format!("{}\n\n{}", message.title, message.content)

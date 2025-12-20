@@ -1,9 +1,7 @@
 use tauri::State;
-use crate::application::ResultExt;
 
 
 use crate::presentation::state::AppState;
-use neuradock_domain::shared::AccountId;
 #[tauri::command]
 #[specta::specta]
 pub async fn get_cached_provider_models(

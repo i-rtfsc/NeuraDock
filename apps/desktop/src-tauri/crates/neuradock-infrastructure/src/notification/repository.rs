@@ -21,6 +21,7 @@ struct NotificationChannelRow {
 }
 
 impl NotificationChannelRow {
+    #[allow(clippy::wrong_self_convention)]
     fn to_domain(self) -> Result<NotificationChannel, DomainError> {
         let id = NotificationChannelId::from_string(&self.id);
         let channel_type = ChannelType::from_str(&self.channel_type)?;

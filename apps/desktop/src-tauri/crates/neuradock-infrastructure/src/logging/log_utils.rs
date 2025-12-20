@@ -2,7 +2,6 @@
 ///
 /// This module provides functions to mask sensitive information before logging,
 /// preventing credential leaks in log files.
-
 /// Masks sensitive string data for logging
 ///
 /// # Examples

@@ -85,6 +85,7 @@ pub struct ProviderModelsResponse {
     pub data: Vec<String>, // Changed: data is a simple string array, not objects
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProviderModelData {
     pub id: String,
