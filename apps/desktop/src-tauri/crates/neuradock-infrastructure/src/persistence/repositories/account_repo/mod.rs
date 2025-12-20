@@ -22,7 +22,7 @@ impl SqliteAccountRepository {
             SELECT
                 a.id, a.name, a.provider_id, a.cookies, a.api_user, a.enabled,
                 bh.latest_recorded_at as last_check_in, a.created_at, a.auto_checkin_enabled,
-                a.auto_checkin_hour, a.auto_checkin_minute,
+                a.auto_checkin_hour, a.auto_checkin_minute, a.check_in_interval_hours,
                 s.last_login_at, s.token as session_token, s.expires_at as session_expires_at,
                 b.last_checked_at as last_balance_check_at,
                 b.current as current_balance,

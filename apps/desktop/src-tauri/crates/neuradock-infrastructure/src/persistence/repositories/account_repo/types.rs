@@ -20,6 +20,7 @@ pub(super) struct AccountRow {
     pub auto_checkin_enabled: bool,
     pub auto_checkin_hour: i64,
     pub auto_checkin_minute: i64,
+    pub check_in_interval_hours: i64,
     pub last_login_at: Option<DateTime<Utc>>,
     pub session_token: Option<String>,
     pub session_expires_at: Option<DateTime<Utc>>,
@@ -68,6 +69,7 @@ impl AccountRow {
         .auto_checkin_enabled(self.auto_checkin_enabled)
         .auto_checkin_hour(self.auto_checkin_hour as u8)
         .auto_checkin_minute(self.auto_checkin_minute as u8)
+        .check_in_interval_hours(self.check_in_interval_hours as u8)
         .last_login_at(self.last_login_at)
         .session_token(self.session_token)
         .session_expires_at(self.session_expires_at)

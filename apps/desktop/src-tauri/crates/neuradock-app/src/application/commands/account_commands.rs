@@ -31,6 +31,7 @@ pub struct UpdateAccountCommand {
     pub auto_checkin_enabled: Option<bool>,
     pub auto_checkin_hour: Option<u8>,
     pub auto_checkin_minute: Option<u8>,
+    pub check_in_interval_hours: Option<u8>,
 }
 
 impl Command for UpdateAccountCommand {}

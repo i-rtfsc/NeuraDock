@@ -51,6 +51,7 @@ pub async fn update_account(
         auto_checkin_enabled: input.auto_checkin_enabled,
         auto_checkin_hour: input.auto_checkin_hour,
         auto_checkin_minute: input.auto_checkin_minute,
+        check_in_interval_hours: input.check_in_interval_hours,
     };
 
     let result = state

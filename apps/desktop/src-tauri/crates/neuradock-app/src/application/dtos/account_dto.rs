@@ -19,6 +19,7 @@ pub struct AccountDto {
     pub auto_checkin_enabled: bool,
     pub auto_checkin_hour: u8,
     pub auto_checkin_minute: u8,
+    pub check_in_interval_hours: u8,
     pub last_balance_check_at: Option<String>,
     pub current_balance: Option<f64>,
     pub total_consumed: Option<f64>,
@@ -47,6 +48,7 @@ pub struct AccountDetailDto {
     pub auto_checkin_enabled: bool,
     pub auto_checkin_hour: u8,
     pub auto_checkin_minute: u8,
+    pub check_in_interval_hours: u8,
 }
 
 // ============================================================
@@ -107,6 +109,7 @@ impl<'a> AccountDtoMapper<'a> {
             auto_checkin_enabled: acc.auto_checkin_enabled(),
             auto_checkin_hour: acc.auto_checkin_hour(),
             auto_checkin_minute: acc.auto_checkin_minute(),
+            check_in_interval_hours: acc.check_in_interval_hours(),
             last_balance_check_at: acc.last_balance_check_at().map(|dt| dt.to_rfc3339()),
             current_balance: acc.current_balance(),
             total_consumed: acc.total_consumed(),
@@ -159,6 +162,7 @@ impl<'a> AccountDetailDtoMapper<'a> {
             auto_checkin_enabled: acc.auto_checkin_enabled(),
             auto_checkin_hour: acc.auto_checkin_hour(),
             auto_checkin_minute: acc.auto_checkin_minute(),
+            check_in_interval_hours: acc.check_in_interval_hours(),
         }
     }
 }
@@ -187,6 +191,7 @@ pub struct UpdateAccountInput {
     pub auto_checkin_enabled: Option<bool>,
     pub auto_checkin_hour: Option<u8>,
     pub auto_checkin_minute: Option<u8>,
+    pub check_in_interval_hours: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

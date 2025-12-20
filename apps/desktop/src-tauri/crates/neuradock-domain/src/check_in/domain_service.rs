@@ -7,10 +7,6 @@ use crate::shared::DomainError;
 pub struct CheckInDomainService;
 
 impl CheckInDomainService {
-    /// Minimum interval between check-ins (23 hours)
-    /// This prevents abuse and respects provider's rate limits
-    const MIN_CHECK_IN_INTERVAL_HOURS: i64 = 23;
-
     /// Validate if account can perform check-in
     pub fn can_check_in(account: &Account) -> Result<(), DomainError> {
         if !account.is_enabled() {
@@ -24,9 +20,10 @@ impl CheckInDomainService {
             let now = chrono::Utc::now();
             let elapsed = now.signed_duration_since(last_check_in);
             let hours_since_last = elapsed.num_hours();
+            let min_interval = account.check_in_interval_hours() as i64;
 
-            if hours_since_last < Self::MIN_CHECK_IN_INTERVAL_HOURS {
-                let hours_remaining = Self::MIN_CHECK_IN_INTERVAL_HOURS - hours_since_last;
+            if hours_since_last < min_interval {
+                let hours_remaining = min_interval - hours_since_last;
                 return Err(DomainError::Validation(format!(
                     "Check-in too frequent. Please wait {} hour(s) before next check-in. Last check-in: {}",
                     hours_remaining,

@@ -87,7 +87,12 @@ impl CommandHandler<UpdateAccountCommand> for UpdateAccountCommandHandler {
             auto_checkin_config_updated = true;
         }
 
-        // 5. Save updated account
+        // 5. Update check-in interval if provided
+        if let Some(interval_hours) = cmd.check_in_interval_hours {
+            account.set_check_in_interval_hours(interval_hours)?;
+        }
+
+        // 6. Save updated account
         self.account_repo.save(&account).await?;
 
         info!("Account updated successfully: {}", account.name());

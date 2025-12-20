@@ -19,8 +19,8 @@ impl super::SqliteAccountRepository {
 
         // 1. Save/Update account (without balance/session fields)
         let account_query = r#"
-            INSERT INTO accounts (id, name, provider_id, cookies, api_user, enabled, last_check_in, created_at, auto_checkin_enabled, auto_checkin_hour, auto_checkin_minute)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            INSERT INTO accounts (id, name, provider_id, cookies, api_user, enabled, last_check_in, created_at, auto_checkin_enabled, auto_checkin_hour, auto_checkin_minute, check_in_interval_hours)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
             ON CONFLICT(id) DO UPDATE SET
                 name = ?2,
                 provider_id = ?3,
@@ -30,7 +30,8 @@ impl super::SqliteAccountRepository {
                 last_check_in = ?7,
                 auto_checkin_enabled = ?9,
                 auto_checkin_hour = ?10,
-                auto_checkin_minute = ?11
+                auto_checkin_minute = ?11,
+                check_in_interval_hours = ?12
         "#;
 
         // Encrypt cookies JSON
@@ -61,6 +62,7 @@ impl super::SqliteAccountRepository {
             .bind(account.auto_checkin_enabled())
             .bind(account.auto_checkin_hour() as i64)
             .bind(account.auto_checkin_minute() as i64)
+            .bind(account.check_in_interval_hours() as i64)
             .execute(&mut *tx)
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save account"))?;

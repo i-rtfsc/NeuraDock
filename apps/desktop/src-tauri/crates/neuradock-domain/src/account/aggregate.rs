@@ -17,6 +17,7 @@ pub struct Account {
     auto_checkin_enabled: bool,
     auto_checkin_hour: u8,
     auto_checkin_minute: u8,
+    check_in_interval_hours: u8,
     last_login_at: Option<DateTime<Utc>>,
     session_token: Option<String>,
     session_expires_at: Option<DateTime<Utc>>,
@@ -28,6 +29,7 @@ pub struct Account {
 
 impl Account {
     pub const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
+    pub const DEFAULT_CHECK_IN_INTERVAL_HOURS: u8 = 23;
 
     pub fn new(
         name: String,
@@ -57,6 +59,7 @@ impl Account {
             auto_checkin_enabled: false,
             auto_checkin_hour: 9,
             auto_checkin_minute: 0,
+            check_in_interval_hours: Self::DEFAULT_CHECK_IN_INTERVAL_HOURS,
             last_login_at: None,
             session_token: None,
             session_expires_at: None,
@@ -85,6 +88,7 @@ impl Account {
             auto_checkin_enabled: false,
             auto_checkin_hour: 9,
             auto_checkin_minute: 0,
+            check_in_interval_hours: Self::DEFAULT_CHECK_IN_INTERVAL_HOURS,
             last_login_at: None,
             session_token: None,
             session_expires_at: None,
@@ -185,6 +189,20 @@ impl Account {
         Ok(())
     }
 
+    pub fn check_in_interval_hours(&self) -> u8 {
+        self.check_in_interval_hours
+    }
+
+    pub fn set_check_in_interval_hours(&mut self, hours: u8) -> Result<(), DomainError> {
+        if hours == 0 || hours > 24 {
+            return Err(DomainError::Validation(
+                "Check-in interval must be between 1 and 24 hours".to_string(),
+            ));
+        }
+        self.check_in_interval_hours = hours;
+        Ok(())
+    }
+
     pub fn last_login_at(&self) -> Option<DateTime<Utc>> {
         self.last_login_at
     }
@@ -261,6 +279,7 @@ pub struct AccountBuilder {
     auto_checkin_enabled: bool,
     auto_checkin_hour: u8,
     auto_checkin_minute: u8,
+    check_in_interval_hours: u8,
     last_login_at: Option<DateTime<Utc>>,
     session_token: Option<String>,
     session_expires_at: Option<DateTime<Utc>>,
@@ -298,6 +317,11 @@ impl AccountBuilder {
 
     pub fn auto_checkin_minute(mut self, minute: u8) -> Self {
         self.auto_checkin_minute = minute;
+        self
+    }
+
+    pub fn check_in_interval_hours(mut self, hours: u8) -> Self {
+        self.check_in_interval_hours = hours;
         self
     }
 
@@ -348,6 +372,7 @@ impl AccountBuilder {
             auto_checkin_enabled: self.auto_checkin_enabled,
             auto_checkin_hour: self.auto_checkin_hour,
             auto_checkin_minute: self.auto_checkin_minute,
+            check_in_interval_hours: self.check_in_interval_hours,
             last_login_at: self.last_login_at,
             session_token: self.session_token,
             session_expires_at: self.session_expires_at,
