@@ -1,8 +1,7 @@
 use crate::application::commands::command_handler::CommandHandler;
-use crate::application::ResultExt;
-
 use crate::application::commands::provider_commands::*;
 use crate::application::dtos::{AddProviderInput, BrowserInfoDto, ProviderDto};
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use tauri::State;
 
@@ -12,14 +11,17 @@ use tauri::State;
 pub async fn add_provider(
     input: AddProviderInput,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    Err("Not implemented yet - use create_provider instead".to_string())
+) -> Result<String, CommandError> {
+    let _ = (input, state);
+    Err(CommandError::infrastructure(
+        "Not implemented yet - use create_provider instead",
+    ))
 }
 
 /// Check if a Chromium-based browser is available for WAF bypass
 #[tauri::command]
 #[specta::specta]
-pub async fn check_browser_available() -> Result<BrowserInfoDto, String> {
+pub async fn check_browser_available() -> Result<BrowserInfoDto, CommandError> {
     use neuradock_infrastructure::http::waf_bypass::check_available_browser;
 
     match check_available_browser() {
@@ -45,14 +47,15 @@ pub async fn check_browser_available() -> Result<BrowserInfoDto, String> {
 /// Get all providers (builtin + custom)
 #[tauri::command]
 #[specta::specta]
-pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<ProviderDto>, String> {
+pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<ProviderDto>, CommandError> {
     log::info!("🔍 get_all_providers called");
 
     // Get all providers (builtin + custom from database)
-    let all_providers = state.provider_repo.find_all().await.map_err(|e| {
-        log::error!("❌ Failed to fetch providers from database: {}", e);
-        e.to_string()
-    })?;
+    let all_providers = state
+        .provider_repo
+        .find_all()
+        .await
+        .map_err(CommandError::from)?;
 
     log::info!("📊 Found {} providers from database", all_providers.len());
     for p in &all_providers {
@@ -65,7 +68,7 @@ pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<Provide
         .account_repo
         .find_all()
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     let dtos: Vec<ProviderDto> = all_providers
         .iter()
@@ -129,13 +132,13 @@ pub async fn get_all_providers(state: State<'_, AppState>) -> Result<Vec<Provide
 pub async fn create_provider(
     input: CreateProviderCommand,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let result = state
         .command_handlers
         .create_provider
         .handle(input)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(result.provider_id)
 }
@@ -146,13 +149,13 @@ pub async fn create_provider(
 pub async fn update_provider(
     input: UpdateProviderCommand,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     state
         .command_handlers
         .update_provider
         .handle(input)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(true)
 }
@@ -163,13 +166,13 @@ pub async fn update_provider(
 pub async fn delete_provider(
     input: DeleteProviderCommand,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     state
         .command_handlers
         .delete_provider
         .handle(input)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(true)
 }

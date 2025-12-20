@@ -1,4 +1,5 @@
 use crate::application::dtos::{BatchImportResult, ImportAccountInput, ImportItemResult};
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use tauri::State;
 use tracing::warn;
@@ -12,9 +13,9 @@ use super::helpers::import_single_account;
 pub async fn import_accounts_batch(
     json_data: String,
     state: State<'_, AppState>,
-) -> Result<BatchImportResult, String> {
+) -> Result<BatchImportResult, CommandError> {
     let inputs: Vec<ImportAccountInput> =
-        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(&json_data).map_err(CommandError::from)?;
 
     let mut results = Vec::new();
     let mut succeeded = 0;

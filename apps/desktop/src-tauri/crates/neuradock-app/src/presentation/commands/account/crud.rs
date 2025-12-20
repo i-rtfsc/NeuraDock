@@ -2,7 +2,7 @@ use crate::application::commands::account_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::dtos::CreateAccountInput;
 use crate::application::dtos::UpdateAccountInput;
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use tauri::State;
 
@@ -12,7 +12,7 @@ use tauri::State;
 pub async fn create_account(
     input: CreateAccountInput,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let command = CreateAccountCommand {
         name: input.name,
         provider_id: input.provider_id,
@@ -28,7 +28,7 @@ pub async fn create_account(
         .create_account
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Scheduler will be reloaded automatically via AccountCreated event
     // handled by SchedulerReloadEventHandler
@@ -42,7 +42,7 @@ pub async fn create_account(
 pub async fn update_account(
     input: UpdateAccountInput,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     let command = UpdateAccountCommand {
         account_id: input.account_id,
         name: input.name,
@@ -58,7 +58,7 @@ pub async fn update_account(
         .update_account
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Scheduler will be reloaded automatically via AccountUpdated event
     // handled by SchedulerReloadEventHandler
@@ -72,7 +72,7 @@ pub async fn update_account(
 pub async fn delete_account(
     account_id: String,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     let command = DeleteAccountCommand { account_id };
 
     let result = state
@@ -80,7 +80,7 @@ pub async fn delete_account(
         .delete_account
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Scheduler will be reloaded automatically via AccountDeleted event
     // handled by SchedulerReloadEventHandler
@@ -95,7 +95,7 @@ pub async fn toggle_account(
     account_id: String,
     enabled: bool,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     let command = ToggleAccountCommand {
         account_id,
         enabled,
@@ -106,7 +106,7 @@ pub async fn toggle_account(
         .toggle_account
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Scheduler will be reloaded automatically via AccountToggled event
     // handled by SchedulerReloadEventHandler

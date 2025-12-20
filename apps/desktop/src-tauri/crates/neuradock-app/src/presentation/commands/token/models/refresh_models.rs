@@ -1,9 +1,7 @@
-use tauri::State;
-use crate::application::ResultExt;
-
-
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
+use tauri::State;
 /// Refresh provider models with WAF bypass
 /// This command will:
 /// 1. Check for cached WAF cookies (valid for 24 hours)
@@ -16,7 +14,7 @@ pub async fn refresh_provider_models_with_waf(
     provider_id: String,
     account_id: String,
     state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, CommandError> {
     use neuradock_infrastructure::http::{token::TokenClient, WafBypassService};
 
     log::info!(
@@ -31,8 +29,8 @@ pub async fn refresh_provider_models_with_waf(
         .account_repo
         .find_by_id(&account_id_obj)
         .await
-        .to_string_err()?
-        .ok_or_else(|| "Account not found".to_string())?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
 
     // Get provider configuration
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
@@ -40,13 +38,13 @@ pub async fn refresh_provider_models_with_waf(
         .provider_repo
         .find_by_id(&provider_id_obj)
         .await
-        .to_string_err()?
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Check if provider supports models API
     let models_path = provider
         .models_path()
-        .ok_or_else(|| "Provider does not support models API".to_string())?
+        .ok_or_else(|| CommandError::validation("Provider does not support models API"))?
         .to_string();
     let base_url = provider.domain().trim_end_matches('/').to_string();
     let api_user_header = provider.api_user_key();
@@ -105,7 +103,10 @@ pub async fn refresh_provider_models_with_waf(
                     }
                     Err(e) => {
                         log::error!("WAF bypass failed: {}", e);
-                        return Err(format!("WAF bypass failed: {}", e));
+                        return Err(CommandError::infrastructure(format!(
+                            "WAF bypass failed: {}",
+                            e
+                        )));
                     }
                 }
             }
@@ -133,7 +134,10 @@ pub async fn refresh_provider_models_with_waf(
                         }
                     }
                     Err(e) => {
-                        return Err(format!("WAF bypass failed: {}", e));
+                        return Err(CommandError::infrastructure(format!(
+                            "WAF bypass failed: {}",
+                            e
+                        )));
                     }
                 }
             }
@@ -151,7 +155,7 @@ pub async fn refresh_provider_models_with_waf(
     let api_user = account.credentials().api_user();
 
     // Fetch models - with retry on WAF challenge
-    let client = TokenClient::new().to_string_err()?;
+    let client = TokenClient::new().map_err(CommandError::from)?;
     let models_result = client
         .fetch_provider_models(
             &base_url,
@@ -181,7 +185,7 @@ pub async fn refresh_provider_models_with_waf(
                 let fresh_waf_cookies = waf_service
                     .get_waf_cookies(&provider.login_url(), &account_id)
                     .await
-                    .map_err(|e| format!("WAF bypass failed: {}", e))?;
+                    .map_err(|e| CommandError::infrastructure(format!("WAF bypass failed: {}", e)))?;
 
                 log::info!(
                     "WAF bypass successful, got {} fresh cookies",
@@ -221,10 +225,15 @@ pub async fn refresh_provider_models_with_waf(
                         Some(api_user),
                     )
                     .await
-                    .map_err(|e| format!("Failed to fetch models even after WAF bypass: {}", e))?
+                    .map_err(|e| {
+                        CommandError::infrastructure(format!(
+                            "Failed to fetch models even after WAF bypass: {}",
+                            e
+                        ))
+                    })?
             } else {
                 // Not a WAF challenge, return original error
-                return Err(error_msg);
+                return Err(CommandError::infrastructure(error_msg));
             }
         }
     };
@@ -234,7 +243,7 @@ pub async fn refresh_provider_models_with_waf(
         .provider_models_repo
         .save(&provider_id, &models)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     log::info!(
         "Refreshed and saved {} models for provider {}",
@@ -244,4 +253,3 @@ pub async fn refresh_provider_models_with_waf(
 
     Ok(models)
 }
-

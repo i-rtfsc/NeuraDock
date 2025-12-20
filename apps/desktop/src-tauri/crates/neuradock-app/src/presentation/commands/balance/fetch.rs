@@ -1,6 +1,6 @@
 use crate::application::dtos::BalanceDto;
 use crate::application::services::CheckInExecutor;
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
@@ -14,7 +14,7 @@ pub async fn fetch_account_balance(
     account_id: String,
     force_refresh: Option<bool>,
     state: State<'_, AppState>,
-) -> Result<BalanceDto, String> {
+) -> Result<BalanceDto, CommandError> {
     const MAX_CACHE_AGE_HOURS: i64 = 1;
 
     let force_refresh = force_refresh.unwrap_or(false);
@@ -25,8 +25,8 @@ pub async fn fetch_account_balance(
         .account_repo
         .find_by_id(&acc_id)
         .await
-        .to_string_err()?
-        .ok_or("Account not found")?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Account not found: {}", account_id)))?;
 
     // Check if we have valid cached balance (unless force_refresh is true)
     if !force_refresh && !account.is_balance_stale(MAX_CACHE_AGE_HOURS) {
@@ -50,18 +50,17 @@ pub async fn fetch_account_balance(
         .provider_repo
         .find_by_id(account.provider_id())
         .await
-        .to_string_err()?
-        .ok_or(format!("Provider {} not found", provider_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Create executor
-    let executor =
-        CheckInExecutor::new(state.account_repo.clone(), true).to_string_err()?;
+    let executor = CheckInExecutor::new(state.account_repo.clone(), true).map_err(CommandError::from)?;
 
     // Fetch balance only (without triggering check-in)
     let user_info = executor
         .fetch_balance_only(&account_id, &provider)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Note: API returns quota (current balance) and used_quota (total consumed)
     let current_balance = user_info.quota;
@@ -82,7 +81,7 @@ pub async fn fetch_account_balance(
         .account_repo
         .save(&account)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Store balance history (only if significantly changed or first time)
     save_balance_history(&account_id, &balance_dto, &state).await?;
@@ -95,7 +94,7 @@ async fn save_balance_history(
     account_id: &str,
     balance: &BalanceDto,
     state: &State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let pool = &*state.pool;
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now();
@@ -116,7 +115,7 @@ async fn save_balance_history(
     .bind(&today_start_str)
     .fetch_optional(pool)
     .await
-    .to_string_err()?;
+    .map_err(CommandError::from)?;
 
     match existing {
         Some((existing_id,)) => {
@@ -133,7 +132,7 @@ async fn save_balance_history(
             .bind(&existing_id)
             .execute(pool)
             .await
-            .to_string_err()?;
+            .map_err(CommandError::from)?;
         }
         None => {
             // No record exists for today - insert new one
@@ -149,7 +148,7 @@ async fn save_balance_history(
             .bind(now.to_rfc3339())
             .execute(pool)
             .await
-            .to_string_err()?;
+            .map_err(CommandError::from)?;
         }
     }
 

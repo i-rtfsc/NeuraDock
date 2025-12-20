@@ -1,5 +1,5 @@
 use crate::application::dtos::{BalanceStatisticsDto, ProviderBalanceDto};
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use std::collections::HashMap;
 use tauri::State;
@@ -9,7 +9,7 @@ use tauri::State;
 #[specta::specta]
 pub async fn get_balance_statistics(
     state: State<'_, AppState>,
-) -> Result<BalanceStatisticsDto, String> {
+) -> Result<BalanceStatisticsDto, CommandError> {
     let pool = &*state.pool;
 
     // Get all accounts with their latest balances
@@ -17,8 +17,8 @@ pub async fn get_balance_statistics(
         .account_repo
         .find_enabled()
         .await
-        .to_string_err()?;
-    let providers = state.provider_map().await.to_string_err()?;
+        .map_err(CommandError::from)?;
+    let providers = state.provider_map().await.map_err(CommandError::from)?;
 
     let mut provider_stats: HashMap<String, ProviderBalanceDto> = HashMap::new();
     let mut total_current_balance = 0.0;
@@ -43,7 +43,7 @@ pub async fn get_balance_statistics(
                 .bind(account_id)
                 .fetch_optional(pool)
                 .await
-                .to_string_err()?
+                .map_err(CommandError::from)?
             }
         };
 

@@ -1,9 +1,7 @@
-use tauri::State;
-use crate::application::ResultExt;
-
-
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
+use tauri::State;
 /// Fetch provider supported models
 /// If forceRefresh is true, will fetch from API regardless of cache
 /// Otherwise returns cached models if available and not stale (24 hours)
@@ -14,7 +12,7 @@ pub async fn fetch_provider_models(
     account_id: String,
     force_refresh: bool,
     state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, CommandError> {
     use neuradock_infrastructure::http::token::TokenClient;
 
     log::info!(
@@ -31,14 +29,14 @@ pub async fn fetch_provider_models(
             .provider_models_repo
             .is_stale(&provider_id, 24)
             .await
-            .to_string_err()?;
+            .map_err(CommandError::from)?;
 
         if !is_stale {
             if let Some(cached) = state
                 .provider_models_repo
                 .find_by_provider(&provider_id)
                 .await
-                .to_string_err()?
+                .map_err(CommandError::from)?
             {
                 log::info!(
                     "Returning {} cached models for provider {}",
@@ -56,8 +54,8 @@ pub async fn fetch_provider_models(
         .account_repo
         .find_by_id(&account_id_obj)
         .await
-        .to_string_err()?
-        .ok_or_else(|| "Account not found".to_string())?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
 
     // Get provider configuration
     let provider_id_obj = neuradock_domain::shared::ProviderId::from_string(&provider_id);
@@ -65,13 +63,13 @@ pub async fn fetch_provider_models(
         .provider_repo
         .find_by_id(&provider_id_obj)
         .await
-        .to_string_err()?
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Check if provider supports models API
     let models_path = provider
         .models_path()
-        .ok_or_else(|| "Provider does not support models API".to_string())?
+        .ok_or_else(|| CommandError::validation("Provider does not support models API"))?
         .to_string();
     let base_url = provider.domain().trim_end_matches('/').to_string();
     let api_user_header = provider.api_user_key();
@@ -114,7 +112,7 @@ pub async fn fetch_provider_models(
     }
 
     // Create token client and fetch models
-    let client = TokenClient::new().to_string_err()?;
+    let client = TokenClient::new().map_err(CommandError::from)?;
 
     // Build cookie string from merged cookies
     let cookie_string: String = cookies
@@ -152,11 +150,13 @@ pub async fn fetch_provider_models(
                 }
 
                 // Return helpful error message
-                return Err("WAF challenge detected. Please use 'Refresh with WAF' button in account management to refresh cookies.".to_string());
+                return Err(CommandError::infrastructure(
+                    "WAF challenge detected. Please use 'Refresh with WAF' to refresh cookies.",
+                ));
             }
 
             // Other error, just propagate
-            return Err(error_msg);
+            return Err(CommandError::infrastructure(error_msg));
         }
     };
 
@@ -165,7 +165,7 @@ pub async fn fetch_provider_models(
         .provider_models_repo
         .save(&provider_id, &models)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     log::info!(
         "Fetched and cached {} models for provider {}",

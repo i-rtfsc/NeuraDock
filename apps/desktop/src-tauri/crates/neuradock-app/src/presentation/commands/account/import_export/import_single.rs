@@ -1,4 +1,4 @@
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::account::{Account, Credentials};
 use neuradock_domain::shared::ProviderId;
@@ -14,9 +14,9 @@ use super::helpers::create_and_save_default_session;
 pub async fn import_account_from_json(
     json_data: String,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let input: crate::application::dtos::ImportAccountInput =
-        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(&json_data).map_err(CommandError::from)?;
 
     let cookies = input.cookies.clone();
     let credentials = Credentials::new(input.cookies, input.api_user);
@@ -25,7 +25,7 @@ pub async fn import_account_from_json(
         ProviderId::from_string(&input.provider),
         credentials,
     )
-    .to_string_err()?;
+    .map_err(CommandError::from)?;
 
     let account_id = account.id().clone();
 
@@ -33,7 +33,7 @@ pub async fn import_account_from_json(
         .account_repo
         .save(&account)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     create_and_save_default_session(account_id.clone(), &cookies, &state.session_repo).await?;
 

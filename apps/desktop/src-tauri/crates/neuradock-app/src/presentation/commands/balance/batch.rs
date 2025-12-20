@@ -1,4 +1,5 @@
 use crate::application::dtos::BalanceDto;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use std::collections::HashMap;
 use tauri::State;
@@ -12,7 +13,7 @@ pub async fn fetch_accounts_balances(
     account_ids: Vec<String>,
     force_refresh: Option<bool>,
     state: State<'_, AppState>,
-) -> Result<HashMap<String, Option<BalanceDto>>, String> {
+) -> Result<HashMap<String, Option<BalanceDto>>, CommandError> {
     let mut results = HashMap::new();
 
     for account_id in account_ids {

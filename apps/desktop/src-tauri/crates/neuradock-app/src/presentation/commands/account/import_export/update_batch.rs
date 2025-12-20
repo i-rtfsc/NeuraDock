@@ -1,6 +1,6 @@
 use crate::application::dtos::{BatchUpdateResult, ImportAccountInput, UpdateItemResult};
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
-use crate::application::ResultExt;
 use tauri::State;
 
 use super::helpers::{import_single_account, update_account_cookies};
@@ -13,12 +13,16 @@ pub async fn update_accounts_batch(
     json_data: String,
     create_if_not_exists: bool,
     state: State<'_, AppState>,
-) -> Result<BatchUpdateResult, String> {
+) -> Result<BatchUpdateResult, CommandError> {
     let inputs: Vec<ImportAccountInput> =
-        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(&json_data).map_err(CommandError::from)?;
 
     // Load all existing accounts for matching
-    let existing_accounts = state.account_repo.find_all().await.to_string_err()?;
+    let existing_accounts = state
+        .account_repo
+        .find_all()
+        .await
+        .map_err(CommandError::from)?;
 
     let mut results = Vec::new();
     let mut updated = 0;

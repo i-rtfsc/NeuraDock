@@ -1,5 +1,5 @@
 use crate::application::dtos::ExportAccountsInput;
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
 use tauri::State;
@@ -10,43 +10,44 @@ use tauri::State;
 pub async fn export_accounts_to_json(
     input: ExportAccountsInput,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let accounts = if input.account_ids.is_empty() {
-        state.account_repo.find_all().await.to_string_err()?
+        state
+            .account_repo
+            .find_all()
+            .await
+            .map_err(CommandError::from)?
     } else {
-        let mut result = Vec::new();
-        for id_str in input.account_ids {
-            let id = AccountId::from_string(&id_str);
-            if let Some(account) = state
-                .account_repo
-                .find_by_id(&id)
-                .await
-                .to_string_err()?
-            {
-                result.push(account);
-            }
-        }
-        result
+        let ids: Vec<AccountId> = input
+            .account_ids
+            .iter()
+            .map(|id| AccountId::from_string(id))
+            .collect();
+        state
+            .account_repo
+            .find_by_ids(&ids)
+            .await
+            .map_err(CommandError::from)?
     };
 
-    let export_data: Vec<serde_json::Value> = accounts
+    let export_data = accounts
         .iter()
-        .map(|acc| {
+        .map(|acc| -> Result<serde_json::Value, CommandError> {
             let mut data = serde_json::json!({
                 "name": acc.name(),
                 "provider": acc.provider_id().as_str(),
             });
 
             if input.include_credentials {
-                data["cookies"] = serde_json::to_value(acc.credentials().cookies())
-                    .expect("Failed to serialize cookies");
+                data["cookies"] =
+                    serde_json::to_value(acc.credentials().cookies()).map_err(CommandError::from)?;
                 data["api_user"] =
                     serde_json::Value::String(acc.credentials().api_user().to_string());
             }
 
-            data
+            Ok(data)
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
-    serde_json::to_string_pretty(&export_data).to_string_err()
+    serde_json::to_string_pretty(&export_data).map_err(CommandError::from)
 }

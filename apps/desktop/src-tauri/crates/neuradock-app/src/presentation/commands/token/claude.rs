@@ -1,9 +1,7 @@
-use tauri::State;
-use crate::application::ResultExt;
-
-
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
+use tauri::State;
 
 #[tauri::command]
 #[specta::specta]
@@ -13,7 +11,7 @@ pub async fn configure_claude_global(
     base_url: String,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
@@ -22,18 +20,18 @@ pub async fn configure_claude_global(
         .token_service
         .get_cached_tokens(&account_id)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     let token = tokens
         .iter()
         .find(|t| t.id() == &token_id)
-        .ok_or_else(|| "Token not found".to_string())?;
+        .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     // Configure to Claude Code
     let result = state
         .claude_config_service
         .configure_global(token, &base_url, model.as_deref())
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(result)
 }
@@ -46,7 +44,7 @@ pub async fn generate_claude_temp_commands(
     base_url: String,
     model: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
@@ -55,29 +53,29 @@ pub async fn generate_claude_temp_commands(
         .token_service
         .get_cached_tokens(&account_id)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     let token = tokens
         .iter()
         .find(|t| t.id() == &token_id)
-        .ok_or_else(|| "Token not found".to_string())?;
+        .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
     // Generate temp commands
     let commands = state
         .claude_config_service
         .generate_temp_commands(token, &base_url, model.as_deref())
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(commands)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn clear_claude_global(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn clear_claude_global(state: State<'_, AppState>) -> Result<String, CommandError> {
     state
         .claude_config_service
         .clear_global()
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Check if models are compatible with Claude Code
@@ -87,7 +85,7 @@ pub async fn clear_claude_global(state: State<'_, AppState>) -> Result<String, S
 pub fn check_model_compatibility(
     models: Vec<String>,
     tool: String, // "claude" or "codex"
-) -> Result<(bool, String), String> {
+) -> Result<(bool, String), CommandError> {
     let models_lower: Vec<String> = models.iter().map(|m| m.to_lowercase()).collect();
 
     match tool.as_str() {
@@ -122,6 +120,6 @@ pub fn check_model_compatibility(
 
             Ok((true, String::new()))
         }
-        _ => Err("Unknown AI tool".to_string()),
+        _ => Err(CommandError::validation("Unknown AI tool")),
     }
 }

@@ -1,5 +1,5 @@
+use crate::presentation::error::CommandError;
 use neuradock_infrastructure::logging::{log_from_frontend as log_fe, FrontendLog};
-use crate::application::ResultExt;
 
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
@@ -37,7 +37,7 @@ pub fn log_from_frontend(level: String, target: String, message: String, fields:
 /// Open log directory in file explorer
 #[tauri::command]
 #[specta::specta]
-pub async fn open_log_dir(app: tauri::AppHandle) -> Result<String, String> {
+pub async fn open_log_dir(app: tauri::AppHandle) -> Result<String, CommandError> {
     use neuradock_infrastructure::logging;
 
     let log_dir = logging::get_log_dir()
@@ -45,14 +45,14 @@ pub async fn open_log_dir(app: tauri::AppHandle) -> Result<String, String> {
             // If not initialized yet, try to get default path
             app.path().app_log_dir().ok().map(|dir| dir.join("logs"))
         })
-        .ok_or_else(|| "Failed to get log directory".to_string())?;
+        .ok_or_else(|| CommandError::infrastructure("Failed to get log directory"))?;
 
     // Ensure directory exists
-    std::fs::create_dir_all(&log_dir).to_string_err()?;
+    std::fs::create_dir_all(&log_dir).map_err(|e| CommandError::from(e.to_string()))?;
 
     app.opener()
         .reveal_item_in_dir(&log_dir)
-        .to_string_err()?;
+        .map_err(|e| CommandError::from(e.to_string()))?;
 
     Ok(log_dir.display().to_string())
 }

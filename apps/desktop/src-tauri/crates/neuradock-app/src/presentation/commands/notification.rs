@@ -1,10 +1,9 @@
 use crate::application::commands::command_handler::CommandHandler;
-use crate::application::ResultExt;
-
 use crate::application::commands::notification_commands::*;
 use crate::application::dtos::{
     CreateNotificationChannelInput, NotificationChannelDto, UpdateNotificationChannelInput,
 };
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use tauri::State;
 
@@ -14,7 +13,7 @@ use tauri::State;
 pub async fn create_notification_channel(
     input: CreateNotificationChannelInput,
     state: State<'_, AppState>,
-) -> Result<NotificationChannelDto, String> {
+) -> Result<NotificationChannelDto, CommandError> {
     let command = CreateNotificationChannelCommand { input };
 
     state
@@ -22,7 +21,7 @@ pub async fn create_notification_channel(
         .create_notification_channel
         .handle(command)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Update a notification channel
@@ -31,7 +30,7 @@ pub async fn create_notification_channel(
 pub async fn update_notification_channel(
     input: UpdateNotificationChannelInput,
     state: State<'_, AppState>,
-) -> Result<NotificationChannelDto, String> {
+) -> Result<NotificationChannelDto, CommandError> {
     let command = UpdateNotificationChannelCommand { input };
 
     state
@@ -39,7 +38,7 @@ pub async fn update_notification_channel(
         .update_notification_channel
         .handle(command)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Delete a notification channel
@@ -48,7 +47,7 @@ pub async fn update_notification_channel(
 pub async fn delete_notification_channel(
     channel_id: String,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let command = DeleteNotificationChannelCommand { channel_id };
 
     state
@@ -56,7 +55,7 @@ pub async fn delete_notification_channel(
         .delete_notification_channel
         .handle(command)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Get all notification channels
@@ -64,12 +63,12 @@ pub async fn delete_notification_channel(
 #[specta::specta]
 pub async fn get_all_notification_channels(
     state: State<'_, AppState>,
-) -> Result<Vec<NotificationChannelDto>, String> {
+) -> Result<Vec<NotificationChannelDto>, CommandError> {
     let channels = state
         .notification_channel_repo
         .find_all()
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     let dtos = channels
         .iter()
@@ -91,7 +90,7 @@ pub async fn get_all_notification_channels(
 pub async fn test_notification_channel(
     channel_id: String,
     state: State<'_, AppState>,
-) -> Result<TestNotificationChannelResult, String> {
+) -> Result<TestNotificationChannelResult, CommandError> {
     let command = TestNotificationChannelCommand { channel_id };
 
     state
@@ -99,5 +98,5 @@ pub async fn test_notification_channel(
         .test_notification_channel
         .handle(command)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }

@@ -1,11 +1,10 @@
 use crate::application::commands::check_in_commands::*;
-use crate::application::ResultExt;
-
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::dtos::{
     self, BatchCheckInResult, CheckInHistoryDto, CheckInStatsDto, ExecuteCheckInResult,
     RunningJobDto,
 };
+use crate::presentation::error::CommandError;
 use crate::presentation::state::AppState;
 use tauri::State;
 
@@ -15,7 +14,7 @@ use tauri::State;
 pub async fn execute_check_in(
     account_id: String,
     state: State<'_, AppState>,
-) -> Result<ExecuteCheckInResult, String> {
+) -> Result<ExecuteCheckInResult, CommandError> {
     log::info!(
         "=== execute_check_in command called for account: {} ===",
         account_id
@@ -30,7 +29,7 @@ pub async fn execute_check_in(
         .execute_check_in
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     Ok(ExecuteCheckInResult {
         job_id: account_id,
@@ -50,7 +49,7 @@ pub async fn execute_check_in(
 pub async fn execute_batch_check_in(
     account_ids: Vec<String>,
     state: State<'_, AppState>,
-) -> Result<BatchCheckInResult, String> {
+) -> Result<BatchCheckInResult, CommandError> {
     let command = BatchExecuteCheckInCommand { account_ids };
 
     let result = state
@@ -58,7 +57,7 @@ pub async fn execute_batch_check_in(
         .batch_execute_check_in
         .handle(command)
         .await
-        .to_string_err()?;
+        .map_err(CommandError::from)?;
 
     // Convert results to DTOs
     let results_dto: Vec<ExecuteCheckInResult> = result
@@ -83,8 +82,12 @@ pub async fn execute_batch_check_in(
 /// Stop a running check-in job
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_check_in(job_id: String, state: State<'_, AppState>) -> Result<bool, String> {
-    Err("Not implemented yet".to_string())
+pub async fn stop_check_in(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<bool, CommandError> {
+    let _ = (job_id, state);
+    Err(CommandError::infrastructure("Not implemented yet"))
 }
 
 /// Get check-in history for an account
@@ -95,8 +98,9 @@ pub async fn get_check_in_history(
     page: i32,
     page_size: i32,
     state: State<'_, AppState>,
-) -> Result<Vec<CheckInHistoryDto>, String> {
-    Err("Not implemented yet".to_string())
+) -> Result<Vec<CheckInHistoryDto>, CommandError> {
+    let _ = (account_id, page, page_size, state);
+    Err(CommandError::infrastructure("Not implemented yet"))
 }
 
 /// Get check-in statistics for an account
@@ -106,15 +110,17 @@ pub async fn get_check_in_stats(
     account_id: Option<String>,
     period: String,
     state: State<'_, AppState>,
-) -> Result<CheckInStatsDto, String> {
-    Err("Not implemented yet".to_string())
+) -> Result<CheckInStatsDto, CommandError> {
+    let _ = (account_id, period, state);
+    Err(CommandError::infrastructure("Not implemented yet"))
 }
 
 /// Get currently running check-in jobs
 #[tauri::command]
 #[specta::specta]
-pub async fn get_running_jobs(state: State<'_, AppState>) -> Result<Vec<RunningJobDto>, String> {
-    Err("Not implemented yet".to_string())
+pub async fn get_running_jobs(state: State<'_, AppState>) -> Result<Vec<RunningJobDto>, CommandError> {
+    let _ = state;
+    Err(CommandError::infrastructure("Not implemented yet"))
 }
 
 /// Get check-in streak statistics for an account
@@ -123,12 +129,12 @@ pub async fn get_running_jobs(state: State<'_, AppState>) -> Result<Vec<RunningJ
 pub async fn get_check_in_streak(
     account_id: String,
     state: State<'_, AppState>,
-) -> Result<dtos::CheckInStreakDto, String> {
+) -> Result<dtos::CheckInStreakDto, CommandError> {
     state
         .streak_queries
         .get_streak_stats(&account_id)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Get check-in streak statistics for all accounts
@@ -136,12 +142,12 @@ pub async fn get_check_in_streak(
 #[specta::specta]
 pub async fn get_all_check_in_streaks(
     state: State<'_, AppState>,
-) -> Result<Vec<dtos::CheckInStreakDto>, String> {
+) -> Result<Vec<dtos::CheckInStreakDto>, CommandError> {
     state
         .streak_queries
         .get_all_streaks()
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Get check-in calendar for a specific month
@@ -152,12 +158,12 @@ pub async fn get_check_in_calendar(
     year: i32,
     month: u32,
     state: State<'_, AppState>,
-) -> Result<dtos::CheckInCalendarDto, String> {
+) -> Result<dtos::CheckInCalendarDto, CommandError> {
     state
         .streak_queries
         .get_calendar(&account_id, year, month)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Get check-in trend over a period of days
@@ -167,12 +173,12 @@ pub async fn get_check_in_trend(
     account_id: String,
     days: u32,
     state: State<'_, AppState>,
-) -> Result<dtos::CheckInTrendDto, String> {
+) -> Result<dtos::CheckInTrendDto, CommandError> {
     state
         .streak_queries
         .get_trend(&account_id, days)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Get detailed check-in information for a specific day
@@ -182,21 +188,21 @@ pub async fn get_check_in_day_detail(
     account_id: String,
     date: String,
     state: State<'_, AppState>,
-) -> Result<dtos::CheckInDayDto, String> {
+) -> Result<dtos::CheckInDayDto, CommandError> {
     state
         .streak_queries
         .get_day_detail(&account_id, &date)
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }
 
 /// Recalculate check-in streaks for all accounts
 #[tauri::command]
 #[specta::specta]
-pub async fn recalculate_check_in_streaks(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn recalculate_check_in_streaks(state: State<'_, AppState>) -> Result<(), CommandError> {
     state
         .streak_queries
         .recalculate_all_streaks()
         .await
-        .to_string_err()
+        .map_err(CommandError::from)
 }

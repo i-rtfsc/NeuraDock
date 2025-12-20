@@ -1,10 +1,10 @@
 use chrono::{Duration, Utc};
-use neuradock_domain::session::{Session, SessionRepository};
+use neuradock_domain::session::{Session, SessionRepository, SessionTokenExtractor};
 use neuradock_domain::shared::AccountId;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::application::ResultExt;
+use crate::presentation::error::CommandError;
 
 const DEFAULT_SESSION_EXPIRATION_DAYS: i64 = 30;
 
@@ -13,17 +13,13 @@ pub(super) async fn create_and_save_default_session(
     account_id: AccountId,
     cookies: &HashMap<String, String>,
     session_repo: &Arc<dyn SessionRepository>,
-) -> Result<(), String> {
-    let session_token = cookies
-        .values()
-        .next()
-        .cloned()
-        .unwrap_or_else(|| "session".to_string());
+) -> Result<(), CommandError> {
+    let session_token = SessionTokenExtractor::extract(cookies);
 
     let expires_at = Utc::now() + Duration::days(DEFAULT_SESSION_EXPIRATION_DAYS);
-    let session = Session::new(account_id, session_token, expires_at).to_string_err()?;
+    let session = Session::new(account_id, session_token, expires_at).map_err(CommandError::from)?;
 
-    session_repo.save(&session).await.to_string_err()?;
+    session_repo.save(&session).await.map_err(CommandError::from)?;
     Ok(())
 }
 
@@ -32,7 +28,7 @@ pub(super) async fn import_single_account(
     input: crate::application::dtos::ImportAccountInput,
     account_repo: &Arc<dyn neuradock_domain::account::AccountRepository>,
     session_repo: &Arc<dyn SessionRepository>,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<String, CommandError> {
     use neuradock_domain::account::{Account, Credentials};
     use neuradock_domain::shared::ProviderId;
 
@@ -42,10 +38,11 @@ pub(super) async fn import_single_account(
         input.name,
         ProviderId::from_string(&input.provider),
         credentials,
-    )?;
+    )
+    .map_err(CommandError::from)?;
 
     let account_id = account.id().clone();
-    account_repo.save(&account).await?;
+    account_repo.save(&account).await.map_err(CommandError::from)?;
 
     create_and_save_default_session(account_id.clone(), &cookies, session_repo).await?;
 
@@ -59,17 +56,20 @@ pub(super) async fn update_account_cookies(
     api_user: String,
     account_repo: &Arc<dyn neuradock_domain::account::AccountRepository>,
     session_repo: &Arc<dyn SessionRepository>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), CommandError> {
     use neuradock_domain::account::Credentials;
 
     let mut account = account_repo
         .find_by_id(account_id)
-        .await?
-        .ok_or("Account not found")?;
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
 
     let credentials = Credentials::new(cookies.clone(), api_user);
-    account.update_credentials(credentials)?;
-    account_repo.save(&account).await?;
+    account
+        .update_credentials(credentials)
+        .map_err(CommandError::from)?;
+    account_repo.save(&account).await.map_err(CommandError::from)?;
 
     create_and_save_default_session(account_id.clone(), &cookies, session_repo).await?;
 

@@ -90,6 +90,18 @@ impl From<anyhow::Error> for CommandError {
     }
 }
 
+impl From<sqlx::Error> for CommandError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::infrastructure(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for CommandError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::infrastructure(err.to_string())
+    }
+}
+
 impl std::fmt::Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}] {}", self.code, self.message)

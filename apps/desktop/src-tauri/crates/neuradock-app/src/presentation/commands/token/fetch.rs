@@ -1,10 +1,8 @@
-use tauri::State;
-use crate::application::ResultExt;
-
-
+use crate::presentation::error::CommandError;
 use crate::application::dtos::TokenDto;
 use crate::presentation::state::AppState;
 use neuradock_domain::shared::AccountId;
+use tauri::State;
 
 #[tauri::command]
 #[specta::specta]
@@ -12,7 +10,7 @@ pub async fn fetch_account_tokens(
     account_id: String,
     force_refresh: bool,
     state: State<'_, AppState>,
-) -> Result<Vec<TokenDto>, String> {
+) -> Result<Vec<TokenDto>, CommandError> {
     log::info!(
         "fetch_account_tokens called: account_id={}, force_refresh={}",
         account_id,
@@ -27,7 +25,7 @@ pub async fn fetch_account_tokens(
         .await
         .map_err(|e| {
             log::error!("Failed to fetch tokens: {}", e);
-            e.to_string()
+            CommandError::from(e)
         })?;
 
     log::info!("Fetched {} tokens for account {}", tokens.len(), account_id);
@@ -37,8 +35,8 @@ pub async fn fetch_account_tokens(
         .account_repo
         .find_by_id(&account_id)
         .await
-        .to_string_err()?
-        .ok_or_else(|| "Account not found".to_string())?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
 
     // Get provider info
     let provider_id = account.provider_id().as_str().to_string();
@@ -46,8 +44,8 @@ pub async fn fetch_account_tokens(
         .provider_repo
         .find_by_id(account.provider_id())
         .await
-        .to_string_err()?
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
 
     // Convert to DTOs
     let dtos = tokens
