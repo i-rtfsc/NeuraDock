@@ -177,6 +177,7 @@ async fn test_update_account_command_handler() {
         auto_checkin_enabled: Some(true),
         auto_checkin_hour: Some(10),
         auto_checkin_minute: Some(30),
+        check_in_interval_hours: Some(24),
     };
 
     let result = handler.handle(command).await;
@@ -281,6 +282,7 @@ async fn test_update_nonexistent_account_fails() {
         auto_checkin_enabled: None,
         auto_checkin_hour: None,
         auto_checkin_minute: None,
+        check_in_interval_hours: None,
     };
 
     let result = handler.handle(command).await;

@@ -179,6 +179,7 @@ mod tests {
             ProviderId::new(),
             Credentials::new(cookies, "test@user".to_string()),
         )
+        .check_in_interval_hours(24)
         .last_check_in(Some(last_check_in))
         .created_at(Utc::now() - Duration::days(1))
         .build();
@@ -189,7 +190,7 @@ mod tests {
         match result {
             Err(DomainError::Validation(msg)) => {
                 assert!(msg.contains("too frequent"));
-                assert!(msg.contains("21 hour")); // 23 - 2 = 21
+                assert!(msg.contains("22 hour")); // 24 - 2 = 22
             }
             _ => panic!("Expected Validation error for frequency check"),
         }
@@ -212,6 +213,7 @@ mod tests {
             ProviderId::new(),
             Credentials::new(cookies, "test@user".to_string()),
         )
+        .check_in_interval_hours(24)
         .last_check_in(Some(last_check_in))
         .created_at(Utc::now() - Duration::days(1))
         .build();
