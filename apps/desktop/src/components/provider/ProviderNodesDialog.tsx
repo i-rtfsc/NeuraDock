@@ -25,6 +25,15 @@ interface ProviderNodesDialogProps {
   provider: ProviderDto | null;
 }
 
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function parseCustomNodeId(nodeId: string): number | null {
   if (!nodeId.startsWith('custom_')) return null;
   const raw = nodeId.slice('custom_'.length);
@@ -61,7 +70,7 @@ export function ProviderNodesDialog({
       if (!trimmedName) {
         throw new Error(t('common.required', 'Required'));
       }
-      if (!/^https?:\\/\\/.+/i.test(trimmedUrl)) {
+      if (!isHttpUrl(trimmedUrl)) {
         throw new Error(t('providerDialog.fields.domain.invalidFormat', 'Invalid URL format'));
       }
       return await invoke<string>('add_custom_node', {
