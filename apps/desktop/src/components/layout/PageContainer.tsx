@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface PageContainerProps {
   children: ReactNode;
@@ -68,7 +69,35 @@ export function PageContainer({ children, className, title, actions, headerClass
       </div>
 
       {/* Content - 使用design tokens统一padding */}
-      <div className={cn("flex-1 overflow-auto pt-[var(--layout-page-content-padding-top)] px-[var(--layout-page-content-padding)] pb-[var(--layout-page-content-padding)]", className)}>
+      <div
+        className={cn(
+          "flex-1 overflow-auto pt-[var(--layout-page-content-padding-top)] px-[var(--layout-page-content-padding)] pb-[var(--layout-page-content-padding)]",
+          className
+        )}
+        onPointerDown={async (event) => {
+          if (event.button !== 0) return;
+          if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+          const currentTarget = event.currentTarget as HTMLDivElement;
+          const rect = currentTarget.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          if (x > currentTarget.clientWidth) return;
+
+          const target = event.target as HTMLElement;
+          const interactiveAncestor = target.closest(
+            '[data-tauri-no-drag],button,a,input,textarea,select,[role="button"],[contenteditable="true"]'
+          );
+          if (interactiveAncestor) return;
+
+          if (target !== currentTarget) {
+            if (target.childElementCount > 0) return;
+            if ((target.textContent ?? '').trim().length > 0) return;
+          }
+
+          event.preventDefault();
+          await getCurrentWindow().startDragging();
+        }}
+      >
         {children}
       </div>
     </div>
