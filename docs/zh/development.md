@@ -24,7 +24,7 @@
 
 ```bash
 # 首次安装
-make setup
+make install
 
 # 或者
 cd apps/desktop && npm install --legacy-peer-deps
@@ -51,7 +51,7 @@ make dev-warn     # 仅警告
 #### 1. 当前架构（最快）
 
 ```bash
-make build-release
+make package
 ```
 
 生成：
@@ -61,7 +61,7 @@ make build-release
 #### 2. Universal Binary（推荐）⭐
 
 ```bash
-make build-universal
+make package-universal
 ```
 
 生成：
@@ -75,7 +75,7 @@ make build-universal
 #### 3. 构建所有架构
 
 ```bash
-make build-all-macos
+make package-all-macos
 ```
 
 生成：
@@ -87,10 +87,10 @@ make build-all-macos
 
 ```bash
 # Intel Mac
-make build-arch ARCH=x86_64-apple-darwin
+make package-arch ARCH=x86_64-apple-darwin
 
 # Apple Silicon
-make build-arch ARCH=aarch64-apple-darwin
+make package-arch ARCH=aarch64-apple-darwin
 ```
 
 ### Windows/Linux 构建
@@ -142,7 +142,8 @@ make build-arch ARCH=aarch64-apple-darwin
 brew install actionlint yamllint
 
 # 运行验证
-make validate-actions
+actionlint .github/workflows/*.yml
+yamllint .github/workflows
 ```
 
 #### 方法 2：测试分支验证
@@ -260,24 +261,22 @@ make dev                # 启动开发服务器
 make dev-debug          # DEBUG 模式
 make test               # 运行测试
 make clean              # 清理构建产物
-make clean-all          # 深度清理（包括依赖）
+make purge              # 深度清理（构建产物 + 依赖 + db）
 ```
 
 ### 构建命令
 
 ```bash
-make build-release      # 构建当前架构
-make build-universal    # 构建 Universal Binary（推荐）
-make build-all-macos    # 构建所有 macOS 架构
-make show-targets       # 显示所有构建选项
+make package            # 构建当前架构
+make package-universal  # 构建 Universal Binary（推荐）
+make package-all-macos  # 构建所有 macOS 架构
 ```
 
 ### 验证命令
 
 ```bash
-make validate-actions   # 验证 GitHub Actions 配置
 make check              # 检查代码格式
-make fix                # 自动修复代码格式
+make fmt                # 自动格式化（Rust）
 ```
 
 ---
@@ -294,8 +293,9 @@ make test
 make test-backend
 
 # 生成覆盖率报告
-make test-coverage
-make coverage-report  # 打开 HTML 报告
+cd apps/desktop/src-tauri
+cargo tarpaulin --workspace --lib --out Html --output-dir coverage
+open coverage/tarpaulin-report.html  # macOS
 ```
 
 ### 测试覆盖率
@@ -314,7 +314,7 @@ make coverage-report  # 打开 HTML 报告
 - 遵循官方 Rust 风格指南
 - 使用 `snake_case` 命名函数、变量
 - 使用 `PascalCase` 命名类型、结构体
-- 运行 `make fix` 自动格式化
+- 运行 `make fmt` 自动格式化
 
 ### TypeScript
 
@@ -350,14 +350,14 @@ cargo build --release  # 查看详细错误
 
 ```bash
 # 解决方案
-make clean-all
-make setup
+make purge
+make install
 ```
 
 ### GitHub Actions 失败
 
 1. 查看 Actions 日志
-2. 本地运行 `make validate-actions`
+2. 本地运行 `make check`
 3. 在测试分支验证
 4. 检查依赖版本
 
@@ -368,7 +368,7 @@ make setup
 第一次构建会下载所有依赖（20-30 分钟），后续构建有缓存（5-10 分钟）。
 
 **优化建议**：
-- 使用 `make build-release`（不要 `build-all-macos`）
+- 使用 `make package`（不要 `package-all-macos`）
 - 启用 Rust 增量编译（已默认开启）
 - 使用 SSD 存储
 

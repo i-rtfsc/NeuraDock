@@ -37,7 +37,7 @@ impl TokenClient {
 
 impl Default for TokenClient {
     fn default() -> Self {
-        Self::new().expect("Failed to create TokenClient")
+        Self::new().unwrap_or_else(|_| Self { client: Client::new() })
     }
 }
 

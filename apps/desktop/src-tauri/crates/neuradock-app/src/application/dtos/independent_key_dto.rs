@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use neuradock_domain::shared::DomainError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndependentKeyDto {
@@ -18,10 +19,15 @@ pub struct IndependentKeyDto {
 }
 
 impl IndependentKeyDto {
-    pub fn from_domain(key: &neuradock_domain::independent_key::IndependentApiKey) -> Self {
-        let id = key.id().expect("Key must have ID").value();
+    pub fn try_from_domain(
+        key: &neuradock_domain::independent_key::IndependentApiKey,
+    ) -> Result<Self, DomainError> {
+        let id = key
+            .id()
+            .ok_or_else(|| DomainError::Infrastructure("Independent key is missing ID".to_string()))?
+            .value();
 
-        Self {
+        Ok(Self {
             id,
             name: key.name().to_string(),
             provider_type: key.provider_type().as_str().to_string(),
@@ -34,7 +40,7 @@ impl IndependentKeyDto {
             is_active: key.is_active(),
             created_at: key.created_at().to_rfc3339(),
             updated_at: key.updated_at().to_rfc3339(),
-        }
+        })
     }
 }
 

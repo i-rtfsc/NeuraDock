@@ -24,7 +24,7 @@ This documentation is for NeuraDock developers, including build, release, and co
 
 \`\`\`bash
 # First-time setup
-make setup
+make install
 
 # Or
 cd apps/desktop && npm install --legacy-peer-deps
@@ -51,7 +51,7 @@ make dev-warn     # Warning only
 #### Universal Binary (Recommended) ⭐
 
 \`\`\`bash
-make build-universal
+make package-universal
 \`\`\`
 
 Generates: \`NeuraDock_0.1.0_universal.dmg\` - **Supports both Intel + Apple Silicon**
@@ -64,7 +64,7 @@ Generates: \`NeuraDock_0.1.0_universal.dmg\` - **Supports both Intel + Apple Sil
 #### Current Architecture
 
 \`\`\`bash
-make build-release
+make package
 \`\`\`
 
 Generates architecture-specific DMG for your current Mac.
@@ -72,7 +72,7 @@ Generates architecture-specific DMG for your current Mac.
 #### All Architectures
 
 \`\`\`bash
-make build-all-macos
+make package-all-macos
 \`\`\`
 
 Generates all three DMG files.
@@ -134,7 +134,8 @@ The artifacts are retained for 7 days for testing.
 brew install actionlint yamllint
 
 # Run validation
-make validate-actions
+actionlint .github/workflows/*.yml
+yamllint .github/workflows
 \`\`\`
 
 ---
@@ -167,9 +168,8 @@ git push origin v0.1.0
 \`\`\`bash
 make help               # Show all commands
 make dev                # Start dev server
-make build-universal    # Build Universal Binary (recommended)
-make validate-actions   # Validate GitHub Actions
-make show-targets       # Show all build options
+make doctor             # Check dev environment
+make package-universal  # Build Universal Binary (recommended)
 \`\`\`
 
 ---

@@ -59,7 +59,7 @@ For development or to build the latest version from source:
 
 2. **Install dependencies**:
    ```bash
-   make setup
+   make install
    ```
 
 3. **Start development server** (optional, for testing):
@@ -92,6 +92,6 @@ After installation, verify NeuraDock is working:
 | macOS: "App is damaged" | Run `xattr -cr /Applications/NeuraDock.app` |
 | Windows: SmartScreen warning | Click "More info" → "Run anyway" |
 | Linux: AppImage won't run | Ensure FUSE is installed: `sudo apt install fuse` |
-| Build fails on dependencies | Re-run `make setup` |
+| Build fails on dependencies | Re-run `make install` |
 
 See [Troubleshooting](./user_guide/troubleshooting.md) for more solutions.

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { CheckInDayDto } from '@/hooks/useCheckInStreak';
+import type { CheckInDayDto } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 

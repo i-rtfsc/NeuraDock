@@ -33,13 +33,12 @@
 
 ## 🛠️ 快速命令 / Quick Commands
 
-\`\`\`bash
+```bash
 make help                # 查看所有命令
 make dev                 # 启动开发服务器
-make build-universal     # 构建 Universal Binary (Intel + Apple Silicon)
-make validate-actions    # 验证 GitHub Actions 配置
-make show-targets        # 显示所有构建选项
-\`\`\`
+make doctor              # 检查开发环境
+make package-universal   # 构建 Universal Binary (Intel + Apple Silicon)
+```
 
 ---
 

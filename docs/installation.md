@@ -59,7 +59,7 @@
 
 2. **安装依赖**：
    ```bash
-   make setup
+   make install
    ```
 
 3. **启动开发服务器**（可选，用于测试）：
@@ -92,6 +92,6 @@
 | macOS: "应用已损坏" | 运行 `xattr -cr /Applications/NeuraDock.app` |
 | Windows: SmartScreen 警告 | 点击"更多信息" → "仍要运行" |
 | Linux: AppImage 无法运行 | 确保安装了 FUSE: `sudo apt install fuse` |
-| 依赖构建失败 | 重新运行 `make setup` |
+| 依赖构建失败 | 重新运行 `make install` |
 
 更多解决方案请参阅[故障排除](./user_guide/troubleshooting.md)。

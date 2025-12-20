@@ -130,21 +130,20 @@ git clone https://github.com/i-rtfsc/NeuraDock.git
 cd NeuraDock
 
 # Install dependencies
-make setup
+make install
 
 # Start development server
 make dev
 
 # Build and package Release version
-make build-release
+make package
 ```
 
 **More commands:**
 ```bash
 make help              # View all available commands
-make dev-fast          # Quick start (skip checks)
 make test-backend      # Run backend tests
-make clean-all         # Deep clean (including dependencies)
+make purge             # Deep clean (artifacts + deps + db)
 ```
 
 ### Build Outputs

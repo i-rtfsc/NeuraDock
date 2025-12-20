@@ -121,7 +121,16 @@ impl HttpClient {
 
 impl Default for HttpClient {
     fn default() -> Self {
-        Self::new().expect("Failed to create default HTTP client")
+        match Self::new() {
+            Ok(client) => client,
+            Err(e) => {
+                warn!("⚠️  Failed to create default HTTP client: {}", e);
+                Self {
+                    client: Client::new(),
+                    retry_config: RetryConfig::default(),
+                }
+            }
+        }
     }
 }
 

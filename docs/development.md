@@ -21,7 +21,7 @@ git clone https://github.com/i-rtfsc/NeuraDock.git
 cd NeuraDock
 
 # 2. 安装依赖
-make setup
+make install
 
 # 3. 启动开发服务器
 make dev
@@ -33,12 +33,6 @@ make dev
 # 启动开发服务器
 make dev
 
-# 快速启动（跳过依赖检查）
-make dev-fast
-
-# 查看日志
-make logs
-
 # 重启服务器
 make kill dev
 ```
@@ -47,194 +41,34 @@ make kill dev
 
 ## 完整命令参考
 
-### 📦 安装和依赖
+Makefile 只保留少量常用 target，具体以 `make help` 输出为准。
 
-| 命令 | 说明 | 使用场景 |
-|-----|------|---------|
-| `make setup` | 首次安装所有依赖 | 首次克隆仓库后 |
-| `make install` | 同 setup | 与 setup 相同 |
-| `make check-deps` | 检查依赖是否已安装 | 验证环境 |
-| `make update-deps` | 更新所有依赖 | 定期维护 |
-| `make outdated` | 检查过时的依赖 | 查看可更新的包 |
-| `make install-rust-tools` | 安装 Rust 开发工具 | 设置开发环境 |
+### 常用命令
 
-**示例：**
-```bash
-# 首次安装
-make setup
+| 命令 | 说明 |
+|------|------|
+| `make install` | 安装前端依赖 |
+| `make doctor` | 检查开发环境 |
+| `make dev` | 启动开发（默认 `RUST_LOG=info`） |
+| `make bindings` | 生成 TypeScript 绑定 |
+| `make build` | 构建前端 + 后端（Release，不打包） |
+| `make package` | 构建并打包（生成安装包） |
+| `make test` | 运行前后端测试 |
+| `make check` | 后端 clippy + 前端 typecheck |
+| `make clean` | 清理构建产物（保留依赖） |
+| `make purge` | 深度清理（构建产物 + 依赖 + db） |
 
-# 定期更新依赖
-make update-deps
+### 日志级别
 
-# 检查哪些包过时了
-make outdated
-```
+- `make dev-debug`
+- `make dev-trace`
+- `make dev-warn`
 
-### 🚀 开发模式
+### macOS 打包
 
-| 命令 | 说明 | 日志级别 |
-|-----|------|---------|
-| `make dev` | 启动开发模式 | info（标准） |
-| `make dev-debug` | 启动开发模式 | debug（详细） |
-| `make dev-trace` | 启动开发模式 | trace（追踪） |
-| `make dev-warn` | 启动开发模式 | warn（仅警告） |
-| `make dev-fast` | 快速启动 | info（跳过检查） |
-| `make dev-first` | 首次运行 | info（自动安装） |
-| `make kill` | 杀掉所有进程 | - |
-
-**示例：**
-```bash
-# 标准开发
-make dev
-
-# 需要详细日志时
-make dev-debug
-
-# 性能分析时
-make dev-trace
-
-# 快速启动（适合频繁重启）
-make dev-fast
-
-# 强制重启
-make kill dev
-```
-
-### 📦 构建命令
-
-| 命令 | 说明 | 输出 |
-|-----|------|------|
-| `make build` | 构建 Release 版本 | 二进制文件 |
-| `make build-release` | 构建并打包 | 安装包 (.dmg/.msi/.AppImage) |
-| `make build-release-fast` | 快速构建 | 二进制文件（不打包） |
-| `make build-frontend` | 仅构建前端 | dist/ 目录 |
-| `make build-backend` | 仅构建后端 | target/release/ |
-| `make run-release` | 运行 Release 版本 | - |
-| `make rebuild` | 清理后重新构建 | 二进制文件 |
-| `make bindings` | 生成 TypeScript 绑定 | src/lib/tauri.ts |
-
-**示例：**
-```bash
-# 开发构建（快速）
-make build
-
-# 生产构建（完整打包）
-make build-release
-
-# 测试 Release 版本
-make build-release-fast
-make run-release
-
-# 仅更新前端
-make build-frontend
-```
-
-**构建产物位置：**
-- macOS: `apps/desktop/src-tauri/target/release/bundle/dmg/`
-- Windows: `apps/desktop/src-tauri/target/release/bundle/msi/`
-- Linux: `apps/desktop/src-tauri/target/release/bundle/appimage/`
-
-### 🧪 测试命令
-
-| 命令 | 说明 | 输出 |
-|-----|------|------|
-| `make test` | 运行所有测试 | 测试结果 |
-| `make test-backend` | 运行后端测试 | 测试结果 |
-| `make test-coverage` | 生成覆盖率报告 | HTML/JSON/LCOV |
-| `make coverage-report` | 打开覆盖率报告 | 在浏览器中打开 |
-
-**示例：**
-```bash
-# 快速测试
-make test-backend
-
-# 生成并查看覆盖率
-make test-coverage
-make coverage-report
-```
-
-**覆盖率报告位置：**
-- HTML: `apps/desktop/src-tauri/coverage/tarpaulin-report.html`
-- JSON: `apps/desktop/src-tauri/coverage/tarpaulin-report.json`
-- LCOV: `apps/desktop/src-tauri/coverage/lcov.info`
-
-### 🧹 清理命令
-
-| 命令 | 说明 | 删除内容 |
-|-----|------|---------|
-| `make clean` | 清理构建产物 | dist/ + target/ |
-| `make clean-frontend` | 清理前端 | dist/ + .vite/ |
-| `make clean-backend` | 清理后端 | target/ + coverage/ |
-| `make clean-all` | 深度清理 | 以上 + node_modules/ + 日志 + 数据库 |
-
-**示例：**
-```bash
-# 日常清理
-make clean
-
-# 完全重置（重新安装依赖）
-make clean-all
-make setup
-```
-
-**清理内容详情：**
-- `clean`: 删除构建产物（~13GB）
-- `clean-all`: 删除所有内容，包括：
-  - `node_modules/` (~350MB)
-  - `target/` (~13GB)
-  - 日志文件
-  - 数据库文件
-
-### ✅ 代码质量
-
-| 命令 | 说明 | 工具 |
-|-----|------|------|
-| `make check` | 检查代码格式 | rustfmt + clippy |
-| `make fix` | 自动修复格式 | rustfmt |
-
-**示例：**
-```bash
-# 提交前检查
-make check
-
-# 自动修复格式问题
-make fix
-
-# 完整检查流程
-make fix
-make check
-make test-backend
-```
-
-### 🔧 工具和信息
-
-| 命令 | 说明 | 用途 |
-|-----|------|------|
-| `make env-check` | 检查开发环境 | 验证工具安装 |
-| `make version` | 显示版本信息 | 查看版本号 |
-| `make status` | 查看项目状态 | 查看依赖和端口 |
-| `make migrate` | 运行数据库迁移 | 更新数据库结构 |
-| `make logs` | 查看今天的日志 | 调试问题 |
-| `make fix-permissions` | 修复文件权限 | 解决权限问题 |
-| `make help` | 显示帮助信息 | 查看所有命令 |
-
-**示例：**
-```bash
-# 验证开发环境
-make env-check
-
-# 查看版本
-make version
-
-# 查看项目状态
-make status
-
-# 查看日志
-make logs
-
-# 获取帮助
-make help
-```
+- `make package-universal`
+- `make package-arch ARCH=x86_64-apple-darwin`
+- `make package-all-macos`
 
 ---
 
@@ -255,7 +89,7 @@ make test-backend
 make check
 
 # 5. 自动修复
-make fix
+make fmt
 
 # 6. 提交代码
 git add .
@@ -269,19 +103,16 @@ git commit -m "feat: ..."
 # 编辑 apps/desktop/src-tauri/Cargo.toml
 
 # 2. 清理旧构建
-make clean-all
+make purge
 
 # 3. 重新安装依赖
-make setup
+make install
 
 # 4. 运行测试
 make test-backend
 
 # 5. 构建 Release 版本
-make build-release
-
-# 6. 测试 Release 版本
-make run-release
+make package
 
 # 7. 查看构建产物
 ls -lh apps/desktop/src-tauri/target/release/bundle/*/
@@ -293,50 +124,28 @@ ls -lh apps/desktop/src-tauri/target/release/bundle/*/
 # 1. 使用 debug 日志启动
 make dev-debug
 
-# 2. 查看实时日志
-make logs
-
-# 3. 如果需要性能分析
+# 2. 如果需要性能分析
 make kill
 make dev-trace
 
 # 4. 运行测试定位问题
 make test-backend
 
-# 5. 生成覆盖率报告
-make test-coverage
-make coverage-report
-```
-
-### 4. 依赖更新流程
-
-```bash
-# 1. 检查过时的依赖
-make outdated
-
-# 2. 更新依赖
-make update-deps
-
-# 3. 测试
+# 4. 运行测试定位问题
 make test-backend
-
-# 4. 如有问题，回滚
-git checkout -- apps/desktop/package.json
-git checkout -- apps/desktop/src-tauri/Cargo.toml
-make setup
 ```
 
-### 5. 完全重置流程
+### 4. 完全重置流程
 
 ```bash
 # 1. 深度清理
-make clean-all
+make purge
 
 # 2. 重新安装依赖
-make setup
+make install
 
 # 3. 验证环境
-make env-check
+make doctor
 
 # 4. 启动开发
 make dev
@@ -350,11 +159,11 @@ make dev
 
 ```bash
 # 解决方案 1: 清理后重新安装
-make clean-all
-make setup
+make purge
+make install
 
 # 解决方案 2: 检查网络和 Node 版本
-make env-check
+make doctor
 node --version  # 需要 >= 20.0.0
 
 # 解决方案 3: 手动安装
@@ -386,8 +195,8 @@ make clean
 make build
 
 # 解决方案 2: 完全重置
-make clean-all
-make setup
+make purge
+make install
 make build
 
 # 解决方案 3: 检查 Rust 版本
@@ -403,7 +212,7 @@ cd apps/desktop/src-tauri
 cargo test <test_name> -- --nocapture
 
 # 解决方案 2: 清理测试缓存
-make clean-backend
+make clean
 make test-backend
 
 # 解决方案 3: 查看详细输出
@@ -414,10 +223,7 @@ RUST_LOG=debug cargo test -- --nocapture
 ### 问题：权限错误
 
 ```bash
-# 解决方案: 修复权限
-make fix-permissions
-
-# 或手动修复
+# 解决方案: 手动修复
 chmod +x apps/desktop/src-tauri/target/release/neuradock
 chmod -R u+w apps/desktop/node_modules
 ```
@@ -476,13 +282,10 @@ make dev-warn                # 相当于 RUST_LOG=warn
 ### 加快开发启动速度
 
 ```bash
-# 1. 使用 dev-fast 跳过依赖检查
-make dev-fast
-
-# 2. 使用 Rust 的增量编译（默认启用）
+# 1. 使用 Rust 的增量编译（默认启用）
 # 已在 Cargo.toml 中配置
 
-# 3. 使用更少的日志
+# 2. 使用更少的日志
 make dev-warn  # 只显示警告
 ```
 
@@ -493,10 +296,7 @@ make dev-warn  # 只显示警告
 make build-frontend  # 仅前端
 make build-backend   # 仅后端
 
-# 2. 使用 Release 快速构建
-make build-release-fast  # 编译但不打包
-
-# 3. 使用多核编译
+# 2. 使用多核编译
 # Rust 默认使用所有 CPU 核心
 ```
 
@@ -507,7 +307,7 @@ make build-release-fast  # 编译但不打包
 make clean
 
 # 2. 深度清理（重置环境时）
-make clean-all
+make purge
 
 # 3. 清理 Rust 缓存
 cargo cache --autoclean  # 需要安装 cargo-cache
@@ -531,11 +331,7 @@ cargo cache --autoclean  # 需要安装 cargo-cache
 make help
 
 # 查看开发环境状态
-make env-check
-make status
-
-# 查看版本信息
-make version
+make doctor
 ```
 
 如有问题，请参考：

@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { TrendDataPoint } from '@/hooks/useCheckInStreak';
+import type { TrendDataPoint } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 

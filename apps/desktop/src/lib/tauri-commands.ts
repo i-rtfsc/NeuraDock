@@ -6,15 +6,29 @@ import type {
   BatchCheckInResult,
   BatchImportResult,
   CheckInHistoryDto,
+  CheckInCalendarDto,
+  CheckInDayDto,
+  CheckInStreakDto,
+  CheckInTrendDto,
   CreateAccountInput,
   ExecuteCheckInResult,
   ExportAccountsInput,
+  MonthStatsDto,
+  TrendDataPoint,
   UpdateAccountInput,
 } from './tauri';
 
 export type Account = AccountDto;
 export type AccountDetail = AccountDetailDto;
 export type { CreateAccountInput, ExportAccountsInput, UpdateAccountInput };
+export type {
+  CheckInCalendarDto,
+  CheckInDayDto,
+  CheckInStreakDto,
+  CheckInTrendDto,
+  MonthStatsDto,
+  TrendDataPoint,
+};
 
 // Account Commands
 export const accountCommands = {
@@ -61,4 +75,20 @@ export const checkInCommands = {
 
   getHistory: (accountId: string, page: number, pageSize: number) =>
     invoke<CheckInHistoryDto[]>('get_check_in_history', { accountId, page, pageSize }),
+
+  getStreak: (accountId: string) =>
+    invoke<CheckInStreakDto>('get_check_in_streak', { accountId }),
+
+  getAllStreaks: () => invoke<CheckInStreakDto[]>('get_all_check_in_streaks'),
+
+  getCalendar: (accountId: string, year: number, month: number) =>
+    invoke<CheckInCalendarDto>('get_check_in_calendar', { accountId, year, month }),
+
+  getTrend: (accountId: string, days: number = 30) =>
+    invoke<CheckInTrendDto>('get_check_in_trend', { accountId, days }),
+
+  getDayDetail: (accountId: string, date: string) =>
+    invoke<CheckInDayDto>('get_check_in_day_detail', { accountId, date }),
+
+  recalculateStreaks: () => invoke<void>('recalculate_check_in_streaks'),
 };

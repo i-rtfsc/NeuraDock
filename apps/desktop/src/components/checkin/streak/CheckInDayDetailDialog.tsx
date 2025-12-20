@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, XCircle, TrendingUp } from 'lucide-react';
-import { CheckInDayDto } from '@/hooks/useCheckInStreak';
+import type { CheckInDayDto } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
 
 interface CheckInDayDetailDialogProps {

@@ -10,11 +10,42 @@ use presentation::ipc;
 use presentation::state::AppState;
 use tauri::Manager;
 
+fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        let payload = info
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| info.payload().downcast_ref::<String>().map(|s| s.as_str()))
+            .unwrap_or("<non-string panic payload>");
+
+        if let Some(location) = info.location() {
+            eprintln!(
+                "💥 panic at {}:{}:{}: {}",
+                location.file(),
+                location.line(),
+                location.column(),
+                payload
+            );
+            tracing::error!(
+                "💥 panic at {}:{}:{}: {}",
+                location.file(),
+                location.line(),
+                location.column(),
+                payload
+            );
+        } else {
+            eprintln!("💥 panic: {}", payload);
+            tracing::error!("💥 panic: {}", payload);
+        }
+    }));
+}
+
 #[tokio::main]
 async fn main() {
     let builder = ipc::builder();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
@@ -30,8 +61,11 @@ async fn main() {
             let log_dir = handle
                 .path()
                 .app_log_dir()
-                .expect("Failed to get log directory")
-                .join("logs");
+                .map(|dir| dir.join("logs"))
+                .unwrap_or_else(|e| {
+                    eprintln!("⚠️  Failed to get app log directory: {}", e);
+                    std::env::temp_dir().join("neuradock").join("logs")
+                });
 
             match neuradock_infrastructure::logging::init_logger(log_dir.clone()) {
                 Ok(_) => {
@@ -53,6 +87,8 @@ async fn main() {
                         .try_init();
                 }
             }
+
+            install_panic_hook();
 
             // Initialize state and block startup until ready, so commands can't be invoked before
             // `AppState` is managed.
@@ -86,6 +122,9 @@ async fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(e) = app {
+        eprintln!("❌ error while running tauri application: {}", e);
+    }
 }

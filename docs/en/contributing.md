@@ -20,7 +20,7 @@ git clone https://github.com/i-rtfsc/NeuraDock.git
 cd NeuraDock
 
 # Install dependencies
-make setup
+make install
 
 # Start development server
 make dev
@@ -53,14 +53,11 @@ neuradock/
 ### Quick Start
 
 ```bash
-# First time - install all dependencies
-make setup
+# First time - install dependencies
+make install
 
 # Start development server (with hot reload)
 make dev
-
-# Quick start (skip dependency check)
-make dev-fast
 ```
 
 ### Complete Command List
@@ -68,12 +65,8 @@ make dev-fast
 #### 📦 Installation and Dependencies
 
 ```bash
-make setup              # Install all dependencies (first time)
-make install            # Same as setup
-make check-deps         # Check if dependencies are installed
-make update-deps        # Update all dependencies
-make outdated           # Check outdated dependencies
-make install-rust-tools # Install Rust development tools (sqlx-cli, tarpaulin, etc.)
+make install            # Install dependencies
+make doctor             # Check development environment
 ```
 
 #### 🚀 Development Mode
@@ -83,8 +76,6 @@ make dev                # Start development mode (RUST_LOG=info)
 make dev-debug          # Start development mode (RUST_LOG=debug - verbose logs)
 make dev-trace          # Start development mode (RUST_LOG=trace - performance tracing)
 make dev-warn           # Start development mode (RUST_LOG=warn - warnings only)
-make dev-fast           # Quick start (skip dependency check)
-make dev-first          # First run (auto install dependencies and start)
 make kill               # Kill all running processes
 ```
 
@@ -92,12 +83,9 @@ make kill               # Kill all running processes
 
 ```bash
 make build              # Build Release version (no packaging)
-make build-release      # Build and package Release version (generate installers)
-make build-release-fast # Quick build Release (no packaging)
+make package            # Build and package Release version (generate installers)
 make build-frontend     # Build frontend only
 make build-backend      # Build backend only
-make run-release        # Run Release version
-make rebuild            # Clean and rebuild
 make bindings           # Generate TypeScript bindings
 ```
 
@@ -106,17 +94,14 @@ make bindings           # Generate TypeScript bindings
 ```bash
 make test               # Run all tests
 make test-backend       # Run backend tests
-make test-coverage      # Run tests and generate coverage report
-make coverage-report    # Open coverage report (HTML)
+make test-frontend      # Run frontend tests
 ```
 
 #### 🧹 Clean Commands
 
 ```bash
 make clean              # Clean all build artifacts
-make clean-frontend     # Clean frontend build artifacts
-make clean-backend      # Clean backend build artifacts
-make clean-all          # Deep clean (including node_modules and all dependencies)
+make purge              # Deep clean (artifacts + deps + db)
 ```
 
 #### ✅ Code Quality
@@ -129,12 +114,7 @@ make fix                # Auto-fix code format
 #### 🔧 Tools and Information
 
 ```bash
-make env-check          # Check development environment
-make version            # Show version information
-make status             # View project status
 make migrate            # Run database migrations
-make logs               # View today's logs
-make fix-permissions    # Fix file permissions
 make help               # Show help for all commands
 ```
 
@@ -147,14 +127,10 @@ make kill dev
 # Clean and rebuild
 make clean build
 
-# Test and view coverage
-make test-coverage
-make coverage-report
-
-# Complete release workflow
-make clean-all
-make setup
-make build-release
+	# Complete release workflow
+	make purge
+	make install
+	make package
 ```
 
 ## Code Style Guidelines

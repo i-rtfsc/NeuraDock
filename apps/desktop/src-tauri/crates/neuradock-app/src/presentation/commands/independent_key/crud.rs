@@ -20,7 +20,10 @@ pub async fn get_all_independent_keys(
         .await
         .map_err(CommandError::from)?;
 
-    Ok(keys.iter().map(IndependentKeyDto::from_domain).collect())
+    keys.iter()
+        .map(IndependentKeyDto::try_from_domain)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -36,7 +39,10 @@ pub async fn get_independent_key_by_id(
         .await
         .map_err(CommandError::from)?;
 
-    Ok(key.as_ref().map(IndependentKeyDto::from_domain))
+    key.as_ref()
+        .map(IndependentKeyDto::try_from_domain)
+        .transpose()
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -80,7 +86,7 @@ pub async fn create_independent_key(
         .map_err(CommandError::from)?
         .ok_or_else(|| CommandError::infrastructure("Failed to retrieve created key"))?;
 
-    Ok(IndependentKeyDto::from_domain(&created_key))
+    IndependentKeyDto::try_from_domain(&created_key).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -115,7 +121,7 @@ pub async fn update_independent_key(
         .await
         .map_err(CommandError::from)?;
 
-    Ok(IndependentKeyDto::from_domain(&key))
+    IndependentKeyDto::try_from_domain(&key).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -159,5 +165,5 @@ pub async fn toggle_independent_key(
         .await
         .map_err(CommandError::from)?;
 
-    Ok(IndependentKeyDto::from_domain(&key))
+    IndependentKeyDto::try_from_domain(&key).map_err(CommandError::from)
 }

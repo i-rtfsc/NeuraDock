@@ -130,21 +130,20 @@ git clone https://github.com/i-rtfsc/NeuraDock.git
 cd NeuraDock
 
 # 安装依赖
-make setup
+make install
 
 # 启动开发服务器
 make dev
 
 # 构建并打包 Release 版本
-make build-release
+make package
 ```
 
 **更多命令：**
 ```bash
 make help              # 查看所有可用命令
-make dev-fast          # 快速启动开发（跳过检查）
 make test-backend      # 运行后端测试
-make clean-all         # 深度清理（包括依赖）
+make purge             # 深度清理（构建产物 + 依赖 + db）
 ```
 
 ### 构建输出
