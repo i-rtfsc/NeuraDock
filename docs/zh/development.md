@@ -44,6 +44,16 @@ make dev-warn     # 仅警告
 
 ---
 
+## ✨ v0.5.0 焦点
+
+- **配额语义统一**：后端、数据库、通知与前端全部切换为 `total_quota`，彻底告别 `quota + used_quota` 的历史命名。
+- **高级签到分析**：签到记录支持 30 天趋势、日历跳转与月度概览，快速定位断签与额度波动。
+- **更聪明的飞书通知**：自动拼接「昨日 / 今日 / 差值」，历史缺失时也会优雅回退。
+- **批量更新工具链**：`BatchUpdateDialog` 支持 JSON 批量导入、幂等更新以及“若不存在则创建”的策略。
+- **文档与发布刷新**：本指南、更新日志以及 README 全面对齐 0.5.0 的发布流程。
+
+---
+
 ## 📦 本地构建
 
 ### macOS 构建
@@ -55,8 +65,8 @@ make package
 ```
 
 生成：
-- Apple Silicon Mac: `NeuraDock_0.1.0_aarch64.dmg`
-- Intel Mac: `NeuraDock_0.1.0_x64.dmg`
+- Apple Silicon Mac: `NeuraDock_0.5.0_aarch64.dmg`
+- Intel Mac: `NeuraDock_0.5.0_x64.dmg`
 
 #### 2. Universal Binary（推荐）⭐
 
@@ -65,7 +75,7 @@ make package-universal
 ```
 
 生成：
-- `NeuraDock_0.1.0_universal.dmg` - 同时支持 Intel + Apple Silicon
+- `NeuraDock_0.5.0_universal.dmg` - 同时支持 Intel + Apple Silicon
 
 **优势**：
 - ✅ 一个安装包适配所有 Mac
@@ -79,9 +89,9 @@ make package-all-macos
 ```
 
 生成：
-- `NeuraDock_0.1.0_aarch64.dmg` - Apple Silicon
-- `NeuraDock_0.1.0_x64.dmg` - Intel
-- `NeuraDock_0.1.0_universal.dmg` - Universal Binary
+- `NeuraDock_0.5.0_aarch64.dmg` - Apple Silicon
+- `NeuraDock_0.5.0_x64.dmg` - Intel
+- `NeuraDock_0.5.0_universal.dmg` - Universal Binary
 
 #### 4. 指定架构
 
@@ -177,15 +187,15 @@ git push origin test-ci
 
 # 2. 提交版本更新
 git add .
-git commit -m "chore: bump version to v0.1.0"
+git commit -m "chore: bump version to v0.5.0"
 ```
 
 #### 2. 创建并推送 Tag
 
 ```bash
-git tag v0.1.0
+git tag v0.5.0
 git push origin main
-git push origin v0.1.0
+git push origin v0.5.0
 ```
 
 #### 3. 自动构建
@@ -209,7 +219,7 @@ GitHub Actions 会自动：
 1. 打开 **Actions** 标签
 2. 选择 **Release** workflow
 3. 点击 **Run workflow**
-4. 输入版本号（如 `v0.1.0`）
+4. 输入版本号（如 `v0.5.0`）
 5. 选择是否创建 Release
 6. 点击 **Run workflow**
 
@@ -220,7 +230,7 @@ GitHub Actions 会自动：
 ### macOS
 
 ```
-NeuraDock_0.1.0_universal.dmg          (约 11MB)
+NeuraDock_0.5.0_universal.dmg          (约 11MB)
 ├─ 支持 Intel Mac (x86_64)
 └─ 支持 Apple Silicon Mac (aarch64)
 ```
@@ -233,15 +243,15 @@ NeuraDock_0.1.0_universal.dmg          (约 11MB)
 ### Windows
 
 ```
-NeuraDock_0.1.0_x64_en-US.msi          (约 9MB)
+NeuraDock_0.5.0_x64_en-US.msi          (约 9MB)
 └─ 64 位安装程序
 ```
 
 ### Linux
 
 ```
-neuradock_0.1.0_amd64.deb              (约 10MB)  - Debian/Ubuntu
-neuradock_0.1.0_amd64.AppImage         (约 15MB)  - 通用格式（推荐）
+neuradock_0.5.0_amd64.deb              (约 10MB)  - Debian/Ubuntu
+neuradock_0.5.0_amd64.AppImage         (约 15MB)  - 通用格式（推荐）
 ```
 
 **推荐 AppImage**：
@@ -434,4 +444,4 @@ chore: 构建/工具链更新
 
 ---
 
-**最后更新**: 2025-12-08
+**最后更新**: 2025-12-21

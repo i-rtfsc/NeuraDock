@@ -4,6 +4,20 @@
 
 NeuraDock is built using a **Domain-Driven Design (DDD)** approach with **CQRS (Command Query Responsibility Segregation)** pattern, implemented in Rust for the backend and React for the frontend.
 
+## v0.5.0 Architecture Improvements
+
+### Type-Safe IPC
+Introduced **tauri-specta** for automatic TypeScript binding generation, providing complete type safety. All Tauri commands ensure type consistency at compile time, significantly reducing runtime errors.
+
+### DDD Layer Decoupling
+Fully decoupled application layer from infrastructure, removed sqlx dependency from upper layers. Domain layer is now pure business logic with no infrastructure dependencies, improving maintainability and testability.
+
+### Modular Refactoring
+Backend code split into focused sub-modules by responsibility, each with single responsibility and clear boundaries. Examples:
+- balance.rs → balance/query.rs, balance/update.rs, balance/history.rs
+- check_in_executor.rs → check_in/executor.rs, check_in/validator.rs
+- waf_bypass.rs → waf/browser_launcher.rs, waf/cookie_extractor.rs
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React)                          │
@@ -79,6 +93,9 @@ NeuraDock uses a Rust workspace multi-crate architecture for better modularity a
   - `check_in/`: CheckIn aggregate, Provider configuration
   - `session/`: Session aggregate (session management)
   - `notification/`: Notification aggregate (notification management)
+  - `proxy_config/`: ProxyConfig aggregate (proxy configuration)
+  - `provider_models/`: ProviderModels aggregate (Provider node management)
+  - `waf_cookies/`: WafCookies aggregate (WAF bypass cookie management)
   - `shared/`: Shared value objects, ID types, errors
   - `events/`: Domain events
   - `config/providers/`: Built-in relay definitions (seeded into the database on first launch)
@@ -121,11 +138,14 @@ impl AccountRepository for SqliteAccountRepository {
 
 ### Aggregate Pattern
 Each aggregate is a consistency boundary:
-- **Account**: Manages account state, credentials, auto check-in configuration
+- **Account**: Manages account state, credentials, auto check-in configuration, check-in interval settings
 - **Balance**: Tracks account balance and history
 - **Session**: Manages session tokens and login state
 - **CheckIn**: Represents a check-in execution and its state
 - **Notification**: Manages notification channels and delivery
+- **ProxyConfig**: Manages application proxy configuration (HTTP/HTTPS/SOCKS5)
+- **ProviderModels**: Manages Provider's custom node configurations
+- **WafCookies**: Manages WAF bypass cookie cache
 
 ### Value Objects
 Immutable, validated data:
@@ -141,6 +161,20 @@ pub async fn create_account(input: CreateAccountInput, state: State<'_, AppState
     -> Result<AccountDto, String> {
     // ...
 }
+```
+
+In development mode, TypeScript bindings are automatically generated to `src/lib/tauri.ts`, allowing the frontend to import and get full type hints:
+
+```typescript
+import { create_account } from '@/lib/tauri';
+
+// Complete type inference and checking
+const account = await create_account({
+  name: "test@example.com",
+  provider_id: "anyrouter",
+  cookies: { session: "token" },
+  api_user: "user123"
+});
 ```
 
 ## Data Flow
@@ -159,10 +193,13 @@ pub async fn create_account(input: CreateAccountInput, state: State<'_, AppState
 4. Application: Create CheckInExecutor with HTTP client
         │
         ▼
+4.5 Infrastructure: If proxy is enabled, configure HTTP client to use proxy
+        │
+        ▼
 5. Infrastructure: Perform WAF bypass if needed (browser automation)
         │
         ▼
-6. Infrastructure: Send HTTP request to provider API
+6. Infrastructure: Send HTTP request to provider API (via proxy if configured)
         │
         ▼
 7. Domain: Account.record_check_in() updates state
@@ -208,6 +245,7 @@ accounts (
     auto_checkin_enabled INTEGER DEFAULT 0,
     auto_checkin_hour INTEGER DEFAULT 8,
     auto_checkin_minute INTEGER DEFAULT 0,
+    check_in_interval_hours INTEGER DEFAULT 0,  -- v0.5.0: Configurable check-in interval (0 = no limit)
     last_check_in_at TEXT,
     created_at TEXT, updated_at TEXT
 )
@@ -228,7 +266,7 @@ balances (
     account_id TEXT REFERENCES accounts(id),
     current_balance REAL,
     total_consumed REAL,
-    total_quota REAL,
+    total_quota REAL,           -- v0.5.0: Renamed from total_income
     last_check_at TEXT,
     created_at TEXT, updated_at TEXT
 )
@@ -239,7 +277,7 @@ balance_history (
     account_id TEXT REFERENCES accounts(id),
     current_balance REAL NOT NULL,
     total_consumed REAL NOT NULL,
-    total_quota REAL NOT NULL,
+    total_quota REAL NOT NULL,   -- v0.5.0: Renamed from total_income
     recorded_at TEXT NOT NULL
 )
 
@@ -264,6 +302,34 @@ providers (
     bypass_method TEXT,
     is_builtin INTEGER DEFAULT 0,
     created_at TEXT
+)
+
+-- Proxy settings table (v0.5.0 new)
+proxy_settings (
+    id TEXT PRIMARY KEY,
+    proxy_type TEXT NOT NULL,    -- http/https/socks5
+    proxy_host TEXT NOT NULL,
+    proxy_port INTEGER NOT NULL,
+    enabled INTEGER DEFAULT 0,
+    created_at TEXT, updated_at TEXT
+)
+
+-- Provider models table (v0.5.0 new)
+provider_models (
+    id TEXT PRIMARY KEY,
+    provider_id TEXT REFERENCES providers(id),
+    node_url TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT
+)
+
+-- WAF cookies table (v0.5.0 new)
+waf_cookies (
+    id TEXT PRIMARY KEY,
+    provider_id TEXT REFERENCES providers(id),
+    cookies TEXT NOT NULL,       -- JSON format cookies
+    created_at TEXT,
+    expires_at TEXT
 )
 ```
 

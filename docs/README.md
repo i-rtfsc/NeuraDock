@@ -10,6 +10,7 @@
   - 本地构建（支持 Intel + Apple Silicon）
   - GitHub Actions CI/CD
   - 发布流程
+  - **v0.5.0 变更说明 & 批量更新指南**
 
 ### English Documentation
 
@@ -17,6 +18,7 @@
   - Local build (Intel + Apple Silicon support)
   - GitHub Actions CI/CD
   - Release process
+  - **v0.5.0 highlights & bulk update workflow**
 
 ---
 
@@ -61,4 +63,4 @@ make package-universal   # 构建 Universal Binary (Intel + Apple Silicon)
 
 ---
 
-**最后更新 / Last Updated**: 2025-12-08
+**最后更新 / Last Updated**: 2025-12-21

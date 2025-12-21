@@ -14,7 +14,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 
 <!-- Project Info -->
-[![Version](https://img.shields.io/badge/version-0.1.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![License: GPLv3 + Commercial](https://img.shields.io/badge/License-GPLv3%20%2B%20Commercial-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](docs/en/contributing.md)
@@ -47,6 +47,26 @@ NeuraDock is a modern desktop application built with **Tauri 2 + Rust + React**,
 - 💾 **Session Caching** - Intelligent session management to reduce browser automation overhead
 - 🌐 **Cross-Platform** - Supports macOS, Windows, and Linux
 - 🌍 **Internationalization** - Supports Chinese and English interfaces
+
+### 🚀 What's New in v0.5.0
+
+#### Core Feature Enhancements
+- **Unified quota semantics**: The entire stack now exposes `total_quota`, eliminating the confusing `total_income = quota + used_quota` naming
+- **Advanced check-in analytics**: New monthly overview, calendar deep-linking, and trend chart to spot missed check-ins and quota spikes instantly
+- **Smarter notifications**: Feishu messages automatically include yesterday/today/variance blocks with graceful fallbacks when history is missing
+- **Batch update workflow**: The new BatchUpdateDialog accepts JSON payloads, supports idempotent updates, and can auto-create missing accounts
+
+#### Architecture & Performance Improvements
+- **Type-safe IPC**: Introduced tauri-specta for auto-generated TypeScript bindings, providing complete type safety
+- **DDD layer decoupling**: Fully decoupled application layer from infrastructure, removed sqlx dependency from upper layers, improving maintainability
+- **Startup performance**: Optimized initialization reducing startup time by ~40%, frontend initial load time by ~30%
+- **Configurable check-in interval**: Support custom check-in intervals per account (default 24h) to avoid rate limiting
+
+#### User Experience Improvements
+- **Proxy configuration**: In-app proxy settings with HTTP/HTTPS/SOCKS5 support
+- **Provider node management**: Add, edit, and delete custom API nodes for flexible relay configurations
+- **Window enhancements**: Dragging from page whitespace, persistent window size and position
+- **Documentation refresh**: Release guides, changelog, and README were rewritten to reflect the massive 0.5.0 jump
 
 ### 📸 Screenshots
 
@@ -183,7 +203,10 @@ NeuraDock/
 │               │       ├── balance/         # Balance aggregate
 │               │       ├── check_in/        # Check-in aggregate
 │               │       ├── session/         # Session aggregate
-│               │       └── notification/    # Notification aggregate
+│               │       ├── notification/    # Notification aggregate
+│               │       ├── proxy_config/    # Proxy config aggregate
+│               │       ├── provider_models/ # Provider models aggregate
+│               │       └── waf_cookies/     # WAF cookies aggregate
 │               └── neuradock-infrastructure/ # Infrastructure layer
 │                   ├── src/
 │                   │   ├── persistence/     # SQLite repositories
@@ -228,6 +251,9 @@ NeuraDock follows a **DDD 4-Layer Architecture + Multi-Crate Organization**:
 │  - check_in/: CheckIn aggregate     │  - Repository traits
 │  - session/: Session aggregate      │  - Domain events
 │  - notification/: Notification agg. │
+│  - proxy_config/: ProxyConfig agg.  │
+│  - provider_models/: Models agg.    │
+│  - waf_cookies/: WAFCookies agg.    │
 │  - plugins/: Plugin system          │
 └─────────────────────────────────────┘
                   ↓

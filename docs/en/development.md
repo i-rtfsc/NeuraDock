@@ -44,6 +44,16 @@ make dev-warn     # Warning only
 
 ---
 
+## ✨ v0.5.0 Highlights
+
+- **Unified quota semantics** across backend, database, notifications, and UI (`total_quota` everywhere; the old `total_income = quota + used_quota` mapping is gone).
+- **Advanced streak analytics** with 30-day trends, calendar deep links, and monthly summaries to spot missed check-ins and quota spikes.
+- **Smarter Feishu notifications** that automatically include yesterday/today/delta blocks and gracefully fall back when history is missing.
+- **Batch update workflow** via `BatchUpdateDialog`, supporting JSON payloads, idempotent updates, and optional auto-creation for missing accounts.
+- **Docs & release refresh**: this guide, changelog, and README now describe the 0.5.0 release pipeline end-to-end.
+
+---
+
 ## 📦 Local Build
 
 ### macOS Build
@@ -54,7 +64,7 @@ make dev-warn     # Warning only
 make package-universal
 \`\`\`
 
-Generates: \`NeuraDock_0.1.0_universal.dmg\` - **Supports both Intel + Apple Silicon**
+Generates: \`NeuraDock_0.5.0_universal.dmg\` - **Supports both Intel + Apple Silicon**
 
 **Why Universal Binary?**
 - ✅ One installer for all Macs
@@ -151,10 +161,10 @@ yamllint .github/workflows
 
 # 2. Create and push tag
 git add .
-git commit -m "chore: bump version to v0.1.0"
-git tag v0.1.0
+git commit -m "chore: bump version to v0.5.0"
+git tag v0.5.0
 git push origin main
-git push origin v0.1.0
+git push origin v0.5.0
 
 # 3. Wait ~20 minutes for GitHub Actions
 
@@ -182,4 +192,4 @@ make package-universal  # Build Universal Binary (recommended)
 
 ---
 
-**Last Updated**: 2025-12-08
+**Last Updated**: 2025-12-21

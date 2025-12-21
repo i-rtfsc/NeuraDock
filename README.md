@@ -14,7 +14,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 
 <!-- 项目信息 -->
-[![Version](https://img.shields.io/badge/version-0.1.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![License: GPLv3 + Commercial](https://img.shields.io/badge/License-GPLv3%20%2B%20Commercial-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](docs/contributing.md)
@@ -47,6 +47,26 @@ NeuraDock 是一个基于 **Tauri 2 + Rust + React** 构建的现代桌面应用
 - 💾 **会话缓存** - 智能会话管理减少浏览器自动化开销
 - 🌐 **跨平台** - 支持 macOS、Windows 和 Linux
 - 🌍 **国际化** - 支持中文和英文界面
+
+### 🚀 v0.5.0 重要更新
+
+#### 核心功能增强
+- **统一配额语义**：后端、数据库与前端全面切换为 `total_quota`，消除了历史字段 `total_income` 带来的统计混淆
+- **高级签到分析**：签到记录页新增月度概览、趋势图与日历跳转，快速定位断签与收益波动
+- **增强通知中心**：飞书 Webhook 现在会自动拼接「昨日 vs 今日 vs 变化」数据，并在缺失历史数据时自动回退
+- **批量账号更新**：新增 BatchUpdateDialog，支持 JSON 导入、批量修改、以及"若不存在则自动创建"的导入策略
+
+#### 架构与性能改进
+- **类型安全 IPC**：引入 tauri-specta，实现 TypeScript 绑定自动生成，提供完整的类型安全保障
+- **DDD 层解耦**：应用层与基础设施层完全解耦，移除 sqlx 对上层的依赖，改善代码可维护性
+- **启动性能优化**：优化应用启动流程，减少初始化时间约 40%，前端首次加载时间优化约 30%
+- **可配置签到间隔**：支持为每个账号设置自定义签到间隔（默认24小时），避免频繁签到导致的限制
+
+#### 用户体验提升
+- **代理配置**：新增应用内代理配置功能，支持 HTTP/HTTPS/SOCKS5 代理设置
+- **Provider节点管理**：支持添加、编辑和删除自定义 API 节点，灵活适配不同的中转站配置
+- **窗口增强**：支持从页面空白区域拖拽窗口，窗口大小和位置持久化
+- **文档重构**：发布流程、版本说明、开发文档全面更新，匹配 0.5.0 的大版本变更
 
 ### 📸 界面预览
 
