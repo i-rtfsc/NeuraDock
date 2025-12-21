@@ -5,7 +5,9 @@ import { cacheInvalidators } from '@/lib/cacheInvalidators';
 
 // Types for check-in
 export interface CheckInResult {
-  job_id: string;
+  account_id: string;
+  account_name: string;
+  provider_id: string;
   success: boolean;
   balance?: {
     current_balance: number;

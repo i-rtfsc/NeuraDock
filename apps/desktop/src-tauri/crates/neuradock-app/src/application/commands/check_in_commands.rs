@@ -12,6 +12,9 @@ impl Command for ExecuteCheckInCommand {}
 /// Execute check-in command result
 #[derive(Debug, Clone)]
 pub struct CheckInCommandResult {
+    pub account_id: String,
+    pub account_name: String,
+    pub provider_id: String,
     pub success: bool,
     pub message: String,
     pub balance: Option<BalanceDto>,

@@ -31,7 +31,9 @@ pub async fn execute_check_in(
         .map_err(CommandError::from)?;
 
     Ok(ExecuteCheckInResult {
-        job_id: account_id,
+        account_id: result.account_id,
+        account_name: result.account_name,
+        provider_id: result.provider_id,
         success: result.success,
         balance: result.balance,
         error: if result.success {
@@ -62,7 +64,9 @@ pub async fn execute_batch_check_in(
         .results
         .into_iter()
         .map(|r| ExecuteCheckInResult {
-            job_id: format!("batch_{}", r.message.len()), // Placeholder
+            account_id: r.account_id,
+            account_name: r.account_name,
+            provider_id: r.provider_id,
             success: r.success,
             balance: r.balance,
             error: if r.success { None } else { Some(r.message) },

@@ -37,7 +37,9 @@ pub struct RunningJobDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExecuteCheckInResult {
-    pub job_id: String,
+    pub account_id: String,
+    pub account_name: String,
+    pub provider_id: String,
     pub success: bool,
     pub balance: Option<BalanceDto>,
     pub error: Option<String>,

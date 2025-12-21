@@ -164,6 +164,9 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
         .await;
 
         Ok(CheckInCommandResult {
+            account_id: cmd.account_id,
+            account_name,
+            provider_id,
             success: result.success,
             message: result.message,
             balance: balance_dto,

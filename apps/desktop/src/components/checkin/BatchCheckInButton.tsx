@@ -101,9 +101,9 @@ export function BatchCheckInButton({
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">{t('checkIn.batchDescription')}</h4>
                 <div className="max-h-[400px] overflow-y-auto space-y-2 rounded-lg border border-border p-2">
-                  {result.results.map((item, index) => (
+                  {result.results.map((item) => (
                     <div
-                      key={index}
+                      key={item.account_id}
                       className={`rounded-md border p-3 ${
                         item.success
                           ? 'border-green-500/50 bg-green-500/5'
@@ -117,16 +117,16 @@ export function BatchCheckInButton({
                               {item.success ? t('checkIn.succeeded') : t('checkIn.failedCount')}
                             </Badge>
                             <span className="text-sm font-medium truncate">
-                              {t('accounts.account')} {index + 1}
+                              {item.account_name || item.account_id}
                             </span>
                           </div>
-                          
+
                           {item.error && (
                             <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                               {item.error}
                             </p>
                           )}
-                          
+
                           {item.balance && (
                             <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                               <span>{t('dashboard.current_balance')}: ${item.balance.current_balance.toFixed(2)}</span>

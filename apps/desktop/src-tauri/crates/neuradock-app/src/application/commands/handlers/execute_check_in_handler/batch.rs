@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::{error, info, warn};
+use log::{error, info};
 use std::sync::Arc;
 
 use crate::application::commands::check_in_commands::*;
@@ -96,6 +96,9 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     error!("Account not found: {}", account_id);
                     failed += 1;
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name: String::new(),
+                        provider_id: String::new(),
                         success: false,
                         message: format!("Account not found: {}", account_id),
                         balance: None,
@@ -106,6 +109,9 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     error!("Failed to load account {}: {}", account_id, e);
                     failed += 1;
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name: String::new(),
+                        provider_id: String::new(),
                         success: false,
                         message: format!("Failed to load account: {}", e),
                         balance: None,
@@ -116,12 +122,16 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
 
             // Get provider from account's provider_id
             let provider_id = account.provider_id().as_str().to_string();
+            let account_name = account.name().to_string();
             let provider = match self.provider_repo.find_by_id(account.provider_id()).await {
                 Ok(Some(provider)) => provider,
                 Ok(None) => {
                     error!("Provider not found: {}", provider_id);
                     failed += 1;
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name,
+                        provider_id: provider_id.clone(),
                         success: false,
                         message: format!("Provider not found: {}", provider_id),
                         balance: None,
@@ -132,6 +142,9 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     error!("Failed to load provider {}: {}", provider_id, e);
                     failed += 1;
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name,
+                        provider_id: provider_id.clone(),
                         success: false,
                         message: format!("Failed to load provider {}: {}", provider_id, e),
                         balance: None,
@@ -144,23 +157,12 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                 Ok(result) => {
                     // Update account balance cache and save to balance_history if we have new balance data
                     let balance_dto = if result.success && result.user_info.is_some() {
-                        let user_info = match result.user_info.as_ref() {
-                            Some(info) => info,
-                            None => {
-                                warn!(
-                                    "Check-in succeeded but no user_info returned for account {}",
-                                    account_id
-                                );
-                                continue;
-                            }
-                        };
-
                         match shared::update_and_save_balance(
                             &self.account_repo,
                             &self.balance_history_service,
                             &account_id,
                             account,
-                            user_info,
+                            result.user_info.as_ref().unwrap(),
                         )
                         .await
                         {
@@ -215,6 +217,9 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         failed += 1;
                     }
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name: account_name.clone(),
+                        provider_id: provider_id.clone(),
                         success: result.success,
                         message: result.message,
                         balance: balance_dto,
@@ -224,6 +229,9 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     error!("Check-in failed for account {}: {}", account_id, e);
                     failed += 1;
                     results.push(CheckInCommandResult {
+                        account_id: account_id.clone(),
+                        account_name: account_name.clone(),
+                        provider_id: provider_id.clone(),
                         success: false,
                         message: format!("Check-in failed: {}", e),
                         balance: None,
