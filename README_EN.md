@@ -38,6 +38,7 @@ NeuraDock is a modern desktop application built with **Tauri 2 + Rust + React**,
 
 ### ✨ Key Features
 
+- 🚀 **Custom Relay Stations** - Support for any relay station compatible with [new-api](https://github.com/QuantumNous/new-api) standard, seamlessly integrate with various API relay services
 - 🔐 **Multi-Account Management** - Unified management for multiple service provider accounts
 - ⏰ **Auto Check-in** - Configurable daily automatic check-in scheduling
 - 📊 **Balance Tracking** - Quota usage monitoring and history records
@@ -51,6 +52,7 @@ NeuraDock is a modern desktop application built with **Tauri 2 + Rust + React**,
 ### 🚀 What's New in v0.5.0
 
 #### Core Feature Enhancements
+- **🚀 Custom Relay Stations (Major)**: Support for any relay station compatible with [new-api](https://github.com/QuantumNous/new-api) standard, enabling seamless integration with various API relay services. Add, edit, and delete custom nodes directly in the Provider node management interface for true relay station freedom
 - **Unified quota semantics**: The entire stack now exposes `total_quota`, eliminating the confusing `total_income = quota + used_quota` naming
 - **Advanced check-in analytics**: New monthly overview, calendar deep-linking, and trend chart to spot missed check-ins and quota spikes instantly
 - **Smarter notifications**: Feishu messages automatically include yesterday/today/variance blocks with graceful fallbacks when history is missing
@@ -64,7 +66,7 @@ NeuraDock is a modern desktop application built with **Tauri 2 + Rust + React**,
 
 #### User Experience Improvements
 - **Proxy configuration**: In-app proxy settings with HTTP/HTTPS/SOCKS5 support
-- **Provider node management**: Add, edit, and delete custom API nodes for flexible relay configurations
+- **Provider node management**: Add, edit, and delete custom API nodes, fully compatible with [new-api](https://github.com/QuantumNous/new-api) and other standard relay stations
 - **Window enhancements**: Dragging from page whitespace, persistent window size and position
 - **Documentation refresh**: Release guides, changelog, and README were rewritten to reflect the massive 0.5.0 jump
 

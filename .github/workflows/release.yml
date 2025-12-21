@@ -82,32 +82,28 @@ jobs:
           workspaces: './apps/desktop/src-tauri -> target'
 
       - name: Install frontend dependencies
-        run: |
-          cd apps/desktop
-          npm install --legacy-peer-deps
+        run: make install
 
-      - name: Build frontend
+      - name: Show build revision
+        shell: bash
         run: |
-          cd apps/desktop
-          npm run build
+          set -euxo pipefail
+          echo "GIT_SHA=$(git rev-parse HEAD)"
+          git show -s --oneline
 
       - name: Build Tauri app (macOS)
         if: runner.os == 'macOS'
         run: |
-          cd apps/desktop
-          npm run tauri:build -- --target universal-apple-darwin
+          make clean
+          make package-universal
 
       - name: Build Tauri app (Windows)
         if: runner.os == 'Windows'
-        run: |
-          cd apps/desktop
-          npm run tauri:build
+        run: make release
 
       - name: Build Tauri app (Linux)
         if: runner.os == 'Linux'
-        run: |
-          cd apps/desktop
-          npm run tauri:build
+        run: make release
 
       - name: Prepare macOS assets
         if: runner.os == 'macOS'
