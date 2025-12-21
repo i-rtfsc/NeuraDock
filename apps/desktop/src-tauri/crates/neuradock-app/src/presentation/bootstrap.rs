@@ -22,6 +22,7 @@ use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::independent_key::IndependentKeyRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
+use neuradock_domain::balance_history::BalanceHistoryRepository;
 use neuradock_domain::proxy_config::ProxyConfigRepository;
 use neuradock_domain::session::SessionRepository;
 use neuradock_domain::token::TokenRepository;
@@ -33,6 +34,7 @@ use neuradock_infrastructure::persistence::{
         SqliteAccountRepository, SqliteCustomProviderNodeRepository,
         SqliteIndependentKeyRepository, SqliteProviderModelsRepository, SqliteProviderRepository,
         SqliteProxyConfigRepository, SqliteSessionRepository, SqliteTokenRepository,
+        SqliteBalanceHistoryRepository,
         SqliteWafCookiesRepository,
     },
     Database,
@@ -134,6 +136,8 @@ pub async fn build_app_state(
     let waf_cookies_repo = Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
     let proxy_config_repo = Arc::new(SqliteProxyConfigRepository::new(pool.clone()))
         as Arc<dyn ProxyConfigRepository>;
+    let balance_history_repo = Arc::new(SqliteBalanceHistoryRepository::new(pool.clone()))
+        as Arc<dyn BalanceHistoryRepository>;
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();
@@ -176,7 +180,7 @@ pub async fn build_app_state(
         waf_cookies_repo.clone(),
         proxy_config_repo.clone(),
     ));
-    let balance_history_service = Arc::new(BalanceHistoryService::new(pool.clone()));
+    let balance_history_service = Arc::new(BalanceHistoryService::new(balance_history_repo));
     let balance_service = Arc::new(BalanceService::new(
         account_repo.clone(),
         provider_repo.clone(),
