@@ -4,7 +4,7 @@ use log::{error, info};
 use std::sync::Arc;
 
 use crate::application::services::i18n::t;
-use neuradock_domain::balance_history::BalanceHistoryRepository;
+use neuradock_domain::balance_history::{BalanceHistoryRecord, BalanceHistoryRepository};
 use neuradock_domain::notification::{NotificationChannelRepository, NotificationMessage};
 use neuradock_domain::shared::AccountId;
 use neuradock_infrastructure::notification::create_sender;
@@ -76,33 +76,82 @@ impl NotificationService {
 
     /// Get yesterday's balance data from balance_history
     async fn get_yesterday_balance(&self, account_id: &str) -> Option<(f64, f64, f64)> {
-        let yesterday = (Utc::now() - chrono::Duration::days(1)).date_naive();
+        let today = Utc::now().date_naive();
+        let yesterday = today - chrono::Duration::days(1);
+        let account_id_obj = AccountId::from_string(account_id);
+
+        let convert_record = |record: BalanceHistoryRecord| {
+            Some((
+                record.current_balance(),
+                record.total_consumed(),
+                record.total_quota(),
+            ))
+        };
 
         match self
             .balance_history_repo
-            .find_latest_by_account_id_on_date(&AccountId::from_string(account_id), yesterday)
+            .find_latest_by_account_id_on_date(&account_id_obj, yesterday)
             .await
         {
             Ok(Some(record)) => {
                 info!(
-                    "Found yesterday's balance for account {}: current={}, consumed={}, income={}",
+                    "Found yesterday's balance for account {}: current={}, consumed={}, quota={}",
                     account_id,
                     record.current_balance(),
                     record.total_consumed(),
                     record.total_quota()
                 );
-                Some((
-                    record.current_balance(),
-                    record.total_consumed(),
-                    record.total_quota(),
-                ))
+                return convert_record(record);
             }
             Ok(None) => {
-                info!("No yesterday balance found for account {}", account_id);
+                info!(
+                    "No exact-dated yesterday balance found for account {}",
+                    account_id
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to query yesterday's balance for account {}: {}",
+                    account_id, e
+                );
+            }
+        }
+
+        // Fallback: grab the latest historical record that is at least one day older than today.
+        match self
+            .balance_history_repo
+            .find_latest_by_account_id(&account_id_obj)
+            .await
+        {
+            Ok(Some(record)) => {
+                let record_date = record.recorded_at().date_naive();
+                let day_gap = today.signed_duration_since(record_date).num_days();
+                if day_gap >= 1 {
+                    info!(
+                        "Using fallback yesterday balance for account {} from {}",
+                        account_id, record_date
+                    );
+                    convert_record(record)
+                } else {
+                    info!(
+                        "Latest balance record for account {} is from today, skipping fallback",
+                        account_id
+                    );
+                    None
+                }
+            }
+            Ok(None) => {
+                info!(
+                    "No balance history records available for account {} to use as fallback",
+                    account_id
+                );
                 None
             }
             Err(e) => {
-                error!("Failed to query yesterday's balance: {}", e);
+                error!(
+                    "Failed to query fallback balance history for account {}: {}",
+                    account_id, e
+                );
                 None
             }
         }
