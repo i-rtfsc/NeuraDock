@@ -87,6 +87,8 @@ kill: ## Kill tauri/vite processes and ports
 	@pkill -f "vite" 2>/dev/null || true
 	@pkill -f "npm run dev" 2>/dev/null || true
 	@pkill -f "npm run tauri" 2>/dev/null || true
+	@pkill -f "pnpm run dev" 2>/dev/null || true
+	@pkill -f "pnpm run tauri" 2>/dev/null || true
 	@sleep 1
 	@lsof -ti:1420 | xargs kill -9 2>/dev/null || true
 	@lsof -ti:5173 | xargs kill -9 2>/dev/null || true
@@ -105,7 +107,7 @@ release: clean install ## Clean artifacts and produce release build (tauri:build
 build: build-frontend build-backend ## Build frontend + backend (Release)
 	@echo "✅ Build complete"
 
-build-frontend: ## Build frontend (runs bindings via npm script)
+build-frontend: ## Build frontend (runs bindings via pnpm script)
 	@$(PNPM_DESKTOP) run build
 
 build-backend: ## Build backend (Release)

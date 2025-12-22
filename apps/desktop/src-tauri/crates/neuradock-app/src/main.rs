@@ -190,7 +190,7 @@ async fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!());
+        .run(tauri::generate_context!("../../tauri.conf.json"));
 
     if let Err(e) = app {
         eprintln!("❌ error while running tauri application: {}", e);
