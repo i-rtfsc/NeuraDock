@@ -36,6 +36,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show runner OS details
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "RUNNER_OS=${RUNNER_OS}"
+          echo "ImageOS=${ImageOS:-unknown}"
+          echo "ImageVersion=${ImageVersion:-unknown}"
+          echo "ImageRelease=${ImageRelease:-unknown}"
+          echo "--- uname ---"
+          uname -a || true
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            echo "--- sw_vers ---"
+            sw_vers || true
+          fi
+          if [ -f /etc/os-release ]; then
+            echo "--- /etc/os-release ---"
+            cat /etc/os-release
+          fi
+
+      - name: Show runner OS details (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          Write-Host "RUNNER_OS=$env:RUNNER_OS"
+          Write-Host "ImageOS=$env:ImageOS"
+          Write-Host "ImageVersion=$env:ImageVersion"
+          Write-Host "ImageRelease=$env:ImageRelease"
+          Write-Host "--- systeminfo (first 40 lines) ---"
+          systeminfo | Select-Object -First 40
+          Write-Host "--- Get-ComputerInfo ---"
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsName, OsVersion, OsBuildNumber
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
