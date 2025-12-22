@@ -5,12 +5,14 @@ DESKTOP_DIR := apps/desktop
 TAURI_DIR := $(DESKTOP_DIR)/src-tauri
 
 NPM ?= npm
+PNPM ?= pnpm
 CARGO ?= cargo
 SQLX ?= sqlx
 
 RUST_LOG ?= info
 
 NPM_DESKTOP := $(NPM) --prefix $(DESKTOP_DIR)
+PNPM_DESKTOP := $(PNPM) -C $(DESKTOP_DIR)
 CARGO_MANIFEST := --manifest-path $(TAURI_DIR)/Cargo.toml
 
 FRONTEND_ARTIFACTS := \
@@ -51,26 +53,22 @@ help: ## Show this help
 	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_\\-]+:.*##/ { printf "  %-22s %s\n", $$1, $$2 }' $(MAKEFILE_LIST) | sort
 
 install: ## Install frontend dependencies
-	@echo "📦 Installing frontend dependencies..."
-	@if [ -f "$(DESKTOP_DIR)/package-lock.json" ]; then \
-		echo "🔒 Using lockfile ($(DESKTOP_DIR)/package-lock.json)"; \
-		NODE_ENV=development $(NPM_DESKTOP) ci --legacy-peer-deps; \
-	else \
-		echo "⚠️  No lockfile found; falling back to npm install"; \
-		NODE_ENV=development $(NPM_DESKTOP) install --legacy-peer-deps; \
-	fi
+	@echo "📦 Installing frontend dependencies (pnpm workspace)..."
+	@command -v $(PNPM) >/dev/null 2>&1 || (echo "❌ pnpm not found. Install with: npm i -g pnpm (or enable Corepack on supported Node builds)" && exit 1)
+	@NODE_ENV=development $(PNPM) install --frozen-lockfile
 	@echo "✅ Done"
 
 doctor: ## Check dev environment (node/rust/sqlx)
 	@echo "Node:"; node --version 2>/dev/null || echo "  ❌ missing"
 	@echo "npm:"; $(NPM) --version 2>/dev/null || echo "  ❌ missing"
+	@echo "pnpm:"; $(PNPM) --version 2>/dev/null || echo "  ⚠️  missing (run: corepack enable)"
 	@echo "Rust:"; rustc --version 2>/dev/null || echo "  ❌ missing"
 	@echo "Cargo:"; $(CARGO) --version 2>/dev/null || echo "  ❌ missing"
 	@echo "SQLx:"; $(SQLX) --version 2>/dev/null || echo "  ⚠️  missing (optional)"
 
 dev: ## Start dev app (RUST_LOG=info by default)
 	@echo "🚀 Starting dev (RUST_LOG=$(RUST_LOG))..."
-	@RUST_LOG=$(RUST_LOG) $(NPM_DESKTOP) run tauri:dev
+	@RUST_LOG=$(RUST_LOG) $(PNPM_DESKTOP) run tauri:dev
 
 dev-debug: ## Start dev app (RUST_LOG=debug)
 	@$(MAKE) dev RUST_LOG=debug
@@ -101,25 +99,25 @@ bindings: ## Generate TypeScript bindings (tauri-specta)
 
 release: clean install ## Clean artifacts and produce release build (tauri:build)
 	@echo "🧹 Cleaned artifacts. Starting release build..."
-	@$(NPM_DESKTOP) run tauri:build
+	@$(PNPM_DESKTOP) run tauri:build
 	@echo "✅ Release build complete"
 
 build: build-frontend build-backend ## Build frontend + backend (Release)
 	@echo "✅ Build complete"
 
 build-frontend: ## Build frontend (runs bindings via npm script)
-	@$(NPM_DESKTOP) run build
+	@$(PNPM_DESKTOP) run build
 
 build-backend: ## Build backend (Release)
 	@$(CARGO) build $(CARGO_MANIFEST) --release --workspace
 
 package: install ## Build and package app (tauri build)
-	@$(NPM_DESKTOP) run tauri:build
+	@$(PNPM_DESKTOP) run tauri:build
 
 package-universal: install ## macOS: package universal binary
 	@rustup target add x86_64-apple-darwin 2>/dev/null || true
 	@rustup target add aarch64-apple-darwin 2>/dev/null || true
-	@$(NPM_DESKTOP) run tauri:build -- --target universal-apple-darwin
+	@$(PNPM_DESKTOP) run tauri:build -- --target universal-apple-darwin
 
 package-arch: install ## macOS: package specific arch (ARCH=...)
 	@if [ -z "$(ARCH)" ]; then \
@@ -127,7 +125,7 @@ package-arch: install ## macOS: package specific arch (ARCH=...)
 		exit 1; \
 	fi
 	@rustup target add $(ARCH) 2>/dev/null || true
-	@$(NPM_DESKTOP) run tauri:build -- --target $(ARCH)
+	@$(PNPM_DESKTOP) run tauri:build -- --target $(ARCH)
 
 package-all-macos: ## macOS: package aarch64 + x86_64 + universal
 	@$(MAKE) package-arch ARCH=aarch64-apple-darwin
@@ -141,7 +139,7 @@ test-backend: ## Run backend tests (workspace)
 	@$(CARGO) test $(CARGO_MANIFEST) --workspace
 
 test-frontend: ## Run frontend tests (vitest run)
-	@$(NPM_DESKTOP) run test:run
+	@$(PNPM_DESKTOP) run test:run
 
 check: check-backend check-frontend ## Run lint/type checks (backend + frontend)
 	@echo "✅ Checks passed"
@@ -151,7 +149,7 @@ check-backend: ## cargo fmt --check + clippy -D warnings
 	@cd $(TAURI_DIR) && cargo clippy --workspace -- -D warnings
 
 check-frontend: ## TypeScript typecheck (tsc --noEmit)
-	@cd $(DESKTOP_DIR) && npx --no-install tsc -p tsconfig.json --noEmit
+	@cd $(DESKTOP_DIR) && $(PNPM) exec tsc -p tsconfig.json --noEmit
 
 fmt: ## Format Rust (cargo fmt)
 	@cd $(TAURI_DIR) && cargo fmt --all

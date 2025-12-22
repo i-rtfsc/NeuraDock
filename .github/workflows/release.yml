@@ -74,6 +74,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable Corepack (pnpm)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if command -v corepack >/dev/null 2>&1; then
+            corepack enable
+          fi
+          if ! command -v pnpm >/dev/null 2>&1; then
+            npm i -g pnpm@9.15.5
+          fi
+          pnpm --version
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

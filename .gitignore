@@ -35,8 +35,8 @@ node_modules/
 dist-ssr
 *.local
 
-# 锁文件 - 忽略根目录 npm/yarn 锁文件（允许子目录使用自己的 lockfile）
-/package-lock.json
+# 锁文件 - 项目使用 pnpm，忽略 npm/yarn 锁文件
+**/package-lock.json
 yarn.lock
 
 # ============================================================

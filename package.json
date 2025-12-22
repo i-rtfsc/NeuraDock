@@ -3,11 +3,12 @@
   "version": "0.5.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.5",
   "scripts": {
-    "dev": "npm run dev:desktop",
-    "dev:desktop": "cd apps/desktop && npm run tauri:dev",
-    "build": "npm run build:desktop",
-    "build:desktop": "cd apps/desktop && npm run tauri:build"
+    "dev": "pnpm run dev:desktop",
+    "dev:desktop": "pnpm -C apps/desktop run tauri:dev",
+    "build": "pnpm run build:desktop",
+    "build:desktop": "pnpm -C apps/desktop run tauri:build"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
