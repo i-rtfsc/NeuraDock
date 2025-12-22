@@ -4,14 +4,14 @@ SHELL := /bin/sh
 DESKTOP_DIR := apps/desktop
 TAURI_DIR := $(DESKTOP_DIR)/src-tauri
 
-NPM ?= npm
+APP_NAME ?= NeuraDock
+
 PNPM ?= pnpm
 CARGO ?= cargo
 SQLX ?= sqlx
 
 RUST_LOG ?= info
 
-NPM_DESKTOP := $(NPM) --prefix $(DESKTOP_DIR)
 PNPM_DESKTOP := $(PNPM) -C $(DESKTOP_DIR)
 CARGO_MANIFEST := --manifest-path $(TAURI_DIR)/Cargo.toml
 
@@ -40,7 +40,7 @@ FRONTEND_CACHE_DIRS := \
 	bindings \
 	release \
 	build build-frontend build-backend \
-	package package-universal package-arch package-all-macos \
+	package package-arch package-macos-apple-silicon package-macos-intel package-all-macos \
 	test test-frontend test-backend \
 	check check-frontend check-backend fmt \
 	clean clean-db purge \
@@ -54,13 +54,13 @@ help: ## Show this help
 
 install: ## Install frontend dependencies
 	@echo "📦 Installing frontend dependencies (pnpm workspace)..."
-	@command -v $(PNPM) >/dev/null 2>&1 || (echo "❌ pnpm not found. Install with: npm i -g pnpm (or enable Corepack on supported Node builds)" && exit 1)
+	@command -v $(PNPM) >/dev/null 2>&1 || (echo "❌ pnpm not found. Try: corepack enable && corepack prepare pnpm@9.15.5 --activate (or: npm i -g pnpm)" && exit 1)
 	@NODE_ENV=development $(PNPM) install --frozen-lockfile
 	@echo "✅ Done"
 
 doctor: ## Check dev environment (node/rust/sqlx)
 	@echo "Node:"; node --version 2>/dev/null || echo "  ❌ missing"
-	@echo "npm:"; $(NPM) --version 2>/dev/null || echo "  ❌ missing"
+	@echo "npm:"; npm --version 2>/dev/null || echo "  ❌ missing"
 	@echo "pnpm:"; $(PNPM) --version 2>/dev/null || echo "  ⚠️  missing (run: corepack enable)"
 	@echo "Rust:"; rustc --version 2>/dev/null || echo "  ❌ missing"
 	@echo "Cargo:"; $(CARGO) --version 2>/dev/null || echo "  ❌ missing"
@@ -85,8 +85,6 @@ kill: ## Kill tauri/vite processes and ports
 	@pkill -f "NeuraDock" 2>/dev/null || true
 	@pkill -f "neuradock" 2>/dev/null || true
 	@pkill -f "vite" 2>/dev/null || true
-	@pkill -f "npm run dev" 2>/dev/null || true
-	@pkill -f "npm run tauri" 2>/dev/null || true
 	@pkill -f "pnpm run dev" 2>/dev/null || true
 	@pkill -f "pnpm run tauri" 2>/dev/null || true
 	@sleep 1
@@ -116,23 +114,28 @@ build-backend: ## Build backend (Release)
 package: install ## Build and package app (tauri build)
 	@$(PNPM_DESKTOP) run tauri:build
 
-package-universal: install ## macOS: package universal binary
-	@rustup target add x86_64-apple-darwin 2>/dev/null || true
-	@rustup target add aarch64-apple-darwin 2>/dev/null || true
-	@$(PNPM_DESKTOP) run tauri:build -- --target universal-apple-darwin
-
 package-arch: install ## macOS: package specific arch (ARCH=...)
 	@if [ -z "$(ARCH)" ]; then \
 		echo "❌ Missing ARCH. Example: make package-arch ARCH=x86_64-apple-darwin"; \
 		exit 1; \
 	fi
 	@rustup target add $(ARCH) 2>/dev/null || true
-	@$(PNPM_DESKTOP) run tauri:build -- --target $(ARCH)
+	@echo "📦 Building macOS bundle for $(ARCH)..."
+	@$(PNPM_DESKTOP) exec tauri build --bundles dmg --target $(ARCH)
+	@echo "✅ Output: $(TAURI_DIR)/target/$(ARCH)/release/bundle/dmg"
 
-package-all-macos: ## macOS: package aarch64 + x86_64 + universal
+package-macos-apple-silicon: ## macOS: package Apple Silicon (arm64)
 	@$(MAKE) package-arch ARCH=aarch64-apple-darwin
+	@echo "✅ Apple Silicon DMG(s): $(TAURI_DIR)/target/aarch64-apple-darwin/release/bundle/dmg"
+
+package-macos-intel: ## macOS: package Intel (x86_64)
 	@$(MAKE) package-arch ARCH=x86_64-apple-darwin
-	@$(MAKE) package-universal
+	@echo "✅ Intel DMG(s): $(TAURI_DIR)/target/x86_64-apple-darwin/release/bundle/dmg"
+
+package-all-macos: ## macOS: package Apple Silicon + Intel (two outputs)
+	@$(MAKE) package-macos-apple-silicon
+	@$(MAKE) package-macos-intel
+	@echo "✅ Built both macOS variants."
 
 test: test-backend test-frontend ## Run all tests (backend + frontend)
 	@echo "✅ Tests passed"

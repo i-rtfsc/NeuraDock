@@ -142,7 +142,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           make clean
-          make package-universal
+          make package-all-macos
 
       - name: Build Tauri app (Windows)
         if: runner.os == 'Windows'
@@ -160,17 +160,26 @@ jobs:
           mkdir -p release-assets
           VERSION="${GITHUB_REF_NAME:-${{ github.event.inputs.version }}}"
 
-          # Find DMG file
-          DMG=$(find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" -type f | head -1 || true)
-          if [ -z "$DMG" ]; then
-            echo "❌ No DMG found" >&2
+          DMG_ARM=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name "*.dmg" -type f | head -1 || true)
+          DMG_X86=$(find apps/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name "*.dmg" -type f | head -1 || true)
+
+          if [ -z "$DMG_ARM" ]; then
+            echo "❌ No Apple Silicon (arm64) DMG found" >&2
+            exit 1
+          fi
+          if [ -z "$DMG_X86" ]; then
+            echo "❌ No Intel (x86_64) DMG found" >&2
             exit 1
           fi
 
-          # Copy and rename DMG
-          NEW_DMG="NeuraDock-${VERSION}-macOS-Universal.dmg"
-          cp "$DMG" "release-assets/$NEW_DMG"
-          echo "✅ macOS DMG copied: $NEW_DMG"
+          NEW_DMG_ARM="NeuraDock-${VERSION}-macOS-AppleSilicon.dmg"
+          NEW_DMG_X86="NeuraDock-${VERSION}-macOS-Intel.dmg"
+
+          cp "$DMG_ARM" "release-assets/$NEW_DMG_ARM"
+          cp "$DMG_X86" "release-assets/$NEW_DMG_X86"
+
+          echo "✅ macOS DMG copied: $NEW_DMG_ARM"
+          echo "✅ macOS DMG copied: $NEW_DMG_X86"
 
       - name: Prepare Windows assets
         if: runner.os == 'Windows'
@@ -280,7 +289,8 @@ jobs:
             请根据你的操作系统下载对应的安装包：
 
             #### 🍎 macOS
-            - **NeuraDock-${{ steps.version.outputs.version }}-macOS-Universal.dmg** - 通用版本（同时支持 Intel + Apple Silicon）
+            - **NeuraDock-${{ steps.version.outputs.version }}-macOS-AppleSilicon.dmg** - Apple Silicon（M 系列芯片）
+            - **NeuraDock-${{ steps.version.outputs.version }}-macOS-Intel.dmg** - Intel（x86_64）
 
             #### 🪟 Windows
             - **NeuraDock-${{ steps.version.outputs.version }}-Windows-x64.msi** - 64位安装包
