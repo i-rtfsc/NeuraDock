@@ -74,7 +74,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          # NOTE: Don't use setup-node's built-in pnpm cache here.
+          # It fails if pnpm isn't available yet. We cache pnpm's store after enabling pnpm.
 
       - name: Enable Corepack (pnpm)
         shell: bash
@@ -87,6 +88,20 @@ jobs:
             npm i -g pnpm@9.15.5
           fi
           pnpm --version
+
+      - name: Cache pnpm store
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
