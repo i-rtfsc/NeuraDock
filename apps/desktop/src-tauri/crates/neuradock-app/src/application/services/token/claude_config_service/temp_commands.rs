@@ -24,6 +24,7 @@ pub(super) fn generate_temp_commands_with_key_impl(
         "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=\"1\"".to_string(),
         "export DISABLE_TELEMETRY=\"1\"".to_string(),
         "export API_TIMEOUT_MS=\"3000000\"".to_string(),
+        "export CLAUDE_CODE_ATTRIBUTION_HEADER=\"0\"".to_string(),
     ];
 
     if let Some(m) = model {

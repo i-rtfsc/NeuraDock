@@ -4,7 +4,6 @@
     "name": "AnyRouter",
     "domain": "https://anyrouter.top",
     "default_nodes": [
-      { "name": "c.cspok.cn", "base_url": "https://c.cspok.cn" },
       {
         "name": "cn-shanghai.fcapp.run",
         "base_url": "https://a-ocnfniawgw.cn-shanghai.fcapp.run"
@@ -50,6 +49,34 @@
     "api_user_key": "new-api-user",
     "bypass_method": null,
     "supports_check_in": false,
+    "check_in_bugged": false
+  },
+  {
+    "id": "wong",
+    "name": "Wong",
+    "domain": "https://wzw.pp.ua",
+    "login_path": "/login",
+    "sign_in_path": "/api/user/checkin",
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": null,
+    "supports_check_in": true,
+    "check_in_bugged": false
+  },
+  {
+    "id": "icat",
+    "name": "ICat",
+    "domain": "https://icat.pp.ua",
+    "login_path": "/login",
+    "sign_in_path": "/api/user/checkin",
+    "user_info_path": "/api/user/self",
+    "token_api_path": "/api/token/",
+    "models_path": "/api/user/models",
+    "api_user_key": "new-api-user",
+    "bypass_method": null,
+    "supports_check_in": true,
     "check_in_bugged": false
   }
 ]

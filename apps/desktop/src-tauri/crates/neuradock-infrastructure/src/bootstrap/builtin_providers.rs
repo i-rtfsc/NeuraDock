@@ -50,9 +50,42 @@ pub async fn seed_builtin_providers(
 
     let existing = provider_repo.find_all().await?;
     let existing_ids: HashSet<String> = existing
-        .into_iter()
+        .iter()
         .map(|provider| provider.id().as_str().to_string())
         .collect();
+
+    // Delete providers that have the same name as a built-in but a different ID
+    // (e.g. from a prior version that used UUIDs)
+    let builtin_by_name: HashMap<&str, &str> = configs
+        .iter()
+        .map(|c| (c.name.as_str(), c.id.as_str()))
+        .collect();
+    for provider in &existing {
+        if let Some(&expected_id) = builtin_by_name.get(provider.name()) {
+            if provider.id().as_str() != expected_id {
+                info!(
+                    "Removing stale provider '{}' (id={}) to re-seed as id={}",
+                    provider.name(),
+                    provider.id().as_str(),
+                    expected_id
+                );
+                provider_repo.delete(provider.id()).await?;
+            }
+        }
+    }
+
+    // Rebuild the ID set after deletions
+    let existing_ids: HashSet<String> = {
+        let mut ids = existing_ids;
+        for provider in &existing {
+            if let Some(&expected_id) = builtin_by_name.get(provider.name()) {
+                if provider.id().as_str() != expected_id {
+                    ids.remove(provider.id().as_str());
+                }
+            }
+        }
+        ids
+    };
 
     let has_default_nodes = configs.iter().any(|config| {
         config

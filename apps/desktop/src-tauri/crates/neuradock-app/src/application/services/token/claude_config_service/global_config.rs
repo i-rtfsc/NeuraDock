@@ -54,6 +54,7 @@ pub(super) fn configure_global_with_key_impl(
             );
             env_obj.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
             env_obj.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+            env_obj.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
 
             if let Some(m) = model {
                 env_obj.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
@@ -71,6 +72,7 @@ pub(super) fn configure_global_with_key_impl(
             );
             env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
             env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+            env_map.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
 
             if let Some(m) = model {
                 env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
@@ -91,6 +93,7 @@ pub(super) fn configure_global_with_key_impl(
         );
         env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
         env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+        env_map.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
 
         if let Some(m) = model {
             env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
