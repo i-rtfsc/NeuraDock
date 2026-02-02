@@ -1,18 +1,19 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Plus, 
-  Upload, 
-  Search, 
-  Download, 
-  Wallet, 
-  TrendingUp, 
-  History, 
-  Layers, 
-  Box, 
-  Calendar, 
-  RefreshCw
+import {
+  Plus,
+  Upload,
+  Search,
+  Download,
+  Wallet,
+  TrendingUp,
+  History,
+  Layers,
+  Box,
+  Calendar,
+  RefreshCw,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -403,32 +404,33 @@ export function AccountsPage() {
               <div className="text-muted-foreground">{t('accounts.loading')}</div>
             </div>
           ) : filteredAccounts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="text-center py-12">
               {searchQuery || providerFilter !== 'all' ? (
                 <>
-                  <p className="text-lg font-semibold">{t('accounts.noResults')}</p>
-                  <p className="text-muted-foreground mt-1">
+                  <Search className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">{t('accounts.noResults')}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
                     {t('accounts.tryDifferentSearch', '尝试其他搜索条件')}
                   </p>
                   <Button
-                    variant="link"
+                    variant="outline"
                     onClick={() => {
                       setSearchQuery('');
                       setProviderFilter('all');
                     }}
-                    className="mt-2"
                   >
                     {t('accounts.clearFilters', '清除筛选')}
                   </Button>
                 </>
               ) : (
                 <>
-                  <p className="text-lg font-semibold">{t('accounts.noAccounts')}</p>
-                  <p className="text-muted-foreground mt-1">
+                  <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">{t('accounts.noAccounts')}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
                     {t('accounts.noAccountsDescription')}
                   </p>
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={handleCreate}>
+                  <div className="flex justify-center gap-2">
+                    <Button onClick={handleCreate} variant="outline">
                       <Plus className="mr-2 h-4 w-4" />
                       {t('accounts.addAccount')}
                     </Button>

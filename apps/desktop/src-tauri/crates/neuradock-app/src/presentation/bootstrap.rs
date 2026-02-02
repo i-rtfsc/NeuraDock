@@ -142,7 +142,13 @@ pub async fn build_app_state(
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();
-    seed_builtin_providers(provider_repo.clone(), custom_node_repo.clone())
+    seed_builtin_providers(
+        provider_repo.clone(),
+        custom_node_repo.clone(),
+        account_repo.clone(),
+        provider_models_repo.clone(),
+        waf_cookies_repo.clone(),
+    )
         .await
         .map_err(|e| format!("Failed to seed built-in providers: {}", e))?;
     info!(

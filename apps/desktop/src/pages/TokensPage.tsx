@@ -278,32 +278,25 @@ export function TokensPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
+              className="text-center py-12"
             >
-              <Card className="border-dashed border-2 bg-muted/20">
-                <div className="flex flex-col items-center justify-center py-20 px-6 gap-4">
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-muted to-muted/50 shadow-sm">
-                    <Key className="h-10 w-10 text-muted-foreground/60" />
-                  </div>
-                  <div className="text-center space-y-2 max-w-sm">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
-                        ? t('token.noKeysFound', 'No API keys found')
-                        : t('token.noKeysYet', 'No API keys yet')}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
-                        ? t('token.tryDifferentFilters', 'Try adjusting your filters')
-                        : t('token.addFirstKey', 'Add your first API key to get started')}
-                    </p>
-                  </div>
-                  {!searchQuery && providerFilter === 'all' && statusFilter === 'all' && (
-                    <Button onClick={handleAddKey} size="default" className="mt-2">
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('token.addKey', 'Add API Key')}
-                    </Button>
-                  )}
-                </div>
-              </Card>
+              <Key className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
+                  ? t('token.noKeysFound', 'No API keys found')
+                  : t('token.noKeysYet', 'No API keys yet')}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {searchQuery || providerFilter !== 'all' || statusFilter !== 'all'
+                  ? t('token.tryDifferentFilters', 'Try adjusting your filters')
+                  : t('token.addFirstKey', 'Add your first API key to get started')}
+              </p>
+              {!searchQuery && providerFilter === 'all' && statusFilter === 'all' && (
+                <Button onClick={handleAddKey} variant="outline">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('token.addKey', 'Add API Key')}
+                </Button>
+              )}
             </motion.div>
           ) : (
             <motion.div

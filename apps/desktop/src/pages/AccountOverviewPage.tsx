@@ -253,10 +253,10 @@ export function AccountOverviewPage() {
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : tokens.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/20">
-              <KeyRound className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-semibold mb-2">{t('token.noTokens')}</p>
-              <p className="text-sm">{t('accountOverview.tokenHint', 'Tokens will be fetched automatically after balance refresh')}</p>
+            <div className="text-center py-12">
+              <KeyRound className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-medium mb-2">{t('token.noTokens')}</p>
+              <p className="text-sm text-muted-foreground">{t('accountOverview.tokenHint', 'Tokens will be fetched automatically after balance refresh')}</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
