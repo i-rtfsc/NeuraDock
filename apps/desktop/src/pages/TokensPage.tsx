@@ -193,12 +193,7 @@ export function TokensPage() {
 
   return (
     <PageContainer
-      title={
-        <div className="flex items-center gap-2">
-          <Key className="h-5 w-5" />
-          {t('token.title', 'API Key')}
-        </div>
-      }
+      title={t('token.title', 'API Key')}
       actions={
         <HeaderActions className="gap-2">
           {/* Search */}
