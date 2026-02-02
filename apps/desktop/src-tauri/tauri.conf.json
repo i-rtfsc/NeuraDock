@@ -21,8 +21,29 @@
     ]
   },
   "app": {
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "main",
+          "description": "Default capabilities for main window",
+          "windows": ["*"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-start-dragging",
+            "dialog:default",
+            "fs:default",
+            "notification:default",
+            "store:default",
+            "shell:allow-open",
+            "os:default",
+            "opener:default"
+          ]
+        }
+      ]
+    },
     "windows": [
       {
+        "label": "main",
         "title": "",
         "width": 1200,
         "height": 800,

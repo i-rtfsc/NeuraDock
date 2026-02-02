@@ -200,14 +200,16 @@ impl IndependentApiKey {
     }
 
     pub fn masked_key(&self) -> String {
-        if self.api_key.len() <= 12 {
-            return "*".repeat(self.api_key.len());
+        let char_count = self.api_key.chars().count();
+        if char_count <= 12 {
+            return "*".repeat(char_count);
         }
-        format!(
-            "{}...{}",
-            &self.api_key[..8],
-            &self.api_key[self.api_key.len() - 4..]
-        )
+
+        let prefix: String = self.api_key.chars().take(8).collect();
+        let suffix_chars: Vec<char> = self.api_key.chars().rev().take(4).collect();
+        let suffix: String = suffix_chars.into_iter().rev().collect();
+
+        format!("{}...{}", prefix, suffix)
     }
 
     // Business logic
@@ -304,5 +306,35 @@ mod tests {
         assert_eq!(key.name(), "Updated Name");
         assert_eq!(key.api_key(), "sk-new");
         assert_eq!(key.description(), Some("New description"));
+    }
+
+    #[test]
+    fn test_masked_key_handles_unicode() {
+        let key = IndependentApiKey::create(IndependentApiKeyConfig {
+            name: "Unicode Key".to_string(),
+            provider_type: KeyProviderType::Custom,
+            custom_provider_name: Some("Unicode".to_string()),
+            api_key: "可真小测试KEY12345678".to_string(),
+            base_url: None,
+            organization_id: None,
+            description: None,
+        });
+
+        assert_eq!(key.masked_key(), "可真小测试KEY...5678");
+    }
+
+    #[test]
+    fn test_masked_key_short_unicode() {
+        let key = IndependentApiKey::create(IndependentApiKeyConfig {
+            name: "Short Unicode".to_string(),
+            provider_type: KeyProviderType::Custom,
+            custom_provider_name: Some("Unicode".to_string()),
+            api_key: "短key12".to_string(),
+            base_url: None,
+            organization_id: None,
+            description: None,
+        });
+
+        assert_eq!(key.masked_key(), "******");
     }
 }

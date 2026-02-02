@@ -90,19 +90,17 @@ export function Sidebar() {
   };
 
   return (
-    <aside 
-      data-tauri-drag-region
+    <aside
       className={cn(
         "flex flex-col h-full items-center py-4 transition-all duration-300 select-none bg-sidebar/50 backdrop-blur-sm border-r border-border/40",
         collapsed ? "w-[72px]" : "w-40"
       )}
     >
-      {/* Drag Region Spacer (No Logo/Text) */}
-      <div className="w-full h-6 shrink-0 mb-4" data-tauri-drag-region />
+      {/* Spacer for traffic lights (macOS) */}
+      <div className="w-full h-6 shrink-0 mb-4" />
 
       {/* Navigation */}
       <nav
-        data-tauri-drag-region
         className={cn(
           "flex-1 w-full space-y-2 flex flex-col",
           collapsed ? "px-3 items-center" : "px-4 items-start"

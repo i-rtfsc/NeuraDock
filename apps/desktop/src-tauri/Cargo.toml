@@ -102,10 +102,6 @@ name = "neuradock_lib"
 path = "crates/neuradock-app/src/lib.rs"
 crate-type = ["lib", "cdylib", "staticlib"]
 
-[[bin]]
-name = "NeuraDock"
-path = "crates/neuradock-app/src/main.rs"
-
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
