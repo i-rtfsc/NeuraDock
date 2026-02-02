@@ -1,5 +1,6 @@
 // Module declarations
 pub mod account;
+pub mod ai_chat;
 pub mod balance;
 pub mod check_in;
 pub mod config;
@@ -12,6 +13,7 @@ pub mod token;
 
 // Re-export all commands for easy access
 pub use account::*;
+pub use ai_chat::*;
 pub use balance::*;
 pub use check_in::*;
 pub use config::*;

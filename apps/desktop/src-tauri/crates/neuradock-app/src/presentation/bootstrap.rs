@@ -15,6 +15,7 @@ use crate::application::services::{
 };
 use crate::presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::ai_chat::AiChatServiceRepository;
 use neuradock_domain::balance_history::BalanceHistoryRepository;
 use neuradock_domain::check_in::{Provider, ProviderRepository};
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
@@ -27,11 +28,12 @@ use neuradock_domain::session::SessionRepository;
 use neuradock_domain::token::TokenRepository;
 use neuradock_domain::waf_cookies::WafCookiesRepository;
 use neuradock_infrastructure::bootstrap::seed_builtin_providers;
+use neuradock_infrastructure::bootstrap::seed_builtin_ai_chats;
 use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::persistence::{
     repositories::{
-        SqliteAccountRepository, SqliteBalanceHistoryRepository,
+        SqliteAccountRepository, SqliteAiChatServiceRepository, SqliteBalanceHistoryRepository,
         SqliteCustomProviderNodeRepository, SqliteIndependentKeyRepository,
         SqliteProviderModelsRepository, SqliteProviderRepository, SqliteProxyConfigRepository,
         SqliteSessionRepository, SqliteTokenRepository, SqliteWafCookiesRepository,
@@ -139,6 +141,8 @@ pub async fn build_app_state(
         Arc::new(SqliteProxyConfigRepository::new(pool.clone())) as Arc<dyn ProxyConfigRepository>;
     let balance_history_repo = Arc::new(SqliteBalanceHistoryRepository::new(pool.clone()))
         as Arc<dyn BalanceHistoryRepository>;
+    let ai_chat_service_repo = Arc::new(SqliteAiChatServiceRepository::new(pool.clone()))
+        as Arc<dyn AiChatServiceRepository>;
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();
@@ -153,6 +157,16 @@ pub async fn build_app_state(
         .map_err(|e| format!("Failed to seed built-in providers: {}", e))?;
     info!(
         "✓ Built-in providers seeded ({}ms)",
+        started_at.elapsed().as_millis()
+    );
+
+    info!("🌱 Seeding built-in AI chat services...");
+    let started_at = Instant::now();
+    seed_builtin_ai_chats(ai_chat_service_repo.clone())
+        .await
+        .map_err(|e| format!("Failed to seed built-in AI chat services: {}", e))?;
+    info!(
+        "✓ Built-in AI chat services seeded ({}ms)",
         started_at.elapsed().as_millis()
     );
 
@@ -357,6 +371,7 @@ pub async fn build_app_state(
             custom_node: custom_node_repo,
             independent_key: independent_key_repo,
             provider: provider_repo,
+            ai_chat_service: ai_chat_service_repo,
         },
         services: Services {
             token: token_service,

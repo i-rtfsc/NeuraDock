@@ -1,4 +1,5 @@
 pub mod account_repo;
+pub mod ai_chat_service_repo;
 pub mod balance_history_repo;
 pub mod balance_repo;
 pub mod custom_node_repository;
@@ -11,6 +12,7 @@ pub mod token_repository;
 pub mod waf_cookies_repository;
 
 pub use account_repo::SqliteAccountRepository;
+pub use ai_chat_service_repo::SqliteAiChatServiceRepository;
 pub use balance_history_repo::SqliteBalanceHistoryRepository;
 pub use balance_repo::SqliteBalanceRepository;
 pub use custom_node_repository::SqliteCustomProviderNodeRepository;

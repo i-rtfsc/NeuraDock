@@ -85,6 +85,20 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_app_version,
             log_from_frontend,
             open_log_dir,
+            // AI Chat Service commands
+            list_ai_chat_services,
+            list_enabled_ai_chat_services,
+            create_ai_chat_service,
+            update_ai_chat_service,
+            delete_ai_chat_service,
+            toggle_ai_chat_service,
+            reorder_ai_chat_services,
+            // AI Chat WebView commands
+            open_ai_chat_webview,
+            close_ai_chat_webview,
+            focus_ai_chat_webview,
+            is_ai_chat_webview_open,
+            open_ai_chat_in_browser,
         ])
         .events(collect_events![
             crate::presentation::events::CheckInProgress,

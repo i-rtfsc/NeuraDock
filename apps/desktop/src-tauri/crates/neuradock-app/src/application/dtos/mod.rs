@@ -2,6 +2,10 @@
 mod account_dto;
 pub use account_dto::*;
 
+// AI Chat DTOs
+mod ai_chat_dto;
+pub use ai_chat_dto::*;
+
 // Balance DTOs
 mod balance_dto;
 pub use balance_dto::*;

@@ -9,6 +9,7 @@ use crate::application::services::{
     ProviderModelsQueryService, ProxyConfigService, TokenService,
 };
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::ai_chat::AiChatServiceRepository;
 use neuradock_domain::check_in::ProviderRepository;
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::independent_key::IndependentKeyRepository;
@@ -41,6 +42,7 @@ pub struct Repositories {
     pub custom_node: Arc<dyn CustomProviderNodeRepository>,
     pub independent_key: Arc<dyn IndependentKeyRepository>,
     pub provider: Arc<dyn ProviderRepository>,
+    pub ai_chat_service: Arc<dyn AiChatServiceRepository>,
 }
 
 #[derive(Clone)]
