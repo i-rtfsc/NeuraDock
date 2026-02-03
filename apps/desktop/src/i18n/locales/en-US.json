@@ -864,6 +864,9 @@
     "cannotDeleteBuiltin": "Cannot delete built-in service",
     "cannotEditBuiltin": "Cannot edit built-in service",
     "dragToReorder": "Drag to reorder",
-    "reorderSuccess": "Order saved"
+    "reorderSuccess": "Order saved",
+    "cacheSettings": "Cache Settings",
+    "maxCachedWebviews": "Max Cached Pages",
+    "maxCachedWebviewsDescription": "Number of pages kept in memory. More cache means faster switching but uses more memory"
   }
 }

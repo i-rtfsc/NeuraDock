@@ -47,6 +47,37 @@ import {
   useToggleAiChatService,
   AiChatServiceDto,
 } from '@/hooks/useAiChatServices';
+import { useAiChatStore } from '@/hooks/useAiChatStore';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+// Cache setting select component
+function CacheSettingSelect() {
+  const { maxCachedWebviews, setMaxCachedWebviews } = useAiChatStore();
+  
+  return (
+    <Select
+      value={maxCachedWebviews.toString()}
+      onValueChange={(value) => setMaxCachedWebviews(parseInt(value, 10))}
+    >
+      <SelectTrigger className="w-20">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {[1, 2, 3, 4, 5, 6].map((n) => (
+          <SelectItem key={n} value={n.toString()}>
+            {n}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 interface ServiceCardProps {
   service: AiChatServiceDto;
@@ -356,6 +387,24 @@ export function AiChatSettingsPage() {
                   </Button>
                 </div>
               )}
+            </div>
+
+            {/* Settings */}
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                {t('aiChat.cacheSettings')}
+              </h2>
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">{t('aiChat.maxCachedWebviews')}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('aiChat.maxCachedWebviewsDescription')}
+                    </p>
+                  </div>
+                  <CacheSettingSelect />
+                </div>
+              </Card>
             </div>
           </div>
         </ScrollArea>

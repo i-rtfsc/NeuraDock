@@ -59,7 +59,7 @@ export function AiChatPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: enabledServices = [], isLoading } = useEnabledAiChatServices();
-  const { openTabs, activeTabId, openTab, closeTab, setActiveTab } = useAiChatStore();
+  const { openTabs, activeTabId, openTab, closeTab, setActiveTab, maxCachedWebviews } = useAiChatStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
@@ -90,6 +90,7 @@ export function AiChatPage() {
         if (!rect) return;
 
         // This will create new webview if needed, or show existing one
+        // Uses LRU caching with configurable max cached webviews
         await invoke('show_embedded_ai_chat', {
           serviceId: activeService.serviceId,
           url: activeService.url,
@@ -97,6 +98,7 @@ export function AiChatPage() {
           y: Math.round(rect.top),
           width: Math.round(rect.width),
           height: Math.round(rect.height),
+          maxCached: maxCachedWebviews,
         });
         setWebviewReady(true);
       } catch (error) {
@@ -115,7 +117,7 @@ export function AiChatPage() {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [activeService, isDropdownOpen]);
+  }, [activeService, isDropdownOpen, maxCachedWebviews]);
 
   // Close all webviews when navigating away from AI Chat page
   useEffect(() => {

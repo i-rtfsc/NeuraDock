@@ -865,6 +865,9 @@
     "cannotDeleteBuiltin": "无法删除内置服务",
     "cannotEditBuiltin": "无法编辑内置服务",
     "dragToReorder": "拖拽排序",
-    "reorderSuccess": "顺序已保存"
+    "reorderSuccess": "顺序已保存",
+    "cacheSettings": "缓存设置",
+    "maxCachedWebviews": "最大缓存页面数",
+    "maxCachedWebviewsDescription": "同时保持在内存中的页面数量，更多缓存意味着切换更快但占用更多内存"
   }
 }

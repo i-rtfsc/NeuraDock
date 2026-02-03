@@ -5,15 +5,15 @@ use crate::application::dtos::{
 use crate::presentation::error::CommandError;
 use crate::presentation::state::Repositories;
 use neuradock_domain::ai_chat::{AiChatService, AiChatServiceId};
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, Position, Size, State, WebviewBuilder, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
-/// State to track multiple embedded AI chat webviews (one per tab)
+/// State to track multiple embedded AI chat webviews with LRU caching
 pub struct EmbeddedAiChatState {
-    /// Map of service_id -> webview_label for active webviews
-    active_webviews: Mutex<HashMap<String, String>>,
+    /// LRU queue of service_ids (most recent at back)
+    lru_queue: Mutex<VecDeque<String>>,
     /// Currently visible webview's service_id
     visible_service_id: Mutex<Option<String>>,
 }
@@ -21,7 +21,7 @@ pub struct EmbeddedAiChatState {
 impl Default for EmbeddedAiChatState {
     fn default() -> Self {
         Self {
-            active_webviews: Mutex::new(HashMap::new()),
+            lru_queue: Mutex::new(VecDeque::new()),
             visible_service_id: Mutex::new(None),
         }
     }
@@ -356,6 +356,7 @@ pub async fn open_ai_chat_in_browser(
 
 /// Show an embedded AI chat webview within the main window at specified position
 /// Creates a new webview if not exists, otherwise shows existing one
+/// Uses LRU caching to limit memory usage
 #[tauri::command]
 #[specta::specta]
 pub async fn show_embedded_ai_chat(
@@ -367,10 +368,11 @@ pub async fn show_embedded_ai_chat(
     y: f64,
     width: f64,
     height: f64,
+    max_cached: u32,
 ) -> Result<bool, CommandError> {
     log::info!(
-        "🌐 show_embedded_ai_chat called: {} at ({}, {}) {}x{}",
-        service_id, x, y, width, height
+        "🌐 show_embedded_ai_chat called: {} at ({}, {}) {}x{} (max_cached: {})",
+        service_id, x, y, width, height, max_cached
     );
 
     let main_window = app
@@ -396,8 +398,8 @@ pub async fn show_embedded_ai_chat(
 
     // Check if webview already exists for this service
     let webview_exists = {
-        let active = embedded_state.active_webviews.lock().unwrap();
-        active.contains_key(&service_id)
+        let lru = embedded_state.lru_queue.lock().unwrap();
+        lru.contains(&service_id)
     };
 
     if webview_exists {
@@ -411,7 +413,28 @@ pub async fn show_embedded_ai_chat(
                 .map_err(|e| CommandError::infrastructure(format!("Failed to set webview size: {}", e)))?;
             log::info!("👁️ Showing existing webview for: {}", service_id);
         }
+        
+        // Move to end of LRU queue (most recently used)
+        {
+            let mut lru = embedded_state.lru_queue.lock().unwrap();
+            lru.retain(|id| id != &service_id);
+            lru.push_back(service_id.clone());
+        }
     } else {
+        // Evict oldest webviews if we're at capacity
+        {
+            let mut lru = embedded_state.lru_queue.lock().unwrap();
+            while lru.len() >= max_cached as usize {
+                if let Some(oldest_id) = lru.pop_front() {
+                    let oldest_label = webview_label_for_service(&oldest_id);
+                    if let Some(old_webview) = app.get_webview(&oldest_label) {
+                        let _ = old_webview.close();
+                        log::info!("🗑️ Evicted oldest webview: {}", oldest_id);
+                    }
+                }
+            }
+        }
+        
         // Create new webview for this service
         let parsed_url: url::Url = url.parse().map_err(|e| {
             CommandError::validation(format!("Invalid URL: {}", e))
@@ -429,10 +452,10 @@ pub async fn show_embedded_ai_chat(
                 CommandError::infrastructure(format!("Failed to create embedded webview: {}", e))
             })?;
 
-        // Track this webview
+        // Add to LRU queue
         {
-            let mut active = embedded_state.active_webviews.lock().unwrap();
-            active.insert(service_id.clone(), webview_label.clone());
+            let mut lru = embedded_state.lru_queue.lock().unwrap();
+            lru.push_back(service_id.clone());
         }
 
         log::info!("✅ Webview created for: {}", service_id);
@@ -487,10 +510,10 @@ pub async fn close_embedded_ai_chat(
         log::info!("✅ Webview closed for: {}", service_id);
     }
 
-    // Remove from tracking
+    // Remove from LRU queue
     {
-        let mut active = embedded_state.active_webviews.lock().unwrap();
-        active.remove(&service_id);
+        let mut lru = embedded_state.lru_queue.lock().unwrap();
+        lru.retain(|id| id != &service_id);
     }
 
     // Clear visible if this was visible
@@ -513,12 +536,13 @@ pub async fn close_all_embedded_ai_chats(
 ) -> Result<bool, CommandError> {
     log::info!("🗑️ close_all_embedded_ai_chats called");
 
-    let active_webviews: Vec<(String, String)> = {
-        let active = embedded_state.active_webviews.lock().unwrap();
-        active.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    let service_ids: Vec<String> = {
+        let lru = embedded_state.lru_queue.lock().unwrap();
+        lru.iter().cloned().collect()
     };
 
-    for (service_id, label) in active_webviews {
+    for service_id in service_ids {
+        let label = webview_label_for_service(&service_id);
         if let Some(webview) = app.get_webview(&label) {
             let _ = webview.close();
             log::info!("✅ Closed webview for: {}", service_id);
@@ -526,7 +550,7 @@ pub async fn close_all_embedded_ai_chats(
     }
 
     // Clear all state
-    embedded_state.active_webviews.lock().unwrap().clear();
+    embedded_state.lru_queue.lock().unwrap().clear();
     *embedded_state.visible_service_id.lock().unwrap() = None;
 
     Ok(true)

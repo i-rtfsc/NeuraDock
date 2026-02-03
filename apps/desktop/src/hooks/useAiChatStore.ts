@@ -12,12 +12,16 @@ interface AiChatStore {
   // Open tabs state
   openTabs: AiChatTab[];
   activeTabId: string | null;
+  
+  // Settings
+  maxCachedWebviews: number; // Max number of webviews to keep in memory (1-6)
 
   // Actions
   openTab: (tab: AiChatTab) => void;
   closeTab: (serviceId: string) => void;
   setActiveTab: (serviceId: string | null) => void;
   isTabOpen: (serviceId: string) => boolean;
+  setMaxCachedWebviews: (count: number) => void;
 }
 
 export const useAiChatStore = create<AiChatStore>()(
@@ -25,6 +29,7 @@ export const useAiChatStore = create<AiChatStore>()(
     (set, get) => ({
       openTabs: [],
       activeTabId: null,
+      maxCachedWebviews: 3, // Default to 3 cached webviews
 
       openTab: (tab) => {
         const { openTabs, isTabOpen } = get();
@@ -62,13 +67,20 @@ export const useAiChatStore = create<AiChatStore>()(
       isTabOpen: (serviceId) => {
         return get().openTabs.some((tab) => tab.serviceId === serviceId);
       },
+      
+      setMaxCachedWebviews: (count) => {
+        // Clamp between 1 and 6
+        const clamped = Math.max(1, Math.min(6, count));
+        set({ maxCachedWebviews: clamped });
+      },
     }),
     {
       name: 'ai-chat-storage',
-      // Only persist tab state, not functions or transient state
+      // Persist tab state and settings
       partialize: (state) => ({
         openTabs: state.openTabs,
         activeTabId: state.activeTabId,
+        maxCachedWebviews: state.maxCachedWebviews,
       }),
     }
   )
