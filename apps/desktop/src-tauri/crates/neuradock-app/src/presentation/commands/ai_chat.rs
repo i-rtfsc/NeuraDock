@@ -7,7 +7,9 @@ use crate::presentation::state::Repositories;
 use neuradock_domain::ai_chat::{AiChatService, AiChatServiceId};
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, Position, Size, State, WebviewBuilder, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Manager, Position, Size, State, WebviewBuilder, WebviewUrl, WebviewWindowBuilder,
+};
 use tauri_plugin_opener::OpenerExt;
 
 /// State to track multiple embedded AI chat webviews with LRU caching
@@ -82,8 +84,8 @@ pub async fn create_ai_chat_service(
 ) -> Result<AiChatServiceDto, CommandError> {
     log::info!("🆕 create_ai_chat_service called: {}", input.name);
 
-    let service = AiChatService::new(input.name, input.url, input.icon)
-        .map_err(CommandError::from)?;
+    let service =
+        AiChatService::new(input.name, input.url, input.icon).map_err(CommandError::from)?;
 
     repositories
         .ai_chat_service
@@ -111,7 +113,9 @@ pub async fn update_ai_chat_service(
         .find_by_id(&id)
         .await
         .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found(format!("AI chat service not found: {}", input.id)))?;
+        .ok_or_else(|| {
+            CommandError::not_found(format!("AI chat service not found: {}", input.id))
+        })?;
 
     service
         .update(input.name, input.url, input.icon)
@@ -236,9 +240,9 @@ pub async fn open_ai_chat_webview(
     // Check if window already exists
     if let Some(window) = app.get_webview_window(&window_label) {
         log::info!("🔄 Window already exists, focusing: {}", window_label);
-        window.set_focus().map_err(|e| {
-            CommandError::infrastructure(format!("Failed to focus window: {}", e))
-        })?;
+        window
+            .set_focus()
+            .map_err(|e| CommandError::infrastructure(format!("Failed to focus window: {}", e)))?;
         window.unminimize().map_err(|e| {
             CommandError::infrastructure(format!("Failed to unminimize window: {}", e))
         })?;
@@ -246,9 +250,9 @@ pub async fn open_ai_chat_webview(
     }
 
     // Parse URL
-    let parsed_url: url::Url = url.parse().map_err(|e| {
-        CommandError::validation(format!("Invalid URL: {}", e))
-    })?;
+    let parsed_url: url::Url = url
+        .parse()
+        .map_err(|e| CommandError::validation(format!("Invalid URL: {}", e)))?;
 
     // Create new WebView window
     log::info!("🆕 Creating new WebView window: {}", window_label);
@@ -266,9 +270,9 @@ pub async fn open_ai_chat_webview(
     log::info!("✅ WebView window created: {}", window_label);
 
     // Focus the new window
-    window.set_focus().map_err(|e| {
-        CommandError::infrastructure(format!("Failed to focus new window: {}", e))
-    })?;
+    window
+        .set_focus()
+        .map_err(|e| CommandError::infrastructure(format!("Failed to focus new window: {}", e)))?;
 
     Ok(true)
 }
@@ -285,9 +289,9 @@ pub async fn close_ai_chat_webview(
     let window_label = format!("ai-chat-window-{}", service_id);
 
     if let Some(window) = app.get_webview_window(&window_label) {
-        window.close().map_err(|e| {
-            CommandError::infrastructure(format!("Failed to close window: {}", e))
-        })?;
+        window
+            .close()
+            .map_err(|e| CommandError::infrastructure(format!("Failed to close window: {}", e)))?;
         log::info!("✅ WebView window closed: {}", window_label);
         Ok(true)
     } else {
@@ -308,9 +312,9 @@ pub async fn focus_ai_chat_webview(
     let window_label = format!("ai-chat-window-{}", service_id);
 
     if let Some(window) = app.get_webview_window(&window_label) {
-        window.set_focus().map_err(|e| {
-            CommandError::infrastructure(format!("Failed to focus window: {}", e))
-        })?;
+        window
+            .set_focus()
+            .map_err(|e| CommandError::infrastructure(format!("Failed to focus window: {}", e)))?;
         window.unminimize().map_err(|e| {
             CommandError::infrastructure(format!("Failed to unminimize window: {}", e))
         })?;
@@ -336,10 +340,7 @@ pub async fn is_ai_chat_webview_open(
 /// Open an AI chat service URL in the default browser (alternative to WebView)
 #[tauri::command]
 #[specta::specta]
-pub async fn open_ai_chat_in_browser(
-    app: AppHandle,
-    url: String,
-) -> Result<bool, CommandError> {
+pub async fn open_ai_chat_in_browser(app: AppHandle, url: String) -> Result<bool, CommandError> {
     log::info!("🌍 open_ai_chat_in_browser called: {}", url);
 
     app.opener()
@@ -373,7 +374,12 @@ pub async fn show_embedded_ai_chat(
 ) -> Result<bool, CommandError> {
     log::info!(
         "🌐 show_embedded_ai_chat called: {} at ({}, {}) {}x{} (max_cached: {})",
-        service_id, x, y, width, height, max_cached
+        service_id,
+        x,
+        y,
+        width,
+        height,
+        max_cached
     );
 
     let main_window = app
@@ -381,7 +387,7 @@ pub async fn show_embedded_ai_chat(
         .ok_or_else(|| CommandError::infrastructure("Main window not found"))?;
 
     let webview_label = webview_label_for_service(&service_id);
-    
+
     // Hide the currently visible webview (if different from target)
     {
         let visible_id = embedded_state.visible_service_id.lock().unwrap().clone();
@@ -390,7 +396,9 @@ pub async fn show_embedded_ai_chat(
                 let old_label = webview_label_for_service(vid);
                 if let Some(old_webview) = app.get_webview(&old_label) {
                     // Move off-screen to hide (Tauri doesn't have hide/show for child webviews)
-                    let _ = old_webview.set_position(Position::Logical(tauri::LogicalPosition::new(-10000.0, -10000.0)));
+                    let _ = old_webview.set_position(Position::Logical(
+                        tauri::LogicalPosition::new(-10000.0, -10000.0),
+                    ));
                     log::info!("🙈 Hid webview for: {}", vid);
                 }
             }
@@ -408,13 +416,17 @@ pub async fn show_embedded_ai_chat(
         if let Some(webview) = app.get_webview(&webview_label) {
             webview
                 .set_position(Position::Logical(tauri::LogicalPosition::new(x, y)))
-                .map_err(|e| CommandError::infrastructure(format!("Failed to set webview position: {}", e)))?;
+                .map_err(|e| {
+                    CommandError::infrastructure(format!("Failed to set webview position: {}", e))
+                })?;
             webview
                 .set_size(Size::Logical(tauri::LogicalSize::new(width, height)))
-                .map_err(|e| CommandError::infrastructure(format!("Failed to set webview size: {}", e)))?;
+                .map_err(|e| {
+                    CommandError::infrastructure(format!("Failed to set webview size: {}", e))
+                })?;
             log::info!("👁️ Showing existing webview for: {}", service_id);
         }
-        
+
         // Move to end of LRU queue (most recently used)
         {
             let mut lru = embedded_state.lru_queue.lock().unwrap();
@@ -435,17 +447,20 @@ pub async fn show_embedded_ai_chat(
                 }
             }
         }
-        
-        // Create new webview for this service
-        let parsed_url: url::Url = url.parse().map_err(|e| {
-            CommandError::validation(format!("Invalid URL: {}", e))
-        })?;
 
-        log::info!("🆕 Creating webview for: {} (label: {})", service_id, webview_label);
+        // Create new webview for this service
+        let parsed_url: url::Url = url
+            .parse()
+            .map_err(|e| CommandError::validation(format!("Invalid URL: {}", e)))?;
+
+        log::info!(
+            "🆕 Creating webview for: {} (label: {})",
+            service_id,
+            webview_label
+        );
         let _webview = main_window
             .add_child(
-                WebviewBuilder::new(&webview_label, WebviewUrl::External(parsed_url))
-                    .auto_resize(),
+                WebviewBuilder::new(&webview_label, WebviewUrl::External(parsed_url)).auto_resize(),
                 Position::Logical(tauri::LogicalPosition::new(x, y)),
                 Size::Logical(tauri::LogicalSize::new(width, height)),
             )
@@ -482,7 +497,9 @@ pub async fn hide_embedded_ai_chat(
         let label = webview_label_for_service(vid);
         if let Some(webview) = app.get_webview(&label) {
             // Move off-screen to hide
-            let _ = webview.set_position(Position::Logical(tauri::LogicalPosition::new(-10000.0, -10000.0)));
+            let _ = webview.set_position(Position::Logical(tauri::LogicalPosition::new(
+                -10000.0, -10000.0,
+            )));
             log::info!("✅ Webview hidden for: {}", vid);
         }
     }
@@ -505,9 +522,9 @@ pub async fn close_embedded_ai_chat(
 
     let label = webview_label_for_service(&service_id);
     if let Some(webview) = app.get_webview(&label) {
-        webview.close().map_err(|e| {
-            CommandError::infrastructure(format!("Failed to close webview: {}", e))
-        })?;
+        webview
+            .close()
+            .map_err(|e| CommandError::infrastructure(format!("Failed to close webview: {}", e)))?;
         log::info!("✅ Webview closed for: {}", service_id);
     }
 
@@ -570,11 +587,9 @@ pub async fn refresh_embedded_ai_chat(
     if let Some(ref vid) = visible_id {
         let label = webview_label_for_service(vid);
         if let Some(webview) = app.get_webview(&label) {
-            webview
-                .eval("location.reload()")
-                .map_err(|e| {
-                    CommandError::infrastructure(format!("Failed to refresh webview: {}", e))
-                })?;
+            webview.eval("location.reload()").map_err(|e| {
+                CommandError::infrastructure(format!("Failed to refresh webview: {}", e))
+            })?;
             log::info!("✅ Webview refreshed for: {}", vid);
             return Ok(true);
         }
