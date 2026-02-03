@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, MessageSquare, ExternalLink, Trash2, Edit, GripVertical, Globe } from 'lucide-react';
+import { Plus, Trash2, Edit, Globe, ArrowLeft, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,133 +27,119 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageContent } from '@/components/layout/PageContent';
 import { LoadingState } from '@/components/ui/loading';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import {
   useAiChatServices,
   useCreateAiChatService,
   useUpdateAiChatService,
   useDeleteAiChatService,
   useToggleAiChatService,
-  useOpenAiChatWebview,
-  useOpenAiChatInBrowser,
   AiChatServiceDto,
 } from '@/hooks/useAiChatServices';
-
-// Service icon mapping
-const SERVICE_ICONS: Record<string, string> = {
-  deepseek: '🤖',
-  chatgpt: '💬',
-  claude: '🎭',
-  gemini: '✨',
-};
-
-function getServiceIcon(icon: string | null): string {
-  if (!icon) return '🔗';
-  return SERVICE_ICONS[icon] || '🔗';
-}
 
 interface ServiceCardProps {
   service: AiChatServiceDto;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onOpen: () => void;
-  onOpenBrowser: () => void;
 }
 
-function ServiceCard({ service, onToggle, onEdit, onDelete, onOpen, onOpenBrowser }: ServiceCardProps) {
+function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) {
   const { t } = useTranslation();
 
   return (
-    <div
-      className={cn(
-        'group flex items-center gap-4 p-4 rounded-xl border transition-all duration-200',
-        service.is_enabled
-          ? 'bg-card/80 border-border/60 hover:border-primary/30 hover:shadow-md'
-          : 'bg-muted/30 border-border/30 opacity-60'
-      )}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
     >
-      {/* Drag handle placeholder */}
-      <div className="opacity-0 group-hover:opacity-50 transition-opacity cursor-grab">
-        <GripVertical className="h-5 w-5 text-muted-foreground" />
-      </div>
+      <Card
+        className={cn(
+          'group relative overflow-hidden transition-all duration-200',
+          'bg-card border shadow-sm',
+          service.is_enabled
+            ? 'hover:shadow-md hover:border-primary/50'
+            : 'opacity-60'
+        )}
+      >
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-lg font-semibold truncate">
+                  {service.name}
+                </h3>
+                {service.is_builtin && (
+                  <Badge variant="secondary" className="shrink-0">
+                    {t('aiChat.builtin')}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Globe className="h-3.5 w-3.5" />
+                <span className="truncate">{service.url}</span>
+              </div>
+            </div>
 
-      {/* Icon */}
-      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-2xl shrink-0">
-        {getServiceIcon(service.icon)}
-      </div>
+            {/* Actions Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  {t('common.edit')}
+                </DropdownMenuItem>
+                {!service.is_builtin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={onDelete}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {t('common.delete')}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-foreground truncate">{service.name}</h3>
-          {service.is_builtin && (
-            <Badge variant="secondary" className="text-xs shrink-0">
-              {t('aiChat.builtin')}
-            </Badge>
-          )}
+          {/* Footer with Toggle */}
+          <div className="flex items-center justify-between pt-4 border-t border-border/50">
+            <span className="text-sm text-muted-foreground">
+              {service.is_enabled ? t('aiChat.enabled') : t('aiChat.disabled')}
+            </span>
+            <Switch
+              checked={service.is_enabled}
+              onCheckedChange={onToggle}
+            />
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground truncate mt-0.5">{service.url}</p>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        {service.is_enabled && (
-          <>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onOpen}
-              className="h-8 px-3"
-            >
-              <MessageSquare className="h-4 w-4 mr-1" />
-              {t('aiChat.openInApp')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenBrowser}
-              className="h-8 w-8"
-              title={t('aiChat.openInBrowser')}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-
-        <Switch
-          checked={service.is_enabled}
-          onCheckedChange={onToggle}
-          className="ml-2"
-        />
-
-        {!service.is_builtin && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onEdit}
-              className="h-8 w-8"
-              title={t('common.edit')}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              className="h-8 w-8 text-destructive hover:text-destructive"
-              title={t('common.delete')}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -249,14 +237,13 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
 
 export function AiChatSettingsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: services = [], isLoading } = useAiChatServices();
 
   const createService = useCreateAiChatService();
   const updateService = useUpdateAiChatService();
   const deleteService = useDeleteAiChatService();
   const toggleService = useToggleAiChatService();
-  const openWebview = useOpenAiChatWebview();
-  const openBrowser = useOpenAiChatInBrowser();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<AiChatServiceDto | null>(null);
@@ -312,7 +299,14 @@ export function AiChatSettingsPage() {
   return (
     <PageContainer
       className="h-full bg-muted/10"
-      title={t('aiChat.settings')}
+      title={
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/ai-chat')} className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-2xl font-bold tracking-tight">{t('aiChat.settings')}</span>
+        </div>
+      }
       actions={
         <Button onClick={() => { setEditingService(null); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
@@ -329,7 +323,7 @@ export function AiChatSettingsPage() {
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
                   {t('aiChat.builtinServices')}
                 </h2>
-                <div className="space-y-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {builtinServices.map((service) => (
                     <ServiceCard
                       key={service.id}
@@ -337,8 +331,6 @@ export function AiChatSettingsPage() {
                       onToggle={() => toggleService.mutate(service.id)}
                       onEdit={() => handleEdit(service)}
                       onDelete={() => handleDelete(service)}
-                      onOpen={() => openWebview.mutate(service)}
-                      onOpenBrowser={() => openBrowser.mutate(service.url)}
                     />
                   ))}
                 </div>
@@ -351,7 +343,7 @@ export function AiChatSettingsPage() {
                 {t('aiChat.customServices')}
               </h2>
               {customServices.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {customServices.map((service) => (
                     <ServiceCard
                       key={service.id}
@@ -359,15 +351,13 @@ export function AiChatSettingsPage() {
                       onToggle={() => toggleService.mutate(service.id)}
                       onEdit={() => handleEdit(service)}
                       onDelete={() => handleDelete(service)}
-                      onOpen={() => openWebview.mutate(service)}
-                      onOpenBrowser={() => openBrowser.mutate(service.url)}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-border/60 bg-muted/20">
                   <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground">{t('aiChat.noServicesDescription')}</p>
+                  <p className="text-muted-foreground">{t('aiChat.noCustomServices')}</p>
                   <Button
                     variant="outline"
                     className="mt-4"
@@ -405,8 +395,6 @@ export function AiChatSettingsPage() {
             <AlertDialogTitle>{t('aiChat.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('aiChat.deleteConfirmMessage', { name: deleteConfirmService?.name })}
-              <br />
-              <span className="text-destructive">{t('aiChat.deleteWarning')}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

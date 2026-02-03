@@ -67,7 +67,7 @@ url = { version = "2.5", features = ["serde"] }
 tokio-cron-scheduler = "0.13"
 
 # Tauri
-tauri = { version = "2.1", features = ["tray-icon", "image-png", "devtools"] }
+tauri = { version = "2.1", features = ["tray-icon", "image-png", "devtools", "unstable"] }
 tauri-plugin-dialog = "2.2"
 tauri-plugin-fs = "2.2"
 tauri-plugin-notification = "2.2"

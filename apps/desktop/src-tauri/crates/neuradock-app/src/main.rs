@@ -5,6 +5,7 @@ mod presentation;
 
 // Use external crates
 
+use presentation::commands::ai_chat::EmbeddedAiChatState;
 use presentation::ipc;
 use presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use std::time::Instant;
@@ -175,6 +176,7 @@ async fn main() {
                     app.manage(services);
                     app.manage(queries);
                     app.manage(command_handlers);
+                    app.manage(EmbeddedAiChatState::default());
                     tracing::info!(
                         "✅ App state initialized successfully ({}ms)",
                         started_at.elapsed().as_millis()

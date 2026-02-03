@@ -13,9 +13,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (event.button !== 0) return;
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-
     const interactiveSelector = [
       '[data-tauri-no-drag]',
       'button',
@@ -24,11 +21,22 @@ export function MainLayout({ children }: MainLayoutProps) {
       'textarea',
       'select',
       '[role="button"]',
+      '[role="combobox"]',
+      '[role="listbox"]',
+      '[role="menuitem"]',
       '[contenteditable="true"]',
       'label',
     ].join(',');
 
-    if (target.closest(interactiveSelector)) return;
+    const path = event.nativeEvent.composedPath?.() ?? [];
+    if (path.length > 0) {
+      for (const node of path) {
+        if (node instanceof Element && node.matches(interactiveSelector)) return;
+      }
+    } else {
+      const target = event.target;
+      if (target instanceof Element && target.closest(interactiveSelector)) return;
+    }
 
     event.preventDefault();
     try {

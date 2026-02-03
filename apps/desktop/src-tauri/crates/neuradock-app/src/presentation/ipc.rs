@@ -99,6 +99,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             focus_ai_chat_webview,
             is_ai_chat_webview_open,
             open_ai_chat_in_browser,
+            // AI Chat Embedded WebView commands
+            show_embedded_ai_chat,
+            hide_embedded_ai_chat,
+            refresh_embedded_ai_chat,
         ])
         .events(collect_events![
             crate::presentation::events::CheckInProgress,

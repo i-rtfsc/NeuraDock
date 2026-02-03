@@ -28,6 +28,9 @@ const PreferencesPage = lazy(() =>
 const AiChatSettingsPage = lazy(() =>
   import('./pages/AiChatSettingsPage').then((m) => ({ default: m.AiChatSettingsPage }))
 );
+const AiChatPage = lazy(() =>
+  import('./pages/AiChatPage').then((m) => ({ default: m.AiChatPage }))
+);
 
 function App() {
   return (
@@ -44,7 +47,8 @@ function App() {
                   <Route path="/account/:accountId/records" element={<AccountActivityPage />} />
                   <Route path="/tokens" element={<TokensPage />} />
                   <Route path="/providers" element={<ProvidersPage />} />
-                  <Route path="/ai-chat" element={<AiChatSettingsPage />} />
+                  <Route path="/ai-chat" element={<AiChatPage />} />
+                  <Route path="/ai-chat/settings" element={<AiChatSettingsPage />} />
                   <Route path="/settings" element={<PreferencesPage />} />
                 </Routes>
               </Suspense>
