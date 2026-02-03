@@ -17,14 +17,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useSidebarStore } from '@/hooks/useSidebarStore';
-import { useAiChatStore } from '@/hooks/useAiChatStore';
 import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
   const location = useLocation();
   const { t } = useTranslation();
   const { collapsed, toggle } = useSidebarStore();
-  const setWebviewHidden = useAiChatStore((state) => state.setWebviewHidden);
   
   // Check if we're on the AI Chat page
   const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
@@ -76,16 +74,19 @@ export function Sidebar() {
     );
 
     if (collapsed) {
+      // On AI Chat page, don't show tooltips to avoid webview z-index issues
+      if (isOnAiChatPage) {
+        return (
+          <Link key={item.name} to={item.href} className="w-full flex justify-center">
+            {LinkContent}
+          </Link>
+        );
+      }
+      
       return (
         <Tooltip 
           key={item.name} 
           delayDuration={0}
-          onOpenChange={(open) => {
-            // Hide webview when tooltip opens (only matters on AI Chat page)
-            if (isOnAiChatPage) {
-              setWebviewHidden(open);
-            }
-          }}
         >
           <TooltipTrigger asChild>
             <Link to={item.href} className="w-full flex justify-center">

@@ -12,16 +12,12 @@ interface AiChatStore {
   // Open tabs state
   openTabs: AiChatTab[];
   activeTabId: string | null;
-  
-  // Webview visibility (hide when overlays are open)
-  webviewHidden: boolean;
 
   // Actions
   openTab: (tab: AiChatTab) => void;
   closeTab: (serviceId: string) => void;
   setActiveTab: (serviceId: string | null) => void;
   isTabOpen: (serviceId: string) => boolean;
-  setWebviewHidden: (hidden: boolean) => void;
 }
 
 export const useAiChatStore = create<AiChatStore>()(
@@ -29,7 +25,6 @@ export const useAiChatStore = create<AiChatStore>()(
     (set, get) => ({
       openTabs: [],
       activeTabId: null,
-      webviewHidden: false,
 
       openTab: (tab) => {
         const { openTabs, isTabOpen } = get();
@@ -66,10 +61,6 @@ export const useAiChatStore = create<AiChatStore>()(
 
       isTabOpen: (serviceId) => {
         return get().openTabs.some((tab) => tab.serviceId === serviceId);
-      },
-      
-      setWebviewHidden: (hidden) => {
-        set({ webviewHidden: hidden });
       },
     }),
     {

@@ -59,7 +59,7 @@ export function AiChatPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: enabledServices = [], isLoading } = useEnabledAiChatServices();
-  const { openTabs, activeTabId, openTab, closeTab, setActiveTab, webviewHidden } = useAiChatStore();
+  const { openTabs, activeTabId, openTab, closeTab, setActiveTab } = useAiChatStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
@@ -69,13 +69,10 @@ export function AiChatPage() {
   // Get the active service
   const activeService = openTabs.find((tab) => tab.serviceId === activeTabId);
 
-  // Combine local dropdown state with global webviewHidden state
-  const shouldHideWebview = isDropdownOpen || webviewHidden;
-
   // Create or update the embedded webview when active tab changes
   useEffect(() => {
-    // Hide webview when dropdown is open or global state says to hide (native webview overlays DOM elements)
-    if (shouldHideWebview) {
+    // Hide webview when dropdown is open (native webview overlays DOM elements)
+    if (isDropdownOpen) {
       invoke('hide_embedded_ai_chat').catch(console.error);
       return;
     }
@@ -117,7 +114,7 @@ export function AiChatPage() {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [activeService, shouldHideWebview]);
+  }, [activeService, isDropdownOpen]);
 
   // Hide webview when component unmounts or navigates away
   useEffect(() => {
