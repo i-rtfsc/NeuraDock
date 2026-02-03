@@ -230,7 +230,8 @@ pub async fn open_ai_chat_webview(
 ) -> Result<bool, CommandError> {
     log::info!("🌐 open_ai_chat_webview called: {} ({})", service_name, url);
 
-    let window_label = format!("ai-chat-{}", service_id);
+    // Use different label prefix for independent windows vs embedded webviews
+    let window_label = format!("ai-chat-window-{}", service_id);
 
     // Check if window already exists
     if let Some(window) = app.get_webview_window(&window_label) {
@@ -281,7 +282,7 @@ pub async fn close_ai_chat_webview(
 ) -> Result<bool, CommandError> {
     log::info!("🚪 close_ai_chat_webview called: {}", service_id);
 
-    let window_label = format!("ai-chat-{}", service_id);
+    let window_label = format!("ai-chat-window-{}", service_id);
 
     if let Some(window) = app.get_webview_window(&window_label) {
         window.close().map_err(|e| {
@@ -304,7 +305,7 @@ pub async fn focus_ai_chat_webview(
 ) -> Result<bool, CommandError> {
     log::info!("🎯 focus_ai_chat_webview called: {}", service_id);
 
-    let window_label = format!("ai-chat-{}", service_id);
+    let window_label = format!("ai-chat-window-{}", service_id);
 
     if let Some(window) = app.get_webview_window(&window_label) {
         window.set_focus().map_err(|e| {
@@ -328,7 +329,7 @@ pub async fn is_ai_chat_webview_open(
     app: AppHandle,
     service_id: String,
 ) -> Result<bool, CommandError> {
-    let window_label = format!("ai-chat-{}", service_id);
+    let window_label = format!("ai-chat-window-{}", service_id);
     Ok(app.get_webview_window(&window_label).is_some())
 }
 
