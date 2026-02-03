@@ -69,7 +69,7 @@ export function AiChatPage() {
   // Get the active service
   const activeService = openTabs.find((tab) => tab.serviceId === activeTabId);
 
-  // Create or update the embedded webview when active tab changes
+  // Show/switch the embedded webview when active tab changes
   useEffect(() => {
     // Hide webview when dropdown is open (native webview overlays DOM elements)
     if (isDropdownOpen) {
@@ -89,6 +89,7 @@ export function AiChatPage() {
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
+        // This will create new webview if needed, or show existing one
         await invoke('show_embedded_ai_chat', {
           serviceId: activeService.serviceId,
           url: activeService.url,
@@ -116,10 +117,10 @@ export function AiChatPage() {
     };
   }, [activeService, isDropdownOpen]);
 
-  // Hide webview when component unmounts or navigates away
+  // Close all webviews when navigating away from AI Chat page
   useEffect(() => {
     return () => {
-      invoke('hide_embedded_ai_chat').catch(console.error);
+      invoke('close_all_embedded_ai_chats').catch(console.error);
     };
   }, []);
 
@@ -133,9 +134,9 @@ export function AiChatPage() {
   }, [openTab]);
 
   const handleCloseTab = useCallback(async (serviceId: string) => {
+    // Close the webview for this tab
+    await invoke('close_embedded_ai_chat', { serviceId }).catch(console.error);
     closeTab(serviceId);
-    // If we're closing the active tab, the store will switch to another tab
-    // The useEffect will handle hiding/showing the webview
   }, [closeTab]);
 
   const handleRefresh = async () => {

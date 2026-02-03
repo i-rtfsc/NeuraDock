@@ -23,9 +23,6 @@ export function Sidebar() {
   const location = useLocation();
   const { t } = useTranslation();
   const { collapsed, toggle } = useSidebarStore();
-  
-  // Check if we're on the AI Chat page
-  const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
 
   const navigation = [
     { name: t('nav.dashboard'), href: '/', icon: Home },
@@ -74,15 +71,6 @@ export function Sidebar() {
     );
 
     if (collapsed) {
-      // On AI Chat page, don't show tooltips to avoid webview z-index issues
-      if (isOnAiChatPage) {
-        return (
-          <Link key={item.name} to={item.href} className="w-full flex justify-center">
-            {LinkContent}
-          </Link>
-        );
-      }
-      
       return (
         <Tooltip 
           key={item.name} 

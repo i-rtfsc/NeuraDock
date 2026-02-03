@@ -5,21 +5,30 @@ use crate::application::dtos::{
 use crate::presentation::error::CommandError;
 use crate::presentation::state::Repositories;
 use neuradock_domain::ai_chat::{AiChatService, AiChatServiceId};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, Position, Size, State, WebviewBuilder, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
-/// State to track the current embedded AI chat webview
+/// State to track multiple embedded AI chat webviews (one per tab)
 pub struct EmbeddedAiChatState {
-    current_service_id: Mutex<Option<String>>,
+    /// Map of service_id -> webview_label for active webviews
+    active_webviews: Mutex<HashMap<String, String>>,
+    /// Currently visible webview's service_id
+    visible_service_id: Mutex<Option<String>>,
 }
 
 impl Default for EmbeddedAiChatState {
     fn default() -> Self {
         Self {
-            current_service_id: Mutex::new(None),
+            active_webviews: Mutex::new(HashMap::new()),
+            visible_service_id: Mutex::new(None),
         }
     }
+}
+
+fn webview_label_for_service(service_id: &str) -> String {
+    format!("ai-chat-{}", service_id)
 }
 
 /// List all AI chat services (both enabled and disabled)
@@ -342,11 +351,11 @@ pub async fn open_ai_chat_in_browser(
 
 // ============================================================================
 // Embedded WebView Commands (for inline display in main window)
+// Multi-webview support: each tab has its own persistent webview
 // ============================================================================
 
-const EMBEDDED_WEBVIEW_LABEL: &str = "ai-chat-embedded";
-
 /// Show an embedded AI chat webview within the main window at specified position
+/// Creates a new webview if not exists, otherwise shows existing one
 #[tauri::command]
 #[specta::specta]
 pub async fn show_embedded_ai_chat(
@@ -364,32 +373,54 @@ pub async fn show_embedded_ai_chat(
         service_id, x, y, width, height
     );
 
-    // Get the Window (not WebviewWindow) to use add_child
     let main_window = app
         .get_window("main")
         .ok_or_else(|| CommandError::infrastructure("Main window not found"))?;
 
-    // Check if we need to create a new webview or just reposition existing one
-    let current_id = embedded_state.current_service_id.lock().unwrap().clone();
-    let needs_new_webview = current_id.as_ref() != Some(&service_id);
-
-    if needs_new_webview {
-        // Remove existing embedded webview if any
-        if let Some(existing) = app.get_webview(EMBEDDED_WEBVIEW_LABEL) {
-            log::info!("🗑️ Removing existing embedded webview");
-            let _ = existing.close();
+    let webview_label = webview_label_for_service(&service_id);
+    
+    // Hide the currently visible webview (if different from target)
+    {
+        let visible_id = embedded_state.visible_service_id.lock().unwrap().clone();
+        if let Some(ref vid) = visible_id {
+            if vid != &service_id {
+                let old_label = webview_label_for_service(vid);
+                if let Some(old_webview) = app.get_webview(&old_label) {
+                    // Move off-screen to hide (Tauri doesn't have hide/show for child webviews)
+                    let _ = old_webview.set_position(Position::Logical(tauri::LogicalPosition::new(-10000.0, -10000.0)));
+                    log::info!("🙈 Hid webview for: {}", vid);
+                }
+            }
         }
+    }
 
-        // Parse URL
+    // Check if webview already exists for this service
+    let webview_exists = {
+        let active = embedded_state.active_webviews.lock().unwrap();
+        active.contains_key(&service_id)
+    };
+
+    if webview_exists {
+        // Webview exists, just reposition and show it
+        if let Some(webview) = app.get_webview(&webview_label) {
+            webview
+                .set_position(Position::Logical(tauri::LogicalPosition::new(x, y)))
+                .map_err(|e| CommandError::infrastructure(format!("Failed to set webview position: {}", e)))?;
+            webview
+                .set_size(Size::Logical(tauri::LogicalSize::new(width, height)))
+                .map_err(|e| CommandError::infrastructure(format!("Failed to set webview size: {}", e)))?;
+            log::info!("👁️ Showing existing webview for: {}", service_id);
+        }
+    } else {
+        // Create new webview for this service
         let parsed_url: url::Url = url.parse().map_err(|e| {
             CommandError::validation(format!("Invalid URL: {}", e))
         })?;
 
-        // Create new embedded webview using Window::add_child
-        log::info!("🆕 Creating embedded webview for: {}", service_id);
+        log::info!("🆕 Creating webview for: {} (label: {})", service_id, webview_label);
         let _webview = main_window
             .add_child(
-                WebviewBuilder::new(EMBEDDED_WEBVIEW_LABEL, WebviewUrl::External(parsed_url))
+                WebviewBuilder::new(&webview_label, WebviewUrl::External(parsed_url))
                     .auto_resize(),
                 Position::Logical(tauri::LogicalPosition::new(x, y)),
                 Size::Logical(tauri::LogicalSize::new(width, height)),
@@ -398,31 +429,22 @@ pub async fn show_embedded_ai_chat(
                 CommandError::infrastructure(format!("Failed to create embedded webview: {}", e))
             })?;
 
-        // Update state
-        *embedded_state.current_service_id.lock().unwrap() = Some(service_id.clone());
-
-        log::info!("✅ Embedded webview created for: {}", service_id);
-    } else {
-        // Just reposition existing webview
-        if let Some(webview) = app.get_webview(EMBEDDED_WEBVIEW_LABEL) {
-            webview
-                .set_position(Position::Logical(tauri::LogicalPosition::new(x, y)))
-                .map_err(|e| {
-                    CommandError::infrastructure(format!("Failed to set webview position: {}", e))
-                })?;
-            webview
-                .set_size(Size::Logical(tauri::LogicalSize::new(width, height)))
-                .map_err(|e| {
-                    CommandError::infrastructure(format!("Failed to set webview size: {}", e))
-                })?;
-            log::info!("📐 Repositioned embedded webview");
+        // Track this webview
+        {
+            let mut active = embedded_state.active_webviews.lock().unwrap();
+            active.insert(service_id.clone(), webview_label.clone());
         }
+
+        log::info!("✅ Webview created for: {}", service_id);
     }
+
+    // Update visible service
+    *embedded_state.visible_service_id.lock().unwrap() = Some(service_id);
 
     Ok(true)
 }
 
-/// Hide/remove the embedded AI chat webview
+/// Hide the currently visible embedded AI chat webview (move off-screen)
 #[tauri::command]
 #[specta::specta]
 pub async fn hide_embedded_ai_chat(
@@ -431,38 +453,108 @@ pub async fn hide_embedded_ai_chat(
 ) -> Result<bool, CommandError> {
     log::info!("🙈 hide_embedded_ai_chat called");
 
-    if let Some(webview) = app.get_webview(EMBEDDED_WEBVIEW_LABEL) {
-        webview.close().map_err(|e| {
-            CommandError::infrastructure(format!("Failed to close embedded webview: {}", e))
-        })?;
-        log::info!("✅ Embedded webview hidden");
+    let visible_id = embedded_state.visible_service_id.lock().unwrap().clone();
+    if let Some(ref vid) = visible_id {
+        let label = webview_label_for_service(vid);
+        if let Some(webview) = app.get_webview(&label) {
+            // Move off-screen to hide
+            let _ = webview.set_position(Position::Logical(tauri::LogicalPosition::new(-10000.0, -10000.0)));
+            log::info!("✅ Webview hidden for: {}", vid);
+        }
     }
 
-    // Clear state
-    *embedded_state.current_service_id.lock().unwrap() = None;
+    // Clear visible state
+    *embedded_state.visible_service_id.lock().unwrap() = None;
 
     Ok(true)
 }
 
-/// Refresh the embedded AI chat webview
+/// Close and remove a specific embedded AI chat webview (when tab is closed)
+#[tauri::command]
+#[specta::specta]
+pub async fn close_embedded_ai_chat(
+    app: AppHandle,
+    embedded_state: State<'_, EmbeddedAiChatState>,
+    service_id: String,
+) -> Result<bool, CommandError> {
+    log::info!("🗑️ close_embedded_ai_chat called for: {}", service_id);
+
+    let label = webview_label_for_service(&service_id);
+    if let Some(webview) = app.get_webview(&label) {
+        webview.close().map_err(|e| {
+            CommandError::infrastructure(format!("Failed to close webview: {}", e))
+        })?;
+        log::info!("✅ Webview closed for: {}", service_id);
+    }
+
+    // Remove from tracking
+    {
+        let mut active = embedded_state.active_webviews.lock().unwrap();
+        active.remove(&service_id);
+    }
+
+    // Clear visible if this was visible
+    {
+        let mut visible = embedded_state.visible_service_id.lock().unwrap();
+        if visible.as_ref() == Some(&service_id) {
+            *visible = None;
+        }
+    }
+
+    Ok(true)
+}
+
+/// Close all embedded AI chat webviews (when navigating away from AI Chat page)
+#[tauri::command]
+#[specta::specta]
+pub async fn close_all_embedded_ai_chats(
+    app: AppHandle,
+    embedded_state: State<'_, EmbeddedAiChatState>,
+) -> Result<bool, CommandError> {
+    log::info!("🗑️ close_all_embedded_ai_chats called");
+
+    let active_webviews: Vec<(String, String)> = {
+        let active = embedded_state.active_webviews.lock().unwrap();
+        active.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    };
+
+    for (service_id, label) in active_webviews {
+        if let Some(webview) = app.get_webview(&label) {
+            let _ = webview.close();
+            log::info!("✅ Closed webview for: {}", service_id);
+        }
+    }
+
+    // Clear all state
+    embedded_state.active_webviews.lock().unwrap().clear();
+    *embedded_state.visible_service_id.lock().unwrap() = None;
+
+    Ok(true)
+}
+
+/// Refresh the currently visible embedded AI chat webview
 #[tauri::command]
 #[specta::specta]
 pub async fn refresh_embedded_ai_chat(
     app: AppHandle,
+    embedded_state: State<'_, EmbeddedAiChatState>,
 ) -> Result<bool, CommandError> {
     log::info!("🔄 refresh_embedded_ai_chat called");
 
-    if let Some(webview) = app.get_webview(EMBEDDED_WEBVIEW_LABEL) {
-        // Evaluate JS to reload the page
-        webview
-            .eval("location.reload()")
-            .map_err(|e| {
-                CommandError::infrastructure(format!("Failed to refresh webview: {}", e))
-            })?;
-        log::info!("✅ Embedded webview refreshed");
-        return Ok(true);
+    let visible_id = embedded_state.visible_service_id.lock().unwrap().clone();
+    if let Some(ref vid) = visible_id {
+        let label = webview_label_for_service(vid);
+        if let Some(webview) = app.get_webview(&label) {
+            webview
+                .eval("location.reload()")
+                .map_err(|e| {
+                    CommandError::infrastructure(format!("Failed to refresh webview: {}", e))
+                })?;
+            log::info!("✅ Webview refreshed for: {}", vid);
+            return Ok(true);
+        }
     }
 
-    log::warn!("⚠️ No embedded webview to refresh");
+    log::warn!("⚠️ No visible webview to refresh");
     Ok(false)
 }

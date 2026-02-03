@@ -102,6 +102,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             // AI Chat Embedded WebView commands
             show_embedded_ai_chat,
             hide_embedded_ai_chat,
+            close_embedded_ai_chat,
+            close_all_embedded_ai_chats,
             refresh_embedded_ai_chat,
         ])
         .events(collect_events![
