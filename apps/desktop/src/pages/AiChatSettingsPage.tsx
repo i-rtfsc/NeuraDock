@@ -147,7 +147,7 @@ interface ServiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   service?: AiChatServiceDto | null;
-  onSave: (name: string, url: string, icon: string | null) => void;
+  onSave: (name: string, url: string) => void;
   isLoading: boolean;
 }
 
@@ -155,21 +155,19 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
   const { t } = useTranslation();
   const [name, setName] = useState(service?.name || '');
   const [url, setUrl] = useState(service?.url || '');
-  const [icon, setIcon] = useState(service?.icon || '');
 
   // Reset form when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setName(service?.name || '');
       setUrl(service?.url || '');
-      setIcon(service?.icon || '');
     }
     onOpenChange(newOpen);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(name.trim(), url.trim(), icon.trim() || null);
+    onSave(name.trim(), url.trim());
   };
 
   const isValid = name.trim().length > 0 && url.trim().length > 0 && (url.startsWith('http://') || url.startsWith('https://'));
@@ -204,16 +202,6 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
               onChange={(e) => setUrl(e.target.value)}
               placeholder={t('aiChat.serviceUrlPlaceholder')}
               type="url"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="icon">{t('aiChat.serviceIcon')}</Label>
-            <Input
-              id="icon"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder={t('aiChat.serviceIconPlaceholder')}
             />
           </div>
 
@@ -252,10 +240,10 @@ export function AiChatSettingsPage() {
   const builtinServices = services.filter((s) => s.is_builtin);
   const customServices = services.filter((s) => !s.is_builtin);
 
-  const handleCreateOrUpdate = (name: string, url: string, icon: string | null) => {
+  const handleCreateOrUpdate = (name: string, url: string) => {
     if (editingService) {
       updateService.mutate(
-        { id: editingService.id, name, url, icon },
+        { id: editingService.id, name, url, icon: null },
         {
           onSuccess: () => {
             setDialogOpen(false);
@@ -265,7 +253,7 @@ export function AiChatSettingsPage() {
       );
     } else {
       createService.mutate(
-        { name, url, icon },
+        { name, url, icon: null },
         {
           onSuccess: () => {
             setDialogOpen(false);

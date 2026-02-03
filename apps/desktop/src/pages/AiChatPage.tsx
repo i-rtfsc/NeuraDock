@@ -10,7 +10,6 @@ import {
   AiChatServiceDto,
 } from '@/hooks/useAiChatServices';
 import { useAiChatStore } from '@/hooks/useAiChatStore';
-import { AiServiceIcon } from '@/components/ai-chat/AiServiceIcon';
 import { invoke } from '@tauri-apps/api/core';
 import {
   DropdownMenu,
@@ -42,7 +41,6 @@ function Tab({ service, isActive, onClick, onClose }: TabProps) {
       )}
       onClick={onClick}
     >
-      <AiServiceIcon icon={service.icon} size="sm" />
       <span className="text-sm font-medium truncate flex-1">{service.name}</span>
       <button
         onClick={(e) => {
@@ -236,7 +234,6 @@ export function AiChatPage() {
                   onClick={() => handleOpenService(service)}
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <AiServiceIcon icon={service.icon} size="sm" />
                   <span className="truncate">{service.name}</span>
                 </DropdownMenuItem>
               ))}
@@ -312,7 +309,6 @@ export function AiChatPage() {
                   onClick={() => handleOpenService(service)}
                   className="gap-2"
                 >
-                  <AiServiceIcon icon={service.icon} size="sm" />
                   {service.name}
                 </Button>
               ))}
