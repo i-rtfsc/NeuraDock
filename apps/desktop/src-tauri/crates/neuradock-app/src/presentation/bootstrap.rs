@@ -10,8 +10,8 @@ use crate::application::queries::BalanceStatisticsQueryService;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::{
     AutoCheckInScheduler, BalanceHistoryService, BalanceService, ClaudeConfigService,
-    CodexConfigService, ConfigService, NotificationService, ProviderModelsQueryService,
-    ProviderModelsService, ProxyConfigService, TokenService,
+    CodexConfigService, ConfigService, NotificationService, OrphanAccountRepairService,
+    ProviderModelsQueryService, ProviderModelsService, ProxyConfigService, TokenService,
 };
 use crate::presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use neuradock_domain::account::AccountRepository;
@@ -27,8 +27,8 @@ use neuradock_domain::proxy_config::ProxyConfigRepository;
 use neuradock_domain::session::SessionRepository;
 use neuradock_domain::token::TokenRepository;
 use neuradock_domain::waf_cookies::WafCookiesRepository;
-use neuradock_infrastructure::bootstrap::seed_builtin_providers;
 use neuradock_infrastructure::bootstrap::seed_builtin_ai_chats;
+use neuradock_infrastructure::bootstrap::seed_builtin_providers;
 use neuradock_infrastructure::events::InMemoryEventBus;
 use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::persistence::{
@@ -153,12 +153,31 @@ pub async fn build_app_state(
         provider_models_repo.clone(),
         waf_cookies_repo.clone(),
     )
-        .await
-        .map_err(|e| format!("Failed to seed built-in providers: {}", e))?;
+    .await
+    .map_err(|e| format!("Failed to seed built-in providers: {}", e))?;
     info!(
         "✓ Built-in providers seeded ({}ms)",
         started_at.elapsed().as_millis()
     );
+
+    info!("🧹 Repairing orphaned accounts...");
+    let started_at = Instant::now();
+    let orphan_repair_service = OrphanAccountRepairService::new(
+        account_repo.clone(),
+        provider_repo.clone(),
+        custom_node_repo.clone(),
+        provider_models_repo.clone(),
+        waf_cookies_repo.clone(),
+        proxy_config_repo.clone(),
+    );
+    match orphan_repair_service.repair_orphaned_accounts().await {
+        Ok(count) => info!(
+            "✓ Orphaned account repair complete ({}ms, {} fixed)",
+            started_at.elapsed().as_millis(),
+            count
+        ),
+        Err(e) => warn!("⚠️  Failed to repair orphaned accounts: {}", e),
+    }
 
     info!("🌱 Seeding built-in AI chat services...");
     let started_at = Instant::now();
@@ -354,7 +373,10 @@ pub async fn build_app_state(
         )),
         create_provider: Arc::new(CreateProviderCommandHandler::new(provider_repo.clone())),
         update_provider: Arc::new(UpdateProviderCommandHandler::new(provider_repo.clone())),
-        delete_provider: Arc::new(DeleteProviderCommandHandler::new(provider_repo.clone())),
+        delete_provider: Arc::new(DeleteProviderCommandHandler::new(
+            provider_repo.clone(),
+            account_repo.clone(),
+        )),
     };
     info!("✓ Command handlers initialized");
 

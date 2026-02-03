@@ -24,6 +24,7 @@ struct BuiltinProviderConfig {
     name: String,
     domain: String,
     default_nodes: Option<Vec<BuiltinProviderNodeConfig>>,
+    legacy_ids: Option<Vec<String>>,
     login_path: String,
     sign_in_path: Option<String>,
     user_info_path: String,
@@ -40,6 +41,10 @@ fn builtin_provider_configs() -> Result<Vec<BuiltinProviderConfig>, DomainError>
     serde_json::from_str(RAW_CONFIG).map_err(|e| {
         DomainError::Deserialization(format!("Failed to parse builtin providers: {e}"))
     })
+}
+
+fn normalize_domain(domain: &str) -> String {
+    domain.trim_end_matches('/').to_lowercase()
 }
 
 #[derive(Debug, Clone)]
@@ -159,21 +164,73 @@ pub async fn seed_builtin_providers(
 
     let existing = provider_repo.find_all().await?;
 
-    // Delete providers that have the same name as a built-in but a different ID
-    // (e.g. from a prior version that used UUIDs)
-    let builtin_by_name: HashMap<&str, &str> = configs
-        .iter()
-        .map(|c| (c.name.as_str(), c.id.as_str()))
-        .collect();
+    // Delete providers that match a built-in (name or domain) but have a different ID
+    // (e.g. from a prior version that used UUIDs or case differences)
+    let mut builtin_by_name: HashMap<String, &BuiltinProviderConfig> = HashMap::new();
+    let mut builtin_name_dupes: HashSet<String> = HashSet::new();
+    let mut builtin_by_domain: HashMap<String, &BuiltinProviderConfig> = HashMap::new();
+    let mut builtin_domain_dupes: HashSet<String> = HashSet::new();
+
+    for config in &configs {
+        let name_key = config.name.to_lowercase();
+        if builtin_by_name.contains_key(&name_key) {
+            builtin_name_dupes.insert(name_key.clone());
+        }
+        builtin_by_name.entry(name_key).or_insert(config);
+
+        let domain_key = normalize_domain(&config.domain);
+        if builtin_by_domain.contains_key(&domain_key) {
+            builtin_domain_dupes.insert(domain_key.clone());
+        }
+        builtin_by_domain.entry(domain_key).or_insert(config);
+    }
+
     let mut stale_mappings = Vec::new();
     for provider in &existing {
-        if let Some(&expected_id) = builtin_by_name.get(provider.name()) {
+        let name_key = provider.name().to_lowercase();
+        let domain_key = normalize_domain(provider.domain());
+        let mut expected_id: Option<&str> = None;
+
+        if !builtin_name_dupes.contains(&name_key) {
+            if let Some(config) = builtin_by_name.get(&name_key) {
+                expected_id = Some(config.id.as_str());
+            }
+        }
+
+        if expected_id.is_none() && !builtin_domain_dupes.contains(&domain_key) {
+            if let Some(config) = builtin_by_domain.get(&domain_key) {
+                expected_id = Some(config.id.as_str());
+            }
+        }
+
+        if let Some(expected_id) = expected_id {
             if provider.id().as_str() != expected_id {
                 stale_mappings.push(StaleProviderMapping {
                     name: provider.name().to_string(),
                     old_id: provider.id().clone(),
                     new_id: ProviderId::from_string(expected_id),
                 });
+            }
+        }
+    }
+
+    let mut mapped_old_ids: HashSet<String> = stale_mappings
+        .iter()
+        .map(|mapping| mapping.old_id.as_str().to_string())
+        .collect();
+    for config in &configs {
+        if let Some(legacy_ids) = &config.legacy_ids {
+            for legacy_id in legacy_ids {
+                if legacy_id == &config.id {
+                    continue;
+                }
+                if mapped_old_ids.insert(legacy_id.clone()) {
+                    stale_mappings.push(StaleProviderMapping {
+                        name: config.name.clone(),
+                        old_id: ProviderId::from_string(legacy_id),
+                        new_id: ProviderId::from_string(&config.id),
+                    });
+                }
             }
         }
     }

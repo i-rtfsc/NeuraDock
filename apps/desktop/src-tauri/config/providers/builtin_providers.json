@@ -55,6 +55,9 @@
     "id": "wong",
     "name": "Wong",
     "domain": "https://wzw.pp.ua",
+    "legacy_ids": [
+      "3f1a0f8a-0831-466b-b47c-57f721c60c43"
+    ],
     "login_path": "/login",
     "sign_in_path": "/api/user/checkin",
     "user_info_path": "/api/user/self",
@@ -69,6 +72,9 @@
     "id": "icat",
     "name": "ICat",
     "domain": "https://icat.pp.ua",
+    "legacy_ids": [
+      "b07b830d-1ba7-4274-8772-500993dcc6f0"
+    ],
     "login_path": "/login",
     "sign_in_path": "/api/user/checkin",
     "user_info_path": "/api/user/self",

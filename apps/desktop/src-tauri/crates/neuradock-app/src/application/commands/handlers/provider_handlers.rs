@@ -181,11 +181,18 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
 /// Delete provider command handler
 pub struct DeleteProviderCommandHandler {
     provider_repo: Arc<dyn ProviderRepository>,
+    account_repo: Arc<dyn neuradock_domain::account::AccountRepository>,
 }
 
 impl DeleteProviderCommandHandler {
-    pub fn new(provider_repo: Arc<dyn ProviderRepository>) -> Self {
-        Self { provider_repo }
+    pub fn new(
+        provider_repo: Arc<dyn ProviderRepository>,
+        account_repo: Arc<dyn neuradock_domain::account::AccountRepository>,
+    ) -> Self {
+        Self {
+            provider_repo,
+            account_repo,
+        }
     }
 }
 
@@ -201,7 +208,29 @@ impl CommandHandler<DeleteProviderCommand> for DeleteProviderCommandHandler {
 
         let provider_id = neuradock_domain::shared::ProviderId::from_string(&cmd.provider_id);
 
-        // Delete will fail if provider is builtin (checked in repository)
+        let existing = self
+            .provider_repo
+            .find_by_id(&provider_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Provider not found".to_string()))?;
+
+        if existing.is_builtin() {
+            return Err(DomainError::Validation(
+                "Built-in providers cannot be deleted".to_string(),
+            ));
+        }
+
+        let accounts = self.account_repo.find_all().await?;
+        if accounts
+            .iter()
+            .any(|account| account.provider_id().as_str() == provider_id.as_str())
+        {
+            return Err(DomainError::Validation(
+                "Cannot delete provider with linked accounts".to_string(),
+            ));
+        }
+
+        // Delete will fail if provider is builtin (checked in handler)
         self.provider_repo.delete(&provider_id).await?;
 
         info!("Provider deleted successfully: {}", cmd.provider_id);
