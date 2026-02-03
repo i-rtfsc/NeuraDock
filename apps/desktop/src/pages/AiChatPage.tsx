@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings, Plus, X, RefreshCw, ExternalLink, AppWindow } from 'lucide-react';
+import { Settings, Plus, X, RefreshCw, ExternalLink, AppWindow, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { LoadingState } from '@/components/ui/loading';
@@ -22,6 +22,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useTheme } from '@/hooks/useTheme';
 
 interface TabProps {
   service: AiChatServiceDto;
@@ -60,6 +62,7 @@ export function AiChatPage() {
   const navigate = useNavigate();
   const { data: enabledServices = [], isLoading } = useEnabledAiChatServices();
   const { openTabs, activeTabId, openTab, closeTab, setActiveTab, maxCachedWebviews } = useAiChatStore();
+  const { theme, setTheme } = useTheme();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
@@ -280,6 +283,23 @@ export function AiChatPage() {
               </DropdownMenu>
             </>
           )}
+          {activeService && <div className="w-px h-6 bg-border shrink-0 mx-1" />}
+          <LanguageSwitcher onOpenChange={setIsDropdownOpen} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="h-8 w-8"
+                title={t('settings.theme')}
+              >
+                {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('settings.theme')}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

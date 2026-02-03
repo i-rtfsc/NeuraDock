@@ -26,6 +26,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = window.document.documentElement;
 
+    const syncTauriTheme = async (theme: Theme) => {
+      try {
+        const [{ getAllWindows }, appModule] = await Promise.all([
+          import('@tauri-apps/api/window'),
+          import('@tauri-apps/api/app'),
+        ]);
+        const tauriTheme = theme === 'system' ? null : theme;
+        await appModule.setTheme(tauriTheme);
+        const windows = await getAllWindows();
+        await Promise.all(windows.map((win) => win.setTheme(tauriTheme)));
+      } catch (error) {
+        // Ignore in non-Tauri environments (tests, web previews).
+        console.warn('[theme] Failed to sync window theme', error);
+      }
+    };
+
     const applyTheme = (theme: Theme) => {
       root.classList.remove('light', 'dark');
 
@@ -41,6 +57,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
 
     applyTheme(theme);
+    void syncTauriTheme(theme);
 
     // Listen for system theme changes when theme is 'system'
     if (theme === 'system') {
@@ -49,6 +66,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
         root.classList.remove('light', 'dark');
         root.classList.add(e.matches ? 'dark' : 'light');
+        void syncTauriTheme('system');
       };
 
       // Modern browsers

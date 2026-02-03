@@ -13,7 +13,11 @@ const languages = [
   { code: 'en-US', label: 'English' },
 ];
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function LanguageSwitcher({ onOpenChange }: LanguageSwitcherProps) {
   const { i18n, t } = useTranslation();
 
   const changeLanguage = (lng: string) => {
@@ -22,7 +26,7 @@ export function LanguageSwitcher() {
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" title={t('settings.language')}>
           <Languages className="h-5 w-5" />
