@@ -53,12 +53,18 @@ export function AccountOverviewPage() {
   const [dayDetailDialogOpen, setDayDetailDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
 
+  // Token refresh state
+  const [tokensRefreshing, setTokensRefreshing] = useState(false);
+  const tokensRefreshingRef = React.useRef(false);
+
   // Calendar state
   const now = new Date();
   const [calendarDate, setCalendarDate] = React.useState({
     year: now.getFullYear(),
     month: now.getMonth() + 1,
   });
+
+  const autoRefreshedAccountIdRef = React.useRef<string | null>(null);
 
   // Fetch account details
   const { data: account, isLoading } = useQuery<Account>({
@@ -83,6 +89,38 @@ export function AccountOverviewPage() {
     enabled: !!accountId,
   });
 
+  const refreshTokens = React.useCallback(
+    async (showToast: boolean) => {
+      if (!accountId || tokensRefreshingRef.current) return;
+      tokensRefreshingRef.current = true;
+      setTokensRefreshing(true);
+      try {
+        const data = await invoke<TokenDto[]>('fetch_account_tokens', {
+          accountId,
+          forceRefresh: true,
+        });
+        queryClient.setQueryData(['tokens', accountId], data);
+        if (showToast) {
+          toast.success(t('token.refreshSuccess', 'API keys refreshed successfully'));
+        }
+      } catch (error) {
+        const message = error instanceof Error && error.message ? `: ${error.message}` : '';
+        toast.error(`${t('token.refreshError', 'Failed to refresh API keys')}${message}`);
+      } finally {
+        tokensRefreshingRef.current = false;
+        setTokensRefreshing(false);
+      }
+    },
+    [accountId, queryClient, t]
+  );
+
+  React.useEffect(() => {
+    if (!accountId) return;
+    if (autoRefreshedAccountIdRef.current === accountId) return;
+    autoRefreshedAccountIdRef.current = accountId;
+    refreshTokens(false);
+  }, [accountId, refreshTokens]);
+
   // Fetch check-in calendar and trend
   const { data: calendar } = useCheckInCalendar(
     accountId ?? '',
@@ -93,6 +131,8 @@ export function AccountOverviewPage() {
   const { data: trend } = useCheckInTrend(accountId ?? '', 30, !!accountId);
   const { data: streak } = useCheckInStreak(accountId ?? '', !!accountId);
   const { data: dayDetail } = useCheckInDayDetail(accountId ?? '', selectedDate, dayDetailDialogOpen && !!selectedDate);
+
+  const showTokensLoading = tokensLoading || (tokensRefreshing && tokens.length === 0);
 
   // Refresh balance mutation
   const refreshBalanceMutation = useMutation({
@@ -239,16 +279,28 @@ export function AccountOverviewPage() {
       >
         {/* API Key Configuration */}
         <Card className={cn("p-6", cardClass)}>
-          <div className="mb-6">
+          <div className="mb-6 flex items-start justify-between gap-4">
             <h2 className="text-xl font-bold flex items-center gap-2 tracking-tight">
               <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <KeyRound className="h-5 w-5" />
               </div>
               {t('accountOverview.apiKeyConfig', 'API Key Configuration')}
             </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshTokens(true)}
+              disabled={tokensRefreshing || !accountId}
+              className="shadow-sm"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", tokensRefreshing && "animate-spin")} />
+              {tokensRefreshing
+                ? t('token.refreshing', 'Refreshing...')
+                : t('token.refreshTokens', 'Refresh API Keys')}
+            </Button>
           </div>
 
-          {tokensLoading ? (
+          {showTokensLoading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -256,7 +308,9 @@ export function AccountOverviewPage() {
             <div className="text-center py-12">
               <KeyRound className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-lg font-medium mb-2">{t('token.noTokens')}</p>
-              <p className="text-sm text-muted-foreground">{t('accountOverview.tokenHint', 'Tokens will be fetched automatically after balance refresh')}</p>
+              <p className="text-sm text-muted-foreground">
+                {t('accountOverview.tokenHint', 'API keys are refreshed automatically when you open this page. You can also refresh manually.')}
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

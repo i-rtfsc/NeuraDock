@@ -120,7 +120,7 @@
   },
   "accountOverview": {
     "apiKeyConfig": "API Key 配置",
-    "tokenHint": "点击刷新余额后将自动获取 Token",
+    "tokenHint": "进入页面会自动刷新一次 API Key，也可以手动点击刷新按钮。",
     "accountStatistics": "账号统计",
     "checkInStatistics": "签到统计",
     "checkInTrends": "签到走势",

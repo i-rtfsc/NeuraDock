@@ -120,7 +120,7 @@
   },
   "accountOverview": {
     "apiKeyConfig": "API Key Configuration",
-    "tokenHint": "Tokens will be fetched automatically after balance refresh",
+    "tokenHint": "API keys refresh automatically when you open this page. You can also refresh manually.",
     "accountStatistics": "Account Statistics",
     "checkInStatistics": "Check-in Statistics",
     "checkInTrends": "Check-in Trends",
