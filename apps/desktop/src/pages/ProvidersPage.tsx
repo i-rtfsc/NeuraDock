@@ -13,6 +13,7 @@ import { ProviderNodesDialog } from '@/components/provider/ProviderNodesDialog';
 import { HeaderActions, HeaderActionsSeparator } from '@/components/layout/HeaderActions';
 import type { ProviderDto } from '@/hooks/useProviders';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 export function ProvidersPage() {
   const { t } = useTranslation();
@@ -31,7 +32,10 @@ export function ProvidersPage() {
     deleteMutation,
   } = useProviderActions();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = usePersistedState<string>(
+    'neuradock.providers.searchQuery',
+    ''
+  );
   const [nodesDialogOpen, setNodesDialogOpen] = useState(false);
   const [nodesProvider, setNodesProvider] = useState<ProviderDto | null>(null);
   const [pendingOpenProviderId, setPendingOpenProviderId] = useState<string | null>(null);

@@ -56,6 +56,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { HeaderActions } from '@/components/layout/HeaderActions';
 import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 type ProviderFilter = 'all' | 'openai' | 'anthropic' | 'custom';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -64,9 +65,18 @@ export function TokensPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [searchQuery, setSearchQuery] = usePersistedState<string>(
+    'neuradock.tokens.searchQuery',
+    ''
+  );
+  const [providerFilter, setProviderFilter] = usePersistedState<ProviderFilter>(
+    'neuradock.tokens.providerFilter',
+    'all'
+  );
+  const [statusFilter, setStatusFilter] = usePersistedState<StatusFilter>(
+    'neuradock.tokens.statusFilter',
+    'all'
+  );
 
   // Independent Key Dialog
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);

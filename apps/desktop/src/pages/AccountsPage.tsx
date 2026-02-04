@@ -54,6 +54,7 @@ import { Account } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
 import { useCheckIn, useBatchCheckIn } from '@/hooks/useCheckIn';
 import { useRefreshAccountBalance, useRefreshAllBalances } from '@/hooks/useBalance';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 export function AccountsPage() {
   const { t } = useTranslation();
@@ -84,12 +85,21 @@ export function AccountsPage() {
   const toggleMutation = useToggleAccount();
   const deleteMutation = useDeleteAccount();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [providerFilter, setProviderFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = usePersistedState<string>(
+    'neuradock.accounts.searchQuery',
+    ''
+  );
+  const [providerFilter, setProviderFilter] = usePersistedState<string>(
+    'neuradock.accounts.providerFilter',
+    'all'
+  );
   const [jsonImportDialogOpen, setJsonImportDialogOpen] = useState(false);
   const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false);
   const [checkingInIds, setCheckingInIds] = useState<Set<string>>(new Set());
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Account; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = usePersistedState<{
+    key: keyof Account;
+    direction: 'asc' | 'desc';
+  } | null>('neuradock.accounts.sortConfig', null);
 
   // Get unique providers from accounts
   const allProviders = useMemo(() => {
