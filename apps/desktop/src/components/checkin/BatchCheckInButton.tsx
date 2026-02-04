@@ -83,14 +83,14 @@ export function BatchCheckInButton({
                   <p className="text-2xl font-bold">{result.total}</p>
                   <p className="text-xs text-muted-foreground">{t('checkIn.total')}</p>
                 </div>
-                <div className="rounded-lg border border-green-500/50 bg-green-500/10 p-4 text-center">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="rounded-lg border border-success-border bg-success-soft p-4 text-center">
+                  <p className="text-2xl font-bold text-success">
                     {result.succeeded}
                   </p>
                   <p className="text-xs text-muted-foreground">{t('checkIn.succeeded')}</p>
                 </div>
-                <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-center">
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                <div className="rounded-lg border border-danger-border bg-danger-soft p-4 text-center">
+                  <p className="text-2xl font-bold text-danger">
                     {result.failed}
                   </p>
                   <p className="text-xs text-muted-foreground">{t('checkIn.failedCount')}</p>
@@ -106,8 +106,8 @@ export function BatchCheckInButton({
                       key={item.account_id}
                       className={`rounded-md border p-3 ${
                         item.success
-                          ? 'border-green-500/50 bg-green-500/5'
-                          : 'border-red-500/50 bg-red-500/5'
+                          ? 'border-success-border bg-success-soft/60'
+                          : 'border-danger-border bg-danger-soft/60'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -122,7 +122,7 @@ export function BatchCheckInButton({
                           </div>
 
                           {item.error && (
-                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                            <p className="text-xs text-danger mt-1">
                               {item.error}
                             </p>
                           )}
@@ -131,7 +131,7 @@ export function BatchCheckInButton({
                             <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                               <span>{t('dashboard.current_balance')}: ${item.balance.current_balance.toFixed(2)}</span>
                               <span>{t('dashboard.consumed')}: ${item.balance.total_consumed.toFixed(2)}</span>
-                              <span className="text-green-600 dark:text-green-400">
+                              <span className="text-success">
                                 {t('dashboard.total_quota')}: ${item.balance.total_quota.toFixed(2)}
                               </span>
                             </div>

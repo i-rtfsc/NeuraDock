@@ -195,7 +195,7 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(false)}>
-      <DialogContent className="sm:max-w-[500px] rounded-2xl">
+      <DialogContent className="sm:max-w-[500px] rounded-[var(--radius-popover)]">
         <DialogHeader>
           <DialogTitle>{channel ? t('notification.dialog.editTitle') : t('notification.dialog.createTitle')}</DialogTitle>
           <DialogDescription>
@@ -267,7 +267,7 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
                   disabled
                 />
               </div>
-              <p className="text-xs text-yellow-600">
+              <p className="text-xs text-warning">
                 {t('notification.dialog.dingtalkComingSoon')}
               </p>
             </>
@@ -351,7 +351,7 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
                 />
               </div>
 
-              <p className="text-xs text-yellow-600">
+              <p className="text-xs text-warning">
                 {t('notification.dialog.emailComingSoon')}
               </p>
             </>

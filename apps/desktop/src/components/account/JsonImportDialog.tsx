@@ -251,7 +251,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
             <textarea
               id="json-input"
               rows={12}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+              className="w-full rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--control-bg))] px-3 py-2 text-sm text-[hsl(var(--control-text))] ring-offset-background placeholder:text-[hsl(var(--control-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--control-ring))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
               placeholder={t('jsonImport.placeholder')}
               value={jsonInput}
               onChange={(e) => {
@@ -267,15 +267,15 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
             <div
               className={`rounded-lg border p-4 space-y-3 ${
                 validationResult.valid
-                  ? 'border-green-500/50 bg-green-500/10'
-                  : 'border-red-500/50 bg-red-500/10'
+                  ? 'border-success-border bg-success-soft'
+                  : 'border-danger-border bg-danger-soft'
               }`}
             >
               <div className="flex items-center gap-2">
                 {validationResult.valid ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="h-5 w-5 text-success" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <AlertCircle className="h-5 w-5 text-danger" />
                 )}
                 <span className="font-medium">
                   {validationResult.valid ? t('jsonImport.validJson') : t('jsonImport.invalidJson')}
@@ -289,7 +289,7 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
               </div>
 
               {validationResult.error && (
-                <p className="text-sm text-red-500">{validationResult.error}</p>
+                <p className="text-sm text-danger">{validationResult.error}</p>
               )}
 
               {validationResult.accounts && validationResult.accounts.length > 0 && (
@@ -302,9 +302,9 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
                         className="flex items-center gap-2 text-sm p-2 rounded bg-background/50"
                       >
                         {account.valid ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          <CheckCircle2 className="h-4 w-4 text-success" />
                         ) : (
-                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <AlertCircle className="h-4 w-4 text-danger" />
                         )}
                         <span>{account.name}</span>
                         <Badge variant="outline" className="text-xs">

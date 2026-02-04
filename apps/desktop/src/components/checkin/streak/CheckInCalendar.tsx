@@ -125,9 +125,9 @@ export function CheckInCalendar({
               'hover:bg-accent hover:text-accent-foreground',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               dayData?.is_checked_in
-                ? 'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700'
+                ? 'bg-success text-success-foreground hover:bg-success/90'
                 : 'bg-muted text-muted-foreground',
-              today && 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-background'
+              today && 'ring-2 ring-primary ring-offset-1 dark:ring-offset-background'
             )}
             disabled={!dayData}
           >
@@ -141,7 +141,7 @@ export function CheckInCalendar({
   const legend = (
     <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
       <div className="flex items-center gap-1">
-        <div className="w-4 h-4 rounded bg-green-500 dark:bg-green-600" />
+        <div className="w-4 h-4 rounded bg-success" />
         <span>{t('streaks.legendChecked')}</span>
       </div>
       <div className="flex items-center gap-1">
@@ -149,7 +149,7 @@ export function CheckInCalendar({
         <span>{t('streaks.legendUnchecked')}</span>
       </div>
       <div className="flex items-center gap-1">
-        <div className="w-4 h-4 rounded border-2 border-blue-500" />
+        <div className="w-4 h-4 rounded border-2 border-primary" />
         <span>{t('streaks.legendToday')}</span>
       </div>
     </div>

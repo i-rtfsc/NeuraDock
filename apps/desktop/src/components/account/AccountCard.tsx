@@ -82,7 +82,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       className="h-full group"
     >
       <Card 
-        className={`relative h-full transition-all duration-slow ease-smooth rounded-xl border-border/40 bg-card/50 backdrop-blur-sm cursor-pointer ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}
+        className={`relative h-full transition-all duration-slow ease-smooth rounded-xl border-border/40 bg-card/50 backdrop-blur-sm cursor-pointer interactive-scale ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}
         onClick={handleCardClick}
       >
         <div className="p-4 flex flex-col h-full gap-4">
@@ -96,7 +96,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth" />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className={cn("flex h-2 w-2 rounded-full", account.enabled ? "bg-green-500" : "bg-muted-foreground")} />
+                <span className={cn("flex h-2 w-2 rounded-full", account.enabled ? "bg-success" : "bg-muted-foreground")} />
                 <span className="truncate opacity-80">{account.provider_name}</span>
               </div>
             </div>
@@ -182,7 +182,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
 
         {/* Delete Confirm Overlay */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm rounded-2xl flex items-center justify-center p-4 z-10">
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm rounded-[var(--radius-card)] flex items-center justify-center p-4 z-10">
             <div className="text-center space-y-3 w-full">
               <div>
                 <h4 className="font-semibold text-sm">{t('accountCard.deleteConfirm')}</h4>

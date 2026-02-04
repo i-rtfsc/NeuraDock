@@ -113,11 +113,11 @@ export function AccountDrawer({
       if (daysUntilExpiry !== null && daysUntilExpiry < 0) {
         return <AlertCircle className="h-5 w-5 text-destructive" />;
       } else if (daysUntilExpiry !== null && daysUntilExpiry < 3) {
-        return <AlertCircle className="h-5 w-5 text-orange-500" />;
+        return <AlertCircle className="h-5 w-5 text-warning" />;
       }
     }
 
-    return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+    return <CheckCircle2 className="h-5 w-5 text-success" />;
   };
 
   const getStatusText = () => {
@@ -214,9 +214,9 @@ export function AccountDrawer({
 
               {/* Balance Statistics */}
               <div className="grid grid-cols-3 gap-3">
-                <Card className="p-4 border-border/50 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
+                <Card className="p-4 border-border/50 bg-gradient-to-br from-success-soft to-transparent">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <Wallet className="h-4 w-4 text-success" />
                     <span className="text-xs font-medium">{t('accountCard.currentBalance')}</span>
                   </div>
                   <p className="text-xl font-bold font-mono">
@@ -224,9 +224,9 @@ export function AccountDrawer({
                   </p>
                 </Card>
 
-                <Card className="p-4 border-border/50 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
+                <Card className="p-4 border-border/50 bg-gradient-to-br from-info-soft to-transparent">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <TrendingUp className="h-4 w-4 text-info" />
                     <span className="text-xs font-medium">{t('accountCard.totalQuota')}</span>
                   </div>
                   <p className="text-xl font-bold font-mono">
@@ -234,9 +234,9 @@ export function AccountDrawer({
                   </p>
                 </Card>
 
-                <Card className="p-4 border-border/50 bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
+                <Card className="p-4 border-border/50 bg-gradient-to-br from-warning-soft to-transparent">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <History className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                    <History className="h-4 w-4 text-warning" />
                     <span className="text-xs font-medium">{t('accountCard.historicalConsumption')}</span>
                   </div>
                   <p className="text-xl font-bold font-mono">

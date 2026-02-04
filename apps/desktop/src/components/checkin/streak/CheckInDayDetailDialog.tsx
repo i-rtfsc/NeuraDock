@@ -47,7 +47,7 @@ export function CheckInDayDetailDialog({
           <Card className="p-4 flex items-center justify-between shadow-sm border-border/50">
             <span className="text-sm font-medium text-muted-foreground">{t('streaks.checkInStatus')}</span>
             {dayData.is_checked_in ? (
-              <Badge className="bg-green-500 hover:bg-green-600">
+              <Badge className="bg-success text-success-foreground hover:bg-success/90">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 {t('streaks.checkedIn')}
               </Badge>
@@ -70,7 +70,7 @@ export function CheckInDayDetailDialog({
                 <div className="flex items-center gap-2">
                   <span className="font-medium">${dayData.total_quota.toFixed(2)}</span>
                   {dayData.income_increment !== null && dayData.income_increment > 0 && (
-                    <span className="text-xs text-green-600 dark:text-green-400 flex items-center bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-success flex items-center bg-success-soft px-1.5 py-0.5 rounded">
                       <TrendingUp className="w-3 h-3 mr-0.5" />
                       +${dayData.income_increment.toFixed(2)}
                     </span>
@@ -85,7 +85,7 @@ export function CheckInDayDetailDialog({
 
               <div className="flex justify-between items-center pt-2 border-t border-border/50">
                 <span className="text-sm font-medium">{t('streaks.currentBalance')}</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">
+                <span className="font-bold text-info">
                   ${dayData.current_balance.toFixed(2)}
                 </span>
               </div>
@@ -98,7 +98,7 @@ export function CheckInDayDetailDialog({
               {dayData.income_increment > 0 ? (
                 <p className="text-sm text-muted-foreground text-center">
                   {t('streaks.incrementPositivePrefix')}{' '}
-                  <span className="font-semibold text-green-600 dark:text-green-400">
+                  <span className="font-semibold text-success">
                     ${dayData.income_increment.toFixed(2)}
                   </span>
                   {t('streaks.incrementPositiveSuffix')}

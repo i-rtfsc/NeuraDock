@@ -24,7 +24,7 @@ export function FormField({
       {label && (
         <Label className="text-sm font-medium">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-danger ml-1">*</span>}
         </Label>
       )}
       {children}
@@ -32,7 +32,7 @@ export function FormField({
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error && (
-        <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
+        <p className="text-xs text-danger">{error}</p>
       )}
     </div>
   );

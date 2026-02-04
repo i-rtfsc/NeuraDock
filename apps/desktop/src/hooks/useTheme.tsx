@@ -1,15 +1,25 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
+type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset';
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  style: ThemeStyle;
+  setThemeStyle: (style: ThemeStyle) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'neuradock-theme';
+const THEME_STYLE_STORAGE_KEY = 'neuradock-theme-style';
+const THEME_STYLE_CLASSES = [
+  'theme-default',
+  'theme-graphite',
+  'theme-emerald',
+  'theme-sunset',
+];
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -17,10 +27,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     return (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'system';
   });
+  const [style, setStyleState] = useState<ThemeStyle>(() => {
+    const stored = localStorage.getItem(THEME_STYLE_STORAGE_KEY);
+    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset')
+      ? stored
+      : 'default';
+  });
 
   const setTheme = (newTheme: Theme) => {
     localStorage.setItem(THEME_STORAGE_KEY, newTheme);
     setThemeState(newTheme);
+  };
+
+  const setThemeStyle = (newStyle: ThemeStyle) => {
+    localStorage.setItem(THEME_STYLE_STORAGE_KEY, newStyle);
+    setStyleState(newStyle);
   };
 
   useEffect(() => {
@@ -56,7 +77,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const applyStyle = (style: ThemeStyle) => {
+      root.classList.remove(...THEME_STYLE_CLASSES);
+      root.classList.add(`theme-${style}`);
+    };
+
     applyTheme(theme);
+    applyStyle(style);
     void syncTauriTheme(theme);
 
     // Listen for system theme changes when theme is 'system'
@@ -80,10 +107,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         return () => mediaQuery.removeListener(handleChange);
       }
     }
-  }, [theme]);
+  }, [theme, style]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, style, setThemeStyle }}>
       {children}
     </ThemeContext.Provider>
   );

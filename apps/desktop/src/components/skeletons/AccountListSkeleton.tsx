@@ -21,7 +21,7 @@ export function AccountListSkeleton() {
             </div>
             
             {/* Stats Bar Skeleton */}
-            <div className="flex items-center gap-6 bg-muted/30 rounded-2xl p-4">
+            <div className="flex items-center gap-6 bg-muted/30 rounded-[var(--radius-panel)] p-4">
               <Skeleton className="h-5 w-32" />
               <Skeleton className="h-5 w-32" />
               <Skeleton className="h-5 w-32" />
@@ -30,7 +30,7 @@ export function AccountListSkeleton() {
             {/* Account Cards Grid Skeleton */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((j) => (
-                <Card key={j} className="h-full rounded-2xl border-border/50 bg-card/50">
+                <Card key={j} className="h-full rounded-[var(--radius-card)] border-border/50 bg-card/50">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 space-y-2">

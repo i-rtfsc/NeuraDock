@@ -17,10 +17,10 @@ export function StreakStatsCards({
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {/* Current Streak */}
-      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
+      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-warning-soft to-transparent">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">{t('streaks.currentStreak')}</CardTitle>
-          <div className="p-1.5 rounded-md bg-orange-100/50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+          <div className="p-1.5 rounded-md bg-warning-soft text-warning">
             <Flame className="h-4 w-4" />
           </div>
         </CardHeader>
@@ -33,10 +33,10 @@ export function StreakStatsCards({
       </Card>
 
       {/* Longest Streak */}
-      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-yellow-50/50 to-transparent dark:from-yellow-950/20">
+      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-accent-2-soft to-transparent">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">{t('streaks.longestStreak')}</CardTitle>
-          <div className="p-1.5 rounded-md bg-yellow-100/50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400">
+          <div className="p-1.5 rounded-md bg-accent-2-soft text-accent-2">
             <Trophy className="h-4 w-4" />
           </div>
         </CardHeader>
@@ -49,10 +49,10 @@ export function StreakStatsCards({
       </Card>
 
       {/* Total Days */}
-      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
+      <Card className="border-border/50 shadow-sm bg-gradient-to-br from-info-soft to-transparent">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">{t('streaks.totalDays')}</CardTitle>
-          <div className="p-1.5 rounded-md bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+          <div className="p-1.5 rounded-md bg-info-soft text-info">
             <CalendarCheck className="h-4 w-4" />
           </div>
         </CardHeader>

@@ -45,19 +45,19 @@ export function AccountBalanceDisplay({
           <>
             <div className="flex justify-between items-baseline pr-7">
               <span className="text-xs text-muted-foreground">{t('accountCard.currentBalance')}</span>
-              <span className="font-bold text-sm text-green-600 dark:text-green-400 truncate max-w-[120px]" title={formatCurrency(balance.current_balance)}>
+              <span className="font-bold text-sm text-success truncate max-w-[120px]" title={formatCurrency(balance.current_balance)}>
                 {formatCurrency(balance.current_balance)}
               </span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-xs text-muted-foreground">{t('accountCard.totalQuota')}</span>
-              <span className="font-medium text-xs text-blue-600 dark:text-blue-400 truncate max-w-[120px]" title={formatCurrency(balance.total_quota)}>
+              <span className="font-medium text-xs text-info truncate max-w-[120px]" title={formatCurrency(balance.total_quota)}>
                 {formatCurrency(balance.total_quota)}
               </span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-xs text-muted-foreground">{t('accountCard.historicalConsumption')}</span>
-              <span className="font-medium text-xs text-orange-600 dark:text-orange-400 truncate max-w-[120px]" title={formatCurrency(balance.total_consumed)}>
+              <span className="font-medium text-xs text-warning truncate max-w-[120px]" title={formatCurrency(balance.total_consumed)}>
                 {formatCurrency(balance.total_consumed)}
               </span>
             </div>

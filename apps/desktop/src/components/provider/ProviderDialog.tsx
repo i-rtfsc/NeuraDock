@@ -181,7 +181,7 @@ export function ProviderDialog({
                   {/* WAF Bypass */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-md bg-blue-500/10 text-blue-500 mt-0.5">
+                      <div className="p-2 rounded-md bg-info/10 text-info mt-0.5">
                         <Shield className="h-4 w-4" />
                       </div>
                       <div className="space-y-0.5">
@@ -205,7 +205,7 @@ export function ProviderDialog({
                   {/* Check-in Support */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-md bg-green-500/10 text-green-500 mt-0.5">
+                      <div className="p-2 rounded-md bg-success/10 text-success mt-0.5">
                         <CalendarCheck className="h-4 w-4" />
                       </div>
                       <div className="space-y-0.5">
@@ -232,8 +232,8 @@ export function ProviderDialog({
                     "flex items-center justify-between transition-all duration-base ease-smooth overflow-hidden",
                     supportsCheckIn ? "opacity-100 max-h-20 pt-4 border-t border-border/50" : "opacity-0 max-h-0"
                   )}>
-                    <div className="flex items-start gap-3 pl-2 border-l-2 border-orange-500/20">
-                      <div className="p-2 rounded-md bg-orange-500/10 text-orange-500 mt-0.5">
+                    <div className="flex items-start gap-3 pl-2 border-l-2 border-warning-border">
+                      <div className="p-2 rounded-md bg-warning/10 text-warning mt-0.5">
                         <AlertTriangle className="h-4 w-4" />
                       </div>
                       <div className="space-y-0.5">
@@ -258,7 +258,7 @@ export function ProviderDialog({
 
             {/* Advanced Tab */}
             <TabsContent value="advanced" className="space-y-6 mt-6">
-              <div className="rounded-lg border border-border/50 bg-blue-50/50 dark:bg-blue-950/20 p-4 text-sm text-blue-700 dark:text-blue-300 flex gap-3">
+              <div className="rounded-lg border border-border/50 bg-info-soft p-4 text-sm text-info-soft-foreground flex gap-3">
                 <Info className="h-5 w-5 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold mb-1">{t('providerDialog.advancedNote.title', 'Default Values Note')}</p>

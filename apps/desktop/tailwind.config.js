@@ -7,6 +7,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -46,11 +50,48 @@ export default {
           foreground: 'hsl(var(--sidebar-foreground))',
           border: 'hsl(var(--sidebar-border))',
         },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+          soft: 'hsl(var(--success-soft))',
+          'soft-foreground': 'hsl(var(--success-soft-foreground))',
+          border: 'hsl(var(--success-border))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+          soft: 'hsl(var(--info-soft))',
+          'soft-foreground': 'hsl(var(--info-soft-foreground))',
+          border: 'hsl(var(--info-border))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+          soft: 'hsl(var(--warning-soft))',
+          'soft-foreground': 'hsl(var(--warning-soft-foreground))',
+          border: 'hsl(var(--warning-border))',
+        },
+        danger: {
+          DEFAULT: 'hsl(var(--danger))',
+          foreground: 'hsl(var(--danger-foreground))',
+          soft: 'hsl(var(--danger-soft))',
+          'soft-foreground': 'hsl(var(--danger-soft-foreground))',
+          border: 'hsl(var(--danger-border))',
+        },
+        'accent-2': {
+          DEFAULT: 'hsl(var(--accent-2))',
+          foreground: 'hsl(var(--accent-2-foreground))',
+          soft: 'hsl(var(--accent-2-soft))',
+          'soft-foreground': 'hsl(var(--accent-2-soft-foreground))',
+          border: 'hsl(var(--accent-2-border))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius-lg)',
         md: 'var(--radius-md)',
         sm: 'var(--radius-sm)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
         full: 'var(--radius-full)',
         DEFAULT: 'var(--radius-md)',
       },

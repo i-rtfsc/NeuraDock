@@ -82,9 +82,9 @@ export function AccountActivityPage() {
 
       {/* 统计概览卡片 */}
       <BentoGrid className="mb-section-gap-sm">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+        <Card className="bg-gradient-to-br from-info/10 to-info/5 border-info-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-info flex items-center gap-2">
               <Flame className="h-4 w-4" />
               {t('streaks.currentStreak')}
             </CardTitle>
@@ -99,9 +99,9 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+        <Card className="bg-gradient-to-br from-accent-2/10 to-accent-2/5 border-accent-2-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-purple-600 dark:text-purple-400 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-accent-2 flex items-center gap-2">
               <Trophy className="h-4 w-4" />
               {t('streaks.longestStreak')}
             </CardTitle>
@@ -116,9 +116,9 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-success flex items-center gap-2">
               <CalendarCheck className="h-4 w-4" />
               {t('streaks.totalDays')}
             </CardTitle>
@@ -133,9 +133,9 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20">
+        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-warning flex items-center gap-2">
               <Percent className="h-4 w-4" />
               {t('streaks.checkInRate')}
             </CardTitle>

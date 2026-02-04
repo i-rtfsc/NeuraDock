@@ -183,7 +183,7 @@ export function ConfigDialog({
             </ScrollArea>
             <div className="p-4 border-t bg-muted/10">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                 {t('token.configDialog.configuringLabel', 'Configuring')}{' '}
                 <span className="font-medium text-foreground truncate max-w-[120px]">
                   {token.name}

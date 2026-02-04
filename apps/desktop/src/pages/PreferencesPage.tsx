@@ -16,6 +16,7 @@ import {
   Languages,
   AlertTriangle,
   Scale,
+  Palette,
   Settings,
   HardDrive,
   Globe
@@ -46,7 +47,7 @@ const SettingsGroup = ({ title, children, className, contentClassName }: Setting
       </h3>
     )}
     <div className={cn(
-      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full hover:shadow-md hover:border-border/80 interactive-scale",
+      "bg-card/50 backdrop-blur-md border border-border/60 rounded-[var(--radius-panel)] overflow-hidden shadow-sm w-full hover:shadow-md hover:border-border/80 interactive-scale",
       contentClassName
     )}>
       <div className="flex flex-col w-full">
@@ -78,7 +79,7 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
       onClick={onClick}
     >
       {Icon && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0">
+        <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0">
           <Icon className="h-5 w-5" />
         </div>
       )}
@@ -103,7 +104,7 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
 // --- Sub-Components ---
 
 const GeneralSettings = () => {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, style, setThemeStyle } = useTheme();
   const { t, i18n } = useTranslation();
 
   const handleLanguageChange = (lang: string) => {
@@ -128,6 +129,29 @@ const GeneralSettings = () => {
               <SelectItem value="light">{t('settings.light')}</SelectItem>
               <SelectItem value="dark">{t('settings.dark')}</SelectItem>
               <SelectItem value="system">{t('settings.system')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingsRow>
+
+        <SettingsRow
+          icon={Palette}
+          label={t('settings.themeStyle')}
+          description={t('settings.themeStyleDescription')}
+        >
+          <Select
+            value={style}
+            onValueChange={(value) =>
+              setThemeStyle(value as 'default' | 'graphite' | 'emerald' | 'sunset')
+            }
+          >
+            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">{t('settings.themeDefault')}</SelectItem>
+              <SelectItem value="graphite">{t('settings.themeGraphite')}</SelectItem>
+              <SelectItem value="emerald">{t('settings.themeEmerald')}</SelectItem>
+              <SelectItem value="sunset">{t('settings.themeSunset')}</SelectItem>
             </SelectContent>
           </Select>
         </SettingsRow>
@@ -214,7 +238,7 @@ const SystemSettings = () => {
         <div className="p-5 space-y-6 group">
            <div className="flex items-start justify-between">
                <div className="flex gap-4">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
                        <Database className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
@@ -262,7 +286,7 @@ const SystemSettings = () => {
           {/* Proxy Enable/Disable */}
           <div className="flex items-start justify-between">
             <div className="flex gap-4">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
+              <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
                 <Globe className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -345,7 +369,7 @@ const SystemSettings = () => {
 
               {/* Example */}
               {proxyConfig.host && proxyConfig.port > 0 && (
-                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg border border-border/30 font-mono">
+                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-[var(--radius-control)] border border-border/30 font-mono">
                   {proxyConfig.proxy_type}://{proxyConfig.host}:{proxyConfig.port}
                 </div>
               )}
@@ -369,13 +393,13 @@ const SystemSettings = () => {
           icon={HardDrive}
           label={t('settings.localDatabase')}
           description={t('settings.localDatabaseDescription')}
-          action={<span className="text-xs font-semibold text-foreground bg-muted/60 px-3 py-1.5 rounded-lg border border-border/40 tabular-nums">12.5 MB</span>}
+          action={<span className="text-xs font-semibold text-foreground bg-muted/60 px-3 py-1.5 rounded-[var(--radius-control)] border border-border/40 tabular-nums">12.5 MB</span>}
         />
         <SettingsRow 
            icon={Trash2}
            label={t('settings.temporaryFiles')}
            description={t('settings.temporaryFilesDescription')}
-           action={<span className="text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/30">{t('settings.empty')}</span>}
+           action={<span className="text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-[var(--radius-control)] border border-border/30">{t('settings.empty')}</span>}
            isLast
         />
       </SettingsGroup>
@@ -444,7 +468,9 @@ const AboutSettings = () => {
   }, []);
 
   const profileText = appVersion.profile;
-  const profileColorClass = profileText === 'Debug' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+  const profileColorClass = profileText === 'Debug'
+    ? 'bg-warning-soft text-warning border border-warning-border'
+    : 'bg-success-soft text-success border border-success-border';
 
   return (
     <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-slower w-full">
@@ -479,7 +505,7 @@ const AboutSettings = () => {
          <div className="p-6 space-y-8">
             {/* Liability Section */}
             <div className="flex gap-5 items-start">
-               <div className="shrink-0 w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 border border-amber-500/20">
+               <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-warning-soft flex items-center justify-center text-warning border border-warning-border">
                   <AlertTriangle className="h-5 w-5" />
                </div>
                <div className="space-y-3 flex-1">
@@ -487,7 +513,7 @@ const AboutSettings = () => {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {t('disclaimer.liability.description')}
                   </p>
-                  <div className="text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-500/5 px-3 py-2 rounded-lg border border-amber-500/10">
+                  <div className="text-xs font-medium text-warning-soft-foreground bg-warning-soft px-3 py-2 rounded-[var(--radius-control)] border border-warning-border">
                     ⚠️ {t('disclaimer.liability.warning')}
                   </div>
                </div>
@@ -497,14 +523,14 @@ const AboutSettings = () => {
 
             {/* License Section */}
             <div className="flex gap-5 items-start">
-               <div className="shrink-0 w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 border border-blue-500/20">
+               <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-info-soft flex items-center justify-center text-info border border-info-border">
                   <Scale className="h-5 w-5" />
                </div>
                <div className="space-y-3 flex-1">
                   <h4 className="text-base font-semibold text-foreground">{t('disclaimer.license.title')}</h4>
                   <div className="text-sm text-muted-foreground leading-relaxed space-y-3">
                     <p>{t('disclaimer.license.description')}</p>
-                    <p className="font-medium text-foreground/90 bg-muted/30 px-3 py-2 rounded-lg">{t('disclaimer.license.commercial')}</p>
+                    <p className="font-medium text-foreground/90 bg-muted/30 px-3 py-2 rounded-[var(--radius-control)]">{t('disclaimer.license.commercial')}</p>
                     <p className="text-xs italic opacity-70">{t('disclaimer.license.footer')}</p>
                   </div>
                </div>
@@ -526,7 +552,7 @@ export function PreferencesPage() {
         className="h-full bg-muted/10 w-full" 
         title={t('settings.title')}
         actions={
-          <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-lg inline-flex items-center justify-center">
+          <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-[var(--radius-control)] inline-flex items-center justify-center">
             <TabsTrigger 
               value="general" 
               className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"

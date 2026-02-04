@@ -210,7 +210,7 @@ export function AccountOverviewPage() {
   };
 
   // Shared card classes
-  const cardClass = "border-border/50 shadow-sm bg-card hover:shadow-md hover:-translate-y-[2px] interactive-scale";
+  const cardClass = "border-border/50 shadow-sm bg-card hover:shadow-md interactive-scale";
 
   return (
     <PageContainer
@@ -229,10 +229,10 @@ export function AccountOverviewPage() {
             <span className="text-xl font-bold tracking-tight">{account.name}</span>
             <Badge variant="outline" className="text-muted-foreground">{account.provider_name}</Badge>
             {account.auto_checkin_enabled && (
-              <Badge variant="secondary" className="gap-1.5 text-xs bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-0">
+              <Badge variant="secondary" className="gap-1.5 text-xs bg-success-soft text-success border-0">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/40 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
                 </span>
                 {t('accountOverview.auto', 'Auto')} {String(account.auto_checkin_hour).padStart(2, '0')}:
                 {String(account.auto_checkin_minute).padStart(2, '0')}
@@ -339,7 +339,7 @@ export function AccountOverviewPage() {
                         variant={token.is_active ? 'default' : 'secondary'}
                         className={cn(
                           "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5",
-                          token.is_active ? "bg-green-500 hover:bg-green-600" : ""
+                          token.is_active ? "bg-success text-success-foreground hover:bg-success/90" : ""
                         )}
                       >
                         {token.status_text}
@@ -355,14 +355,14 @@ export function AccountOverviewPage() {
                     {/* Quota Usage Section */}
                     <div className="flex-1 space-y-3">
                       {token.unlimited_quota ? (
-                        <div className="p-3 rounded-lg bg-green-50/50 dark:bg-green-950/20 border border-green-100/50 dark:border-green-900/30">
+                        <div className="p-3 rounded-lg bg-success-soft border border-success-border">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium text-green-700 dark:text-green-300">{t('token.quotaUnlimited', 'Unlimited')}</span>
-                            <Badge variant="outline" className="text-[10px] h-4 px-1 text-green-600 border-green-600 bg-transparent">
+                            <span className="text-xs font-medium text-success-soft-foreground">{t('token.quotaUnlimited', 'Unlimited')}</span>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 text-success border-success bg-transparent">
                               ∞
                             </Badge>
                           </div>
-                          <div className="text-xs text-green-600/80 dark:text-green-400/80">
+                          <div className="text-xs text-success/80">
                             <span>{t('token.usedQuota', 'Used')}: </span>
                             <span className="font-mono font-medium">{formatQuotaUSD(token.used_quota)}</span>
                           </div>
@@ -373,15 +373,15 @@ export function AccountOverviewPage() {
                             <span className="text-muted-foreground">{t('token.quotaUsage', 'Quota Usage')}</span>
                             <span className={cn(
                               "font-medium",
-                              token.usage_percentage > 90 ? "text-red-500" : "text-foreground"
+                              token.usage_percentage > 90 ? "text-danger" : "text-foreground"
                             )}>{token.usage_percentage.toFixed(1)}%</span>
                           </div>
                           <Progress
                             value={token.usage_percentage}
                             className="h-2"
                             indicatorClassName={cn(
-                              token.usage_percentage > 90 ? "bg-red-500" :
-                              token.usage_percentage > 75 ? "bg-orange-500" : "bg-primary"
+                              token.usage_percentage > 90 ? "bg-danger" :
+                              token.usage_percentage > 75 ? "bg-warning" : "bg-primary"
                             )}
                           />
                           <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -414,7 +414,7 @@ export function AccountOverviewPage() {
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('token.supportedModels', 'Models')}</span>
                           <div className="text-xs font-medium truncate">
                             {!token.model_limits_enabled ? (
-                              <span className="text-green-600 dark:text-green-400">
+                              <span className="text-success">
                                 {t('token.noLimits', 'Unrestricted')}
                               </span>
                             ) : token.model_limits_allowed.length > 0 ? (
@@ -456,7 +456,7 @@ export function AccountOverviewPage() {
             {/* Account Statistics Card */}
             <Card className={cn("lg:col-span-1 p-6 h-full flex flex-col", cardClass)}>
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
+                <div className="p-1.5 rounded-md bg-info/10 text-info">
                   <Activity className="h-4 w-4" />
                 </div>
                 {t('accountOverview.accountStatistics', 'Account Statistics')}
@@ -465,12 +465,12 @@ export function AccountOverviewPage() {
                 {/* Current Balance */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-green-100/50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                    <div className="p-1.5 rounded-md bg-success-soft text-success">
                       <Wallet className="h-4 w-4" />
                     </div>
                     <span>{t('accountCard.currentBalance')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-green-600 dark:text-green-400">
+                  <p className="text-2xl font-bold font-mono text-success">
                     ${account.current_balance?.toFixed(2) ?? '0.00'}
                   </p>
                 </div>
@@ -480,12 +480,12 @@ export function AccountOverviewPage() {
                 {/* Total Quota */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                    <div className="p-1.5 rounded-md bg-info-soft text-info">
                       <TrendingUp className="h-4 w-4" />
                     </div>
                     <span>{t('accountCard.totalQuota')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                  <p className="text-2xl font-bold font-mono text-info">
                     ${account.total_quota?.toFixed(2) ?? '0.00'}
                   </p>
                 </div>
@@ -495,12 +495,12 @@ export function AccountOverviewPage() {
                 {/* Historical Consumption */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-orange-100/50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                    <div className="p-1.5 rounded-md bg-warning-soft text-warning">
                       <History className="h-4 w-4" />
                     </div>
                     <span>{t('accountCard.historicalConsumption')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">
+                  <p className="text-2xl font-bold font-mono text-warning">
                     ${account.total_consumed?.toFixed(2) ?? '0.00'}
                   </p>
                 </div>
@@ -510,7 +510,7 @@ export function AccountOverviewPage() {
             {/* Check-in Statistics Card */}
             <Card className={cn("lg:col-span-1 p-6 h-full flex flex-col", cardClass)}>
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-orange-500/10 text-orange-500">
+                <div className="p-1.5 rounded-md bg-warning/10 text-warning">
                   <Flame className="h-4 w-4" />
                 </div>
                 {t('accountOverview.checkInStatistics', 'Check-in Statistics')}
@@ -519,12 +519,12 @@ export function AccountOverviewPage() {
                 {/* Current Streak */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-orange-100/50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                    <div className="p-1.5 rounded-md bg-warning-soft text-warning">
                       <Flame className="h-4 w-4" />
                     </div>
                     <span>{t('streaks.currentStreak')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">
+                  <p className="text-2xl font-bold font-mono text-warning">
                     {streak?.current_streak ?? 0} {t('streaks.daysUnit')}
                   </p>
                 </div>
@@ -534,12 +534,12 @@ export function AccountOverviewPage() {
                 {/* Longest Streak */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-purple-100/50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
+                    <div className="p-1.5 rounded-md bg-accent-2-soft text-accent-2">
                       <Award className="h-4 w-4" />
                     </div>
                     <span>{t('streaks.longestStreak')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                  <p className="text-2xl font-bold font-mono text-accent-2">
                     {streak?.longest_streak ?? 0} {t('streaks.daysUnit')}
                   </p>
                 </div>
@@ -549,12 +549,12 @@ export function AccountOverviewPage() {
                 {/* Total Days */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="p-1.5 rounded-md bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                    <div className="p-1.5 rounded-md bg-info-soft text-info">
                       <CalendarCheck className="h-4 w-4" />
                     </div>
                     <span>{t('streaks.totalDays')}</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                  <p className="text-2xl font-bold font-mono text-info">
                     {streak?.total_check_in_days ?? 0} {t('streaks.daysUnit')}
                   </p>
                 </div>
@@ -603,7 +603,7 @@ export function AccountOverviewPage() {
           {trend && (
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-blue-500" />
+                <TrendingUp className="h-5 w-5 text-info" />
                 {t('accountOverview.checkInTrends', 'Check-in Trends')}
               </h2>
               <Card className={cn("p-6", cardClass)}>

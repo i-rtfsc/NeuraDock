@@ -70,7 +70,7 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
                 variant={token.is_active ? 'default' : 'secondary'}
                 className={cn(
                   "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5",
-                  token.is_active ? "bg-green-500 hover:bg-green-600" : ""
+                  token.is_active ? "bg-success text-success-foreground hover:bg-success/90" : ""
                 )}
               >
                 {token.status_text}
@@ -86,14 +86,14 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
             {/* Quota Usage Section */}
             <div className="flex-1 space-y-3">
               {token.unlimited_quota ? (
-                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30">
+                <div className="p-3 rounded-lg bg-success-soft border border-success-border">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-green-700 dark:text-green-300">{t('token.quotaUnlimited', 'Unlimited')}</span>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-green-600 border-green-600 bg-transparent">
+                    <span className="text-xs font-medium text-success-soft-foreground">{t('token.quotaUnlimited', 'Unlimited')}</span>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-success border-success bg-transparent">
                       ∞
                     </Badge>
                   </div>
-                  <div className="text-xs text-green-600/80 dark:text-green-400/80">
+                  <div className="text-xs text-success/80">
                     <span>{t('token.usedQuota', 'Used')}: </span>
                     <span className="font-mono font-medium">{formatQuotaUSD(token.used_quota)}</span>
                   </div>
@@ -104,15 +104,15 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
                     <span className="text-muted-foreground">{t('token.quotaUsage', 'Quota Usage')}</span>
                     <span className={cn(
                       "font-medium",
-                      token.usage_percentage > 90 ? "text-red-500" : "text-foreground"
+                      token.usage_percentage > 90 ? "text-danger" : "text-foreground"
                     )}>{token.usage_percentage.toFixed(1)}%</span>
                   </div>
                   <Progress 
                     value={token.usage_percentage} 
                     className="h-2"
                     indicatorClassName={cn(
-                      token.usage_percentage > 90 ? "bg-red-500" : 
-                      token.usage_percentage > 75 ? "bg-orange-500" : "bg-primary"
+                      token.usage_percentage > 90 ? "bg-danger" : 
+                      token.usage_percentage > 75 ? "bg-warning" : "bg-primary"
                     )}
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -145,7 +145,7 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('token.supportedModels', 'Models')}</span>
                   <div className="text-xs font-medium truncate">
                     {!token.model_limits_enabled ? (
-                      <span className="text-green-600 dark:text-green-400">
+                      <span className="text-success">
                         {t('token.noLimits', 'Unrestricted')}
                       </span>
                     ) : token.model_limits_allowed.length > 0 ? (

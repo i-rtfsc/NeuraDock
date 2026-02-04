@@ -246,11 +246,11 @@ export function TokensPage() {
     >
       <div className="space-y-5">
         {/* Info Alert */}
-        <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+        <Alert className="border-info-border bg-info-soft">
           <div className="flex items-center gap-3">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <Info className="h-4 w-4 text-info shrink-0" />
             <div className="flex items-center justify-between gap-4 flex-1 min-w-0">
-              <span className="text-sm text-blue-900 dark:text-blue-100">
+              <span className="text-sm text-info-soft-foreground">
                 {t(
                   'token.relayTokensHint',
                   'Relay API Key Configuration: Go to Account Management → Account Details → Configure'
@@ -259,7 +259,7 @@ export function TokensPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0"
+                className="h-7 px-3 text-xs font-medium text-info hover:text-info/90 hover:bg-info-soft shrink-0"
                 onClick={() => navigate('/accounts')}
               >
                 {t('token.goToAccounts', 'Go to Accounts')}
@@ -327,8 +327,8 @@ export function TokensPage() {
                             </h3>
                             {key.is_active ? (
                               <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/40 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
                               </span>
                             ) : (
                               <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />

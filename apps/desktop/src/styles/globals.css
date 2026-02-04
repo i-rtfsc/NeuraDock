@@ -4,49 +4,80 @@
 
 @layer base {
   :root {
-    /* Light Theme - Neutral & Soft (Zinc-inspired) */
-    /* Background: Light neutral gray to reduce glare */
-    --background: 0 0% 96%; 
-    --foreground: 240 5% 26%; /* Soft Charcoal - Easy on eyes */
+    /* Light Theme - Neutral & Soft (Slate-inspired) */
+    /* Background: Light cool gray to reduce glare */
+    --background: 220 20% 98%;
+    --foreground: 222 20% 20%; /* Stronger for clarity */
     
     /* Cards: Pure white for depth */
     --card: 0 0% 100%;
-    --card-foreground: 240 5% 26%;
+    --card-foreground: 222 20% 20%;
     
     /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 5% 26%;
+    --popover-foreground: 222 20% 20%;
     
     /* Primary: Clear Blue */
-    --primary: 221 83% 53%;
+    --primary: 213 94% 52%;
     --primary-foreground: 0 0% 100%;
     
     /* Secondary: Very light neutral */
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 5% 26%;
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 222 20% 20%;
     
     /* Muted */
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 50%;
     
     /* Accent */
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 5% 26%;
+    --accent: 220 16% 95%;
+    --accent-foreground: 222 20% 20%;
     
     /* Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: var(--danger);
+    --destructive-foreground: var(--danger-foreground);
     
     /* Borders */
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 221 83% 53%;
+    --border: 220 10% 92%;
+    --input: 220 10% 92%;
+    --ring: 213 94% 52%;
+
+    /* Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', 'SF Mono', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+
+    /* Surface Layers */
+    --surface-1: var(--background);
+    --surface-2: var(--card);
+    --surface-3: var(--popover);
+
+    /* Control Styling */
+    --control-bg: var(--card);
+    --control-bg-hover: var(--secondary);
+    --control-bg-active: var(--muted);
+    --control-border: var(--border);
+    --control-border-hover: var(--ring);
+    --control-border-strong: var(--ring);
+    --control-text: var(--foreground);
+    --control-text-muted: var(--muted-foreground);
+    --control-ring: var(--ring);
+    --card-border: var(--border);
+    --popover-border: var(--border);
     
     /* Radius Tokens */
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
     --radius-full: 9999px;
+    --radius-control-sm: var(--radius-sm);
+    --radius-control: var(--radius-md);
+    --radius-control-lg: var(--radius-lg);
+    --radius-card: var(--radius-lg);
+    --radius-popover: var(--radius-md);
+    --radius-badge: var(--radius-full);
+    --radius-panel: 1.5rem;
 
     /* ============================================
        LAYOUT TOKENS - 布局尺寸统一配置
@@ -172,7 +203,7 @@
     --ease-smooth: cubic-bezier(0.4, 0, 0.6, 1);  /* 推荐默认 */
 
     /* Scale Values - 缩放值 */
-    --scale-hover: 1.02;
+    --scale-hover: 1.04;
     --scale-active: 0.98;
     --scale-pop: 1.05;
     --scale-active-subtle: 0.995;
@@ -192,76 +223,126 @@
     --grid-cards-cols-wide: 4;
 
     /* Layout Colors - Light */
-    --sidebar-background: 0 0% 96%;
-    --sidebar-foreground: 240 5% 26%;
-    --sidebar-border: 240 6% 90%;
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 222 20% 20%;
+    --sidebar-border: 220 10% 92%;
     
-    --sidebar: 0 0% 96%;
-    --topbar: 0 0% 96%;
+    --sidebar: 220 20% 97%;
+    --topbar: 220 20% 97%;
     
     /* Semantic Colors */
-    --success: 142 71% 45%;
+    --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --success-soft: 152 40% 94%;
+    --success-soft-foreground: 152 35% 30%;
+    --success-border: 152 25% 85%;
+
+    --info: 213 94% 52%;
     --info-foreground: 0 0% 100%;
+    --info-soft: 213 80% 95%;
+    --info-soft-foreground: 213 45% 34%;
+    --info-border: 213 40% 86%;
+
+    --warning: 34 92% 55%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 36 100% 95%;
+    --warning-soft-foreground: 32 70% 35%;
+    --warning-border: 36 65% 85%;
+
+    --danger: 0 76% 58%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 0 90% 96%;
+    --danger-soft-foreground: 0 60% 42%;
+    --danger-border: 0 60% 88%;
+
+    --accent-2: 265 70% 55%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 265 80% 96%;
+    --accent-2-soft-foreground: 265 50% 40%;
+    --accent-2-border: 265 45% 86%;
+
+    /* Brand Colors */
+    --brand-feishu: 222 100% 60%;
+    --brand-dingtalk: 210 100% 50%;
   }
 
   .dark {
     /* Dark Theme - Neutral Dark Gray (Not Pitch Black) */
     /* Background: Deep gray, reducing contrast strain */
-    --background: 240 5% 14%;
-    --foreground: 240 5% 90%; /* Off-white text */
+    --background: 222 16% 12%;
+    --foreground: 210 20% 92%; /* Off-white text */
     
     /* Cards: Slightly lighter gray */
-    --card: 240 5% 18%;
-    --card-foreground: 240 5% 90%;
+    --card: 222 16% 16%;
+    --card-foreground: 210 20% 92%;
     
     /* Popovers */
-    --popover: 240 5% 18%;
-    --popover-foreground: 240 5% 90%;
+    --popover: 222 16% 16%;
+    --popover-foreground: 210 20% 92%;
     
     /* Primary: Blue */
-    --primary: 217 91% 60%;
+    --primary: 213 90% 62%;
     --primary-foreground: 0 0% 100%;
     
     /* Secondary */
-    --secondary: 240 4% 20%;
-    --secondary-foreground: 240 5% 90%;
+    --secondary: 222 14% 20%;
+    --secondary-foreground: 210 20% 92%;
     
     /* Muted */
-    --muted: 240 4% 20%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 222 12% 20%;
+    --muted-foreground: 220 12% 68%;
     
     /* Accent */
-    --accent: 240 4% 20%;
-    --accent-foreground: 240 5% 90%;
+    --accent: 222 14% 20%;
+    --accent-foreground: 210 20% 92%;
     
     /* Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: var(--danger);
+    --destructive-foreground: var(--danger-foreground);
     
     /* Borders */
-    --border: 240 4% 22%;
-    --input: 240 4% 22%;
-    --ring: 217 91% 60%;
+    --border: 222 10% 22%;
+    --input: 222 10% 22%;
+    --ring: 213 90% 62%;
     
     /* Layout Colors - Dark */
-    --sidebar-background: 240 5% 14%;
-    --sidebar-foreground: 240 5% 90%;
-    --sidebar-border: 240 4% 22%;
+    --sidebar-background: 222 16% 12%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-border: 222 10% 22%;
     
-    --sidebar: 240 5% 14%;
-    --topbar: 240 5% 14%;
+    --sidebar: 222 16% 12%;
+    --topbar: 222 16% 12%;
     
     /* Semantic Colors */
-    --success: 142 71% 45%;
+    --success: 152 55% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --success-soft: 152 18% 22%;
+    --success-soft-foreground: 152 45% 78%;
+    --success-border: 152 25% 30%;
+
+    --info: 213 90% 62%;
     --info-foreground: 0 0% 100%;
+    --info-soft: 213 22% 22%;
+    --info-soft-foreground: 213 55% 78%;
+    --info-border: 213 30% 30%;
+
+    --warning: 34 92% 58%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 34 22% 22%;
+    --warning-soft-foreground: 34 70% 78%;
+    --warning-border: 34 30% 30%;
+
+    --danger: 0 72% 60%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 0 24% 22%;
+    --danger-soft-foreground: 0 70% 78%;
+    --danger-border: 0 30% 30%;
+
+    --accent-2: 265 70% 65%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 265 20% 22%;
+    --accent-2-soft-foreground: 265 55% 78%;
+    --accent-2-border: 265 30% 30%;
 
     /* Dark Mode Shadows - 强烈对比，清晰可见 */
     --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -276,6 +357,497 @@
     --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.7), 0 4px 8px -4px rgba(0, 0, 0, 0.6);
     --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.8), 0 8px 16px -8px rgba(0, 0, 0, 0.7);
   }
+
+  /* ============================================
+     THEME PRESETS - 风格主题
+     通过在 <html> 上设置 theme-* 类切换
+     ============================================ */
+
+  :root.theme-graphite {
+    --background: 218 27% 94%;
+    --foreground: 220 18% 20%;
+    --card: 218 27% 92%;
+    --card-foreground: 220 18% 20%;
+    --popover: 218 27% 92%;
+    --popover-foreground: 220 18% 20%;
+    --primary: 213 32% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 219 28% 88%;
+    --secondary-foreground: 220 18% 20%;
+    --muted: 219 28% 88%;
+    --muted-foreground: 220 12% 45%;
+    --accent: 218 27% 92%;
+    --accent-foreground: 220 18% 20%;
+    --border: 219 20% 90%;
+    --input: 219 20% 90%;
+    --ring: 213 32% 52%;
+
+    --sidebar-background: 218 27% 92%;
+    --sidebar-foreground: 220 18% 20%;
+    --sidebar-border: 219 20% 90%;
+    --sidebar: 218 27% 92%;
+    --topbar: 218 27% 92%;
+
+    --control-bg: 218 27% 94%;
+    --control-bg-hover: 218 27% 92%;
+    --control-bg-active: 219 28% 88%;
+    --control-border: 219 22% 86%;
+    --control-border-hover: 213 32% 52%;
+    --control-border-strong: 213 32% 52%;
+
+    --success: 92 28% 65%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 92 25% 94%;
+    --success-soft-foreground: 92 30% 30%;
+    --success-border: 92 20% 85%;
+
+    --info: 210 34% 63%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 210 30% 94%;
+    --info-soft-foreground: 210 30% 32%;
+    --info-border: 210 22% 86%;
+
+    --warning: 40 71% 73%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 40 50% 94%;
+    --warning-soft-foreground: 40 40% 32%;
+    --warning-border: 40 30% 86%;
+
+    --danger: 354 42% 56%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 354 35% 94%;
+    --danger-soft-foreground: 354 40% 35%;
+    --danger-border: 354 25% 86%;
+
+    --accent-2: 311 20% 63%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 311 25% 94%;
+    --accent-2-soft-foreground: 311 30% 36%;
+    --accent-2-border: 311 20% 86%;
+
+    --radius-sm: 0.4rem;
+    --radius-md: 0.65rem;
+    --radius-lg: 0.9rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.15rem;
+    --radius-control-sm: 0.35rem;
+    --radius-control: 0.6rem;
+    --radius-control-lg: 0.85rem;
+    --radius-card: 0.9rem;
+    --radius-popover: 0.6rem;
+    --radius-panel: 1.1rem;
+
+    --font-sans: 'IBM Plex Sans', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 1px 1px -1px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 3px 5px -2px rgba(0, 0, 0, 0.08), 0 2px 3px -2px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 8px 12px -4px rgba(0, 0, 0, 0.10), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+    --shadow-xl: 0 16px 20px -8px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.10);
+    --shadow-2xl: 0 24px 40px -12px rgba(0, 0, 0, 0.16);
+
+    --shadow-hover-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.08), 0 1px 3px -1px rgba(0, 0, 0, 0.06);
+    --shadow-hover-md: 0 6px 12px -4px rgba(0, 0, 0, 0.12), 0 3px 6px -4px rgba(0, 0, 0, 0.10);
+    --shadow-hover-lg: 0 12px 24px -8px rgba(0, 0, 0, 0.14), 0 6px 12px -8px rgba(0, 0, 0, 0.12);
+  }
+
+  :root.theme-emerald {
+    --background: 220 23% 95%;
+    --foreground: 234 16% 35%;
+    --card: 220 22% 92%;
+    --card-foreground: 234 16% 35%;
+    --popover: 220 22% 92%;
+    --popover-foreground: 234 16% 35%;
+    --primary: 109 58% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 223 16% 83%;
+    --secondary-foreground: 234 16% 35%;
+    --muted: 225 14% 77%;
+    --muted-foreground: 233 10% 47%;
+    --accent: 223 16% 83%;
+    --accent-foreground: 234 16% 35%;
+    --border: 223 12% 86%;
+    --input: 223 12% 86%;
+    --ring: 109 58% 40%;
+
+    --sidebar-background: 220 22% 92%;
+    --sidebar-foreground: 234 16% 35%;
+    --sidebar-border: 223 12% 86%;
+    --sidebar: 220 22% 92%;
+    --topbar: 220 22% 92%;
+
+    --control-bg: 220 23% 95%;
+    --control-bg-hover: 223 16% 83%;
+    --control-bg-active: 225 14% 77%;
+    --control-border: 223 14% 82%;
+    --control-border-hover: 109 58% 40%;
+    --control-border-strong: 109 58% 40%;
+
+    --success: 109 58% 40%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 109 40% 94%;
+    --success-soft-foreground: 109 35% 30%;
+    --success-border: 109 30% 85%;
+
+    --info: 183 74% 35%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 183 40% 94%;
+    --info-soft-foreground: 183 40% 30%;
+    --info-border: 183 30% 85%;
+
+    --warning: 35 77% 49%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 35 70% 95%;
+    --warning-soft-foreground: 32 60% 35%;
+    --warning-border: 35 50% 86%;
+
+    --danger: 347 87% 44%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 347 70% 95%;
+    --danger-soft-foreground: 347 55% 38%;
+    --danger-border: 347 50% 86%;
+
+    --accent-2: 266 85% 58%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 266 70% 95%;
+    --accent-2-soft-foreground: 266 50% 40%;
+    --accent-2-border: 266 45% 86%;
+
+    --radius-sm: 0.55rem;
+    --radius-md: 0.85rem;
+    --radius-lg: 1.1rem;
+    --radius-xl: 1.3rem;
+    --radius-2xl: 1.5rem;
+    --radius-control-sm: 0.5rem;
+    --radius-control: 0.85rem;
+    --radius-control-lg: 1.05rem;
+    --radius-card: 1.1rem;
+    --radius-popover: 0.8rem;
+    --radius-panel: 1.3rem;
+
+    --font-sans: 'Manrope', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 5px 8px -3px rgba(0, 0, 0, 0.10), 0 3px 6px -3px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 18px -6px rgba(0, 0, 0, 0.12), 0 6px 10px -6px rgba(0, 0, 0, 0.10);
+    --shadow-xl: 0 22px 28px -10px rgba(0, 0, 0, 0.14), 0 10px 14px -8px rgba(0, 0, 0, 0.12);
+    --shadow-2xl: 0 28px 50px -14px rgba(0, 0, 0, 0.18);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.10), 0 1px 4px -1px rgba(0, 0, 0, 0.08);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.14), 0 4px 8px -4px rgba(0, 0, 0, 0.12);
+    --shadow-hover-lg: 0 16px 30px -8px rgba(0, 0, 0, 0.16), 0 8px 16px -8px rgba(0, 0, 0, 0.14);
+  }
+
+  :root.theme-sunset {
+    --background: 44 87% 94%;
+    --foreground: 194 14% 40%;
+    --card: 46 42% 88%;
+    --card-foreground: 194 14% 40%;
+    --popover: 46 42% 88%;
+    --popover-foreground: 194 14% 40%;
+    --primary: 18 80% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 46 42% 88%;
+    --secondary-foreground: 194 14% 40%;
+    --muted: 46 42% 88%;
+    --muted-foreground: 196 13% 45%;
+    --accent: 46 42% 88%;
+    --accent-foreground: 194 14% 40%;
+    --border: 46 30% 90%;
+    --input: 46 30% 90%;
+    --ring: 18 80% 44%;
+
+    --sidebar-background: 46 42% 88%;
+    --sidebar-foreground: 194 14% 40%;
+    --sidebar-border: 46 30% 90%;
+    --sidebar: 46 42% 88%;
+    --topbar: 46 42% 88%;
+
+    --control-bg: 44 87% 94%;
+    --control-bg-hover: 46 42% 88%;
+    --control-bg-active: 46 42% 88%;
+    --control-border: 46 25% 84%;
+    --control-border-hover: 18 80% 44%;
+    --control-border-strong: 18 80% 44%;
+
+    --success: 68 100% 30%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 68 60% 94%;
+    --success-soft-foreground: 68 45% 30%;
+    --success-border: 68 40% 86%;
+
+    --info: 205 69% 49%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 205 50% 94%;
+    --info-soft-foreground: 205 45% 32%;
+    --info-border: 205 35% 86%;
+
+    --warning: 45 100% 35%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 45 80% 95%;
+    --warning-soft-foreground: 45 60% 35%;
+    --warning-border: 45 50% 86%;
+
+    --danger: 1 71% 52%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 1 70% 95%;
+    --danger-soft-foreground: 1 60% 38%;
+    --danger-border: 1 45% 86%;
+
+    --accent-2: 237 43% 60%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 237 50% 95%;
+    --accent-2-soft-foreground: 237 40% 40%;
+    --accent-2-border: 237 35% 86%;
+
+    --radius-sm: 0.6rem;
+    --radius-md: 0.9rem;
+    --radius-lg: 1.2rem;
+    --radius-xl: 1.4rem;
+    --radius-2xl: 1.6rem;
+    --radius-control-sm: 0.55rem;
+    --radius-control: 0.9rem;
+    --radius-control-lg: 1.15rem;
+    --radius-card: 1.2rem;
+    --radius-popover: 0.85rem;
+    --radius-panel: 1.4rem;
+
+    --font-sans: 'Avenir Next', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 5px 9px -3px rgba(0, 0, 0, 0.12), 0 3px 6px -3px rgba(0, 0, 0, 0.10);
+    --shadow-lg: 0 12px 20px -6px rgba(0, 0, 0, 0.14), 0 6px 10px -6px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 22px 30px -10px rgba(0, 0, 0, 0.16), 0 10px 14px -8px rgba(0, 0, 0, 0.14);
+    --shadow-2xl: 0 28px 50px -14px rgba(0, 0, 0, 0.20);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.10);
+    --shadow-hover-md: 0 8px 18px -4px rgba(0, 0, 0, 0.16), 0 4px 8px -4px rgba(0, 0, 0, 0.14);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.18), 0 8px 16px -8px rgba(0, 0, 0, 0.16);
+  }
+
+  :root.dark.theme-graphite {
+    --background: 220 16% 22%;
+    --foreground: 219 28% 90%;
+    --card: 222 16% 28%;
+    --card-foreground: 219 28% 90%;
+    --popover: 222 16% 28%;
+    --popover-foreground: 219 28% 90%;
+    --primary: 210 34% 63%;
+    --primary-foreground: 220 16% 22%;
+    --secondary: 222 16% 28%;
+    --secondary-foreground: 219 28% 90%;
+    --muted: 222 16% 28%;
+    --muted-foreground: 220 12% 60%;
+    --accent: 222 16% 28%;
+    --accent-foreground: 219 28% 90%;
+    --border: 220 14% 28%;
+    --input: 220 14% 28%;
+    --ring: 210 34% 63%;
+
+    --sidebar-background: 220 16% 14%;
+    --sidebar-foreground: 219 28% 88%;
+    --sidebar-border: 220 14% 24%;
+    --sidebar: 220 16% 14%;
+    --topbar: 220 16% 16%;
+
+    --control-bg: 222 16% 28%;
+    --control-bg-hover: 220 17% 32%;
+    --control-bg-active: 220 16% 36%;
+    --control-border: 220 14% 30%;
+    --control-border-hover: 210 34% 63%;
+    --control-border-strong: 210 34% 63%;
+
+    --success: 92 28% 65%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 92 20% 22%;
+    --success-soft-foreground: 92 40% 75%;
+    --success-border: 92 20% 30%;
+
+    --info: 210 34% 63%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 210 18% 22%;
+    --info-soft-foreground: 210 45% 75%;
+    --info-border: 210 20% 30%;
+
+    --warning: 40 71% 73%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 40 18% 22%;
+    --warning-soft-foreground: 40 55% 75%;
+    --warning-border: 40 20% 30%;
+
+    --danger: 354 42% 56%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 354 18% 22%;
+    --danger-soft-foreground: 354 55% 75%;
+    --danger-border: 354 20% 30%;
+
+    --accent-2: 311 20% 63%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 311 18% 22%;
+    --accent-2-soft-foreground: 311 45% 75%;
+    --accent-2-border: 311 20% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 18px 22px -6px rgba(0, 0, 0, 0.85), 0 8px 10px -6px rgba(0, 0, 0, 0.75);
+    --shadow-2xl: 0 24px 42px -12px rgba(0, 0, 0, 0.9);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
+    --shadow-hover-lg: 0 16px 30px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+  }
+
+  :root.dark.theme-emerald {
+    --background: 232 23% 18%;
+    --foreground: 227 68% 88%;
+    --card: 233 23% 15%;
+    --card-foreground: 227 68% 88%;
+    --popover: 233 23% 15%;
+    --popover-foreground: 227 68% 88%;
+    --primary: 105 48% 72%;
+    --primary-foreground: 233 23% 15%;
+    --secondary: 230 19% 26%;
+    --secondary-foreground: 227 68% 88%;
+    --muted: 231 16% 34%;
+    --muted-foreground: 227 27% 72%;
+    --accent: 230 19% 26%;
+    --accent-foreground: 227 68% 88%;
+    --border: 231 12% 30%;
+    --input: 231 12% 30%;
+    --ring: 105 48% 72%;
+
+    --sidebar-background: 236 23% 12%;
+    --sidebar-foreground: 227 68% 88%;
+    --sidebar-border: 231 12% 28%;
+    --sidebar: 236 23% 12%;
+    --topbar: 236 23% 12%;
+
+    --control-bg: 230 19% 26%;
+    --control-bg-hover: 231 16% 34%;
+    --control-bg-active: 230 14% 41%;
+    --control-border: 231 14% 32%;
+    --control-border-hover: 105 48% 72%;
+    --control-border-strong: 105 48% 72%;
+
+    --success: 105 48% 72%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 105 20% 22%;
+    --success-soft-foreground: 105 50% 78%;
+    --success-border: 105 25% 30%;
+
+    --info: 171 47% 69%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 171 20% 22%;
+    --info-soft-foreground: 171 45% 78%;
+    --info-border: 171 25% 30%;
+
+    --warning: 40 70% 78%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 40 20% 22%;
+    --warning-soft-foreground: 40 55% 78%;
+    --warning-border: 40 25% 30%;
+
+    --danger: 351 74% 73%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 351 20% 22%;
+    --danger-soft-foreground: 351 55% 78%;
+    --danger-border: 351 25% 30%;
+
+    --accent-2: 267 83% 80%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 267 20% 22%;
+    --accent-2-soft-foreground: 267 45% 78%;
+    --accent-2-border: 267 25% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.85), 0 8px 10px -6px rgba(0, 0, 0, 0.75);
+    --shadow-2xl: 0 26px 46px -12px rgba(0, 0, 0, 0.9);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+  }
+
+  :root.dark.theme-sunset {
+    --background: 192 100% 11%;
+    --foreground: 186 8% 55%;
+    --card: 192 81% 14%;
+    --card-foreground: 186 8% 55%;
+    --popover: 192 81% 14%;
+    --popover-foreground: 186 8% 55%;
+    --primary: 18 80% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 192 81% 14%;
+    --secondary-foreground: 186 8% 55%;
+    --muted: 192 81% 14%;
+    --muted-foreground: 194 14% 40%;
+    --accent: 192 81% 14%;
+    --accent-foreground: 186 8% 55%;
+    --border: 194 12% 26%;
+    --input: 194 12% 26%;
+    --ring: 18 80% 44%;
+
+    --sidebar-background: 192 100% 11%;
+    --sidebar-foreground: 186 8% 55%;
+    --sidebar-border: 194 12% 26%;
+    --sidebar: 192 100% 11%;
+    --topbar: 192 100% 11%;
+
+    --control-bg: 192 81% 14%;
+    --control-bg-hover: 194 14% 40%;
+    --control-bg-active: 194 14% 40%;
+    --control-border: 194 12% 28%;
+    --control-border-hover: 18 80% 44%;
+    --control-border-strong: 18 80% 44%;
+
+    --success: 68 100% 30%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 68 20% 22%;
+    --success-soft-foreground: 68 50% 78%;
+    --success-border: 68 25% 30%;
+
+    --info: 205 69% 49%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 205 20% 22%;
+    --info-soft-foreground: 205 45% 78%;
+    --info-border: 205 25% 30%;
+
+    --warning: 45 100% 35%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 45 20% 22%;
+    --warning-soft-foreground: 45 55% 75%;
+    --warning-border: 45 25% 30%;
+
+    --danger: 1 71% 52%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 1 20% 22%;
+    --danger-soft-foreground: 1 55% 78%;
+    --danger-border: 1 25% 30%;
+
+    --accent-2: 237 43% 60%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 237 20% 22%;
+    --accent-2-soft-foreground: 237 45% 78%;
+    --accent-2-border: 237 25% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 20px 28px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
+    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+  }
 }
 
 @layer base {
@@ -284,9 +856,13 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
   }
   
   /* Modern smooth transitions */
@@ -307,7 +883,7 @@
   }
 
   .glass-card {
-    @apply glass rounded-2xl shadow-md transition-all duration-base ease-smooth hover:shadow-hover-lg;
+    @apply glass rounded-[var(--radius-panel)] shadow-md transition-all duration-base ease-smooth hover:shadow-hover-lg;
   }
 
   /* Modern hover effects */

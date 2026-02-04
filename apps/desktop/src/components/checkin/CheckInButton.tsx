@@ -80,8 +80,8 @@ export function CheckInButton({
             <div className="space-y-4 py-4">
               {result.success ? (
                 <>
-                  <div className="rounded-lg border border-green-500/50 bg-green-500/10 p-4">
-                    <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                  <div className="rounded-lg border border-success-border bg-success-soft p-4">
+                    <p className="text-sm font-medium text-success-soft-foreground">
                       {t('checkIn.success')}
                     </p>
                   </div>
@@ -104,7 +104,7 @@ export function CheckInButton({
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">{t('dashboard.total_quota')}</p>
-                          <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                          <p className="text-lg font-semibold text-success">
                             ${result.balance.total_quota.toFixed(2)}
                           </p>
                         </div>
@@ -113,8 +113,8 @@ export function CheckInButton({
                   )}
                 </>
               ) : (
-                <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                <div className="rounded-lg border border-danger-border bg-danger-soft p-4">
+                  <p className="text-sm font-medium text-danger-soft-foreground">
                     {result.error || t('checkIn.failed')}
                   </p>
                 </div>

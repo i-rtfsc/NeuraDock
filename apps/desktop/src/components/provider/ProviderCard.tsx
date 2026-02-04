@@ -143,7 +143,7 @@ export function ProviderCard({
               <div className="flex items-center gap-2 text-sm">
                 {needsWafBypass ? (
                   <>
-                    <Shield className="h-4 w-4 text-yellow-500" />
+                    <Shield className="h-4 w-4 text-warning" />
                     <span className="text-muted-foreground">{t('providerCard.wafProtected')}</span>
                   </>
                 ) : (

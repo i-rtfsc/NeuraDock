@@ -95,7 +95,7 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
                       {data.increment > 0 && (
                         <div className="flex items-center justify-between gap-4">
                           <span className="text-muted-foreground">{t('streaks.trendDailyIncrement')}:</span>
-                          <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                          <span className="font-mono font-medium text-success">
                             +{detailedCurrencyFormatter.format(data.increment)}
                           </span>
                         </div>

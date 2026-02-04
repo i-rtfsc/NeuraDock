@@ -184,8 +184,8 @@ export function AccountsTable({
                 >
                   {account.auto_checkin_enabled ? (
                     <div className="flex items-center justify-center gap-1.5">
-                      <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                      <span className="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
+                      <span className="text-xs font-medium text-success">
                         {String(account.auto_checkin_hour).padStart(2, '0')}:{String(account.auto_checkin_minute).padStart(2, '0')}
                       </span>
                     </div>
@@ -197,7 +197,7 @@ export function AccountsTable({
                   className="p-2 align-middle text-right cursor-pointer"
                   onClick={() => onAccountClick(account)}
                 >
-                  <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+                  <span className="font-mono text-sm font-semibold text-success">
                     {account.current_balance != null
                       ? `$${account.current_balance.toFixed(2)}`
                       : '-'
@@ -208,7 +208,7 @@ export function AccountsTable({
                   className="p-2 align-middle text-right cursor-pointer"
                   onClick={() => onAccountClick(account)}
                 >
-                  <span className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
+                  <span className="font-mono text-sm font-semibold text-info">
                     {account.total_quota != null
                       ? `$${account.total_quota.toFixed(2)}`
                       : '-'
@@ -219,7 +219,7 @@ export function AccountsTable({
                   className="p-2 align-middle text-right cursor-pointer"
                   onClick={() => onAccountClick(account)}
                 >
-                  <span className="font-mono text-sm font-semibold text-orange-600 dark:text-orange-400">
+                  <span className="font-mono text-sm font-semibold text-warning">
                     {account.total_consumed != null
                       ? `$${account.total_consumed.toFixed(2)}`
                       : '-'
@@ -270,8 +270,8 @@ export function AccountsTable({
                             className={cn(
                               "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-slow ease-smooth",
                               supportsCheckIn
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
-                                : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700',
+                                ? 'bg-gradient-to-r from-primary to-primary/85 hover:from-primary hover:to-primary/70 text-primary-foreground'
+                                : 'bg-gradient-to-r from-info to-info/85 hover:from-info hover:to-info/70 text-info-foreground',
                               'disabled:opacity-50 disabled:cursor-not-allowed',
                               isChecking && supportsCheckIn && 'animate-pulse'
                             )}

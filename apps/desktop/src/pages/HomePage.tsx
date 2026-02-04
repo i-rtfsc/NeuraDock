@@ -91,25 +91,25 @@ export function HomePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold tracking-tight tabular-nums text-foreground">
+                  <div className="text-4xl font-bold tracking-tight tabular-nums text-success">
                     {statsLoading ? '...' : statistics ? formatCurrency(statistics.total_current_balance) : '$0.00'}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-xl border bg-background/60 px-3 py-2 backdrop-blur-sm">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <DollarSign className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        <DollarSign className="h-3.5 w-3.5 text-info" />
                         <span>{t('dashboard.stats.totalQuota')}</span>
                       </div>
-                      <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-info">
                         {statistics ? formatCurrency(statistics.total_quota) : '$0.00'}
                       </div>
                     </div>
                     <div className="rounded-xl border bg-background/60 px-3 py-2 backdrop-blur-sm">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <TrendingUp className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                        <TrendingUp className="h-3.5 w-3.5 text-warning" />
                         <span>{t('dashboard.stats.historicalConsumption')}</span>
                       </div>
-                      <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-warning">
                         {statistics ? formatCurrency(statistics.total_consumed) : '$0.00'}
                       </div>
                     </div>
@@ -123,8 +123,8 @@ export function HomePage() {
               <Card className={cn(interactiveCardClass, "h-full")}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalAccounts')}</CardTitle>
-                  <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-900/20">
-                    <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="p-2 rounded-full bg-success-soft">
+                    <Users className="h-4 w-4 text-success" />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -180,7 +180,7 @@ export function HomePage() {
                         <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="p-2 bg-background rounded-full border shadow-sm">
-                              <Zap className="h-4 w-4 text-yellow-500" />
+                              <Zap className="h-4 w-4 text-warning" />
                             </div>
                             <div>
                               <h3 className="font-semibold text-foreground">{provider.provider_name}</h3>
@@ -190,7 +190,7 @@ export function HomePage() {
                             </div>
                           </div>
                           <div className="text-right">
-                             <div className="font-mono font-bold text-green-600 dark:text-green-400">
+                             <div className="font-mono font-bold text-success">
                                {formatCurrency(provider.current_balance)}
                              </div>
                           </div>

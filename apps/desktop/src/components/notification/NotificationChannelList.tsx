@@ -104,9 +104,9 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
   const getChannelStyle = (type: string) => {
     switch (type) {
-      case 'feishu': return 'bg-[#3370ff]/10 text-[#3370ff] border-[#3370ff]/20';
-      case 'dingtalk': return 'bg-[#007fff]/10 text-[#007fff] border-[#007fff]/20';
-      case 'email': return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+      case 'feishu': return 'bg-[hsl(var(--brand-feishu)/0.12)] text-[hsl(var(--brand-feishu))] border-[hsl(var(--brand-feishu)/0.25)]';
+      case 'dingtalk': return 'bg-[hsl(var(--brand-dingtalk)/0.12)] text-[hsl(var(--brand-dingtalk))] border-[hsl(var(--brand-dingtalk)/0.25)]';
+      case 'email': return 'bg-accent-2-soft text-accent-2 border-accent-2-border';
       default: return 'bg-muted text-muted-foreground border-border';
     }
   };
@@ -118,7 +118,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
   return (
     <div className="w-full space-y-4">
       {/* Main Container */}
-      <div className="bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full">
+      <div className="bg-card/50 backdrop-blur-md border border-border/60 rounded-[var(--radius-panel)] overflow-hidden shadow-sm w-full">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-muted/20">
            <h3 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">

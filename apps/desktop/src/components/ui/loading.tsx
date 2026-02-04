@@ -62,8 +62,8 @@ export function LoadingOverlay({ message, visible }: LoadingOverlayProps) {
   if (!visible) return null;
 
   return (
-    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-2xl flex items-center justify-center z-50">
-      <div className="bg-card shadow-xl rounded-2xl p-6 flex flex-col items-center gap-4">
+    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-[var(--radius-panel)] flex items-center justify-center z-50">
+      <div className="bg-card shadow-xl rounded-[var(--radius-panel)] p-6 flex flex-col items-center gap-4">
         <LoadingSpinner size="lg" />
         {message && (
           <p className="text-sm text-foreground font-medium">{message}</p>

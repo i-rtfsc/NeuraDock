@@ -355,11 +355,11 @@ export function AccountsPage() {
               <div className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400 font-mono mt-1">
+                  <p className="text-2xl font-bold text-success font-mono mt-1">
                     ${filteredStatistics.total_current_balance.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-3 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                <div className="p-3 rounded-full bg-success-soft text-success">
                   <Wallet className="h-5 w-5" />
                 </div>
               </div>
@@ -370,11 +370,11 @@ export function AccountsPage() {
               <div className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalQuota')}</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono mt-1">
+                  <p className="text-2xl font-bold text-info font-mono mt-1">
                     ${filteredStatistics.total_quota.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                <div className="p-3 rounded-full bg-info-soft text-info">
                   <TrendingUp className="h-5 w-5" />
                 </div>
               </div>
@@ -385,11 +385,11 @@ export function AccountsPage() {
               <div className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>
-                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono mt-1">
+                  <p className="text-2xl font-bold text-warning font-mono mt-1">
                     ${filteredStatistics.total_consumed.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-3 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                <div className="p-3 rounded-full bg-warning-soft text-warning">
                   <History className="h-5 w-5" />
                 </div>
               </div>

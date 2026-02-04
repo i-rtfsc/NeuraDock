@@ -44,8 +44,8 @@ export function Modal({
       <DialogContent
         className={cn(
           sizeClasses[size],
-          "rounded-2xl shadow-2xl backdrop-blur-xl",
-          "bg-white/95 dark:bg-gray-900/95",
+          "rounded-[var(--radius-popover)] shadow-2xl backdrop-blur-xl",
+          "bg-[hsl(var(--popover))] text-[hsl(var(--popover-foreground))]",
           className
         )}
       >
@@ -113,7 +113,7 @@ export function ConfirmModal({
             variant="outline"
             onClick={handleCancel}
             disabled={loading}
-            className="rounded-full"
+            className="rounded-[var(--radius-control-lg)]"
           >
             {actualCancelText}
           </Button>
@@ -121,7 +121,7 @@ export function ConfirmModal({
             variant={variant}
             onClick={handleConfirm}
             disabled={loading}
-            className="rounded-full"
+            className="rounded-[var(--radius-control-lg)]"
           >
             {loading ? loadingText : actualConfirmText}
           </Button>

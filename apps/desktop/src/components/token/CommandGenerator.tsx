@@ -229,9 +229,9 @@ export function CommandGenerator({
             <div className="relative rounded-lg border bg-zinc-950 shadow-inner overflow-hidden group">
               <div className="absolute top-0 left-0 right-0 h-7 bg-zinc-900/50 flex items-center px-2.5 gap-1.5 border-b border-zinc-800 justify-between">
                 <div className="flex gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-red-500/20" />
-                  <div className="h-2 w-2 rounded-full bg-yellow-500/20" />
-                  <div className="h-2 w-2 rounded-full bg-green-500/20" />
+                  <div className="h-2 w-2 rounded-full bg-danger/30" />
+                  <div className="h-2 w-2 rounded-full bg-warning/30" />
+                  <div className="h-2 w-2 rounded-full bg-success/30" />
                 </div>
                 <Button
                   size="sm"
