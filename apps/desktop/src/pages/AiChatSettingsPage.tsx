@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -65,7 +64,7 @@ function CacheSettingSelect() {
       value={maxCachedWebviews.toString()}
       onValueChange={(value) => setMaxCachedWebviews(parseInt(value, 10))}
     >
-      <SelectTrigger className="w-20">
+      <SelectTrigger className="w-20 h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -99,7 +98,7 @@ function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) 
     >
       <Card
         className={cn(
-          'group relative overflow-hidden transition-all duration-base ease-smooth',
+          'group relative overflow-hidden interactive-scale',
           'bg-card border shadow-sm',
           service.is_enabled
             ? 'hover:shadow-md hover:border-primary/50'
@@ -132,7 +131,7 @@ function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth interactive-scale"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -317,97 +316,103 @@ export function AiChatSettingsPage() {
 
   return (
     <PageContainer
-      className="h-full bg-muted/10"
+      className="h-full"
       title={
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/ai-chat')} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/ai-chat')}
+            className="h-8 w-8 interactive-scale"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="text-2xl font-bold tracking-tight">{t('aiChat.settings')}</span>
         </div>
       }
       actions={
-        <Button onClick={() => { setEditingService(null); setDialogOpen(true); }}>
+        <Button
+          size="sm"
+          className="shadow-sm interactive-scale"
+          onClick={() => { setEditingService(null); setDialogOpen(true); }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           {t('aiChat.addService')}
         </Button>
       }
     >
-      <PageContent maxWidth="lg" className="h-full">
-        <ScrollArea className="h-full">
-          <div className="space-y-8 pb-32">
-            {/* Built-in Services */}
-            {builtinServices.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-                  {t('aiChat.builtinServices')}
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {builtinServices.map((service) => (
-                    <ServiceCard
-                      key={service.id}
-                      service={service}
-                      onToggle={() => toggleService.mutate(service.id)}
-                      onEdit={() => handleEdit(service)}
-                      onDelete={() => handleDelete(service)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Custom Services */}
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-                {t('aiChat.customServices')}
-              </h2>
-              {customServices.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {customServices.map((service) => (
-                    <ServiceCard
-                      key={service.id}
-                      service={service}
-                      onToggle={() => toggleService.mutate(service.id)}
-                      onEdit={() => handleEdit(service)}
-                      onDelete={() => handleDelete(service)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-border/60 bg-muted/20">
-                  <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground">{t('aiChat.noCustomServices')}</p>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => { setEditingService(null); setDialogOpen(true); }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('aiChat.addService')}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Settings */}
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-                {t('aiChat.cacheSettings')}
-              </h2>
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">{t('aiChat.maxCachedWebviews')}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t('aiChat.maxCachedWebviewsDescription')}
-                    </p>
-                  </div>
-                  <CacheSettingSelect />
-                </div>
-              </Card>
+      <PageContent maxWidth="lg" className="pb-32">
+        {/* Built-in Services */}
+        {builtinServices.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
+              {t('aiChat.builtinServices')}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {builtinServices.map((service) => (
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  onToggle={() => toggleService.mutate(service.id)}
+                  onEdit={() => handleEdit(service)}
+                  onDelete={() => handleDelete(service)}
+                />
+              ))}
             </div>
           </div>
-        </ScrollArea>
+        )}
+
+        {/* Custom Services */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
+            {t('aiChat.customServices')}
+          </h2>
+          {customServices.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {customServices.map((service) => (
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  onToggle={() => toggleService.mutate(service.id)}
+                  onEdit={() => handleEdit(service)}
+                  onDelete={() => handleDelete(service)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-border/60 bg-muted/20 interactive-scale">
+              <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-muted-foreground">{t('aiChat.noCustomServices')}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 shadow-sm interactive-scale"
+                onClick={() => { setEditingService(null); setDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('aiChat.addService')}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Settings */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
+            {t('aiChat.cacheSettings')}
+          </h2>
+          <Card className="p-4 interactive-scale">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">{t('aiChat.maxCachedWebviews')}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('aiChat.maxCachedWebviewsDescription')}
+                </p>
+              </div>
+              <CacheSettingSelect />
+            </div>
+          </Card>
+        </div>
       </PageContent>
 
       {/* Create/Edit Dialog */}
