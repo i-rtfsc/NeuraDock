@@ -39,6 +39,15 @@ export function HomePage() {
     }
   }, []);
 
+  const sortedProviders = useMemo(() => {
+    if (!statistics?.providers) return [];
+    return [...statistics.providers].sort((a, b) => {
+      const balanceDiff = (b.current_balance ?? 0) - (a.current_balance ?? 0);
+      if (balanceDiff !== 0) return balanceDiff;
+      return (b.total_quota ?? 0) - (a.total_quota ?? 0);
+    });
+  }, [statistics?.providers]);
+
   if (isLoading || statsLoading) {
     return (
       <PageContainer>
@@ -142,7 +151,7 @@ export function HomePage() {
         </motion.div>
 
         {/* Provider Breakdown Section */}
-        {statistics && statistics.providers.length > 0 && (
+        {statistics && sortedProviders.length > 0 && (
           <motion.div
             variants={container}
             initial={shouldAnimate ? 'hidden' : false}
@@ -159,7 +168,7 @@ export function HomePage() {
             >
               {/* Grid layout for scalability */}
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {statistics.providers.map((provider) => {
+                {sortedProviders.map((provider) => {
                   const providerAccount = accounts?.find(
                     (acc) => acc.provider_id === provider.provider_id && acc.enabled
                   );

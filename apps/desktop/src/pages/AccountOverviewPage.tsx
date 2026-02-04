@@ -133,6 +133,14 @@ export function AccountOverviewPage() {
   const { data: dayDetail } = useCheckInDayDetail(accountId ?? '', selectedDate, dayDetailDialogOpen && !!selectedDate);
 
   const showTokensLoading = tokensLoading || (tokensRefreshing && tokens.length === 0);
+  const sortedTokens = React.useMemo(() => {
+    if (!tokens.length) return tokens;
+    return [...tokens].sort((a, b) => {
+      const nameA = (a.name || a.masked_key || '').toLowerCase();
+      const nameB = (b.name || b.masked_key || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [tokens]);
 
   // Refresh balance mutation
   const refreshBalanceMutation = useMutation({
@@ -314,7 +322,7 @@ export function AccountOverviewPage() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {tokens.map((token) => (
+              {sortedTokens.map((token) => (
                 <Card
                   key={token.id}
                   className={cn(
