@@ -1,7 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -47,7 +46,7 @@ const SettingsGroup = ({ title, children, className, contentClassName }: Setting
       </h3>
     )}
     <div className={cn(
-      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full transition-all duration-200 hover:shadow-md hover:scale-[1.005] hover:border-border/80",
+      "bg-card/50 backdrop-blur-md border border-border/60 rounded-2xl overflow-hidden shadow-sm w-full hover:shadow-md hover:border-border/80 interactive-scale",
       contentClassName
     )}>
       <div className="flex flex-col w-full">
@@ -72,14 +71,14 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
   <div className="relative group w-full">
     <div
       className={cn(
-        "flex items-center gap-element-gap px-[var(--layout-page-content-padding)] py-5 min-h-[4rem] transition-all duration-200 hover:bg-muted/30 w-full",
-        onClick && "cursor-pointer active:bg-muted/50 active:scale-[0.99]",
+        "flex items-center gap-element-gap px-[var(--layout-page-content-padding)] py-5 min-h-[4rem] transition-all duration-base ease-smooth hover:bg-muted/30 w-full",
+        onClick && "cursor-pointer active:bg-muted/50 active:scale-[var(--scale-active)]",
         className
       )}
       onClick={onClick}
     >
       {Icon && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all shrink-0">
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0">
           <Icon className="h-5 w-5" />
         </div>
       )}
@@ -114,7 +113,7 @@ const GeneralSettings = () => {
   };
 
   return (
-    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-slower w-full">
       <SettingsGroup title={t('settings.appearance', { defaultValue: 'Appearance' })}>
         <SettingsRow 
           icon={Sun}
@@ -209,7 +208,7 @@ const SystemSettings = () => {
   };
 
   return (
-    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-slower w-full">
       {/* Cache Control */}
       <SettingsGroup title={t('settings.cacheControl')}>
         <div className="p-5 space-y-6 group">
@@ -236,7 +235,7 @@ const SystemSettings = () => {
                </div>
            </div>
 
-           <div className="pt-2 transition-opacity duration-300">
+           <div className="pt-2 transition-opacity duration-slow ease-smooth">
                <input
                    type="range"
                    min="1"
@@ -244,7 +243,7 @@ const SystemSettings = () => {
                    step="1"
                    value={cacheAgeHours}
                    onChange={(e) => handleSaveCache(parseInt(e.target.value))}
-                   className="w-full h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   className="w-full h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-base ease-smooth"
                />
                <div className="relative mt-3 h-4 text-xs font-medium text-muted-foreground/50 select-none">
                    <span className="absolute left-[0%] -translate-x-1/2">1h</span>
@@ -284,7 +283,7 @@ const SystemSettings = () => {
 
           {/* Proxy Configuration */}
           {proxyConfig.enabled && (
-            <div className="space-y-4 pl-14 pt-2 border-l-2 border-primary/20 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-4 pl-14 pt-2 border-l-2 border-primary/20 animate-in fade-in slide-in-from-top-2 duration-slow">
               {/* Proxy Type */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">
@@ -418,7 +417,7 @@ const NotificationSettings = () => {
   const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-slower w-full">
       <NotificationChannelList
         channels={notificationChannels}
         onUpdate={refetchChannels}
@@ -448,7 +447,7 @@ const AboutSettings = () => {
   const profileColorClass = profileText === 'Debug' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 
   return (
-    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-500 w-full">
+    <div className="space-y-section-gap animate-in fade-in slide-in-from-bottom-2 duration-slower w-full">
       {/* App Info Group */}
       <SettingsGroup title={t('settings.about')}>
         <div className="p-8 flex flex-col items-center text-center gap-5 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent">
@@ -530,27 +529,27 @@ export function PreferencesPage() {
           <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-lg inline-flex items-center justify-center">
             <TabsTrigger 
               value="general" 
-              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
             >
               <Settings className="w-4 h-4 mr-2" />
               {t('settings.general', 'General')}
             </TabsTrigger>
             <TabsTrigger 
               value="system" 
-              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
             >
               <HardDrive className="w-4 h-4 mr-2" />
               {t('settings.system', 'System')}
             </TabsTrigger>
             <TabsTrigger 
               value="notifications" 
-              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
             >
               {t('settings.notification')}
             </TabsTrigger>
             <TabsTrigger 
               value="about" 
-              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
             >
               {t('settings.about')}
             </TabsTrigger>
@@ -558,7 +557,6 @@ export function PreferencesPage() {
         }
       >
         <PageContent maxWidth="lg" className="h-full">
-          <ScrollArea className="h-full w-full rounded-2xl">
              <div className="pb-32 w-full">
                 <TabsContent value="general" className="mt-0 outline-none w-full">
                   <GeneralSettings />
@@ -573,7 +571,6 @@ export function PreferencesPage() {
                   <AboutSettings />
                 </TabsContent>
              </div>
-          </ScrollArea>
         </PageContent>
       </PageContainer>
     </Tabs>

@@ -57,7 +57,7 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
         <Card
           key={token.id}
           className={cn(
-            "flex flex-col border-none shadow-sm bg-background/60 backdrop-blur-xl ring-1 ring-border/50 transition-all hover:shadow-md hover:scale-[1.01]",
+            "flex flex-col border-none shadow-sm bg-background/60 backdrop-blur-xl ring-1 ring-border/50 hover:shadow-md interactive-scale",
             !token.is_active && "opacity-60 grayscale"
           )}
         >
@@ -167,7 +167,7 @@ export function TokenList({ tokens, isLoading, onConfigureToken }: TokenListProp
             <Button
               variant="outline"
               size="sm"
-              className="w-full mt-auto text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-200"
+              className="w-full mt-auto text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-base ease-smooth"
               onClick={() => onConfigureToken(token)}
               disabled={!token.is_active}
             >

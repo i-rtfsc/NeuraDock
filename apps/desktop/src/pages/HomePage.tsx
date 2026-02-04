@@ -62,7 +62,7 @@ export function HomePage() {
   const item: Variants = createFadeUpItem({ y: 10, scale: 0.98 });
 
   // Common card interactive styles
-  const interactiveCardClass = "bg-card border shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] cursor-pointer";
+  const interactiveCardClass = "bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale";
 
   return (
     <PageContainer title={t('dashboard.title')}>
@@ -79,7 +79,7 @@ export function HomePage() {
               <Card className={cn(
                 "h-full relative overflow-hidden border-primary/20 shadow-md",
                 "bg-gradient-to-br from-background via-background to-primary/5 dark:from-background dark:via-background dark:to-primary/10",
-                "transition-all duration-200 hover:scale-[1.01] hover:shadow-lg active:scale-[0.99] cursor-pointer"
+                "hover:shadow-lg cursor-pointer interactive-scale"
               )}>
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <Wallet className="w-24 h-24 text-primary" />

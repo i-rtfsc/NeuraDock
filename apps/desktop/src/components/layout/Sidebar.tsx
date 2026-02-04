@@ -47,7 +47,7 @@ export function Sidebar() {
     const LinkContent = (
       <div
         className={cn(
-          'relative group flex items-center transition-all duration-200 ease-out',
+          'relative group flex items-center transition-all duration-base ease-smooth',
           collapsed
             ? 'justify-center w-10 h-10 rounded-xl'
             : 'w-full h-10 px-3 rounded-lg gap-3',
@@ -56,10 +56,10 @@ export function Sidebar() {
             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         )}
       >
-        <Icon className={cn("shrink-0 transition-transform duration-200", collapsed ? "h-5 w-5" : "h-4 w-4", isActive && "stroke-[2.5px]")} />
+        <Icon className={cn("shrink-0 transition-transform duration-base ease-smooth", collapsed ? "h-5 w-5" : "h-4 w-4", isActive && "stroke-[2.5px]")} />
         {!collapsed && (
           <span className={cn(
-            "text-sm whitespace-nowrap overflow-hidden transition-all duration-300",
+            "text-sm whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
             isActive ? "font-semibold" : ""
           )}>
             {item.name}
@@ -110,7 +110,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col h-full items-center py-4 transition-all duration-300 select-none bg-sidebar/50 backdrop-blur-sm border-r border-border/40",
+        "flex flex-col h-full items-center py-4 transition-all duration-slow ease-smooth select-none bg-sidebar/50 backdrop-blur-sm border-r border-border/40",
         collapsed ? "w-[72px]" : "w-40"
       )}
     >

@@ -73,7 +73,7 @@ export function ProviderModelsSection({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 rounded-full opacity-50 hover:opacity-100 transition-opacity"
+            className="h-6 w-6 rounded-full opacity-50 hover:opacity-100 transition-opacity duration-base ease-smooth"
             onClick={handleRefresh}
             disabled={refreshMutation.isPending}
             title={t('accountCard.refreshModels') || 'Refresh models'}

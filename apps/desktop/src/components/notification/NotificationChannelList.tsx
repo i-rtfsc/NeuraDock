@@ -125,7 +125,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
              <Bell className="h-4 w-4" />
              {t('settings.notification')}
            </h3>
-           <Button onClick={handleAddNew} size="sm" className="rounded-full px-4 text-xs font-medium shadow-none hover:shadow-sm transition-all">
+           <Button onClick={handleAddNew} size="sm" className="rounded-full px-4 text-xs font-medium shadow-none hover:shadow-sm transition-all duration-base ease-smooth">
              <Plus className="h-3.5 w-3.5 mr-1.5" />
              {t('notification.addChannel')}
            </Button>
@@ -150,13 +150,13 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                 <div 
                   key={channel.id} 
                   className={cn(
-                    "group flex items-center gap-5 px-6 py-5 transition-all duration-200 hover:bg-muted/30",
+                    "group flex items-center gap-5 px-6 py-5 transition-all duration-base ease-smooth hover:bg-muted/30",
                     !channel.enabled && "opacity-70 grayscale-[0.3]"
                   )}
                 >
                   {/* Icon */}
                   <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm transition-transform group-hover:scale-105",
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm transition-transform duration-base ease-smooth group-hover:scale-[var(--scale-pop)]",
                     styleClass
                   )}>
                     <Icon className="h-5 w-5" />
@@ -183,7 +183,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                   </div>
 
                   {/* Actions (Hover Reveal) */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 -mr-2">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth -mr-2">
                      <Tooltip>
                         <TooltipTrigger asChild>
                            <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-primary" onClick={() => handleTest(channel.id)}>

@@ -175,6 +175,7 @@
     --scale-hover: 1.02;
     --scale-active: 0.98;
     --scale-pop: 1.05;
+    --scale-active-subtle: 0.995;
 
     /* ============================================
        GRID TOKENS - 网格布局配置
@@ -312,6 +313,10 @@
   /* Modern hover effects */
   .card-hover {
     @apply hover:shadow-hover-md hover:scale-[var(--scale-hover)] transition-all duration-base ease-smooth;
+  }
+
+  .interactive-scale {
+    @apply transition-all duration-base ease-smooth hover:scale-[var(--scale-hover)] active:scale-[var(--scale-active)];
   }
 
   .button-active {

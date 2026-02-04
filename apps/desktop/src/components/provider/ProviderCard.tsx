@@ -70,9 +70,9 @@ export function ProviderCard({
       >
         <Card
           className={cn(
-            'group relative overflow-hidden transition-all duration-200',
+            'group relative overflow-hidden transition-all duration-base ease-smooth',
             'bg-card border shadow-sm',
-            'hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer',
+            'hover:shadow-md cursor-pointer interactive-scale',
             'hover:border-primary/50'
           )}
         >
@@ -102,7 +102,7 @@ export function ProviderCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>

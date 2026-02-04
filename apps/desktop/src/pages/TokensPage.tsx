@@ -197,7 +197,7 @@ export function TokensPage() {
       actions={
         <HeaderActions className="gap-2">
           {/* Search */}
-          <div className="relative w-48 lg:w-64 transition-all duration-200">
+          <div className="relative w-48 lg:w-64 transition-all duration-base ease-smooth">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder={t('token.searchPlaceholder', 'Search...')}
@@ -311,9 +311,9 @@ export function TokensPage() {
                 <motion.div key={key.id} variants={itemVariants} layout>
                   <Card
                     className={cn(
-                      'group relative overflow-hidden transition-all duration-200',
+                      'group relative overflow-hidden transition-all duration-base ease-smooth',
                       key.is_active
-                        ? 'border-border/60 bg-card hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                        ? 'border-border/60 bg-card hover:shadow-md cursor-pointer interactive-scale'
                         : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default'
                     )}
                   >
@@ -400,7 +400,7 @@ export function TokensPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-200"
+                            className="w-full text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-base ease-smooth"
                             onClick={() => handleConfigureKey(key, 'claude')}
                           >
                             <Settings2 className="mr-2 h-3.5 w-3.5" />

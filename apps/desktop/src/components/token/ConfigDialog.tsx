@@ -143,7 +143,7 @@ export function ConfigDialog({
                       onClick={() => !tool.disabled && setSelectedTool(tool.id)}
                       disabled={tool.disabled}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200',
+                        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-base ease-smooth',
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
                           : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',

@@ -123,13 +123,13 @@ export function CommandGenerator({
       <TabsList className="grid w-full grid-cols-2 h-11 bg-muted/50 p-1">
         <TabsTrigger
           value="global"
-          className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+          className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
         >
           {t('token.configDialog.globalConfig', 'Global Config')}
         </TabsTrigger>
         <TabsTrigger
           value="temp"
-          className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+          className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
         >
           {t('token.configDialog.tempSession', 'Temporary Session')}
         </TabsTrigger>

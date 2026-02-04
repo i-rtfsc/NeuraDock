@@ -52,7 +52,7 @@ export function AccountStatisticsCards({
         <Card
           key={index}
           className={cn(
-            "transition-all duration-200",
+            "transition-all duration-base ease-smooth",
             isLoading && "animate-pulse"
           )}
         >

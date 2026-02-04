@@ -229,7 +229,7 @@ export function ProviderDialog({
 
                   {/* Bugged Toggle (Conditional) */}
                   <div className={cn(
-                    "flex items-center justify-between transition-all duration-200 overflow-hidden",
+                    "flex items-center justify-between transition-all duration-base ease-smooth overflow-hidden",
                     supportsCheckIn ? "opacity-100 max-h-20 pt-4 border-t border-border/50" : "opacity-0 max-h-0"
                   )}>
                     <div className="flex items-start gap-3 pl-2 border-l-2 border-orange-500/20">

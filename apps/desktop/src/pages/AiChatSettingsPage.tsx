@@ -99,7 +99,7 @@ function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) 
     >
       <Card
         className={cn(
-          'group relative overflow-hidden transition-all duration-200',
+          'group relative overflow-hidden transition-all duration-base ease-smooth',
           'bg-card border shadow-sm',
           service.is_enabled
             ? 'hover:shadow-md hover:border-primary/50'
@@ -132,7 +132,7 @@ function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>

@@ -36,7 +36,7 @@ function Tab({ service, isActive, onClick, onClose }: TabProps) {
   return (
     <div
       className={cn(
-        'group flex items-center gap-2 px-3 py-2 rounded-t-lg cursor-pointer transition-all border-b-2 min-w-[120px] max-w-[180px]',
+        'group flex items-center gap-2 px-3 py-2 rounded-t-lg cursor-pointer transition-all duration-base ease-smooth border-b-2 min-w-[120px] max-w-[180px]',
         isActive
           ? 'bg-background border-primary text-foreground'
           : 'bg-muted/30 border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -49,7 +49,7 @@ function Tab({ service, isActive, onClick, onClose }: TabProps) {
           e.stopPropagation();
           onClose();
         }}
-        className="opacity-0 group-hover:opacity-100 hover:bg-muted rounded p-0.5 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 hover:bg-muted rounded p-0.5 transition-opacity duration-base ease-smooth"
       >
         <X className="h-3 w-3" />
       </button>

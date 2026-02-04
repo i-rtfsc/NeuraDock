@@ -82,7 +82,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
       className="h-full group"
     >
       <Card 
-        className={`relative h-full transition-all duration-300 rounded-xl border-border/40 bg-card/50 backdrop-blur-sm cursor-pointer ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}
+        className={`relative h-full transition-all duration-slow ease-smooth rounded-xl border-border/40 bg-card/50 backdrop-blur-sm cursor-pointer ${!account.enabled ? 'opacity-60 grayscale-[0.5]' : ''} hover:shadow-md hover:border-border/80 hover:bg-card/80`}
         onClick={handleCardClick}
       >
         <div className="p-4 flex flex-col h-full gap-4">
@@ -93,7 +93,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
                 <h3 className="font-semibold text-sm truncate" title={account.name}>
                   {account.name}
                 </h3>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth" />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className={cn("flex h-2 w-2 rounded-full", account.enabled ? "bg-green-500" : "bg-muted-foreground")} />
@@ -103,7 +103,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -mr-2 -mt-2">
+                <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth -mr-2 -mt-2">
                   <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>

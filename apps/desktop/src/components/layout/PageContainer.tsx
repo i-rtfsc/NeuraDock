@@ -64,7 +64,7 @@ export function PageContainer({ children, className, title, actions, headerClass
       {/* Content - 使用design tokens统一padding */}
       <div
         className={cn(
-          "flex-1 overflow-auto pt-[var(--layout-page-content-padding-top)] px-[var(--layout-page-content-padding)] pb-[var(--layout-page-content-padding)]",
+          "flex-1 overflow-auto scrollbar-hide pt-[var(--layout-page-content-padding-top)] px-[var(--layout-page-content-padding)] pb-[var(--layout-page-content-padding)]",
           className
         )}
       >

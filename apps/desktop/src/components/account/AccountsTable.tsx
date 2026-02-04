@@ -126,12 +126,12 @@ export function AccountsTable({
             TableRow: (props) => (
               <tr 
                 {...props} 
-                className={cn(
-                  "border-b transition-all duration-200 relative group cursor-pointer",
-                  "hover:bg-accent/60 hover:shadow-md hover:-translate-y-[2px] hover:z-10",
-                  "active:scale-[0.995] active:translate-y-0 active:shadow-sm",
-                  "data-[state=selected]:bg-muted"
-                )}
+                  className={cn(
+                    "border-b transition-all duration-base ease-smooth relative group cursor-pointer",
+                    "hover:bg-accent/60 hover:shadow-md hover:-translate-y-[2px] hover:z-10",
+                    "active:scale-[var(--scale-active-subtle)] active:translate-y-0 active:shadow-sm",
+                    "data-[state=selected]:bg-muted"
+                  )}
               />
             ),
             TableBody: React.forwardRef((props, ref) => (
@@ -268,7 +268,7 @@ export function AccountsTable({
                             onClick={handleClick}
                             disabled={buttonDisabled}
                             className={cn(
-                              "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-300",
+                              "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-slow ease-smooth",
                               supportsCheckIn
                                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
                                 : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700',

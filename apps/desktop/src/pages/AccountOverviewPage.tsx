@@ -210,7 +210,7 @@ export function AccountOverviewPage() {
   };
 
   // Shared card classes
-  const cardClass = "border-border/50 shadow-sm bg-card transition-all duration-200 hover:shadow-md hover:-translate-y-[2px] active:scale-[0.99]";
+  const cardClass = "border-border/50 shadow-sm bg-card hover:shadow-md hover:-translate-y-[2px] interactive-scale";
 
   return (
     <PageContainer
@@ -280,7 +280,7 @@ export function AccountOverviewPage() {
       }
     >
       <motion.div 
-        className="flex-1 overflow-auto space-y-6 pb-6 p-1 auto-hide-scrollbar"
+        className="flex-1 overflow-auto space-y-6 pb-6 pt-1 px-2 auto-hide-scrollbar"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -326,7 +326,7 @@ export function AccountOverviewPage() {
                 <Card
                   key={token.id}
                   className={cn(
-                    "flex flex-col border-none shadow-sm bg-muted/30 dark:bg-muted/10 ring-1 ring-border/50 transition-all hover:shadow-md hover:scale-[1.01] hover:bg-card active:scale-[0.99]",
+                    "flex flex-col border-none shadow-sm bg-muted/30 dark:bg-muted/10 ring-1 ring-border/50 hover:shadow-md hover:bg-card interactive-scale",
                     !token.is_active && "opacity-60 grayscale"
                   )}
                 >
@@ -436,7 +436,7 @@ export function AccountOverviewPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-auto text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-200"
+                      className="w-full mt-auto text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-base ease-smooth"
                       onClick={() => handleConfigureToken(token)}
                       disabled={!token.is_active}
                     >
