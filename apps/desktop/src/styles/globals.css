@@ -203,7 +203,7 @@
     --ease-smooth: cubic-bezier(0.4, 0, 0.6, 1);  /* 推荐默认 */
 
     /* Scale Values - 缩放值 */
-    --scale-hover: 1.04;
+    --scale-hover: 1.03;
     --scale-active: 0.98;
     --scale-pop: 1.05;
     --scale-active-subtle: 0.995;
@@ -301,14 +301,14 @@
     --destructive-foreground: var(--danger-foreground);
     
     /* Borders */
-    --border: 222 10% 22%;
-    --input: 222 10% 22%;
+    --border: 222 8% 20%;
+    --input: 222 8% 20%;
     --ring: 213 90% 62%;
     
     /* Layout Colors - Dark */
     --sidebar-background: 222 16% 12%;
     --sidebar-foreground: 210 20% 92%;
-    --sidebar-border: 222 10% 22%;
+    --sidebar-border: 222 8% 20%;
     
     --sidebar: 222 16% 12%;
     --topbar: 222 16% 12%;
@@ -425,30 +425,53 @@
     --accent-2-soft-foreground: 311 30% 36%;
     --accent-2-border: 311 20% 86%;
 
-    --radius-sm: 0.4rem;
-    --radius-md: 0.65rem;
-    --radius-lg: 0.9rem;
-    --radius-xl: 1rem;
-    --radius-2xl: 1.15rem;
-    --radius-control-sm: 0.35rem;
-    --radius-control: 0.6rem;
-    --radius-control-lg: 0.85rem;
-    --radius-card: 0.9rem;
-    --radius-popover: 0.6rem;
-    --radius-panel: 1.1rem;
+    --radius-sm: 0.3rem;
+    --radius-md: 0.45rem;
+    --radius-lg: 0.7rem;
+    --radius-xl: 0.85rem;
+    --radius-2xl: 1rem;
+    --radius-control-sm: 0.5rem;
+    --radius-control: 0.75rem;
+    --radius-control-lg: 1rem;
+    --radius-card: 0.7rem;
+    --radius-popover: 0.45rem;
+    --radius-panel: 0.9rem;
+
+    --layout-page-content-padding: 1.25rem;
+    --layout-page-content-padding-top: 0.1rem;
+    --spacing-section-gap: 1.5rem;
+    --spacing-section-gap-sm: 1.125rem;
+    --spacing-card-gap: 0.75rem;
+    --spacing-card-gap-sm: 0.5rem;
+    --component-card-padding: 1.25rem;
+    --component-card-padding-sm: 0.875rem;
+    --component-card-padding-lg: 1.5rem;
+    --component-stats-card-padding: 1rem;
+    --control-button-height-sm: 2rem;
+    --control-button-height-default: 2.5rem;
+    --control-button-height-lg: 3rem;
+    --control-button-padding-x-sm: 0.75rem;
+    --control-button-padding-x-default: 1rem;
+    --control-button-padding-x-lg: 1.5rem;
+    --control-input-height-sm: 1.75rem;
+    --control-input-height-default: 2.25rem;
+    --control-input-height-lg: 2.75rem;
+    --control-input-padding-y: 0.4rem;
+    --control-badge-height: 1.15rem;
+    --control-badge-font-size: 0.7rem;
 
     --font-sans: 'IBM Plex Sans', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
 
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 1px 1px -1px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 3px 5px -2px rgba(0, 0, 0, 0.08), 0 2px 3px -2px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 8px 12px -4px rgba(0, 0, 0, 0.10), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
-    --shadow-xl: 0 16px 20px -8px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.10);
-    --shadow-2xl: 0 24px 40px -12px rgba(0, 0, 0, 0.16);
+    --shadow-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.03);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 6px -3px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 6px 12px -6px rgba(0, 0, 0, 0.10);
+    --shadow-xl: 0 10px 20px -10px rgba(0, 0, 0, 0.12);
+    --shadow-2xl: 0 18px 36px -12px rgba(0, 0, 0, 0.16);
 
-    --shadow-hover-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.08), 0 1px 3px -1px rgba(0, 0, 0, 0.06);
-    --shadow-hover-md: 0 6px 12px -4px rgba(0, 0, 0, 0.12), 0 3px 6px -4px rgba(0, 0, 0, 0.10);
-    --shadow-hover-lg: 0 12px 24px -8px rgba(0, 0, 0, 0.14), 0 6px 12px -8px rgba(0, 0, 0, 0.12);
+    --shadow-hover-sm: 0 2px 6px -2px rgba(0, 0, 0, 0.08);
+    --shadow-hover-md: 0 6px 12px -6px rgba(0, 0, 0, 0.12);
+    --shadow-hover-lg: 0 12px 20px -10px rgba(0, 0, 0, 0.16);
   }
 
   :root.theme-emerald {
@@ -513,38 +536,61 @@
     --accent-2-soft-foreground: 266 50% 40%;
     --accent-2-border: 266 45% 86%;
 
-    --radius-sm: 0.55rem;
-    --radius-md: 0.85rem;
-    --radius-lg: 1.1rem;
-    --radius-xl: 1.3rem;
-    --radius-2xl: 1.5rem;
-    --radius-control-sm: 0.5rem;
-    --radius-control: 0.85rem;
-    --radius-control-lg: 1.05rem;
-    --radius-card: 1.1rem;
-    --radius-popover: 0.8rem;
-    --radius-panel: 1.3rem;
+    --radius-sm: 0.7rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.3rem;
+    --radius-xl: 1.6rem;
+    --radius-2xl: 1.9rem;
+    --radius-control-sm: 0.65rem;
+    --radius-control: 0.95rem;
+    --radius-control-lg: 1.2rem;
+    --radius-card: 1.3rem;
+    --radius-popover: 1rem;
+    --radius-panel: 1.6rem;
+
+    --layout-page-content-padding: 1.75rem;
+    --layout-page-content-padding-top: 0.2rem;
+    --spacing-section-gap: 2.25rem;
+    --spacing-section-gap-sm: 1.75rem;
+    --spacing-card-gap: 1.25rem;
+    --spacing-card-gap-sm: 1rem;
+    --component-card-padding: 1.75rem;
+    --component-card-padding-sm: 1.25rem;
+    --component-card-padding-lg: 2.25rem;
+    --component-stats-card-padding: 1.5rem;
+    --control-button-height-sm: 2.25rem;
+    --control-button-height-default: 2.75rem;
+    --control-button-height-lg: 3.25rem;
+    --control-button-padding-x-sm: 0.9rem;
+    --control-button-padding-x-default: 1.125rem;
+    --control-button-padding-x-lg: 1.5rem;
+    --control-input-height-sm: 2.25rem;
+    --control-input-height-default: 2.75rem;
+    --control-input-height-lg: 3.25rem;
+    --control-input-padding-y: 0.6rem;
+    --control-badge-height: 1.35rem;
+    --control-badge-font-size: 0.78rem;
 
     --font-sans: 'Manrope', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
 
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 5px 8px -3px rgba(0, 0, 0, 0.10), 0 3px 6px -3px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 12px 18px -6px rgba(0, 0, 0, 0.12), 0 6px 10px -6px rgba(0, 0, 0, 0.10);
-    --shadow-xl: 0 22px 28px -10px rgba(0, 0, 0, 0.14), 0 10px 14px -8px rgba(0, 0, 0, 0.12);
-    --shadow-2xl: 0 28px 50px -14px rgba(0, 0, 0, 0.18);
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 6px 14px -6px rgba(0, 0, 0, 0.10);
+    --shadow-lg: 0 12px 22px -10px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 20px 32px -14px rgba(0, 0, 0, 0.14);
+    --shadow-2xl: 0 30px 48px -18px rgba(0, 0, 0, 0.16);
 
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.10), 0 1px 4px -1px rgba(0, 0, 0, 0.08);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.14), 0 4px 8px -4px rgba(0, 0, 0, 0.12);
-    --shadow-hover-lg: 0 16px 30px -8px rgba(0, 0, 0, 0.16), 0 8px 16px -8px rgba(0, 0, 0, 0.14);
+    --shadow-hover-sm: 0 4px 10px -6px rgba(0, 0, 0, 0.12);
+    --shadow-hover-md: 0 10px 20px -10px rgba(0, 0, 0, 0.14);
+    --shadow-hover-lg: 0 18px 30px -14px rgba(0, 0, 0, 0.16);
   }
 
   :root.theme-sunset {
     --background: 44 87% 94%;
     --foreground: 194 14% 40%;
-    --card: 46 42% 88%;
+    --card: 46 42% 96% / 0.78;
     --card-foreground: 194 14% 40%;
-    --popover: 46 42% 88%;
+    --popover: 46 42% 97% / 0.82;
     --popover-foreground: 194 14% 40%;
     --primary: 18 80% 44%;
     --primary-foreground: 0 0% 100%;
@@ -716,20 +762,20 @@
     --muted-foreground: 227 27% 72%;
     --accent: 230 19% 26%;
     --accent-foreground: 227 68% 88%;
-    --border: 231 12% 30%;
-    --input: 231 12% 30%;
+    --border: 231 10% 28%;
+    --input: 231 10% 28%;
     --ring: 105 48% 72%;
 
     --sidebar-background: 236 23% 12%;
     --sidebar-foreground: 227 68% 88%;
-    --sidebar-border: 231 12% 28%;
+    --sidebar-border: 231 10% 26%;
     --sidebar: 236 23% 12%;
     --topbar: 236 23% 12%;
 
     --control-bg: 230 19% 26%;
     --control-bg-hover: 231 16% 34%;
     --control-bg-active: 230 14% 41%;
-    --control-border: 231 14% 32%;
+    --control-border: 231 12% 30%;
     --control-border-hover: 105 48% 72%;
     --control-border-strong: 105 48% 72%;
 
@@ -778,9 +824,9 @@
   :root.dark.theme-sunset {
     --background: 192 100% 11%;
     --foreground: 186 8% 55%;
-    --card: 192 81% 14%;
+    --card: 192 81% 14% / 0.8;
     --card-foreground: 186 8% 55%;
-    --popover: 192 81% 14%;
+    --popover: 192 81% 16% / 0.85;
     --popover-foreground: 186 8% 55%;
     --primary: 18 80% 44%;
     --primary-foreground: 0 0% 100%;
@@ -790,20 +836,20 @@
     --muted-foreground: 194 14% 40%;
     --accent: 192 81% 14%;
     --accent-foreground: 186 8% 55%;
-    --border: 194 12% 26%;
-    --input: 194 12% 26%;
+    --border: 194 10% 24%;
+    --input: 194 10% 24%;
     --ring: 18 80% 44%;
 
     --sidebar-background: 192 100% 11%;
     --sidebar-foreground: 186 8% 55%;
-    --sidebar-border: 194 12% 26%;
+    --sidebar-border: 194 10% 22%;
     --sidebar: 192 100% 11%;
     --topbar: 192 100% 11%;
 
     --control-bg: 192 81% 14%;
     --control-bg-hover: 194 14% 40%;
     --control-bg-active: 194 14% 40%;
-    --control-border: 194 12% 28%;
+    --control-border: 194 10% 24%;
     --control-border-hover: 18 80% 44%;
     --control-border-strong: 18 80% 44%;
 
@@ -863,6 +909,22 @@
 
   code, pre, kbd, samp {
     font-family: var(--font-mono);
+  }
+
+  :root.theme-sunset body {
+    background-image:
+      radial-gradient(1200px circle at 10% 0%, hsl(32 100% 96%), transparent 60%),
+      radial-gradient(1000px circle at 90% 100%, hsl(18 90% 92%), transparent 55%),
+      linear-gradient(180deg, hsl(44 87% 96%), hsl(44 87% 92%));
+    background-attachment: fixed;
+  }
+
+  :root.dark.theme-sunset body {
+    background-image:
+      radial-gradient(900px circle at 10% 0%, hsl(18 80% 20% / 0.35), transparent 60%),
+      radial-gradient(900px circle at 90% 100%, hsl(205 69% 25% / 0.25), transparent 55%),
+      linear-gradient(180deg, hsl(192 100% 10%), hsl(192 81% 12%));
+    background-attachment: fixed;
   }
   
   /* Modern smooth transitions */
