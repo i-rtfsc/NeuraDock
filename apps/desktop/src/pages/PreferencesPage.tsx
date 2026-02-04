@@ -141,7 +141,7 @@ const GeneralSettings = () => {
           <Select
             value={style}
             onValueChange={(value) =>
-              setThemeStyle(value as 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean')
+              setThemeStyle(value as 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean' | 'cotton' | 'lavender' | 'peach')
             }
           >
             <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
@@ -155,6 +155,9 @@ const GeneralSettings = () => {
               <SelectItem value="midnight">{t('settings.themeMidnight')}</SelectItem>
               <SelectItem value="rose">{t('settings.themeRose')}</SelectItem>
               <SelectItem value="ocean">{t('settings.themeOcean')}</SelectItem>
+              <SelectItem value="cotton">{t('settings.themeCotton')}</SelectItem>
+              <SelectItem value="lavender">{t('settings.themeLavender')}</SelectItem>
+              <SelectItem value="peach">{t('settings.themePeach')}</SelectItem>
             </SelectContent>
           </Select>
         </SettingsRow>

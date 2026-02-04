@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
-type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean';
+type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean' | 'cotton' | 'lavender' | 'peach';
 
 interface ThemeContextType {
   theme: Theme;
@@ -22,6 +22,9 @@ const THEME_STYLE_CLASSES = [
   'theme-midnight',
   'theme-rose',
   'theme-ocean',
+  'theme-cotton',
+  'theme-lavender',
+  'theme-peach',
 ];
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -32,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
   const [style, setStyleState] = useState<ThemeStyle>(() => {
     const stored = localStorage.getItem(THEME_STYLE_STORAGE_KEY);
-    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset' || stored === 'midnight' || stored === 'rose' || stored === 'ocean')
+    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset' || stored === 'midnight' || stored === 'rose' || stored === 'ocean' || stored === 'cotton' || stored === 'lavender' || stored === 'peach')
       ? stored
       : 'default';
   });
