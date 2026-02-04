@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
-type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset';
+type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean';
 
 interface ThemeContextType {
   theme: Theme;
@@ -19,6 +19,9 @@ const THEME_STYLE_CLASSES = [
   'theme-graphite',
   'theme-emerald',
   'theme-sunset',
+  'theme-midnight',
+  'theme-rose',
+  'theme-ocean',
 ];
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -29,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
   const [style, setStyleState] = useState<ThemeStyle>(() => {
     const stored = localStorage.getItem(THEME_STYLE_STORAGE_KEY);
-    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset')
+    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset' || stored === 'midnight' || stored === 'rose' || stored === 'ocean')
       ? stored
       : 'default';
   });

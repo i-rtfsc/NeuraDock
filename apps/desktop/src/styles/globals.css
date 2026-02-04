@@ -673,6 +673,339 @@
     --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.18), 0 8px 16px -8px rgba(0, 0, 0, 0.16);
   }
 
+  :root.theme-midnight {
+    --background: 222 32% 96%;
+    --foreground: 224 28% 18%;
+    --card: 220 35% 98%;
+    --card-foreground: 224 28% 18%;
+    --popover: 220 35% 98%;
+    --popover-foreground: 224 28% 18%;
+    --primary: 212 90% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 22% 90%;
+    --secondary-foreground: 224 28% 18%;
+    --muted: 220 20% 88%;
+    --muted-foreground: 223 14% 45%;
+    --accent: 220 22% 90%;
+    --accent-foreground: 224 28% 18%;
+    --border: 220 18% 90%;
+    --input: 220 18% 90%;
+    --ring: 212 90% 50%;
+
+    --sidebar-background: 220 26% 92%;
+    --sidebar-foreground: 224 28% 18%;
+    --sidebar-border: 220 18% 88%;
+    --sidebar: 220 26% 92%;
+    --topbar: 220 26% 92%;
+
+    --control-bg: 222 32% 96%;
+    --control-bg-hover: 220 22% 90%;
+    --control-bg-active: 220 20% 88%;
+    --control-border: 220 20% 88%;
+    --control-border-hover: 212 90% 50%;
+    --control-border-strong: 212 90% 50%;
+
+    --success: 158 65% 35%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 158 45% 94%;
+    --success-soft-foreground: 158 40% 28%;
+    --success-border: 158 30% 86%;
+
+    --info: 201 88% 45%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 201 50% 94%;
+    --info-soft-foreground: 201 40% 32%;
+    --info-border: 201 30% 86%;
+
+    --warning: 36 90% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 36 70% 95%;
+    --warning-soft-foreground: 36 55% 34%;
+    --warning-border: 36 40% 86%;
+
+    --danger: 355 70% 52%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 355 60% 95%;
+    --danger-soft-foreground: 355 50% 35%;
+    --danger-border: 355 40% 86%;
+
+    --accent-2: 270 75% 60%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 270 60% 95%;
+    --accent-2-soft-foreground: 270 45% 40%;
+    --accent-2-border: 270 40% 86%;
+
+    --radius-sm: 0.45rem;
+    --radius-md: 0.65rem;
+    --radius-lg: 0.9rem;
+    --radius-xl: 1.1rem;
+    --radius-2xl: 1.3rem;
+    --radius-control-sm: 0.5rem;
+    --radius-control: 0.7rem;
+    --radius-control-lg: 0.9rem;
+    --radius-card: 0.9rem;
+    --radius-popover: 0.65rem;
+    --radius-panel: 1.2rem;
+
+    --layout-page-content-padding: 1.4rem;
+    --layout-page-content-padding-top: 0.1rem;
+    --spacing-section-gap: 1.85rem;
+    --spacing-section-gap-sm: 1.4rem;
+    --spacing-card-gap: 0.9rem;
+    --spacing-card-gap-sm: 0.65rem;
+    --component-card-padding: 1.4rem;
+    --component-card-padding-sm: 1rem;
+    --component-card-padding-lg: 1.8rem;
+    --component-stats-card-padding: 1.1rem;
+    --control-button-height-sm: 2.1rem;
+    --control-button-height-default: 2.6rem;
+    --control-button-height-lg: 3rem;
+    --control-button-padding-x-sm: 0.75rem;
+    --control-button-padding-x-default: 1rem;
+    --control-button-padding-x-lg: 1.4rem;
+    --control-input-height-sm: 2.1rem;
+    --control-input-height-default: 2.6rem;
+    --control-input-height-lg: 3rem;
+    --control-input-padding-y: 0.45rem;
+    --control-badge-height: 1.2rem;
+    --control-badge-font-size: 0.72rem;
+
+    --font-sans: 'Space Grotesk', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(11, 32, 69, 0.08);
+    --shadow-sm: 0 2px 4px -1px rgba(11, 32, 69, 0.12);
+    --shadow-md: 0 6px 10px -4px rgba(11, 32, 69, 0.16);
+    --shadow-lg: 0 12px 20px -8px rgba(11, 32, 69, 0.18);
+    --shadow-xl: 0 20px 28px -12px rgba(11, 32, 69, 0.2);
+    --shadow-2xl: 0 28px 45px -16px rgba(11, 32, 69, 0.22);
+
+    --shadow-hover-sm: 0 3px 8px -2px rgba(11, 32, 69, 0.16);
+    --shadow-hover-md: 0 10px 18px -8px rgba(11, 32, 69, 0.2);
+    --shadow-hover-lg: 0 18px 30px -12px rgba(11, 32, 69, 0.24);
+  }
+
+  :root.theme-rose {
+    --background: 340 50% 97%;
+    --foreground: 336 20% 28%;
+    --card: 340 40% 98%;
+    --card-foreground: 336 20% 28%;
+    --popover: 340 40% 98%;
+    --popover-foreground: 336 20% 28%;
+    --primary: 342 76% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 340 35% 92%;
+    --secondary-foreground: 336 20% 28%;
+    --muted: 340 30% 90%;
+    --muted-foreground: 336 16% 45%;
+    --accent: 340 35% 92%;
+    --accent-foreground: 336 20% 28%;
+    --border: 340 20% 90%;
+    --input: 340 20% 90%;
+    --ring: 342 76% 58%;
+
+    --sidebar-background: 340 35% 94%;
+    --sidebar-foreground: 336 20% 28%;
+    --sidebar-border: 340 20% 90%;
+    --sidebar: 340 35% 94%;
+    --topbar: 340 35% 94%;
+
+    --control-bg: 340 50% 97%;
+    --control-bg-hover: 340 35% 92%;
+    --control-bg-active: 340 30% 90%;
+    --control-border: 340 22% 88%;
+    --control-border-hover: 342 76% 58%;
+    --control-border-strong: 342 76% 58%;
+
+    --success: 148 54% 40%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 148 40% 94%;
+    --success-soft-foreground: 148 35% 32%;
+    --success-border: 148 28% 86%;
+
+    --info: 200 86% 46%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 200 50% 94%;
+    --info-soft-foreground: 200 40% 32%;
+    --info-border: 200 30% 86%;
+
+    --warning: 32 85% 52%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 32 70% 95%;
+    --warning-soft-foreground: 32 50% 35%;
+    --warning-border: 32 40% 86%;
+
+    --danger: 352 70% 55%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 352 60% 95%;
+    --danger-soft-foreground: 352 50% 36%;
+    --danger-border: 352 40% 86%;
+
+    --accent-2: 274 70% 62%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 274 55% 95%;
+    --accent-2-soft-foreground: 274 45% 40%;
+    --accent-2-border: 274 40% 86%;
+
+    --radius-sm: 0.75rem;
+    --radius-md: 1.05rem;
+    --radius-lg: 1.4rem;
+    --radius-xl: 1.7rem;
+    --radius-2xl: 2rem;
+    --radius-control-sm: 0.7rem;
+    --radius-control: 1.05rem;
+    --radius-control-lg: 1.3rem;
+    --radius-card: 1.4rem;
+    --radius-popover: 1.05rem;
+    --radius-panel: 1.8rem;
+
+    --layout-page-content-padding: 1.7rem;
+    --layout-page-content-padding-top: 0.2rem;
+    --spacing-section-gap: 2.2rem;
+    --spacing-section-gap-sm: 1.7rem;
+    --spacing-card-gap: 1.2rem;
+    --spacing-card-gap-sm: 0.95rem;
+    --component-card-padding: 1.7rem;
+    --component-card-padding-sm: 1.2rem;
+    --component-card-padding-lg: 2.2rem;
+    --component-stats-card-padding: 1.4rem;
+    --control-button-height-sm: 2.3rem;
+    --control-button-height-default: 2.85rem;
+    --control-button-height-lg: 3.3rem;
+    --control-button-padding-x-sm: 0.9rem;
+    --control-button-padding-x-default: 1.2rem;
+    --control-button-padding-x-lg: 1.6rem;
+    --control-input-height-sm: 2.3rem;
+    --control-input-height-default: 2.85rem;
+    --control-input-height-lg: 3.3rem;
+    --control-input-padding-y: 0.6rem;
+    --control-badge-height: 1.35rem;
+    --control-badge-font-size: 0.8rem;
+
+    --font-sans: 'Nunito', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(147, 73, 98, 0.08);
+    --shadow-sm: 0 2px 6px 0 rgba(147, 73, 98, 0.1);
+    --shadow-md: 0 6px 14px -6px rgba(147, 73, 98, 0.12);
+    --shadow-lg: 0 12px 22px -10px rgba(147, 73, 98, 0.14);
+    --shadow-xl: 0 20px 32px -14px rgba(147, 73, 98, 0.16);
+    --shadow-2xl: 0 30px 48px -18px rgba(147, 73, 98, 0.18);
+
+    --shadow-hover-sm: 0 4px 10px -6px rgba(147, 73, 98, 0.14);
+    --shadow-hover-md: 0 10px 20px -10px rgba(147, 73, 98, 0.16);
+    --shadow-hover-lg: 0 18px 30px -14px rgba(147, 73, 98, 0.18);
+  }
+
+  :root.theme-ocean {
+    --background: 200 50% 96%;
+    --foreground: 205 25% 28%;
+    --card: 200 35% 98% / 0.8;
+    --card-foreground: 205 25% 28%;
+    --popover: 200 35% 99% / 0.85;
+    --popover-foreground: 205 25% 28%;
+    --primary: 188 80% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 198 30% 90%;
+    --secondary-foreground: 205 25% 28%;
+    --muted: 198 25% 88%;
+    --muted-foreground: 203 16% 45%;
+    --accent: 198 30% 90%;
+    --accent-foreground: 205 25% 28%;
+    --border: 198 20% 90%;
+    --input: 198 20% 90%;
+    --ring: 188 80% 38%;
+
+    --sidebar-background: 198 30% 92%;
+    --sidebar-foreground: 205 25% 28%;
+    --sidebar-border: 198 20% 90%;
+    --sidebar: 198 30% 92%;
+    --topbar: 198 30% 92%;
+
+    --control-bg: 200 50% 96% / 0.8;
+    --control-bg-hover: 198 30% 90%;
+    --control-bg-active: 198 25% 88%;
+    --control-border: 198 20% 90%;
+    --control-border-hover: 188 80% 38%;
+    --control-border-strong: 188 80% 38%;
+
+    --success: 168 60% 38%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 168 40% 94%;
+    --success-soft-foreground: 168 35% 32%;
+    --success-border: 168 28% 86%;
+
+    --info: 200 80% 45%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 200 45% 94%;
+    --info-soft-foreground: 200 35% 32%;
+    --info-border: 200 28% 86%;
+
+    --warning: 37 85% 52%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 37 70% 95%;
+    --warning-soft-foreground: 37 50% 35%;
+    --warning-border: 37 40% 86%;
+
+    --danger: 2 70% 52%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 2 60% 95%;
+    --danger-soft-foreground: 2 50% 35%;
+    --danger-border: 2 40% 86%;
+
+    --accent-2: 210 80% 55%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 210 50% 95%;
+    --accent-2-soft-foreground: 210 40% 38%;
+    --accent-2-border: 210 35% 86%;
+
+    --radius-sm: 0.6rem;
+    --radius-md: 0.9rem;
+    --radius-lg: 1.2rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 1.8rem;
+    --radius-control-sm: 0.6rem;
+    --radius-control: 0.9rem;
+    --radius-control-lg: 1.15rem;
+    --radius-card: 1.2rem;
+    --radius-popover: 0.9rem;
+    --radius-panel: 1.5rem;
+
+    --layout-page-content-padding: 1.6rem;
+    --layout-page-content-padding-top: 0.15rem;
+    --spacing-section-gap: 2rem;
+    --spacing-section-gap-sm: 1.5rem;
+    --spacing-card-gap: 1.05rem;
+    --spacing-card-gap-sm: 0.8rem;
+    --component-card-padding: 1.6rem;
+    --component-card-padding-sm: 1.1rem;
+    --component-card-padding-lg: 2rem;
+    --component-stats-card-padding: 1.25rem;
+    --control-button-height-sm: 2.2rem;
+    --control-button-height-default: 2.7rem;
+    --control-button-height-lg: 3.1rem;
+    --control-button-padding-x-sm: 0.85rem;
+    --control-button-padding-x-default: 1.1rem;
+    --control-button-padding-x-lg: 1.45rem;
+    --control-input-height-sm: 2.2rem;
+    --control-input-height-default: 2.7rem;
+    --control-input-height-lg: 3.1rem;
+    --control-input-padding-y: 0.55rem;
+    --control-badge-height: 1.25rem;
+    --control-badge-font-size: 0.76rem;
+
+    --font-sans: 'Plus Jakarta Sans', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+    --shadow-xs: 0 1px 2px 0 rgba(30, 110, 120, 0.08);
+    --shadow-sm: 0 2px 6px 0 rgba(30, 110, 120, 0.1);
+    --shadow-md: 0 6px 14px -6px rgba(30, 110, 120, 0.12);
+    --shadow-lg: 0 12px 22px -10px rgba(30, 110, 120, 0.14);
+    --shadow-xl: 0 20px 32px -14px rgba(30, 110, 120, 0.16);
+    --shadow-2xl: 0 30px 48px -18px rgba(30, 110, 120, 0.18);
+
+    --shadow-hover-sm: 0 4px 10px -6px rgba(30, 110, 120, 0.14);
+    --shadow-hover-md: 0 10px 20px -10px rgba(30, 110, 120, 0.16);
+    --shadow-hover-lg: 0 18px 30px -14px rgba(30, 110, 120, 0.18);
+  }
+
   :root.dark.theme-graphite {
     --background: 220 16% 22%;
     --foreground: 219 28% 90%;
@@ -894,6 +1227,228 @@
     --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
     --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
   }
+
+  :root.dark.theme-midnight {
+    --background: 224 45% 10%;
+    --foreground: 220 65% 92%;
+    --card: 224 38% 14%;
+    --card-foreground: 220 65% 92%;
+    --popover: 224 38% 14%;
+    --popover-foreground: 220 65% 92%;
+    --primary: 211 100% 60%;
+    --primary-foreground: 224 45% 10%;
+    --secondary: 224 30% 18%;
+    --secondary-foreground: 220 65% 92%;
+    --muted: 224 25% 22%;
+    --muted-foreground: 220 18% 70%;
+    --accent: 224 30% 18%;
+    --accent-foreground: 220 65% 92%;
+    --border: 224 20% 22%;
+    --input: 224 20% 22%;
+    --ring: 211 100% 60%;
+
+    --sidebar-background: 224 45% 8%;
+    --sidebar-foreground: 220 65% 92%;
+    --sidebar-border: 224 20% 20%;
+    --sidebar: 224 45% 8%;
+    --topbar: 224 40% 10%;
+
+    --control-bg: 224 30% 18%;
+    --control-bg-hover: 224 25% 22%;
+    --control-bg-active: 224 25% 26%;
+    --control-border: 224 20% 24%;
+    --control-border-hover: 211 100% 60%;
+    --control-border-strong: 211 100% 60%;
+
+    --success: 158 55% 58%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 158 20% 20%;
+    --success-soft-foreground: 158 45% 78%;
+    --success-border: 158 25% 30%;
+
+    --info: 200 90% 58%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 200 20% 20%;
+    --info-soft-foreground: 200 45% 78%;
+    --info-border: 200 25% 30%;
+
+    --warning: 36 80% 64%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 36 20% 20%;
+    --warning-soft-foreground: 36 55% 78%;
+    --warning-border: 36 25% 30%;
+
+    --danger: 355 70% 62%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 355 20% 20%;
+    --danger-soft-foreground: 355 55% 78%;
+    --danger-border: 355 25% 30%;
+
+    --accent-2: 270 85% 70%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 270 20% 20%;
+    --accent-2-soft-foreground: 270 50% 78%;
+    --accent-2-border: 270 25% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.6), 0 1px 2px -1px rgba(0, 0, 0, 0.55);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -4px rgba(0, 0, 0, 0.7);
+    --shadow-xl: 0 18px 24px -6px rgba(0, 0, 0, 0.9), 0 8px 12px -6px rgba(0, 0, 0, 0.8);
+    --shadow-2xl: 0 26px 48px -12px rgba(0, 0, 0, 0.95);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.7), 0 1px 4px -1px rgba(0, 0, 0, 0.6);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.8), 0 4px 8px -4px rgba(0, 0, 0, 0.7);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.9), 0 8px 16px -8px rgba(0, 0, 0, 0.8);
+  }
+
+  :root.dark.theme-rose {
+    --background: 336 28% 14%;
+    --foreground: 340 35% 92%;
+    --card: 336 26% 18%;
+    --card-foreground: 340 35% 92%;
+    --popover: 336 26% 18%;
+    --popover-foreground: 340 35% 92%;
+    --primary: 342 80% 70%;
+    --primary-foreground: 336 28% 14%;
+    --secondary: 336 20% 24%;
+    --secondary-foreground: 340 35% 92%;
+    --muted: 336 18% 28%;
+    --muted-foreground: 336 20% 72%;
+    --accent: 336 20% 24%;
+    --accent-foreground: 340 35% 92%;
+    --border: 336 15% 26%;
+    --input: 336 15% 26%;
+    --ring: 342 80% 70%;
+
+    --sidebar-background: 336 28% 12%;
+    --sidebar-foreground: 340 35% 92%;
+    --sidebar-border: 336 15% 24%;
+    --sidebar: 336 28% 12%;
+    --topbar: 336 28% 12%;
+
+    --control-bg: 336 20% 24%;
+    --control-bg-hover: 336 18% 28%;
+    --control-bg-active: 336 18% 32%;
+    --control-border: 336 15% 26%;
+    --control-border-hover: 342 80% 70%;
+    --control-border-strong: 342 80% 70%;
+
+    --success: 148 45% 68%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 148 20% 22%;
+    --success-soft-foreground: 148 45% 78%;
+    --success-border: 148 25% 30%;
+
+    --info: 200 80% 66%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 200 20% 22%;
+    --info-soft-foreground: 200 45% 78%;
+    --info-border: 200 25% 30%;
+
+    --warning: 32 75% 70%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 32 20% 22%;
+    --warning-soft-foreground: 32 55% 78%;
+    --warning-border: 32 25% 30%;
+
+    --danger: 352 70% 70%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 352 20% 22%;
+    --danger-soft-foreground: 352 55% 78%;
+    --danger-border: 352 25% 30%;
+
+    --accent-2: 274 75% 72%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 274 20% 22%;
+    --accent-2-soft-foreground: 274 50% 78%;
+    --accent-2-border: 274 25% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 20px 26px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
+    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+  }
+
+  :root.dark.theme-ocean {
+    --background: 199 40% 12%;
+    --foreground: 197 40% 88%;
+    --card: 199 35% 16% / 0.78;
+    --card-foreground: 197 40% 88%;
+    --popover: 199 35% 18% / 0.82;
+    --popover-foreground: 197 40% 88%;
+    --primary: 183 90% 55%;
+    --primary-foreground: 199 40% 12%;
+    --secondary: 199 25% 20%;
+    --secondary-foreground: 197 40% 88%;
+    --muted: 199 20% 26%;
+    --muted-foreground: 199 18% 70%;
+    --accent: 199 25% 20%;
+    --accent-foreground: 197 40% 88%;
+    --border: 199 15% 24%;
+    --input: 199 15% 24%;
+    --ring: 183 90% 55%;
+
+    --sidebar-background: 199 40% 10%;
+    --sidebar-foreground: 197 40% 88%;
+    --sidebar-border: 199 15% 22%;
+    --sidebar: 199 40% 10%;
+    --topbar: 199 40% 10%;
+
+    --control-bg: 199 25% 20% / 0.8;
+    --control-bg-hover: 199 20% 26%;
+    --control-bg-active: 199 20% 30%;
+    --control-border: 199 15% 24%;
+    --control-border-hover: 183 90% 55%;
+    --control-border-strong: 183 90% 55%;
+
+    --success: 168 55% 62%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 168 20% 22%;
+    --success-soft-foreground: 168 45% 78%;
+    --success-border: 168 25% 30%;
+
+    --info: 200 80% 64%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 200 20% 22%;
+    --info-soft-foreground: 200 45% 78%;
+    --info-border: 200 25% 30%;
+
+    --warning: 37 70% 70%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 37 20% 22%;
+    --warning-soft-foreground: 37 55% 78%;
+    --warning-border: 37 25% 30%;
+
+    --danger: 2 70% 70%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 2 20% 22%;
+    --danger-soft-foreground: 2 55% 78%;
+    --danger-border: 2 25% 30%;
+
+    --accent-2: 210 75% 68%;
+    --accent-2-foreground: 0 0% 100%;
+    --accent-2-soft: 210 20% 22%;
+    --accent-2-soft-foreground: 210 45% 78%;
+    --accent-2-border: 210 25% 30%;
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 20px 28px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
+    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
+
+    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
+    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+  }
 }
 
 @layer base {
@@ -924,6 +1479,22 @@
       radial-gradient(900px circle at 10% 0%, hsl(18 80% 20% / 0.35), transparent 60%),
       radial-gradient(900px circle at 90% 100%, hsl(205 69% 25% / 0.25), transparent 55%),
       linear-gradient(180deg, hsl(192 100% 10%), hsl(192 81% 12%));
+    background-attachment: fixed;
+  }
+
+  :root.theme-ocean body {
+    background-image:
+      radial-gradient(1200px circle at 10% 0%, hsl(188 80% 92% / 0.9), transparent 60%),
+      radial-gradient(1000px circle at 90% 100%, hsl(200 80% 92% / 0.8), transparent 55%),
+      linear-gradient(180deg, hsl(200 50% 97%), hsl(200 50% 94%));
+    background-attachment: fixed;
+  }
+
+  :root.dark.theme-ocean body {
+    background-image:
+      radial-gradient(1000px circle at 10% 0%, hsl(183 90% 30% / 0.25), transparent 60%),
+      radial-gradient(1000px circle at 90% 100%, hsl(200 80% 28% / 0.2), transparent 55%),
+      linear-gradient(180deg, hsl(199 40% 10%), hsl(199 35% 12%));
     background-attachment: fixed;
   }
   
