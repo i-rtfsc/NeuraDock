@@ -4,43 +4,34 @@
 
 @layer base {
   :root {
-    /* Light Theme - Vivid & Young (Violet-inspired) */
-    /* Background: Very light cool tint */
-    --background: 265 30% 98%;
-    --foreground: 260 25% 20%; /* Deep violet-gray */
+    /* Light Theme - Vivid & Young (Indigo Pop) */
+    --background: 260 40% 98%;
+    --foreground: 260 60% 5%;
     
-    /* Cards: Pure white */
     --card: 0 0% 100%;
-    --card-foreground: 260 25% 20%;
+    --card-foreground: 260 60% 5%;
     
-    /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 260 25% 20%;
+    --popover-foreground: 260 60% 5%;
     
-    /* Primary: Electric Violet */
-    --primary: 262 83% 58%;
+    --primary: 260 100% 55%; /* Vivid but deep Indigo */
     --primary-foreground: 0 0% 100%;
     
-    /* Secondary: Light violet tint */
-    --secondary: 262 30% 96%;
-    --secondary-foreground: 262 83% 58%;
+    --secondary: 260 30% 96%;
+    --secondary-foreground: 260 100% 45%;
     
-    /* Muted */
-    --muted: 260 20% 96%;
-    --muted-foreground: 260 10% 55%;
+    --muted: 260 15% 96%;
+    --muted-foreground: 260 20% 40%;
     
-    /* Accent */
-    --accent: 262 30% 96%;
-    --accent-foreground: 262 83% 58%;
+    --accent: 260 30% 96%;
+    --accent-foreground: 260 100% 45%;
     
-    /* Destructive */
     --destructive: var(--danger);
     --destructive-foreground: var(--danger-foreground);
     
-    /* Borders */
-    --border: 262 20% 92%;
-    --input: 262 20% 92%;
-    --ring: 262 83% 58%;
+    --border: 260 25% 92%;
+    --input: 260 25% 92%;
+    --ring: 260 100% 60%;
 
     /* Typography */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -64,7 +55,7 @@
     --card-border: var(--border);
     --popover-border: var(--border);
     
-    /* Radius Tokens - More rounded/playful */
+    /* Radius Tokens - Extra soft for young feel */
     --radius-sm: 0.75rem;
     --radius-md: 1rem;
     --radius-lg: 1.25rem;
@@ -77,99 +68,61 @@
     --radius-card: var(--radius-lg);
     --radius-popover: var(--radius-md);
     --radius-badge: var(--radius-full);
-    --radius-panel: 1.5rem;
+    --radius-panel: 1.75rem;
 
-    /* ============================================
-       LAYOUT TOKENS - 布局尺寸统一配置
-       ============================================ */
+    /* Layout Tokens */
+    --layout-page-header-height: 3.5rem;
+    --layout-page-header-height-compact: 3rem;
+    --layout-page-header-padding-x: 1.5rem;
+    --layout-page-header-padding-y: 0.75rem;
+    --layout-page-header-padding-y-compact: 0.5rem;
+    --layout-page-content-padding: 1.5rem;
+    --layout-page-content-padding-top: 0.125rem;
+    --layout-page-content-max-width-sm: 64rem;
+    --layout-page-content-max-width-md: 80rem;
+    --layout-page-content-max-width-lg: 100rem;
+    --layout-sidebar-width: 10rem;
+    --layout-sidebar-width-collapsed: 4.5rem;
+    --layout-sidebar-page-width: 15rem;
 
-    /* Page Header - 页面头部 */
-    --layout-page-header-height: 3.5rem;      /* 56px - 默认header高度 */
-    --layout-page-header-height-compact: 3rem; /* 48px - 紧凑模式header高度 */
-    --layout-page-header-padding-x: 1.5rem;   /* 24px - 水平padding */
-    --layout-page-header-padding-y: 0.75rem;  /* 12px - 垂直padding */
-    --layout-page-header-padding-y-compact: 0.5rem; /* 8px - 紧凑模式垂直padding */
+    /* Spacing Tokens */
+    --spacing-section-gap: 2rem;
+    --spacing-section-gap-sm: 1.5rem;
+    --spacing-card-gap: 1rem;
+    --spacing-card-gap-sm: 0.75rem;
+    --spacing-element-gap: 0.75rem;
+    --spacing-element-gap-sm: 0.5rem;
 
-    /* Page Content - 页面内容区域 */
-    --layout-page-content-padding: 1.5rem;    /* 24px - 内容区左右下padding */
-    --layout-page-content-padding-top: 0.125rem; /* 2px - 内容区顶部padding */
-    --layout-page-content-max-width-sm: 64rem;   /* 1024px - 小内容区（表单/设置） */
-    --layout-page-content-max-width-md: 80rem;   /* 1280px - 中内容区（列表） */
-    --layout-page-content-max-width-lg: 100rem;  /* 1600px - 大内容区（仪表板） */
+    /* Component Tokens */
+    --component-card-padding: 1.5rem;
+    --component-card-padding-sm: 1rem;
+    --component-card-padding-lg: 2rem;
+    --component-stats-card-padding: 1.25rem;
 
-    /* Sidebar - 侧边栏 */
-    --layout-sidebar-width: 10rem;            /* 160px - 展开状态 */
-    --layout-sidebar-width-collapsed: 4.5rem; /* 72px - 折叠状态 */
-    --layout-sidebar-page-width: 15rem;       /* 240px - 页面内侧边栏（如AccountsPage） */
+    /* UI Controls Tokens */
+    --control-button-height-sm: 2rem;
+    --control-button-height-default: 2.5rem;
+    --control-button-height-lg: 3rem;
+    --control-button-icon-sm: 2rem;
+    --control-button-icon-default: 2.5rem;
+    --control-button-icon-lg: 3rem;
+    --control-button-padding-x-sm: 0.75rem;
+    --control-button-padding-x-default: 1rem;
+    --control-button-padding-x-lg: 1.5rem;
+    --control-input-height-sm: 2rem;
+    --control-input-height-default: 2.5rem;
+    --control-input-height-lg: 3rem;
+    --control-input-padding-x: 0.75rem;
+    --control-input-padding-y: 0.5rem;
+    --control-badge-height: 1.25rem;
+    --control-badge-padding-x: 0.5rem;
+    --control-badge-font-size: 0.75rem;
+    --control-icon-size-sm: 0.875rem;
+    --control-icon-size-default: 1rem;
+    --control-icon-size-md: 1.25rem;
+    --control-icon-size-lg: 1.5rem;
 
-    /* ============================================
-       SPACING TOKENS - 间距统一配置
-       ============================================ */
-
-    /* Section Spacing - Section之间的间距 */
-    --spacing-section-gap: 2rem;              /* 32px - 大section间距 */
-    --spacing-section-gap-sm: 1.5rem;         /* 24px - 小section间距 */
-
-    /* Card Grid Spacing - 卡片网格间距 */
-    --spacing-card-gap: 1rem;                 /* 16px - 卡片之间的间距 */
-    --spacing-card-gap-sm: 0.75rem;           /* 12px - 紧凑卡片间距 */
-
-    /* Element Spacing - 元素间距 */
-    --spacing-element-gap: 0.75rem;           /* 12px - header内元素间距 */
-    --spacing-element-gap-sm: 0.5rem;         /* 8px - 小元素间距 */
-
-    /* ============================================
-       COMPONENT TOKENS - 组件尺寸配置
-       ============================================ */
-
-    /* Card - 卡片组件 */
-    --component-card-padding: 1.5rem;         /* 24px - 卡片默认padding */
-    --component-card-padding-sm: 1rem;        /* 16px - 小卡片padding */
-    --component-card-padding-lg: 2rem;        /* 32px - 大卡片padding */
-    --component-card-max-width: none;         /* 卡片最大宽度（由grid控制） */
-
-    /* Stats Card - 统计卡片 */
-    --component-stats-card-padding: 1.25rem;  /* 20px - 统计卡片padding */
-
-    /* ============================================
-       UI CONTROLS TOKENS - UI控件统一尺寸
-       ============================================ */
-
-    /* Button - 按钮 */
-    --control-button-height-sm: 2rem;         /* 32px - 小按钮 */
-    --control-button-height-default: 2.5rem;  /* 40px - 默认按钮 */
-    --control-button-height-lg: 3rem;         /* 48px - 大按钮 */
-    --control-button-icon-sm: 2rem;           /* 32px - 小图标按钮 */
-    --control-button-icon-default: 2.5rem;    /* 40px - 默认图标按钮 */
-    --control-button-icon-lg: 3rem;           /* 48px - 大图标按钮 */
-    --control-button-padding-x-sm: 0.75rem;   /* 12px - 小按钮水平padding */
-    --control-button-padding-x-default: 1rem; /* 16px - 默认水平padding */
-    --control-button-padding-x-lg: 1.5rem;    /* 24px - 大按钮水平padding */
-
-    /* Input & Select - 输入框和选择框 */
-    --control-input-height-sm: 2rem;          /* 32px - 小输入框 */
-    --control-input-height-default: 2.5rem;   /* 40px - 默认输入框 */
-    --control-input-height-lg: 3rem;          /* 48px - 大输入框 */
-    --control-input-padding-x: 0.75rem;       /* 12px - 输入框水平padding */
-    --control-input-padding-y: 0.5rem;        /* 8px - 输入框垂直padding */
-
-    /* Badge - 徽章 */
-    --control-badge-height: 1.25rem;          /* 20px - Badge高度 */
-    --control-badge-padding-x: 0.5rem;        /* 8px - Badge水平padding */
-    --control-badge-font-size: 0.75rem;       /* 12px - Badge字体大小 */
-
-    /* Icon - 图标 */
-    --control-icon-size-sm: 0.875rem;         /* 14px - 小图标 */
-    --control-icon-size-default: 1rem;        /* 16px - 默认图标 */
-    --control-icon-size-md: 1.25rem;          /* 20px - 中图标 */
-    --control-icon-size-lg: 1.5rem;           /* 24px - 大图标 */
-
-    /* ============================================
-       SHADOW TOKENS - 阴影系统（适配圆角）
-       参考Tailwind CSS + Material Design，更明显的阴影效果
-       ============================================ */
-
-    /* Light Mode Shadows - Vivid Violet Tint */
+    /* Shadow Tokens - Vivid Violet Tint */
     --shadow-xs: 0 1px 2px 0 rgba(80, 60, 160, 0.05);
     --shadow-sm: 0 1px 3px 0 rgba(80, 60, 160, 0.1), 0 1px 2px -1px rgba(80, 60, 160, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(80, 60, 160, 0.1), 0 2px 4px -2px rgba(80, 60, 160, 0.05);
@@ -177,1919 +130,261 @@
     --shadow-xl: 0 20px 25px -5px rgba(80, 60, 160, 0.1), 0 8px 10px -6px rgba(80, 60, 160, 0.05);
     --shadow-2xl: 0 25px 50px -12px rgba(80, 60, 160, 0.25);
 
-    /* Hover Shadows - Vivid */
-    --shadow-hover-sm: 0 2px 8px 0 rgba(80, 60, 160, 0.12), 0 1px 4px -1px rgba(80, 60, 160, 0.08);
-    --shadow-hover-md: 0 8px 16px -4px rgba(80, 60, 160, 0.12), 0 4px 8px -4px rgba(80, 60, 160, 0.08);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(80, 60, 160, 0.14), 0 8px 16px -8px rgba(80, 60, 160, 0.1);
+    --shadow-hover-sm: 0 4px 12px 0 rgba(100, 80, 200, 0.12), 0 2px 6px -1px rgba(100, 80, 200, 0.08);
+    --shadow-hover-md: 0 12px 24px -4px rgba(100, 80, 200, 0.15), 0 6px 12px -4px rgba(100, 80, 200, 0.1);
+    --shadow-hover-lg: 0 20px 40px -8px rgba(100, 80, 200, 0.2), 0 10px 20px -8px rgba(100, 80, 200, 0.1);
 
-    /* ============================================
-       ANIMATION TOKENS - 动画系统
-       流畅的timing和easing，打造现代化体验
-       ============================================ */
-
-    /* Transition Duration - 时长 */
+    /* Animation Tokens */
     --duration-instant: 0ms;
     --duration-fast: 150ms;
     --duration-base: 200ms;
     --duration-slow: 300ms;
     --duration-slower: 500ms;
-
-    /* Transition Timing Function - 缓动函数 */
     --ease-linear: cubic-bezier(0, 0, 1, 1);
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    --ease-smooth: cubic-bezier(0.4, 0, 0.6, 1);  /* 推荐默认 */
-
-    /* Scale Values - 缩放值 */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.6, 1);
     --scale-hover: 1.03;
     --scale-active: 0.98;
     --scale-pop: 1.05;
     --scale-active-subtle: 0.995;
 
-    /* ============================================
-       GRID TOKENS - 网格布局配置
-       注意：这些是建议的列数，实际使用时在Tailwind中引用
-       ============================================ */
-    --grid-stats-cols-mobile: 1;
-    --grid-stats-cols-tablet: 2;
-    --grid-stats-cols-desktop: 3;
-    --grid-stats-cols-wide: 4;
-
-    --grid-cards-cols-mobile: 1;
-    --grid-cards-cols-tablet: 2;
-    --grid-cards-cols-desktop: 3;
-    --grid-cards-cols-wide: 4;
-
     /* Layout Colors - Vivid Light */
-    --sidebar-background: 265 30% 97%;
-    --sidebar-foreground: 260 25% 20%;
-    --sidebar-border: 262 20% 92%;
+    --sidebar-background: 260 40% 97%;
+    --sidebar-foreground: 260 60% 15%;
+    --sidebar-border: 260 25% 92%;
+    --sidebar: 260 40% 97%;
+    --topbar: 260 40% 97%;
     
-    --sidebar: 265 30% 97%;
-    --topbar: 265 30% 97%;
-    
-    /* Semantic Colors */
-    --success: 152 60% 40%;
+    /* Semantic Colors - High Saturation */
+    --success: 150 100% 35%;
     --success-foreground: 0 0% 100%;
-    --success-soft: 152 40% 94%;
-    --success-soft-foreground: 152 35% 30%;
-    --success-border: 152 25% 85%;
-
-    --info: 213 94% 52%;
+    --success-soft: 150 100% 96%;
+    --success-soft-foreground: 150 100% 25%;
+    --success-border: 150 100% 90%;
+    --info: 195 100% 45%;
     --info-foreground: 0 0% 100%;
-    --info-soft: 213 80% 95%;
-    --info-soft-foreground: 213 45% 34%;
-    --info-border: 213 40% 86%;
-
-    --warning: 34 92% 55%;
+    --info-soft: 195 100% 96%;
+    --info-soft-foreground: 195 100% 25%;
+    --info-border: 195 100% 90%;
+    --warning: 45 100% 50%;
     --warning-foreground: 0 0% 100%;
-    --warning-soft: 36 100% 95%;
-    --warning-soft-foreground: 32 70% 35%;
-    --warning-border: 36 65% 85%;
-
-    --danger: 0 76% 58%;
+    --warning-soft: 45 100% 96%;
+    --warning-soft-foreground: 45 100% 25%;
+    --warning-border: 45 100% 90%;
+    --danger: 0 100% 60%;
     --danger-foreground: 0 0% 100%;
-    --danger-soft: 0 90% 96%;
-    --danger-soft-foreground: 0 60% 42%;
-    --danger-border: 0 60% 88%;
-
-    --accent-2: 280 70% 55%;
+    --danger-soft: 0 100% 97%;
+    --danger-soft-foreground: 0 100% 30%;
+    --danger-border: 0 100% 92%;
+    --accent-2: 330 100% 60%; /* Hot Pink */
     --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 280 80% 96%;
-    --accent-2-soft-foreground: 280 50% 40%;
-    --accent-2-border: 280 45% 86%;
+    --accent-2-soft: 330 100% 97%;
+    --accent-2-soft-foreground: 330 100% 30%;
+    --accent-2-border: 330 100% 92%;
 
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
     --mesh-gradient: 
-      radial-gradient(at 0% 0%, hsla(262, 83%, 58%, 0.1) 0, transparent 50%), 
-      radial-gradient(at 50% 0%, hsla(280, 70%, 55%, 0.08) 0, transparent 50%), 
-      radial-gradient(at 100% 0%, hsla(213, 94%, 52%, 0.08) 0, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(260, 100%, 60%, 0.15) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(330, 100%, 60%, 0.1) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(190, 100%, 50%, 0.1) 0, transparent 50%);
 
-    /* Brand Colors */
     --brand-feishu: 222 100% 60%;
     --brand-dingtalk: 210 100% 50%;
   }
 
   .dark {
-    /* Dark Theme - Neutral Dark Gray (Not Pitch Black) */
-    /* Background: Deep gray, reducing contrast strain */
-    --background: 222 18% 10%;
-    --foreground: 210 25% 94%; /* Off-white text */
-    
-    /* Cards: Slightly lighter gray */
-    --card: 222 16% 16%;
-    --card-foreground: 210 25% 94%;
-    
-    /* Popovers */
-    --popover: 222 16% 18%;
-    --popover-foreground: 210 25% 94%;
-    
-    /* Primary: Blue */
-    --primary: 213 92% 64%;
-    --primary-foreground: 0 0% 100%;
-    
-    /* Secondary */
-    --secondary: 222 14% 22%;
-    --secondary-foreground: 210 25% 94%;
-    
-    /* Muted */
-    --muted: 222 12% 22%;
-    --muted-foreground: 220 12% 72%;
-    
-    /* Accent */
-    --accent: 222 14% 22%;
-    --accent-foreground: 210 25% 94%;
-    
-    /* Destructive */
-    --destructive: var(--danger);
-    --destructive-foreground: var(--danger-foreground);
-    
-    /* Borders */
-    --border: 222 10% 24%;
-    --input: 222 10% 24%;
-    --ring: 213 92% 64%;
-    
-    /* Layout Colors - Dark */
-    --sidebar-background: 222 18% 8%;
-    --sidebar-foreground: 210 25% 94%;
-    --sidebar-border: 222 10% 22%;
-    
-    --sidebar: 222 18% 8%;
-    --topbar: 222 18% 10%;
-    
-    /* Semantic Colors */
-    --success: 152 55% 60%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 152 22% 20%;
-    --success-soft-foreground: 152 55% 80%;
-    --success-border: 152 30% 34%;
-
-    --info: 210 90% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 210 24% 20%;
-    --info-soft-foreground: 210 60% 80%;
-    --info-border: 210 32% 34%;
-
-    --warning: 36 90% 66%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 36 24% 20%;
-    --warning-soft-foreground: 36 70% 82%;
-    --warning-border: 36 32% 34%;
-
-    --danger: 2 75% 68%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 2 26% 20%;
-    --danger-soft-foreground: 2 70% 82%;
-    --danger-border: 2 32% 34%;
-
-    --accent-2: 268 70% 70%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 268 24% 20%;
-    --accent-2-soft-foreground: 268 55% 80%;
-    --accent-2-border: 268 32% 34%;
-
-    /* Dark Mode Shadows - 强烈对比，清晰可见 */
+    /* Dark Theme - High Contrast Neon */
+    --background: 260 50% 5%;
+    --foreground: 260 20% 95%;
+    --card: 260 40% 10%;
+    --card-foreground: 260 20% 95%;
+    --popover: 260 40% 12%;
+    --popover-foreground: 260 20% 95%;
+    --primary: 220 100% 60%; /* Electric Blue/Indigo */
+    --primary-foreground: 260 50% 5%;
+    --secondary: 260 30% 15%;
+    --secondary-foreground: 220 100% 70%;
+    --muted: 260 20% 15%;
+    --muted-foreground: 260 15% 65%;
+    --accent: 260 30% 15%;
+    --accent-foreground: 220 100% 70%;
+    --border: 260 20% 20%;
+    --input: 260 20% 20%;
+    --ring: 220 100% 60%;
+    --sidebar-background: 260 50% 3%;
+    --sidebar-foreground: 260 20% 90%;
+    --sidebar-border: 260 20% 15%;
+    --sidebar: 260 50% 3%;
+    --topbar: 260 50% 5%;
+    --success: 150 100% 45%;
+    --success-soft: 150 100% 8%;
+    --success-soft-foreground: 150 100% 70%;
+    --success-border: 150 100% 20%;
+    --info: 195 100% 50%;
+    --info-soft: 195 100% 8%;
+    --info-soft-foreground: 195 100% 70%;
+    --info-border: 195 100% 20%;
+    --warning: 45 100% 50%;
+    --warning-soft: 45 100% 8%;
+    --warning-soft-foreground: 45 100% 70%;
+    --warning-border: 45 100% 20%;
+    --danger: 0 100% 60%;
+    --danger-soft: 0 100% 8%;
+    --danger-soft-foreground: 0 100% 70%;
+    --danger-border: 0 100% 20%;
+    --accent-2: 330 100% 60%;
+    --accent-2-soft: 330 100% 8%;
+    --accent-2-soft-foreground: 330 100% 70%;
+    --accent-2-border: 330 100% 20%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
     --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
     --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.7);
     --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
-
-    /* Dark Mode Hover Shadows */
     --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.6), 0 1px 4px -1px rgba(0, 0, 0, 0.5);
     --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.7), 0 4px 8px -4px rgba(0, 0, 0, 0.6);
     --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.8), 0 8px 16px -8px rgba(0, 0, 0, 0.7);
   }
 
-  /* ============================================
-     THEME PRESETS - 风格主题
-     通过在 <html> 上设置 theme-* 类切换
-     ============================================ */
+  /* --- Theme Presets (Readability Refined) --- */
 
   :root.theme-graphite {
-    --background: 218 27% 94%;
-    --foreground: 220 18% 20%;
-    --card: 218 27% 92%;
-    --card-foreground: 220 18% 20%;
-    --popover: 218 27% 92%;
-    --popover-foreground: 220 18% 20%;
-    --primary: 213 32% 52%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 219 28% 88%;
-    --secondary-foreground: 220 18% 20%;
-    --muted: 219 28% 88%;
-    --muted-foreground: 220 12% 45%;
-    --accent: 218 27% 92%;
-    --accent-foreground: 220 18% 20%;
-    --border: 219 20% 90%;
-    --input: 219 20% 90%;
-    --ring: 213 32% 52%;
-
-    --sidebar-background: 218 27% 92%;
-    --sidebar-foreground: 220 18% 20%;
-    --sidebar-border: 219 20% 90%;
-    --sidebar: 218 27% 92%;
-    --topbar: 218 27% 92%;
-
-    --control-bg: 218 27% 94%;
-    --control-bg-hover: 218 27% 92%;
-    --control-bg-active: 219 28% 88%;
-    --control-border: 219 22% 86%;
-    --control-border-hover: 213 32% 52%;
-    --control-border-strong: 213 32% 52%;
-
-    --success: 92 28% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 92 25% 94%;
-    --success-soft-foreground: 92 30% 30%;
-    --success-border: 92 20% 85%;
-
-    --info: 210 34% 63%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 210 30% 94%;
-    --info-soft-foreground: 210 30% 32%;
-    --info-border: 210 22% 86%;
-
-    --warning: 40 71% 73%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 40 50% 94%;
-    --warning-soft-foreground: 40 40% 32%;
-    --warning-border: 40 30% 86%;
-
-    --danger: 354 42% 56%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 354 35% 94%;
-    --danger-soft-foreground: 354 40% 35%;
-    --danger-border: 354 25% 86%;
-
-    --accent-2: 311 20% 63%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 311 25% 94%;
-    --accent-2-soft-foreground: 311 30% 36%;
-    --accent-2-border: 311 20% 86%;
-
-    --radius-sm: 0.3rem;
-    --radius-md: 0.45rem;
-    --radius-lg: 0.7rem;
-    --radius-xl: 0.85rem;
-    --radius-2xl: 1rem;
-    --radius-control-sm: 0.5rem;
-    --radius-control: 0.75rem;
-    --radius-control-lg: 1rem;
-    --radius-card: 0.7rem;
-    --radius-popover: 0.45rem;
-    --radius-panel: 0.9rem;
-
-    --layout-page-content-padding: 1.25rem;
-    --layout-page-content-padding-top: 0.1rem;
-    --spacing-section-gap: 1.5rem;
-    --spacing-section-gap-sm: 1.125rem;
-    --spacing-card-gap: 0.75rem;
-    --spacing-card-gap-sm: 0.5rem;
-    --component-card-padding: 1.25rem;
-    --component-card-padding-sm: 0.875rem;
-    --component-card-padding-lg: 1.5rem;
-    --component-stats-card-padding: 1rem;
-    --control-button-height-sm: 2rem;
-    --control-button-height-default: 2.5rem;
-    --control-button-height-lg: 3rem;
-    --control-button-padding-x-sm: 0.75rem;
-    --control-button-padding-x-default: 1rem;
-    --control-button-padding-x-lg: 1.5rem;
-    --control-input-height-sm: 1.75rem;
-    --control-input-height-default: 2.25rem;
-    --control-input-height-lg: 2.75rem;
-    --control-input-padding-y: 0.4rem;
-    --control-badge-height: 1.15rem;
-    --control-badge-font-size: 0.7rem;
-
-    --font-sans: 'IBM Plex Sans', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.03);
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 2px 6px -3px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 6px 12px -6px rgba(0, 0, 0, 0.10);
-    --shadow-xl: 0 10px 20px -10px rgba(0, 0, 0, 0.12);
-    --shadow-2xl: 0 18px 36px -12px rgba(0, 0, 0, 0.16);
-
-    --shadow-hover-sm: 0 2px 6px -2px rgba(0, 0, 0, 0.08);
-    --shadow-hover-md: 0 6px 12px -6px rgba(0, 0, 0, 0.12);
-    --shadow-hover-lg: 0 12px 20px -10px rgba(0, 0, 0, 0.16);
+    --background: 230 25% 98%; --foreground: 230 40% 5%;
+    --primary: 190 100% 35%; /* Deeper Cyan for text */ --accent-2: 280 80% 55%;
+    --muted-foreground: 230 15% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-graphite {
+    --background: 230 50% 5%; --foreground: 230 20% 95%;
+    --primary: 185 100% 50%; --accent-2: 285 100% 60%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-emerald {
-    --background: 220 23% 95%;
-    --foreground: 234 16% 35%;
-    --card: 220 22% 92%;
-    --card-foreground: 234 16% 35%;
-    --popover: 220 22% 92%;
-    --popover-foreground: 234 16% 35%;
-    --primary: 109 58% 40%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 223 16% 83%;
-    --secondary-foreground: 234 16% 35%;
-    --muted: 225 14% 77%;
-    --muted-foreground: 233 10% 47%;
-    --accent: 223 16% 83%;
-    --accent-foreground: 234 16% 35%;
-    --border: 223 12% 86%;
-    --input: 223 12% 86%;
-    --ring: 109 58% 40%;
-
-    --sidebar-background: 220 22% 92%;
-    --sidebar-foreground: 234 16% 35%;
-    --sidebar-border: 223 12% 86%;
-    --sidebar: 220 22% 92%;
-    --topbar: 220 22% 92%;
-
-    --control-bg: 220 23% 95%;
-    --control-bg-hover: 223 16% 83%;
-    --control-bg-active: 225 14% 77%;
-    --control-border: 223 14% 82%;
-    --control-border-hover: 109 58% 40%;
-    --control-border-strong: 109 58% 40%;
-
-    --success: 109 58% 40%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 109 40% 94%;
-    --success-soft-foreground: 109 35% 30%;
-    --success-border: 109 30% 85%;
-
-    --info: 183 74% 35%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 183 40% 94%;
-    --info-soft-foreground: 183 40% 30%;
-    --info-border: 183 30% 85%;
-
-    --warning: 35 77% 49%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 35 70% 95%;
-    --warning-soft-foreground: 32 60% 35%;
-    --warning-border: 35 50% 86%;
-
-    --danger: 347 87% 44%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 347 70% 95%;
-    --danger-soft-foreground: 347 55% 38%;
-    --danger-border: 347 50% 86%;
-
-    --accent-2: 266 85% 58%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 266 70% 95%;
-    --accent-2-soft-foreground: 266 50% 40%;
-    --accent-2-border: 266 45% 86%;
-
-    --radius-sm: 0.7rem;
-    --radius-md: 1rem;
-    --radius-lg: 1.3rem;
-    --radius-xl: 1.6rem;
-    --radius-2xl: 1.9rem;
-    --radius-control-sm: 0.65rem;
-    --radius-control: 0.95rem;
-    --radius-control-lg: 1.2rem;
-    --radius-card: 1.3rem;
-    --radius-popover: 1rem;
-    --radius-panel: 1.6rem;
-
-    --layout-page-content-padding: 1.75rem;
-    --layout-page-content-padding-top: 0.2rem;
-    --spacing-section-gap: 2.25rem;
-    --spacing-section-gap-sm: 1.75rem;
-    --spacing-card-gap: 1.25rem;
-    --spacing-card-gap-sm: 1rem;
-    --component-card-padding: 1.75rem;
-    --component-card-padding-sm: 1.25rem;
-    --component-card-padding-lg: 2.25rem;
-    --component-stats-card-padding: 1.5rem;
-    --control-button-height-sm: 2.25rem;
-    --control-button-height-default: 2.75rem;
-    --control-button-height-lg: 3.25rem;
-    --control-button-padding-x-sm: 0.9rem;
-    --control-button-padding-x-default: 1.125rem;
-    --control-button-padding-x-lg: 1.5rem;
-    --control-input-height-sm: 2.25rem;
-    --control-input-height-default: 2.75rem;
-    --control-input-height-lg: 3.25rem;
-    --control-input-padding-y: 0.6rem;
-    --control-badge-height: 1.35rem;
-    --control-badge-font-size: 0.78rem;
-
-    --font-sans: 'Manrope', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-    --shadow-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 6px 14px -6px rgba(0, 0, 0, 0.10);
-    --shadow-lg: 0 12px 22px -10px rgba(0, 0, 0, 0.12);
-    --shadow-xl: 0 20px 32px -14px rgba(0, 0, 0, 0.14);
-    --shadow-2xl: 0 30px 48px -18px rgba(0, 0, 0, 0.16);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(0, 0, 0, 0.12);
-    --shadow-hover-md: 0 10px 20px -10px rgba(0, 0, 0, 0.14);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(0, 0, 0, 0.16);
+    --background: 160 40% 98%; --foreground: 160 50% 5%;
+    --primary: 160 100% 30%; /* Deeper Green */ --accent-2: 185 100% 35%;
+    --muted-foreground: 160 20% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-emerald {
+    --background: 160 50% 5%; --foreground: 160 20% 95%;
+    --primary: 150 100% 50%; --accent-2: 190 100% 50%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-sunset {
-    --background: 44 87% 94%;
-    --foreground: 194 14% 40%;
-    --card: 46 42% 96% / 0.78;
-    --card-foreground: 194 14% 40%;
-    --popover: 46 42% 97% / 0.82;
-    --popover-foreground: 194 14% 40%;
-    --primary: 18 80% 44%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 46 42% 88%;
-    --secondary-foreground: 194 14% 40%;
-    --muted: 46 42% 88%;
-    --muted-foreground: 196 13% 45%;
-    --accent: 46 42% 88%;
-    --accent-foreground: 194 14% 40%;
-    --border: 46 30% 90%;
-    --input: 46 30% 90%;
-    --ring: 18 80% 44%;
-
-    --sidebar-background: 46 42% 88%;
-    --sidebar-foreground: 194 14% 40%;
-    --sidebar-border: 46 30% 90%;
-    --sidebar: 46 42% 88%;
-    --topbar: 46 42% 88%;
-
-    --control-bg: 44 87% 94%;
-    --control-bg-hover: 46 42% 88%;
-    --control-bg-active: 46 42% 88%;
-    --control-border: 46 25% 84%;
-    --control-border-hover: 18 80% 44%;
-    --control-border-strong: 18 80% 44%;
-
-    --success: 68 100% 30%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 68 60% 94%;
-    --success-soft-foreground: 68 45% 30%;
-    --success-border: 68 40% 86%;
-
-    --info: 205 69% 49%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 205 50% 94%;
-    --info-soft-foreground: 205 45% 32%;
-    --info-border: 205 35% 86%;
-
-    --warning: 45 100% 35%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 45 80% 95%;
-    --warning-soft-foreground: 45 60% 35%;
-    --warning-border: 45 50% 86%;
-
-    --danger: 1 71% 52%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 1 70% 95%;
-    --danger-soft-foreground: 1 60% 38%;
-    --danger-border: 1 45% 86%;
-
-    --accent-2: 237 43% 60%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 237 50% 95%;
-    --accent-2-soft-foreground: 237 40% 40%;
-    --accent-2-border: 237 35% 86%;
-
-    --radius-sm: 0.6rem;
-    --radius-md: 0.9rem;
-    --radius-lg: 1.2rem;
-    --radius-xl: 1.4rem;
-    --radius-2xl: 1.6rem;
-    --radius-control-sm: 0.55rem;
-    --radius-control: 0.9rem;
-    --radius-control-lg: 1.15rem;
-    --radius-card: 1.2rem;
-    --radius-popover: 0.85rem;
-    --radius-panel: 1.4rem;
-
-    --font-sans: 'Avenir Next', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 5px 9px -3px rgba(0, 0, 0, 0.12), 0 3px 6px -3px rgba(0, 0, 0, 0.10);
-    --shadow-lg: 0 12px 20px -6px rgba(0, 0, 0, 0.14), 0 6px 10px -6px rgba(0, 0, 0, 0.12);
-    --shadow-xl: 0 22px 30px -10px rgba(0, 0, 0, 0.16), 0 10px 14px -8px rgba(0, 0, 0, 0.14);
-    --shadow-2xl: 0 28px 50px -14px rgba(0, 0, 0, 0.20);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.10);
-    --shadow-hover-md: 0 8px 18px -4px rgba(0, 0, 0, 0.16), 0 4px 8px -4px rgba(0, 0, 0, 0.14);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.18), 0 8px 16px -8px rgba(0, 0, 0, 0.16);
+    --background: 35 100% 98%; --foreground: 20 60% 5%;
+    --primary: 25 100% 40%; /* Deeper Orange */ --accent-2: 15 100% 45%;
+    --muted-foreground: 20 30% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-sunset {
+    --background: 20 50% 5%; --foreground: 20 20% 95%;
+    --primary: 25 100% 55%; --accent-2: 45 100% 50%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-midnight {
-    --background: 222 32% 96%;
-    --foreground: 224 28% 18%;
-    --card: 220 35% 98%;
-    --card-foreground: 224 28% 18%;
-    --popover: 220 35% 98%;
-    --popover-foreground: 224 28% 18%;
-    --primary: 212 90% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 22% 90%;
-    --secondary-foreground: 224 28% 18%;
-    --muted: 220 20% 88%;
-    --muted-foreground: 223 14% 45%;
-    --accent: 220 22% 90%;
-    --accent-foreground: 224 28% 18%;
-    --border: 220 18% 90%;
-    --input: 220 18% 90%;
-    --ring: 212 90% 50%;
-
-    --sidebar-background: 220 26% 92%;
-    --sidebar-foreground: 224 28% 18%;
-    --sidebar-border: 220 18% 88%;
-    --sidebar: 220 26% 92%;
-    --topbar: 220 26% 92%;
-
-    --control-bg: 222 32% 96%;
-    --control-bg-hover: 220 22% 90%;
-    --control-bg-active: 220 20% 88%;
-    --control-border: 220 20% 88%;
-    --control-border-hover: 212 90% 50%;
-    --control-border-strong: 212 90% 50%;
-
-    --success: 158 65% 35%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 158 45% 94%;
-    --success-soft-foreground: 158 40% 28%;
-    --success-border: 158 30% 86%;
-
-    --info: 201 88% 45%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 201 50% 94%;
-    --info-soft-foreground: 201 40% 32%;
-    --info-border: 201 30% 86%;
-
-    --warning: 36 90% 50%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 36 70% 95%;
-    --warning-soft-foreground: 36 55% 34%;
-    --warning-border: 36 40% 86%;
-
-    --danger: 355 70% 52%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 355 60% 95%;
-    --danger-soft-foreground: 355 50% 35%;
-    --danger-border: 355 40% 86%;
-
-    --accent-2: 270 75% 60%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 270 60% 95%;
-    --accent-2-soft-foreground: 270 45% 40%;
-    --accent-2-border: 270 40% 86%;
-
-    --radius-sm: 0.45rem;
-    --radius-md: 0.65rem;
-    --radius-lg: 0.9rem;
-    --radius-xl: 1.1rem;
-    --radius-2xl: 1.3rem;
-    --radius-control-sm: 0.5rem;
-    --radius-control: 0.7rem;
-    --radius-control-lg: 0.9rem;
-    --radius-card: 0.9rem;
-    --radius-popover: 0.65rem;
-    --radius-panel: 1.2rem;
-
-    --layout-page-content-padding: 1.4rem;
-    --layout-page-content-padding-top: 0.1rem;
-    --spacing-section-gap: 1.85rem;
-    --spacing-section-gap-sm: 1.4rem;
-    --spacing-card-gap: 0.9rem;
-    --spacing-card-gap-sm: 0.65rem;
-    --component-card-padding: 1.4rem;
-    --component-card-padding-sm: 1rem;
-    --component-card-padding-lg: 1.8rem;
-    --component-stats-card-padding: 1.1rem;
-    --control-button-height-sm: 2.1rem;
-    --control-button-height-default: 2.6rem;
-    --control-button-height-lg: 3rem;
-    --control-button-padding-x-sm: 0.75rem;
-    --control-button-padding-x-default: 1rem;
-    --control-button-padding-x-lg: 1.4rem;
-    --control-input-height-sm: 2.1rem;
-    --control-input-height-default: 2.6rem;
-    --control-input-height-lg: 3rem;
-    --control-input-padding-y: 0.45rem;
-    --control-badge-height: 1.2rem;
-    --control-badge-font-size: 0.72rem;
-
-    --font-sans: 'Space Grotesk', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(11, 32, 69, 0.08);
-    --shadow-sm: 0 2px 4px -1px rgba(11, 32, 69, 0.12);
-    --shadow-md: 0 6px 10px -4px rgba(11, 32, 69, 0.16);
-    --shadow-lg: 0 12px 20px -8px rgba(11, 32, 69, 0.18);
-    --shadow-xl: 0 20px 28px -12px rgba(11, 32, 69, 0.2);
-    --shadow-2xl: 0 28px 45px -16px rgba(11, 32, 69, 0.22);
-
-    --shadow-hover-sm: 0 3px 8px -2px rgba(11, 32, 69, 0.16);
-    --shadow-hover-md: 0 10px 18px -8px rgba(11, 32, 69, 0.2);
-    --shadow-hover-lg: 0 18px 30px -12px rgba(11, 32, 69, 0.24);
+    --background: 220 40% 98%; --foreground: 220 60% 5%;
+    --primary: 220 100% 45%; /* Deeper Blue */ --accent-2: 260 80% 55%;
+    --muted-foreground: 220 20% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-midnight {
+    --background: 220 50% 5%; --foreground: 220 20% 95%;
+    --primary: 220 100% 60%; --accent-2: 260 100% 65%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-rose {
-    --background: 340 50% 97%;
-    --foreground: 336 20% 28%;
-    --card: 340 40% 98%;
-    --card-foreground: 336 20% 28%;
-    --popover: 340 40% 98%;
-    --popover-foreground: 336 20% 28%;
-    --primary: 342 76% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 340 35% 92%;
-    --secondary-foreground: 336 20% 28%;
-    --muted: 340 30% 90%;
-    --muted-foreground: 336 16% 45%;
-    --accent: 340 35% 92%;
-    --accent-foreground: 336 20% 28%;
-    --border: 340 20% 90%;
-    --input: 340 20% 90%;
-    --ring: 342 76% 58%;
-
-    --sidebar-background: 340 35% 94%;
-    --sidebar-foreground: 336 20% 28%;
-    --sidebar-border: 340 20% 90%;
-    --sidebar: 340 35% 94%;
-    --topbar: 340 35% 94%;
-
-    --control-bg: 340 50% 97%;
-    --control-bg-hover: 340 35% 92%;
-    --control-bg-active: 340 30% 90%;
-    --control-border: 340 22% 88%;
-    --control-border-hover: 342 76% 58%;
-    --control-border-strong: 342 76% 58%;
-
-    --success: 148 54% 40%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 148 40% 94%;
-    --success-soft-foreground: 148 35% 32%;
-    --success-border: 148 28% 86%;
-
-    --info: 200 86% 46%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 200 50% 94%;
-    --info-soft-foreground: 200 40% 32%;
-    --info-border: 200 30% 86%;
-
-    --warning: 32 85% 52%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 32 70% 95%;
-    --warning-soft-foreground: 32 50% 35%;
-    --warning-border: 32 40% 86%;
-
-    --danger: 352 70% 55%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 60% 95%;
-    --danger-soft-foreground: 352 50% 36%;
-    --danger-border: 352 40% 86%;
-
-    --accent-2: 274 70% 62%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 274 55% 95%;
-    --accent-2-soft-foreground: 274 45% 40%;
-    --accent-2-border: 274 40% 86%;
-
-    --radius-sm: 0.75rem;
-    --radius-md: 1.05rem;
-    --radius-lg: 1.4rem;
-    --radius-xl: 1.7rem;
-    --radius-2xl: 2rem;
-    --radius-control-sm: 0.7rem;
-    --radius-control: 1.05rem;
-    --radius-control-lg: 1.3rem;
-    --radius-card: 1.4rem;
-    --radius-popover: 1.05rem;
-    --radius-panel: 1.8rem;
-
-    --layout-page-content-padding: 1.7rem;
-    --layout-page-content-padding-top: 0.2rem;
-    --spacing-section-gap: 2.2rem;
-    --spacing-section-gap-sm: 1.7rem;
-    --spacing-card-gap: 1.2rem;
-    --spacing-card-gap-sm: 0.95rem;
-    --component-card-padding: 1.7rem;
-    --component-card-padding-sm: 1.2rem;
-    --component-card-padding-lg: 2.2rem;
-    --component-stats-card-padding: 1.4rem;
-    --control-button-height-sm: 2.3rem;
-    --control-button-height-default: 2.85rem;
-    --control-button-height-lg: 3.3rem;
-    --control-button-padding-x-sm: 0.9rem;
-    --control-button-padding-x-default: 1.2rem;
-    --control-button-padding-x-lg: 1.6rem;
-    --control-input-height-sm: 2.3rem;
-    --control-input-height-default: 2.85rem;
-    --control-input-height-lg: 3.3rem;
-    --control-input-padding-y: 0.6rem;
-    --control-badge-height: 1.35rem;
-    --control-badge-font-size: 0.8rem;
-
-    --font-sans: 'Nunito', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(147, 73, 98, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(147, 73, 98, 0.1);
-    --shadow-md: 0 6px 14px -6px rgba(147, 73, 98, 0.12);
-    --shadow-lg: 0 12px 22px -10px rgba(147, 73, 98, 0.14);
-    --shadow-xl: 0 20px 32px -14px rgba(147, 73, 98, 0.16);
-    --shadow-2xl: 0 30px 48px -18px rgba(147, 73, 98, 0.18);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(147, 73, 98, 0.14);
-    --shadow-hover-md: 0 10px 20px -10px rgba(147, 73, 98, 0.16);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(147, 73, 98, 0.18);
+    --background: 340 50% 98%; --foreground: 340 60% 5%;
+    --primary: 335 90% 50%; /* Deeper Pink */ --accent-2: 15 100% 45%;
+    --muted-foreground: 340 20% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-rose {
+    --background: 335 50% 5%; --foreground: 335 20% 95%;
+    --primary: 335 100% 60%; --accent-2: 20 100% 60%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-ocean {
-    --background: 200 50% 96%;
-    --foreground: 205 25% 28%;
-    --card: 200 35% 98% / 0.8;
-    --card-foreground: 205 25% 28%;
-    --popover: 200 35% 99% / 0.85;
-    --popover-foreground: 205 25% 28%;
-    --primary: 188 80% 38%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 198 30% 90%;
-    --secondary-foreground: 205 25% 28%;
-    --muted: 198 25% 88%;
-    --muted-foreground: 203 16% 45%;
-    --accent: 198 30% 90%;
-    --accent-foreground: 205 25% 28%;
-    --border: 198 20% 90%;
-    --input: 198 20% 90%;
-    --ring: 188 80% 38%;
-
-    --sidebar-background: 198 30% 92%;
-    --sidebar-foreground: 205 25% 28%;
-    --sidebar-border: 198 20% 90%;
-    --sidebar: 198 30% 92%;
-    --topbar: 198 30% 92%;
-
-    --control-bg: 200 50% 96% / 0.8;
-    --control-bg-hover: 198 30% 90%;
-    --control-bg-active: 198 25% 88%;
-    --control-border: 198 20% 90%;
-    --control-border-hover: 188 80% 38%;
-    --control-border-strong: 188 80% 38%;
-
-    --success: 168 60% 38%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 168 40% 94%;
-    --success-soft-foreground: 168 35% 32%;
-    --success-border: 168 28% 86%;
-
-    --info: 200 80% 45%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 200 45% 94%;
-    --info-soft-foreground: 200 35% 32%;
-    --info-border: 200 28% 86%;
-
-    --warning: 37 85% 52%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 37 70% 95%;
-    --warning-soft-foreground: 37 50% 35%;
-    --warning-border: 37 40% 86%;
-
-    --danger: 2 70% 52%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 2 60% 95%;
-    --danger-soft-foreground: 2 50% 35%;
-    --danger-border: 2 40% 86%;
-
-    --accent-2: 210 80% 55%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 210 50% 95%;
-    --accent-2-soft-foreground: 210 40% 38%;
-    --accent-2-border: 210 35% 86%;
-
-    --radius-sm: 0.6rem;
-    --radius-md: 0.9rem;
-    --radius-lg: 1.2rem;
-    --radius-xl: 1.5rem;
-    --radius-2xl: 1.8rem;
-    --radius-control-sm: 0.6rem;
-    --radius-control: 0.9rem;
-    --radius-control-lg: 1.15rem;
-    --radius-card: 1.2rem;
-    --radius-popover: 0.9rem;
-    --radius-panel: 1.5rem;
-
-    --layout-page-content-padding: 1.6rem;
-    --layout-page-content-padding-top: 0.15rem;
-    --spacing-section-gap: 2rem;
-    --spacing-section-gap-sm: 1.5rem;
-    --spacing-card-gap: 1.05rem;
-    --spacing-card-gap-sm: 0.8rem;
-    --component-card-padding: 1.6rem;
-    --component-card-padding-sm: 1.1rem;
-    --component-card-padding-lg: 2rem;
-    --component-stats-card-padding: 1.25rem;
-    --control-button-height-sm: 2.2rem;
-    --control-button-height-default: 2.7rem;
-    --control-button-height-lg: 3.1rem;
-    --control-button-padding-x-sm: 0.85rem;
-    --control-button-padding-x-default: 1.1rem;
-    --control-button-padding-x-lg: 1.45rem;
-    --control-input-height-sm: 2.2rem;
-    --control-input-height-default: 2.7rem;
-    --control-input-height-lg: 3.1rem;
-    --control-input-padding-y: 0.55rem;
-    --control-badge-height: 1.25rem;
-    --control-badge-font-size: 0.76rem;
-
-    --font-sans: 'Plus Jakarta Sans', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(30, 110, 120, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(30, 110, 120, 0.1);
-    --shadow-md: 0 6px 14px -6px rgba(30, 110, 120, 0.12);
-    --shadow-lg: 0 12px 22px -10px rgba(30, 110, 120, 0.14);
-    --shadow-xl: 0 20px 32px -14px rgba(30, 110, 120, 0.16);
-    --shadow-2xl: 0 30px 48px -18px rgba(30, 110, 120, 0.18);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(30, 110, 120, 0.14);
-    --shadow-hover-md: 0 10px 20px -10px rgba(30, 110, 120, 0.16);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(30, 110, 120, 0.18);
+    --background: 200 50% 98%; --foreground: 200 60% 5%;
+    --primary: 185 100% 30%; /* Deeper Teal */ --accent-2: 210 100% 45%;
+    --muted-foreground: 200 20% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-ocean {
+    --background: 200 50% 5%; --foreground: 200 20% 95%;
+    --primary: 185 100% 45%; --accent-2: 210 100% 55%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-cotton {
-    --background: 35 60% 96%;
-    --foreground: 240 16% 28%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 16% 28%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 16% 28%;
-    --primary: 330 70% 62%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 35 40% 92%;
-    --secondary-foreground: 240 16% 28%;
-    --muted: 35 30% 90%;
-    --muted-foreground: 240 12% 45%;
-    --accent: 35 40% 92%;
-    --accent-foreground: 240 16% 28%;
-    --border: 35 20% 88%;
-    --input: 35 20% 88%;
-    --ring: 330 70% 62%;
-
-    --sidebar-background: 35 40% 93%;
-    --sidebar-foreground: 240 16% 28%;
-    --sidebar-border: 35 20% 88%;
-    --sidebar: 35 40% 93%;
-    --topbar: 35 40% 93%;
-
-    --control-bg: 35 60% 96%;
-    --control-bg-hover: 35 40% 92%;
-    --control-bg-active: 35 30% 90%;
-    --control-border: 35 20% 88%;
-    --control-border-hover: 330 70% 62%;
-    --control-border-strong: 330 70% 62%;
-
-    --success: 152 48% 42%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 152 35% 94%;
-    --success-soft-foreground: 152 35% 32%;
-    --success-border: 152 25% 86%;
-
-    --info: 205 72% 52%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 205 50% 94%;
-    --info-soft-foreground: 205 40% 32%;
-    --info-border: 205 30% 86%;
-
-    --warning: 38 85% 55%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 70% 95%;
-    --warning-soft-foreground: 38 50% 35%;
-    --warning-border: 38 40% 86%;
-
-    --danger: 352 70% 58%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 60% 95%;
-    --danger-soft-foreground: 352 50% 36%;
-    --danger-border: 352 40% 86%;
-
-    --accent-2: 206 70% 58%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 206 55% 95%;
-    --accent-2-soft-foreground: 206 45% 40%;
-    --accent-2-border: 206 40% 86%;
-
-    --radius-sm: 0.75rem;
-    --radius-md: 1.05rem;
-    --radius-lg: 1.35rem;
-    --radius-xl: 1.6rem;
-    --radius-2xl: 1.9rem;
-    --radius-control-sm: 0.7rem;
-    --radius-control: 1rem;
-    --radius-control-lg: 1.3rem;
-    --radius-card: 1.35rem;
-    --radius-popover: 1.05rem;
-    --radius-panel: 1.7rem;
-
-    --layout-page-content-padding: 1.7rem;
-    --layout-page-content-padding-top: 0.2rem;
-    --spacing-section-gap: 2.2rem;
-    --spacing-section-gap-sm: 1.7rem;
-    --spacing-card-gap: 1.2rem;
-    --spacing-card-gap-sm: 0.95rem;
-    --component-card-padding: 1.7rem;
-    --component-card-padding-sm: 1.2rem;
-    --component-card-padding-lg: 2.2rem;
-    --component-stats-card-padding: 1.4rem;
-    --control-button-height-sm: 2.3rem;
-    --control-button-height-default: 2.85rem;
-    --control-button-height-lg: 3.3rem;
-    --control-button-padding-x-sm: 0.9rem;
-    --control-button-padding-x-default: 1.2rem;
-    --control-button-padding-x-lg: 1.6rem;
-    --control-input-height-sm: 2.3rem;
-    --control-input-height-default: 2.85rem;
-    --control-input-height-lg: 3.3rem;
-    --control-input-padding-y: 0.6rem;
-    --control-badge-height: 1.35rem;
-    --control-badge-font-size: 0.8rem;
-
-    --font-sans: 'Quicksand', 'Nunito', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(182, 114, 140, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(182, 114, 140, 0.1);
-    --shadow-md: 0 6px 14px -6px rgba(182, 114, 140, 0.12);
-    --shadow-lg: 0 12px 22px -10px rgba(182, 114, 140, 0.14);
-    --shadow-xl: 0 20px 32px -14px rgba(182, 114, 140, 0.16);
-    --shadow-2xl: 0 30px 48px -18px rgba(182, 114, 140, 0.18);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(182, 114, 140, 0.14);
-    --shadow-hover-md: 0 10px 20px -10px rgba(182, 114, 140, 0.16);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(182, 114, 140, 0.18);
+    --background: 35 100% 98%; --foreground: 330 60% 5%;
+    --primary: 330 90% 55%; /* Deeper Rose */ --accent-2: 200 100% 45%;
+    --muted-foreground: 330 30% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-cotton {
+    --background: 330 50% 5%; --foreground: 330 20% 95%;
+    --primary: 330 100% 65%; --accent-2: 200 100% 65%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-lavender {
-    --background: 265 45% 96%;
-    --foreground: 258 18% 28%;
-    --card: 265 40% 98%;
-    --card-foreground: 258 18% 28%;
-    --popover: 265 40% 98%;
-    --popover-foreground: 258 18% 28%;
-    --primary: 266 70% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 265 30% 92%;
-    --secondary-foreground: 258 18% 28%;
-    --muted: 265 25% 90%;
-    --muted-foreground: 258 14% 45%;
-    --accent: 265 30% 92%;
-    --accent-foreground: 258 18% 28%;
-    --border: 265 20% 90%;
-    --input: 265 20% 90%;
-    --ring: 266 70% 60%;
-
-    --sidebar-background: 265 30% 94%;
-    --sidebar-foreground: 258 18% 28%;
-    --sidebar-border: 265 20% 90%;
-    --sidebar: 265 30% 94%;
-    --topbar: 265 30% 94%;
-
-    --control-bg: 265 45% 96%;
-    --control-bg-hover: 265 30% 92%;
-    --control-bg-active: 265 25% 90%;
-    --control-border: 265 20% 90%;
-    --control-border-hover: 266 70% 60%;
-    --control-border-strong: 266 70% 60%;
-
-    --success: 148 48% 42%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 148 35% 94%;
-    --success-soft-foreground: 148 35% 32%;
-    --success-border: 148 25% 86%;
-
-    --info: 206 70% 55%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 206 50% 94%;
-    --info-soft-foreground: 206 40% 32%;
-    --info-border: 206 30% 86%;
-
-    --warning: 38 85% 55%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 70% 95%;
-    --warning-soft-foreground: 38 50% 35%;
-    --warning-border: 38 40% 86%;
-
-    --danger: 352 68% 58%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 60% 95%;
-    --danger-soft-foreground: 352 50% 36%;
-    --danger-border: 352 40% 86%;
-
-    --accent-2: 210 70% 60%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 210 55% 95%;
-    --accent-2-soft-foreground: 210 45% 40%;
-    --accent-2-border: 210 40% 86%;
-
-    --radius-sm: 0.7rem;
-    --radius-md: 1rem;
-    --radius-lg: 1.3rem;
-    --radius-xl: 1.6rem;
-    --radius-2xl: 1.9rem;
-    --radius-control-sm: 0.7rem;
-    --radius-control: 1rem;
-    --radius-control-lg: 1.25rem;
-    --radius-card: 1.3rem;
-    --radius-popover: 1rem;
-    --radius-panel: 1.6rem;
-
-    --layout-page-content-padding: 1.65rem;
-    --layout-page-content-padding-top: 0.2rem;
-    --spacing-section-gap: 2.1rem;
-    --spacing-section-gap-sm: 1.65rem;
-    --spacing-card-gap: 1.15rem;
-    --spacing-card-gap-sm: 0.9rem;
-    --component-card-padding: 1.65rem;
-    --component-card-padding-sm: 1.15rem;
-    --component-card-padding-lg: 2.1rem;
-    --component-stats-card-padding: 1.35rem;
-    --control-button-height-sm: 2.25rem;
-    --control-button-height-default: 2.8rem;
-    --control-button-height-lg: 3.25rem;
-    --control-button-padding-x-sm: 0.9rem;
-    --control-button-padding-x-default: 1.15rem;
-    --control-button-padding-x-lg: 1.55rem;
-    --control-input-height-sm: 2.25rem;
-    --control-input-height-default: 2.8rem;
-    --control-input-height-lg: 3.25rem;
-    --control-input-padding-y: 0.6rem;
-    --control-badge-height: 1.35rem;
-    --control-badge-font-size: 0.8rem;
-
-    --font-sans: 'Mulish', 'Nunito', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(120, 96, 168, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(120, 96, 168, 0.1);
-    --shadow-md: 0 6px 14px -6px rgba(120, 96, 168, 0.12);
-    --shadow-lg: 0 12px 22px -10px rgba(120, 96, 168, 0.14);
-    --shadow-xl: 0 20px 32px -14px rgba(120, 96, 168, 0.16);
-    --shadow-2xl: 0 30px 48px -18px rgba(120, 96, 168, 0.18);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(120, 96, 168, 0.14);
-    --shadow-hover-md: 0 10px 20px -10px rgba(120, 96, 168, 0.16);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(120, 96, 168, 0.18);
+    --background: 265 50% 98%; --foreground: 265 60% 5%;
+    --primary: 265 90% 50%; /* Deeper Violet */ --accent-2: 300 80% 55%;
+    --muted-foreground: 265 20% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+  }
+  :root.dark.theme-lavender {
+    --background: 265 50% 5%; --foreground: 265 20% 95%;
+    --primary: 265 100% 65%; --accent-2: 300 100% 65%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
   :root.theme-peach {
-    --background: 24 70% 96%;
-    --foreground: 22 20% 28%;
-    --card: 24 55% 98%;
-    --card-foreground: 22 20% 28%;
-    --popover: 24 55% 98%;
-    --popover-foreground: 22 20% 28%;
-    --primary: 18 80% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 24 40% 92%;
-    --secondary-foreground: 22 20% 28%;
-    --muted: 24 35% 90%;
-    --muted-foreground: 22 14% 45%;
-    --accent: 24 40% 92%;
-    --accent-foreground: 22 20% 28%;
-    --border: 24 20% 90%;
-    --input: 24 20% 90%;
-    --ring: 18 80% 56%;
-
-    --sidebar-background: 24 40% 94%;
-    --sidebar-foreground: 22 20% 28%;
-    --sidebar-border: 24 20% 90%;
-    --sidebar: 24 40% 94%;
-    --topbar: 24 40% 94%;
-
-    --control-bg: 24 70% 96%;
-    --control-bg-hover: 24 40% 92%;
-    --control-bg-active: 24 35% 90%;
-    --control-border: 24 20% 90%;
-    --control-border-hover: 18 80% 56%;
-    --control-border-strong: 18 80% 56%;
-
-    --success: 150 50% 42%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 150 35% 94%;
-    --success-soft-foreground: 150 35% 32%;
-    --success-border: 150 25% 86%;
-
-    --info: 204 70% 55%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 204 50% 94%;
-    --info-soft-foreground: 204 40% 32%;
-    --info-border: 204 30% 86%;
-
-    --warning: 38 85% 55%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 70% 95%;
-    --warning-soft-foreground: 38 50% 35%;
-    --warning-border: 38 40% 86%;
-
-    --danger: 355 70% 58%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 355 60% 95%;
-    --danger-soft-foreground: 355 50% 36%;
-    --danger-border: 355 40% 86%;
-
-    --accent-2: 206 70% 58%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 206 55% 95%;
-    --accent-2-soft-foreground: 206 45% 40%;
-    --accent-2-border: 206 40% 86%;
-
-    --radius-sm: 0.7rem;
-    --radius-md: 1rem;
-    --radius-lg: 1.3rem;
-    --radius-xl: 1.6rem;
-    --radius-2xl: 1.9rem;
-    --radius-control-sm: 0.7rem;
-    --radius-control: 1rem;
-    --radius-control-lg: 1.25rem;
-    --radius-card: 1.3rem;
-    --radius-popover: 1rem;
-    --radius-panel: 1.6rem;
-
-    --layout-page-content-padding: 1.65rem;
-    --layout-page-content-padding-top: 0.2rem;
-    --spacing-section-gap: 2.1rem;
-    --spacing-section-gap-sm: 1.65rem;
-    --spacing-card-gap: 1.15rem;
-    --spacing-card-gap-sm: 0.9rem;
-    --component-card-padding: 1.65rem;
-    --component-card-padding-sm: 1.15rem;
-    --component-card-padding-lg: 2.1rem;
-    --component-stats-card-padding: 1.35rem;
-    --control-button-height-sm: 2.25rem;
-    --control-button-height-default: 2.8rem;
-    --control-button-height-lg: 3.25rem;
-    --control-button-padding-x-sm: 0.9rem;
-    --control-button-padding-x-default: 1.15rem;
-    --control-button-padding-x-lg: 1.55rem;
-    --control-input-height-sm: 2.25rem;
-    --control-input-height-default: 2.8rem;
-    --control-input-height-lg: 3.25rem;
-    --control-input-padding-y: 0.6rem;
-    --control-badge-height: 1.35rem;
-    --control-badge-font-size: 0.8rem;
-
-    --font-sans: 'Poppins', 'Nunito', 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-
-    --shadow-xs: 0 1px 2px 0 rgba(201, 120, 92, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(201, 120, 92, 0.1);
-    --shadow-md: 0 6px 14px -6px rgba(201, 120, 92, 0.12);
-    --shadow-lg: 0 12px 22px -10px rgba(201, 120, 92, 0.14);
-    --shadow-xl: 0 20px 32px -14px rgba(201, 120, 92, 0.16);
-    --shadow-2xl: 0 30px 48px -18px rgba(201, 120, 92, 0.18);
-
-    --shadow-hover-sm: 0 4px 10px -6px rgba(201, 120, 92, 0.14);
-    --shadow-hover-md: 0 10px 20px -10px rgba(201, 120, 92, 0.16);
-    --shadow-hover-lg: 0 18px 30px -14px rgba(201, 120, 92, 0.18);
+    --background: 25 100% 98%; --foreground: 20 60% 5%;
+    --primary: 30 100% 35%; /* Denser Orange/Gold */ --accent-2: 10 100% 45%;
+    --muted-foreground: 20 30% 40%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
-
-  :root.dark.theme-graphite {
-    --background: 220 18% 16%;
-    --foreground: 219 30% 94%;
-    --card: 220 16% 22%;
-    --card-foreground: 219 30% 94%;
-    --popover: 220 16% 24%;
-    --popover-foreground: 219 30% 94%;
-    --primary: 210 36% 66%;
-    --primary-foreground: 220 18% 16%;
-    --secondary: 220 16% 24%;
-    --secondary-foreground: 219 30% 94%;
-    --muted: 220 14% 26%;
-    --muted-foreground: 220 12% 72%;
-    --accent: 220 16% 24%;
-    --accent-foreground: 219 30% 94%;
-    --border: 220 14% 26%;
-    --input: 220 14% 26%;
-    --ring: 210 36% 66%;
-
-    --sidebar-background: 220 18% 12%;
-    --sidebar-foreground: 219 30% 92%;
-    --sidebar-border: 220 14% 22%;
-    --sidebar: 220 18% 12%;
-    --topbar: 220 18% 14%;
-
-    --control-bg: 220 16% 24%;
-    --control-bg-hover: 220 16% 28%;
-    --control-bg-active: 220 16% 32%;
-    --control-border: 220 14% 26%;
-    --control-border-hover: 210 36% 66%;
-    --control-border-strong: 210 36% 66%;
-
-    --success: 92 40% 70%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 92 24% 20%;
-    --success-soft-foreground: 92 55% 80%;
-    --success-border: 92 30% 34%;
-
-    --info: 210 50% 70%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 210 24% 20%;
-    --info-soft-foreground: 210 60% 80%;
-    --info-border: 210 32% 34%;
-
-    --warning: 40 80% 72%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 40 24% 20%;
-    --warning-soft-foreground: 40 70% 82%;
-    --warning-border: 40 32% 34%;
-
-    --danger: 354 55% 68%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 354 24% 20%;
-    --danger-soft-foreground: 354 60% 82%;
-    --danger-border: 354 32% 34%;
-
-    --accent-2: 311 35% 70%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 311 24% 20%;
-    --accent-2-soft-foreground: 311 55% 80%;
-    --accent-2-border: 311 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 18px 22px -6px rgba(0, 0, 0, 0.85), 0 8px 10px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 24px 42px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 30px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-emerald {
-    --background: 232 26% 12%;
-    --foreground: 227 70% 92%;
-    --card: 232 24% 18%;
-    --card-foreground: 227 70% 92%;
-    --popover: 232 24% 20%;
-    --popover-foreground: 227 70% 92%;
-    --primary: 105 55% 65%;
-    --primary-foreground: 232 26% 12%;
-    --secondary: 232 20% 22%;
-    --secondary-foreground: 227 70% 92%;
-    --muted: 232 18% 26%;
-    --muted-foreground: 227 30% 78%;
-    --accent: 232 20% 22%;
-    --accent-foreground: 227 70% 92%;
-    --border: 232 14% 24%;
-    --input: 232 14% 24%;
-    --ring: 105 55% 65%;
-
-    --sidebar-background: 232 26% 10%;
-    --sidebar-foreground: 227 70% 92%;
-    --sidebar-border: 232 14% 22%;
-    --sidebar: 232 26% 10%;
-    --topbar: 232 26% 12%;
-
-    --control-bg: 232 20% 22%;
-    --control-bg-hover: 232 18% 26%;
-    --control-bg-active: 232 18% 30%;
-    --control-border: 232 14% 24%;
-    --control-border-hover: 105 55% 65%;
-    --control-border-strong: 105 55% 65%;
-
-    --success: 105 55% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 105 22% 20%;
-    --success-soft-foreground: 105 55% 80%;
-    --success-border: 105 30% 34%;
-
-    --info: 171 60% 68%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 171 24% 20%;
-    --info-soft-foreground: 171 55% 80%;
-    --info-border: 171 30% 34%;
-
-    --warning: 40 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 40 24% 20%;
-    --warning-soft-foreground: 40 70% 82%;
-    --warning-border: 40 32% 34%;
-
-    --danger: 351 70% 68%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 351 24% 20%;
-    --danger-soft-foreground: 351 60% 82%;
-    --danger-border: 351 32% 34%;
-
-    --accent-2: 267 70% 72%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 267 24% 20%;
-    --accent-2-soft-foreground: 267 55% 80%;
-    --accent-2-border: 267 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.85), 0 8px 10px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 26px 46px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-sunset {
-    --background: 192 100% 9%;
-    --foreground: 186 18% 82%;
-    --card: 192 70% 14% / 0.88;
-    --card-foreground: 186 18% 82%;
-    --popover: 192 70% 16% / 0.9;
-    --popover-foreground: 186 18% 82%;
-    --primary: 18 80% 44%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 192 60% 18%;
-    --secondary-foreground: 186 18% 82%;
-    --muted: 192 55% 20%;
-    --muted-foreground: 186 12% 68%;
-    --accent: 192 60% 18%;
-    --accent-foreground: 186 18% 82%;
-    --border: 194 12% 24%;
-    --input: 194 12% 24%;
-    --ring: 18 80% 44%;
-
-    --sidebar-background: 192 100% 8%;
-    --sidebar-foreground: 186 18% 82%;
-    --sidebar-border: 194 12% 22%;
-    --sidebar: 192 100% 8%;
-    --topbar: 192 100% 9%;
-
-    --control-bg: 192 60% 18%;
-    --control-bg-hover: 192 55% 22%;
-    --control-bg-active: 192 55% 26%;
-    --control-border: 194 12% 24%;
-    --control-border-hover: 18 80% 44%;
-    --control-border-strong: 18 80% 44%;
-
-    --success: 68 75% 60%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 68 24% 20%;
-    --success-soft-foreground: 68 60% 80%;
-    --success-border: 68 32% 34%;
-
-    --info: 205 70% 60%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 205 24% 20%;
-    --info-soft-foreground: 205 60% 80%;
-    --info-border: 205 32% 34%;
-
-    --warning: 45 90% 62%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 45 24% 20%;
-    --warning-soft-foreground: 45 70% 82%;
-    --warning-border: 45 32% 34%;
-
-    --danger: 1 70% 64%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 1 24% 20%;
-    --danger-soft-foreground: 1 70% 82%;
-    --danger-border: 1 32% 34%;
-
-    --accent-2: 237 55% 68%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 237 24% 20%;
-    --accent-2-soft-foreground: 237 60% 80%;
-    --accent-2-border: 237 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 28px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-midnight {
-    --background: 224 50% 9%;
-    --foreground: 220 70% 94%;
-    --card: 224 40% 15%;
-    --card-foreground: 220 70% 94%;
-    --popover: 224 40% 17%;
-    --popover-foreground: 220 70% 94%;
-    --primary: 211 100% 65%;
-    --primary-foreground: 224 50% 9%;
-    --secondary: 224 32% 19%;
-    --secondary-foreground: 220 70% 94%;
-    --muted: 224 28% 24%;
-    --muted-foreground: 220 20% 75%;
-    --accent: 224 32% 19%;
-    --accent-foreground: 220 70% 94%;
-    --border: 224 22% 24%;
-    --input: 224 22% 24%;
-    --ring: 211 100% 65%;
-
-    --sidebar-background: 224 50% 7%;
-    --sidebar-foreground: 220 70% 94%;
-    --sidebar-border: 224 22% 22%;
-    --sidebar: 224 50% 7%;
-    --topbar: 224 45% 9%;
-
-    --control-bg: 224 32% 19%;
-    --control-bg-hover: 224 28% 24%;
-    --control-bg-active: 224 28% 28%;
-    --control-border: 224 22% 24%;
-    --control-border-hover: 211 100% 65%;
-    --control-border-strong: 211 100% 65%;
-
-    --success: 158 60% 64%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 158 24% 20%;
-    --success-soft-foreground: 158 55% 80%;
-    --success-border: 158 32% 34%;
-
-    --info: 200 90% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 200 24% 20%;
-    --info-soft-foreground: 200 60% 80%;
-    --info-border: 200 32% 34%;
-
-    --warning: 36 85% 68%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 36 24% 20%;
-    --warning-soft-foreground: 36 70% 82%;
-    --warning-border: 36 32% 34%;
-
-    --danger: 355 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 355 24% 20%;
-    --danger-soft-foreground: 355 60% 82%;
-    --danger-border: 355 32% 34%;
-
-    --accent-2: 270 80% 72%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 270 24% 20%;
-    --accent-2-soft-foreground: 270 55% 80%;
-    --accent-2-border: 270 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.6), 0 1px 2px -1px rgba(0, 0, 0, 0.55);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -4px rgba(0, 0, 0, 0.7);
-    --shadow-xl: 0 18px 24px -6px rgba(0, 0, 0, 0.9), 0 8px 12px -6px rgba(0, 0, 0, 0.8);
-    --shadow-2xl: 0 26px 48px -12px rgba(0, 0, 0, 0.95);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.7), 0 1px 4px -1px rgba(0, 0, 0, 0.6);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.8), 0 4px 8px -4px rgba(0, 0, 0, 0.7);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.9), 0 8px 16px -8px rgba(0, 0, 0, 0.8);
-  }
-
-  :root.dark.theme-rose {
-    --background: 336 30% 12%;
-    --foreground: 340 40% 94%;
-    --card: 336 26% 18%;
-    --card-foreground: 340 40% 94%;
-    --popover: 336 26% 20%;
-    --popover-foreground: 340 40% 94%;
-    --primary: 342 85% 72%;
-    --primary-foreground: 336 30% 12%;
-    --secondary: 336 20% 24%;
-    --secondary-foreground: 340 40% 94%;
-    --muted: 336 18% 28%;
-    --muted-foreground: 336 22% 76%;
-    --accent: 336 20% 24%;
-    --accent-foreground: 340 40% 94%;
-    --border: 336 16% 28%;
-    --input: 336 16% 28%;
-    --ring: 342 85% 72%;
-
-    --sidebar-background: 336 30% 10%;
-    --sidebar-foreground: 340 40% 94%;
-    --sidebar-border: 336 16% 26%;
-    --sidebar: 336 30% 10%;
-    --topbar: 336 30% 12%;
-
-    --control-bg: 336 20% 24%;
-    --control-bg-hover: 336 18% 28%;
-    --control-bg-active: 336 18% 32%;
-    --control-border: 336 16% 28%;
-    --control-border-hover: 342 85% 72%;
-    --control-border-strong: 342 85% 72%;
-
-    --success: 148 55% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 148 24% 20%;
-    --success-soft-foreground: 148 55% 80%;
-    --success-border: 148 32% 34%;
-
-    --info: 200 85% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 200 24% 20%;
-    --info-soft-foreground: 200 60% 80%;
-    --info-border: 200 32% 34%;
-
-    --warning: 32 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 32 24% 20%;
-    --warning-soft-foreground: 32 70% 82%;
-    --warning-border: 32 32% 34%;
-
-    --danger: 352 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 24% 20%;
-    --danger-soft-foreground: 352 60% 82%;
-    --danger-border: 352 32% 34%;
-
-    --accent-2: 274 75% 74%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 274 24% 20%;
-    --accent-2-soft-foreground: 274 55% 80%;
-    --accent-2-border: 274 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 26px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-ocean {
-    --background: 199 45% 10%;
-    --foreground: 197 45% 92%;
-    --card: 199 35% 16% / 0.85;
-    --card-foreground: 197 45% 92%;
-    --popover: 199 35% 18% / 0.88;
-    --popover-foreground: 197 45% 92%;
-    --primary: 183 95% 60%;
-    --primary-foreground: 199 45% 10%;
-    --secondary: 199 25% 20%;
-    --secondary-foreground: 197 45% 92%;
-    --muted: 199 22% 26%;
-    --muted-foreground: 199 20% 75%;
-    --accent: 199 25% 20%;
-    --accent-foreground: 197 45% 92%;
-    --border: 199 16% 26%;
-    --input: 199 16% 26%;
-    --ring: 183 95% 60%;
-
-    --sidebar-background: 199 45% 8%;
-    --sidebar-foreground: 197 45% 92%;
-    --sidebar-border: 199 16% 24%;
-    --sidebar: 199 45% 8%;
-    --topbar: 199 45% 10%;
-
-    --control-bg: 199 25% 20% / 0.82;
-    --control-bg-hover: 199 22% 26%;
-    --control-bg-active: 199 22% 30%;
-    --control-border: 199 16% 26%;
-    --control-border-hover: 183 95% 60%;
-    --control-border-strong: 183 95% 60%;
-
-    --success: 168 60% 64%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 168 24% 20%;
-    --success-soft-foreground: 168 55% 80%;
-    --success-border: 168 32% 34%;
-
-    --info: 200 85% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 200 24% 20%;
-    --info-soft-foreground: 200 60% 80%;
-    --info-border: 200 32% 34%;
-
-    --warning: 37 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 37 24% 20%;
-    --warning-soft-foreground: 37 70% 82%;
-    --warning-border: 37 32% 34%;
-
-    --danger: 2 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 2 24% 20%;
-    --danger-soft-foreground: 2 70% 82%;
-    --danger-border: 2 32% 34%;
-
-    --accent-2: 210 80% 70%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 210 24% 20%;
-    --accent-2-soft-foreground: 210 55% 80%;
-    --accent-2-border: 210 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 28px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-cotton {
-    --background: 330 20% 12%;
-    --foreground: 335 35% 94%;
-    --card: 330 18% 18%;
-    --card-foreground: 335 35% 94%;
-    --popover: 330 18% 20%;
-    --popover-foreground: 335 35% 94%;
-    --primary: 330 80% 72%;
-    --primary-foreground: 330 20% 12%;
-    --secondary: 330 14% 24%;
-    --secondary-foreground: 335 35% 94%;
-    --muted: 330 12% 28%;
-    --muted-foreground: 330 20% 76%;
-    --accent: 330 14% 24%;
-    --accent-foreground: 335 35% 94%;
-    --border: 330 14% 28%;
-    --input: 330 14% 28%;
-    --ring: 330 80% 72%;
-
-    --sidebar-background: 330 20% 10%;
-    --sidebar-foreground: 335 35% 94%;
-    --sidebar-border: 330 14% 26%;
-    --sidebar: 330 20% 10%;
-    --topbar: 330 20% 12%;
-
-    --control-bg: 330 14% 24%;
-    --control-bg-hover: 330 12% 28%;
-    --control-bg-active: 330 12% 32%;
-    --control-border: 330 14% 28%;
-    --control-border-hover: 330 80% 72%;
-    --control-border-strong: 330 80% 72%;
-
-    --success: 150 55% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 150 24% 20%;
-    --success-soft-foreground: 150 55% 80%;
-    --success-border: 150 32% 34%;
-
-    --info: 205 80% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 205 24% 20%;
-    --info-soft-foreground: 205 60% 80%;
-    --info-border: 205 32% 34%;
-
-    --warning: 38 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 24% 20%;
-    --warning-soft-foreground: 38 70% 82%;
-    --warning-border: 38 32% 34%;
-
-    --danger: 352 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 24% 20%;
-    --danger-soft-foreground: 352 60% 82%;
-    --danger-border: 352 32% 34%;
-
-    --accent-2: 206 75% 72%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 206 24% 20%;
-    --accent-2-soft-foreground: 206 55% 80%;
-    --accent-2-border: 206 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 26px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
-  :root.dark.theme-lavender {
-    --background: 268 28% 12%;
-    --foreground: 270 35% 94%;
-    --card: 268 22% 18%;
-    --card-foreground: 270 35% 94%;
-    --popover: 268 22% 20%;
-    --popover-foreground: 270 35% 94%;
-    --primary: 268 80% 72%;
-    --primary-foreground: 268 28% 12%;
-    --secondary: 268 18% 24%;
-    --secondary-foreground: 270 35% 94%;
-    --muted: 268 16% 28%;
-    --muted-foreground: 268 20% 76%;
-    --accent: 268 18% 24%;
-    --accent-foreground: 270 35% 94%;
-    --border: 268 16% 28%;
-    --input: 268 16% 28%;
-    --ring: 268 80% 72%;
-
-    --sidebar-background: 268 28% 10%;
-    --sidebar-foreground: 270 35% 94%;
-    --sidebar-border: 268 16% 26%;
-    --sidebar: 268 28% 10%;
-    --topbar: 268 28% 12%;
-
-    --control-bg: 268 18% 24%;
-    --control-bg-hover: 268 16% 28%;
-    --control-bg-active: 268 16% 32%;
-    --control-border: 268 16% 28%;
-    --control-border-hover: 268 80% 72%;
-    --control-border-strong: 268 80% 72%;
-
-    --success: 150 55% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 150 24% 20%;
-    --success-soft-foreground: 150 55% 80%;
-    --success-border: 150 32% 34%;
-
-    --info: 206 80% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 206 24% 20%;
-    --info-soft-foreground: 206 60% 80%;
-    --info-border: 206 32% 34%;
-
-    --warning: 38 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 24% 20%;
-    --warning-soft-foreground: 38 70% 82%;
-    --warning-border: 38 32% 34%;
-
-    --danger: 352 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 24% 20%;
-    --danger-soft-foreground: 352 60% 82%;
-    --danger-border: 352 32% 34%;
-
-    --accent-2: 210 75% 72%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 210 24% 20%;
-    --accent-2-soft-foreground: 210 55% 80%;
-    --accent-2-border: 210 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 26px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
-  }
-
   :root.dark.theme-peach {
-    --background: 22 30% 12%;
-    --foreground: 24 40% 94%;
-    --card: 22 24% 18%;
-    --card-foreground: 24 40% 94%;
-    --popover: 22 24% 20%;
-    --popover-foreground: 24 40% 94%;
-    --primary: 18 85% 72%;
-    --primary-foreground: 22 30% 12%;
-    --secondary: 22 18% 24%;
-    --secondary-foreground: 24 40% 94%;
-    --muted: 22 16% 28%;
-    --muted-foreground: 22 20% 76%;
-    --accent: 22 18% 24%;
-    --accent-foreground: 24 40% 94%;
-    --border: 22 16% 28%;
-    --input: 22 16% 28%;
-    --ring: 18 85% 72%;
-
-    --sidebar-background: 22 30% 10%;
-    --sidebar-foreground: 24 40% 94%;
-    --sidebar-border: 22 16% 26%;
-    --sidebar: 22 30% 10%;
-    --topbar: 22 30% 12%;
-
-    --control-bg: 22 18% 24%;
-    --control-bg-hover: 22 16% 28%;
-    --control-bg-active: 22 16% 32%;
-    --control-border: 22 16% 28%;
-    --control-border-hover: 18 85% 72%;
-    --control-border-strong: 18 85% 72%;
-
-    --success: 150 55% 65%;
-    --success-foreground: 0 0% 100%;
-    --success-soft: 150 24% 20%;
-    --success-soft-foreground: 150 55% 80%;
-    --success-border: 150 32% 34%;
-
-    --info: 206 80% 66%;
-    --info-foreground: 0 0% 100%;
-    --info-soft: 206 24% 20%;
-    --info-soft-foreground: 206 60% 80%;
-    --info-border: 206 32% 34%;
-
-    --warning: 38 80% 70%;
-    --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 24% 20%;
-    --warning-soft-foreground: 38 70% 82%;
-    --warning-border: 38 32% 34%;
-
-    --danger: 352 75% 70%;
-    --danger-foreground: 0 0% 100%;
-    --danger-soft: 352 24% 20%;
-    --danger-soft-foreground: 352 60% 82%;
-    --danger-border: 352 32% 34%;
-
-    --accent-2: 210 75% 72%;
-    --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 210 24% 20%;
-    --accent-2-soft-foreground: 210 55% 80%;
-    --accent-2-border: 210 32% 34%;
-
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 10px 16px -3px rgba(0, 0, 0, 0.75), 0 4px 6px -4px rgba(0, 0, 0, 0.65);
-    --shadow-xl: 0 20px 26px -6px rgba(0, 0, 0, 0.85), 0 10px 12px -6px rgba(0, 0, 0, 0.75);
-    --shadow-2xl: 0 28px 50px -12px rgba(0, 0, 0, 0.9);
-
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.65), 0 1px 4px -1px rgba(0, 0, 0, 0.55);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.75), 0 4px 8px -4px rgba(0, 0, 0, 0.65);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.75);
+    --background: 20 50% 5%; --foreground: 20 20% 95%;
+    --primary: 45 100% 50%; --accent-2: 20 100% 60%;
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
-  code, pre, kbd, samp {
-    font-family: var(--font-mono);
-  }
-
-  :root.theme-sunset body {
-    background-image:
-      radial-gradient(1200px circle at 10% 0%, hsl(32 100% 96%), transparent 60%),
-      radial-gradient(1000px circle at 90% 100%, hsl(18 90% 92%), transparent 55%),
-      linear-gradient(180deg, hsl(44 87% 96%), hsl(44 87% 92%));
-    background-attachment: fixed;
-  }
-
-  :root.dark.theme-sunset body {
-    background-image:
-      radial-gradient(900px circle at 10% 0%, hsl(18 80% 20% / 0.35), transparent 60%),
-      radial-gradient(900px circle at 90% 100%, hsl(205 69% 25% / 0.25), transparent 55%),
-      linear-gradient(180deg, hsl(192 100% 10%), hsl(192 81% 12%));
-    background-attachment: fixed;
-  }
-
-  :root.theme-ocean body {
-    background-image:
-      radial-gradient(1200px circle at 10% 0%, hsl(188 80% 92% / 0.9), transparent 60%),
-      radial-gradient(1000px circle at 90% 100%, hsl(200 80% 92% / 0.8), transparent 55%),
-      linear-gradient(180deg, hsl(200 50% 97%), hsl(200 50% 94%));
-    background-attachment: fixed;
-  }
-
-  :root.dark.theme-ocean body {
-    background-image:
-      radial-gradient(1000px circle at 10% 0%, hsl(183 90% 30% / 0.25), transparent 60%),
-      radial-gradient(1000px circle at 90% 100%, hsl(200 80% 28% / 0.2), transparent 55%),
-      linear-gradient(180deg, hsl(199 40% 10%), hsl(199 35% 12%));
-    background-attachment: fixed;
-  }
+  code, pre, kbd, samp { font-family: var(--font-mono); }
   
-  /* Modern smooth transitions */
-  button, a, [role="button"] {
-    @apply transition-all duration-base ease-smooth;
-  }
-
-  /* Focus styles */
-  :focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
-  }
+  button, a, [role="button"] { @apply transition-all duration-base ease-smooth; }
+  :focus-visible { @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background; }
 }
 
 @layer components {
-  /* Vivid Card Base */
   .card-vivid {
     @apply relative overflow-hidden transition-all duration-base ease-smooth flex flex-col h-full
            bg-card border border-border/50 shadow-sm
            hover:shadow-xl hover:border-primary/40 cursor-pointer interactive-scale
            hover:-translate-y-1;
   }
-
-  /* Side Accent Bar */
-  .card-accent-bar {
-    @apply w-[3px] shrink-0 transition-colors duration-slow;
-  }
-
-  /* Vivid Title */
-  .card-title-vivid {
-    @apply text-lg font-extrabold tracking-tight truncate group-hover:text-primary transition-colors;
-  }
-
-  /* Info/Content Box (Indented) */
+  .card-accent-bar { @apply w-[3px] shrink-0 transition-colors duration-slow; }
+  .card-title-vivid { @apply text-lg font-extrabold tracking-tight truncate group-hover:text-primary transition-colors; }
   .card-info-box {
     @apply rounded-xl bg-muted/30 border border-border/20 
            group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors;
@@ -2097,156 +392,45 @@
 }
 
 @layer utilities {
-  .bg-vivid {
-    background: var(--vivid-gradient);
-  }
-
+  .bg-vivid { background: var(--vivid-gradient); }
+  .bg-mesh { background-image: var(--mesh-gradient); }
   .text-vivid {
     background: var(--vivid-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-
-  /* Glassmorphism effects */
-  .glass {
-    @apply backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-white/10;
-  }
-
-  .glass-card {
-    @apply glass rounded-[var(--radius-panel)] shadow-md transition-all duration-base ease-smooth hover:shadow-hover-lg;
-  }
-
-  /* Modern hover effects */
-  .card-hover {
-    @apply hover:shadow-hover-md hover:scale-[var(--scale-hover)] transition-all duration-base ease-smooth;
-  }
-
-  .interactive-scale {
-    @apply transition-all duration-base ease-smooth hover:scale-[var(--scale-hover)] active:scale-[var(--scale-active)];
-  }
-
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .animate-soft-pulse {
-    animation: soft-pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-5px); }
-    100% { transform: translateY(0px); }
-  }
-
-  @keyframes soft-pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(0.98); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes mesh-flow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  @keyframes shine {
-    from { mask-position: 150%; }
-    to { mask-position: -50%; }
-  }
-
-  @keyframes gradient-x {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  .animate-gradient-x {
-    background-size: 200% 200%;
-    animation: gradient-x 6s ease infinite;
-  }
-
-  .bg-mesh-active {
-    background-size: 200% 200%;
-    animation: mesh-flow 15s ease infinite;
-  }
-
+  .glass { @apply backdrop-blur-xl bg-white/60 dark:bg-black/30 border border-white/20 dark:border-white/10; }
+  .glass-card { @apply glass rounded-[var(--radius-panel)] shadow-md transition-all duration-base ease-smooth hover:shadow-hover-lg; }
+  .card-hover { @apply hover:shadow-hover-md hover:scale-[var(--scale-hover)] transition-all duration-base ease-smooth; }
+  .interactive-scale { @apply transition-all duration-base ease-smooth hover:scale-[var(--scale-hover)] active:scale-[var(--scale-active)]; }
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .animate-soft-pulse { animation: soft-pulse 2s ease-in-out infinite; }
+  @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-5px); } }
+  @keyframes soft-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(0.98); } }
+  @keyframes mesh-flow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes gradient-x { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .animate-gradient-x { background-size: 200% 200%; animation: gradient-x 6s ease infinite; }
+  .bg-mesh-active { background-size: 200% 200%; animation: mesh-flow 15s ease infinite; }
   .btn-gradient-primary {
-    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280, 70%, 55%) 100%);
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
     background-size: 200% auto;
     transition: background-position 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
-  .btn-gradient-primary:hover {
-    background-position: right center;
-    box-shadow: 0 4px 15px -3px rgba(124, 58, 237, 0.4);
-  }
-
+  .btn-gradient-primary:hover { background-position: right center; box-shadow: 0 4px 15px -3px rgba(124, 58, 237, 0.4); }
   .btn-gradient-success {
-    background-image: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(158, 60%, 45%) 100%);
+    background-image: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(150, 100%, 40%) 100%);
     background-size: 200% auto;
     transition: background-position 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
-  .btn-gradient-success:hover {
-    background-position: right center;
-    box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.4);
-  }
-
-  .button-active {
-    @apply active:scale-[var(--scale-active)] transition-all duration-fast ease-smooth;
-  }
-
-  /* macOS-style scrollbar */
-  .macos-scrollbar::-webkit-scrollbar {
-    @apply w-1.5;
-  }
-  
-  .macos-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  
-  .macos-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gray-300/50 dark:bg-gray-600/50 rounded-full hover:bg-gray-400/80 dark:hover:bg-gray-500/80 transition-colors;
-  }
-
-  /* Hide scrollbar */
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  /* iOS/macOS rounded corners */
-  .rounded-ios {
-    @apply rounded-[1.25rem];
-  }
-  
-  .rounded-ios-lg {
-    @apply rounded-[1.75rem];
-  }
-
-  /* Auto-hiding scrollbar (Show only on hover/scroll) */
-  .auto-hide-scrollbar {
-    /* No gutter reserved */
-  }
-  .auto-hide-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .auto-hide-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .auto-hide-scrollbar::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: 99px;
-  }
-  .auto-hide-scrollbar:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(156, 163, 175, 0.5);
-  }
-  .dark .auto-hide-scrollbar:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(75, 85, 99, 0.5);
-  }
+  .btn-gradient-success:hover { background-position: right center; box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.4); }
+  .button-active { @apply active:scale-[var(--scale-active)] transition-all duration-fast ease-smooth; }
+  .macos-scrollbar::-webkit-scrollbar { @apply w-1.5; }
+  .macos-scrollbar::-webkit-scrollbar-track { @apply bg-transparent; }
+  .macos-scrollbar::-webkit-scrollbar-thumb { @apply bg-primary/20 dark:bg-primary/30 rounded-full hover:bg-primary/40 dark:hover:bg-primary/50 transition-colors; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .auto-hide-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .auto-hide-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .auto-hide-scrollbar::-webkit-scrollbar-thumb { background-color: transparent; border-radius: 99px; }
+  .auto-hide-scrollbar:hover::-webkit-scrollbar-thumb { background-color: rgba(var(--primary), 0.2); }
 }

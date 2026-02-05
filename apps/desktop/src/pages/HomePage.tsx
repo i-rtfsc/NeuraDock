@@ -84,7 +84,7 @@ export function HomePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-black tracking-tight tabular-nums text-vivid bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500 animate-gradient-x">
+                  <div className="text-4xl font-black tracking-tight tabular-nums text-vivid bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent-2 to-primary animate-gradient-x">
                     {statsLoading ? '...' : statistics ? formatCurrency(statistics.total_current_balance) : '$0.00'}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3">

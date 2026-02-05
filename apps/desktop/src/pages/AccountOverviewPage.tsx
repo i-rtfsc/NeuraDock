@@ -280,16 +280,16 @@ export function AccountOverviewPage() {
       }
     >
       <motion.div 
-        className="flex-1 overflow-auto space-y-6 pb-6 pt-1 px-2 auto-hide-scrollbar"
+        className="flex-1 overflow-auto space-y-8 pb-8 pt-2 px-2 auto-hide-scrollbar"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        {/* API Key Configuration */}
-        <Card className={cn("p-6", cardClass)}>
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <h2 className="text-xl font-bold flex items-center gap-2 tracking-tight">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+        {/* API Key Configuration Section */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xl font-bold flex items-center gap-3 tracking-tight">
+              <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shadow-sm border border-primary/5">
                 <KeyRound className="h-5 w-5" />
               </div>
               {t('accountOverview.apiKeyConfig', 'API Key Configuration')}
@@ -299,7 +299,7 @@ export function AccountOverviewPage() {
               size="sm"
               onClick={() => refreshTokens(true)}
               disabled={tokensRefreshing || !accountId}
-              className="shadow-sm"
+              className="shadow-sm rounded-xl h-9 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all"
             >
               <RefreshCw className={cn("mr-2 h-4 w-4", tokensRefreshing && "animate-spin")} />
               {tokensRefreshing
@@ -309,112 +309,110 @@ export function AccountOverviewPage() {
           </div>
 
           {showTokensLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-20 bg-muted/5 rounded-[var(--radius-panel)] border border-dashed border-border/60">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary/40" />
             </div>
           ) : tokens.length === 0 ? (
-            <div className="text-center py-12">
-              <KeyRound className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-lg font-medium mb-2">{t('token.noTokens')}</p>
-              <p className="text-sm text-muted-foreground">
+            <Card className="py-20 text-center border-dashed bg-muted/5 shadow-none rounded-[var(--radius-panel)]">
+              <KeyRound className="h-12 w-12 mx-auto text-muted-foreground/20 mb-4" />
+              <p className="text-lg font-medium text-muted-foreground/80">{t('token.noTokens')}</p>
+              <p className="text-sm text-muted-foreground/50 max-w-sm mx-auto mt-1">
                 {t('accountOverview.tokenHint', 'API keys are refreshed automatically when you open this page. You can also refresh manually.')}
               </p>
-            </div>
+            </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedTokens.map((token) => (
                 <Card
                   key={token.id}
                   className={cn(
-                    "card-vivid group flex flex-col border-none shadow-sm ring-1 ring-border/50",
+                    "card-vivid group flex flex-col p-5 border-border/40 shadow-sm",
                     !token.is_active && "opacity-60 grayscale"
                   )}
                 >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-extrabold truncate flex-1 group-hover:text-primary transition-colors" title={token.name}>
+                  <div className="mb-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-extrabold truncate flex-1 group-hover:text-primary transition-colors" title={token.name}>
                         {token.name}
-                      </CardTitle>
+                      </h3>
                       <Badge
                         variant={token.is_active ? 'soft-primary' : 'secondary'}
-                        className={cn(
-                          "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5 font-bold uppercase tracking-wider",
-                          token.is_active ? "" : ""
-                        )}
+                        className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5 font-bold uppercase tracking-wider"
                       >
                         {token.status_text}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/30 w-fit px-2 py-1 rounded-md border border-border/20 group-hover:border-primary/10 group-hover:bg-primary/5 transition-colors">
-                      <Key className="h-3 w-3" />
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/40 w-fit px-2.5 py-1.5 rounded-xl border border-border/30 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
+                      <Key className="h-3 w-3 text-primary/60" />
                       {token.masked_key}
                     </div>
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="flex-1 flex flex-col gap-4">
+                  <div className="flex-1 flex flex-col gap-5">
                     {/* Quota Usage Section */}
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-4">
                       {token.unlimited_quota ? (
-                        <div className="p-3 rounded-lg bg-success-soft border border-success-border">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium text-success-soft-foreground">{t('token.quotaUnlimited', 'Unlimited')}</span>
-                            <Badge variant="outline" className="text-[10px] h-4 px-1 text-success border-success bg-transparent">
+                        <div className="p-4 rounded-2xl bg-success-soft/50 border border-success-border/30">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold text-success-soft-foreground/80">{t('token.quotaUnlimited', 'Unlimited')}</span>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-success border-success/30 bg-success/5">
                               ∞
                             </Badge>
                           </div>
-                          <div className="text-xs text-success/80">
+                          <div className="text-xs text-success-soft-foreground/60">
                             <span>{t('token.usedQuota', 'Used')}: </span>
-                            <span className="font-mono font-medium">{formatQuotaUSD(token.used_quota)}</span>
+                            <span className="font-mono font-bold text-success">{formatQuotaUSD(token.used_quota)}</span>
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">{t('token.quotaUsage', 'Quota Usage')}</span>
+                        <div className="space-y-2.5">
+                          <div className="flex justify-between text-xs px-0.5">
+                            <span className="text-muted-foreground font-medium">{t('token.quotaUsage', 'Quota Usage')}</span>
                             <span className={cn(
-                              "font-medium",
-                              token.usage_percentage > 90 ? "text-danger" : "text-foreground"
+                              "font-black tracking-tighter",
+                              token.usage_percentage > 90 ? "text-danger" : "text-primary"
                             )}>{token.usage_percentage.toFixed(1)}%</span>
                           </div>
                           <Progress
                             value={token.usage_percentage}
-                            className="h-2"
+                            className="h-2 rounded-full bg-muted/50"
                             indicatorClassName={cn(
+                              "transition-all duration-1000",
                               token.usage_percentage > 90 ? "bg-danger" :
                               token.usage_percentage > 75 ? "bg-warning" : "bg-primary"
                             )}
                           />
-                          <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <div>
-                              <span>{t('token.usedQuota', 'Used')}: </span>
-                              <span className="font-mono font-medium text-foreground">{formatQuotaUSD(token.used_quota)}</span>
+                          <div className="flex justify-between text-[10px] text-muted-foreground/70 font-medium">
+                            <div className="flex items-center gap-1">
+                              <span>{t('token.usedQuota', 'Used')}:</span>
+                              <span className="font-mono font-bold text-foreground/80">{formatQuotaUSD(token.used_quota)}</span>
                             </div>
-                            <div>
-                              <span>{t('token.remainQuota', 'Remain')}: </span>
-                              <span className="font-mono font-medium text-foreground">{formatQuotaUSD(token.remain_quota)}</span>
+                            <div className="flex items-center gap-1">
+                              <span>{t('token.remainQuota', 'Remain')}:</span>
+                              <span className="font-mono font-bold text-foreground/80">{formatQuotaUSD(token.remain_quota)}</span>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="grid grid-cols-2 gap-2.5">
                         {/* Expiration */}
                         {token.expired_at && (
-                          <div className="flex flex-col gap-1 p-2 rounded-lg bg-background border border-border/50">
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('token.expiresAt', 'Expires')}</span>
-                            <div className="flex items-center gap-1 text-xs font-medium">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
+                          <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-muted/20 border border-border/20">
+                            <span className="text-[9px] text-muted-foreground/60 uppercase font-black tracking-widest">{t('token.expiresAt', 'Expires')}</span>
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                              <Clock className="h-3 w-3 text-primary/60" />
                               {new Date(token.expired_at).toLocaleDateString()}
                             </div>
                           </div>
                         )}
 
                         {/* Model Limits */}
-                        <div className={cn("flex flex-col gap-1 p-2 rounded-lg bg-background border border-border/50", !token.expired_at && "col-span-2")}>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('token.supportedModels', 'Models')}</span>
-                          <div className="text-xs font-medium truncate">
+                        <div className={cn("flex flex-col gap-1 p-2.5 rounded-xl bg-muted/20 border border-border/20", !token.expired_at && "col-span-2")}>
+                          <span className="text-[9px] text-muted-foreground/60 uppercase font-black tracking-widest">{t('token.supportedModels', 'Models')}</span>
+                          <div className="text-[11px] font-bold truncate">
                             {!token.model_limits_enabled ? (
-                              <span className="text-success">
+                              <span className="text-success-soft-foreground">
                                 {t('token.noLimits', 'Unrestricted')}
                               </span>
                             ) : token.model_limits_allowed.length > 0 ? (
@@ -423,7 +421,7 @@ export function AccountOverviewPage() {
                                 {token.model_limits_allowed.length > 2 && ` +${token.model_limits_allowed.length - 2}`}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground">
+                              <span className="text-muted-foreground/50">
                                 {t('token.noModelsConfigured', 'None')}
                               </span>
                             )}
@@ -436,19 +434,19 @@ export function AccountOverviewPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-auto text-xs font-bold rounded-lg h-9 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all"
+                      className="w-full mt-auto text-xs font-black rounded-xl h-10 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all uppercase tracking-tight"
                       onClick={() => handleConfigureToken(token)}
                       disabled={!token.is_active}
                     >
-                      <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                      <Settings2 className="mr-2 h-4 w-4" />
                       {t('token.configureAI', 'Configure AI Tool')}
                     </Button>
-                  </CardContent>
+                  </div>
                 </Card>
               ))}
             </div>
           )}
-        </Card>
+        </section>
 
         {/* Statistics & Calendar */}
         <div className="space-y-6">
