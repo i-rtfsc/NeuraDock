@@ -251,133 +251,99 @@
     --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 8px 16px -8px rgba(0, 0, 0, 0.5);
   }
 
-  /* --- Theme Presets (Readability Refined) --- */
+  /* --- Theme Presets (Color-Name Aligned & IDE Quality) --- */
 
+  /* 1. Graphite (Neutral Slate) */
   :root.theme-graphite {
-    --background: 230 25% 98%; --foreground: 230 40% 5%;
-    --primary: 190 100% 35%; /* Deeper Cyan for text */ --accent-2: 280 80% 55%;
-    --muted-foreground: 230 20% 35%;
+    --background: 220 15% 98%; --foreground: 220 20% 15%;
+    --primary: 215 60% 45%; --accent-2: 215 30% 55%;
+    --muted-foreground: 220 10% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
   :root.dark.theme-graphite {
-    --background: 230 15% 20%; --foreground: 230 10% 98%;
-    --card: 230 15% 26%;
-    --primary: 185 100% 50%; --accent-2: 285 100% 60%;
-    --muted-foreground: 230 10% 80%;
+    --background: 220 15% 16%; --foreground: 220 10% 98%;
+    --card: 220 15% 22%; --muted-foreground: 220 10% 80%;
+    --primary: 215 80% 65%; --accent-2: 215 40% 70%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
-  :root.theme-emerald {
-    --background: 160 40% 98%; --foreground: 160 50% 5%;
-    --primary: 160 100% 30%; /* Deeper Green */ --accent-2: 185 100% 35%;
-    --muted-foreground: 160 30% 35%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-  :root.dark.theme-emerald {
-    --background: 160 15% 18%; --foreground: 160 10% 98%;
-    --card: 160 15% 24%;
-    --primary: 150 100% 50%; --accent-2: 190 100% 50%;
-    --muted-foreground: 160 10% 80%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-
-  :root.theme-sunset {
-    --background: 35 100% 98%; --foreground: 20 60% 5%;
-    --primary: 25 100% 40%; /* Deeper Orange */ --accent-2: 15 100% 45%;
-    --muted-foreground: 20 40% 35%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-  :root.dark.theme-sunset {
-    --background: 20 12% 18%; --foreground: 20 10% 98%;
-    --card: 20 12% 24%;
-    --primary: 25 100% 55%; --accent-2: 45 100% 50%;
-    --muted-foreground: 20 10% 80%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-
+  /* 2. Midnight (True Navy Blue) */
   :root.theme-midnight {
-    --background: 220 40% 98%; --foreground: 220 60% 5%;
-    --primary: 220 100% 45%; /* Deeper Blue */ --accent-2: 260 80% 55%;
-    --muted-foreground: 220 30% 35%;
+    --background: 222 40% 98%; --foreground: 222 50% 15%;
+    --primary: 217 90% 50%; /* Electric Blue */ --accent-2: 200 80% 45%;
+    --muted-foreground: 222 30% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
   :root.dark.theme-midnight {
-    --background: 220 15% 18%; --foreground: 220 10% 98%;
-    --card: 220 15% 24%;
-    --primary: 220 100% 60%; --accent-2: 260 100% 65%;
-    --muted-foreground: 220 10% 80%;
+    --background: 222 35% 15%; --foreground: 222 20% 98%;
+    --card: 222 35% 20%; --muted-foreground: 222 20% 80%;
+    --primary: 217 100% 65%; --accent-2: 195 90% 60%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
-  :root.theme-rose {
-    --background: 340 50% 98%; --foreground: 340 60% 5%;
-    --primary: 335 90% 50%; /* Deeper Pink */ --accent-2: 15 100% 45%;
-    --muted-foreground: 340 30% 35%;
+  /* 3. Emerald (Vivid Green) */
+  :root.theme-emerald {
+    --background: 150 30% 98%; --foreground: 150 50% 15%;
+    --primary: 150 100% 30%; /* Deep Emerald */ --accent-2: 120 60% 40%;
+    --muted-foreground: 150 30% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
-  :root.dark.theme-rose {
-    --background: 335 15% 18%; --foreground: 335 10% 98%;
-    --card: 335 15% 24%;
-    --primary: 335 100% 60%; --accent-2: 20 100% 60%;
-    --muted-foreground: 335 10% 80%;
+  :root.dark.theme-emerald {
+    --background: 150 25% 12%; --foreground: 150 15% 98%;
+    --card: 150 25% 18%; --muted-foreground: 150 15% 80%;
+    --primary: 150 80% 55%; --accent-2: 120 70% 60%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
+  /* 4. Ocean (Polar Frost) */
   :root.theme-ocean {
-    --background: 200 50% 98%; --foreground: 200 60% 5%;
-    --primary: 185 100% 30%; /* Deeper Teal */ --accent-2: 210 100% 45%;
+    --background: 200 30% 98%; --foreground: 200 40% 15%;
+    --primary: 195 80% 40%; /* Frost Blue */ --accent-2: 210 60% 50%;
     --muted-foreground: 200 30% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
   :root.dark.theme-ocean {
-    --background: 200 15% 18%; --foreground: 200 10% 98%;
-    --card: 200 15% 24%;
-    --primary: 185 100% 45%; --accent-2: 210 100% 55%;
-    --muted-foreground: 200 10% 80%;
+    --background: 200 20% 16%; --foreground: 200 15% 98%;
+    --card: 200 20% 22%; --muted-foreground: 200 15% 80%;
+    --primary: 195 90% 65%; --accent-2: 210 70% 70%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
-  :root.theme-cotton {
-    --background: 35 100% 98%; --foreground: 330 60% 5%;
-    --primary: 330 90% 55%; /* Deeper Rose */ --accent-2: 200 100% 45%;
-    --muted-foreground: 330 40% 35%;
+  /* 5. Sunset (Retro Orange) */
+  :root.theme-sunset {
+    --background: 30 40% 98%; --foreground: 30 60% 15%;
+    --primary: 25 90% 45%; /* Burned Orange */ --accent-2: 45 90% 40%;
+    --muted-foreground: 30 40% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
-  :root.dark.theme-cotton {
-    --background: 330 12% 18%; --foreground: 330 10% 98%;
-    --card: 330 12% 24%;
-    --primary: 330 100% 65%; --accent-2: 200 100% 65%;
-    --muted-foreground: 330 10% 80%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-
-  :root.theme-lavender {
-    --background: 265 50% 98%; --foreground: 265 60% 5%;
-    --primary: 265 90% 50%; /* Deeper Violet */ --accent-2: 300 80% 55%;
-    --muted-foreground: 265 30% 35%;
-    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
-  }
-  :root.dark.theme-lavender {
-    --background: 265 15% 18%; --foreground: 265 10% 98%;
-    --card: 265 15% 24%;
-    --primary: 265 100% 65%; --accent-2: 300 100% 65%;
-    --muted-foreground: 265 10% 80%;
+  :root.dark.theme-sunset {
+    --background: 30 20% 14%; --foreground: 30 15% 98%;
+    --card: 30 20% 20%; --muted-foreground: 30 15% 80%;
+    --primary: 25 100% 60%; --accent-2: 45 100% 60%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
 
-  :root.theme-peach {
-    --background: 25 100% 98%; --foreground: 20 60% 5%;
-    --primary: 30 100% 35%; /* Denser Orange/Gold */ --accent-2: 10 100% 45%;
-    --muted-foreground: 20 40% 35%;
+  /* 6. Rose (Modern Berry) */
+  :root.theme-rose {
+    --background: 345 30% 98%; --foreground: 345 50% 15%;
+    --primary: 345 80% 50%; /* Berry Red */ --accent-2: 320 70% 55%;
+    --muted-foreground: 345 30% 35%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
-  :root.dark.theme-peach {
-    --background: 25 12% 18%; --foreground: 25 10% 98%;
-    --card: 25 12% 24%;
-    --primary: 45 100% 50%; --accent-2: 20 100% 60%;
-    --muted-foreground: 25 10% 80%;
+  :root.dark.theme-rose {
+    --background: 345 20% 15%; --foreground: 345 15% 98%;
+    --card: 345 20% 21%; --muted-foreground: 345 15% 80%;
+    --primary: 345 90% 65%; --accent-2: 320 80% 70%;
     --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
   }
+
+  /* Legacy Mappings */
+  :root.theme-cotton { --background: 220 15% 98%; --foreground: 220 20% 15%; --primary: 215 60% 45%; --accent-2: 215 30% 55%; --muted-foreground: 220 10% 35%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
+  :root.dark.theme-cotton { --background: 220 15% 16%; --foreground: 220 10% 98%; --card: 220 15% 22%; --muted-foreground: 220 10% 80%; --primary: 215 80% 65%; --accent-2: 215 40% 70%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
+  :root.theme-lavender { --background: 222 40% 98%; --foreground: 222 50% 15%; --primary: 217 90% 50%; --accent-2: 200 80% 45%; --muted-foreground: 222 30% 35%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
+  :root.dark.theme-lavender { --background: 222 35% 15%; --foreground: 222 20% 98%; --card: 222 35% 20%; --muted-foreground: 222 20% 80%; --primary: 217 100% 65%; --accent-2: 195 90% 60%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
+  :root.theme-peach { --background: 30 40% 98%; --foreground: 30 60% 15%; --primary: 25 90% 45%; --accent-2: 45 90% 40%; --muted-foreground: 30 40% 35%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
+  :root.dark.theme-peach { --background: 30 20% 14%; --foreground: 30 15% 98%; --card: 30 20% 20%; --muted-foreground: 30 15% 80%; --primary: 25 100% 60%; --accent-2: 45 100% 60%; --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%); }
 }
 
 @layer base {
