@@ -12,6 +12,7 @@
     "label": {
       "account": "Account",
       "provider": "Provider",
+      "time": "⏰ Time",
       "yesterday": "📅 Yesterday Balance",
       "today": "📅 Today's Balance",
       "changes": "💰 Changes",

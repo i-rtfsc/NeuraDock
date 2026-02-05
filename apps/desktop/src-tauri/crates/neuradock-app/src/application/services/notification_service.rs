@@ -117,39 +117,39 @@ impl NotificationService {
             }
         }
 
-        // Fallback: grab the latest historical record that is at least one day older than today.
+        // Fallback: grab all daily summaries and find the latest one that is before today.
         match self
             .balance_history_repo
-            .find_latest_by_account_id(&account_id_obj)
+            .list_all_daily_summaries(&account_id_obj)
             .await
         {
-            Ok(Some(record)) => {
-                let record_date = record.recorded_at().date_naive();
-                let day_gap = today.signed_duration_since(record_date).num_days();
-                if day_gap >= 1 {
+            Ok(summaries) => {
+                // Find the latest summary that is strictly before today
+                if let Some(record) = summaries
+                    .into_iter()
+                    .filter(|s| s.check_in_date() < today)
+                    .last()
+                {
                     info!(
-                        "Using fallback yesterday balance for account {} from {}",
-                        account_id, record_date
+                        "Using fallback balance from summary for account {} from {}",
+                        account_id, record.check_in_date()
                     );
-                    convert_record(record)
-                } else {
-                    info!(
-                        "Latest balance record for account {} is from today, skipping fallback",
-                        account_id
-                    );
-                    None
+                    return Some((
+                        record.daily_balance(),
+                        record.daily_consumed(),
+                        record.daily_total_quota(),
+                    ));
                 }
-            }
-            Ok(None) => {
+                
                 info!(
-                    "No balance history records available for account {} to use as fallback",
+                    "No historical balance summaries available for account {} before today",
                     account_id
                 );
                 None
             }
             Err(e) => {
                 error!(
-                    "Failed to query fallback balance history for account {}: {}",
+                    "Failed to query balance summaries for account {}: {}",
                     account_id, e
                 );
                 None
@@ -166,6 +166,8 @@ impl NotificationService {
         balance: Option<(f64, f64, f64)>, // (current_balance, total_consumed, total_quota)
     ) -> Result<()> {
         let yesterday_balance = self.get_yesterday_balance(account_id).await;
+        let now = chrono::Local::now();
+        let time_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
         let content = if let Some((today_current, today_consumed, today_income)) = balance {
             if let Some((yesterday_current, yesterday_consumed, yesterday_income)) =
@@ -199,11 +201,13 @@ impl NotificationService {
                 };
 
                 format!(
-                    "{}: {}\n{}: {}\n\n{}:\n   {}: ${:.2}\n   {}: ${:.2}\n   {}: ${:.2}\n\n{}:\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n\n{}:\n   {}: {:+.2} {}\n   {}: {:+.2} {}\n   {}: {:+.2} {}",
+                    "{}: {}\n{}: {}\n{}: {}\n\n{}:\n   {}: ${:.2}\n   {}: ${:.2}\n   {}: ${:.2}\n\n{}:\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n   {}: ${:.2} {}\n\n{}:\n   {}: {:+.2} {}\n   {}: {:+.2} {}\n   {}: {:+.2} {}",
                     t("notification.label.account"),
                     account_name,
                     t("notification.label.provider"),
                     provider_name,
+                    t("notification.label.time"),
+                    time_str,
                     t("notification.label.yesterday"),
                     t("notification.label.currentBalance"),
                     yesterday_current,
@@ -235,11 +239,13 @@ impl NotificationService {
             } else {
                 // No yesterday data, just show today
                 format!(
-                    "{}: {}\n{}: {}\n\n{}:\n   {}: ${:.2}\n   {}: ${:.2}\n   {}: ${:.2}",
+                    "{}: {}\n{}: {}\n{}: {}\n\n{}:\n   {}: ${:.2}\n   {}: ${:.2}\n   {}: ${:.2}",
                     t("notification.label.account"),
                     account_name,
                     t("notification.label.provider"),
                     provider_name,
+                    t("notification.label.time"),
+                    time_str,
                     t("notification.label.today"),
                     t("notification.label.currentBalance"),
                     today_current,
@@ -251,11 +257,13 @@ impl NotificationService {
             }
         } else {
             format!(
-                "{}: {}\n{}: {}\n\n{}",
+                "{}: {}\n{}: {}\n{}: {}\n\n{}",
                 t("notification.label.account"),
                 account_name,
                 t("notification.label.provider"),
                 provider_name,
+                t("notification.label.time"),
+                time_str,
                 t("notification.checkIn.success.simple")
             )
         };
@@ -272,12 +280,17 @@ impl NotificationService {
         provider_name: &str,
         error: &str,
     ) -> Result<()> {
+        let now = chrono::Local::now();
+        let time_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+
         let content = format!(
-            "{}: {}\n{}: {}\n\n❌ {}: {}",
+            "{}: {}\n{}: {}\n{}: {}\n\n❌ {}: {}",
             t("notification.label.account"),
             account_name,
             t("notification.label.provider"),
             provider_name,
+            t("notification.label.time"),
+            time_str,
             t("notification.label.error"),
             error
         );
