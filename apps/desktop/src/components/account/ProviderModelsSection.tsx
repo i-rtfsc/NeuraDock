@@ -89,7 +89,7 @@ export function ProviderModelsSection({
               <Badge 
                 key={model} 
                 variant="secondary" 
-                className="text-[10px] px-1.5 py-0 h-5 bg-muted/50 hover:bg-muted transition-colors border-transparent text-muted-foreground font-normal"
+                className="text-[10px] px-1.5 py-0 h-5 font-medium bg-muted/50 text-muted-foreground border-transparent"
               >
                 {model}
               </Badge>

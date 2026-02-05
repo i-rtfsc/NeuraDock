@@ -68,30 +68,29 @@ export function ProviderCard({
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
       >
-        <Card
-          className={cn(
-            'group relative overflow-hidden transition-all duration-base ease-smooth',
-            'bg-card border shadow-sm',
-            'hover:shadow-md cursor-pointer interactive-scale',
-            'hover:border-primary/50'
-          )}
-        >
-          <div className="p-6">
+        <Card className="card-vivid group">
+          {/* Side Accent Bar */}
+          <div className={cn(
+            "card-accent-bar",
+            provider.is_builtin ? "bg-primary/40 group-hover:bg-primary" : "bg-accent-2/40 group-hover:bg-accent-2"
+          )} />
+
+          <div className="p-5 flex flex-col flex-1">
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-5">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-semibold truncate">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h3 className="card-title-vivid">
                     {provider.name}
                   </h3>
                   {provider.is_builtin && (
-                    <Badge variant="secondary" className="shrink-0">
+                    <Badge variant="soft-primary" className="shrink-0 text-[10px] h-5 font-bold uppercase tracking-wider">
                       {t('providerCard.builtin')}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Globe className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 w-fit px-2 py-1 rounded-lg border border-border/30">
+                  <Globe className="h-3.5 w-3.5 text-primary/70" />
                   <span className="truncate">{provider.domain}</span>
                 </div>
               </div>
@@ -101,57 +100,69 @@ export function ProviderCard({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth"
+                    size="icon-sm"
+                    className="h-9 w-9 -mr-2 -mt-2 opacity-40 group-hover:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => onEdit(provider)}>
-                    <Edit className="h-4 w-4 mr-2" />
+                <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl">
+                  <DropdownMenuItem onClick={() => onEdit(provider)} className="rounded-lg gap-3">
+                    <Edit className="h-4 w-4 text-primary" />
                     {t('common.edit')}
                   </DropdownMenuItem>
                   {onManageNodes && (
-                    <DropdownMenuItem onClick={() => onManageNodes(provider)}>
-                      <Settings className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem onClick={() => onManageNodes(provider)} className="rounded-lg gap-3">
+                      <Settings className="h-4 w-4 text-primary" />
                       {t('token.configDialog.manageNodes', 'Manage Nodes')}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="my-1" />
                   <DropdownMenuItem
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isDeleting}
-                    className="text-destructive focus:text-destructive"
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg gap-3"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="h-4 w-4" />
                     {t('common.delete')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
-            {/* Stats */}
-            <div className="flex items-center gap-4 pt-4 border-t border-border/50">
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  {t('providerCard.accountCount', { count: provider.account_count || 0 })}
+            {/* Stats - Grid style for energy */}
+            <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-border/30">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+                  {t('dashboard.accounts_plural', 'Accounts')}
                 </span>
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-primary/5 border border-primary/10 group-hover:bg-primary/10 transition-colors">
+                  <Users className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-sm font-bold text-primary">
+                    {provider.account_count || 0}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 text-sm">
-                {needsWafBypass ? (
-                  <>
-                    <Shield className="h-4 w-4 text-warning" />
-                    <span className="text-muted-foreground">{t('providerCard.wafProtected')}</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldOff className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{t('providerCard.noWaf')}</span>
-                  </>
-                )}
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+                  Security
+                </span>
+                <div className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded-xl border transition-colors",
+                  needsWafBypass 
+                    ? "bg-warning/5 border-warning/10 text-warning group-hover:bg-warning/10" 
+                    : "bg-success/5 border-success/10 text-success group-hover:bg-success/10"
+                )}>
+                  {needsWafBypass ? (
+                    <Shield className="h-3.5 w-3.5" />
+                  ) : (
+                    <ShieldOff className="h-3.5 w-3.5 opacity-70" />
+                  )}
+                  <span className="text-sm font-bold truncate">
+                    {needsWafBypass ? "WAF" : "Open"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, Edit, Globe, ArrowLeft, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, Edit, Globe, ArrowLeft, MoreVertical, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
 
 // Cache setting select component
 function CacheSettingSelect() {
@@ -64,7 +65,7 @@ function CacheSettingSelect() {
       value={maxCachedWebviews.toString()}
       onValueChange={(value) => setMaxCachedWebviews(parseInt(value, 10))}
     >
-      <SelectTrigger className="w-20 h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
+      <SelectTrigger className="w-20 h-8 text-xs border-border/50 bg-background/50 focus:ring-primary/20 rounded-lg">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -89,87 +90,80 @@ function ServiceCard({ service, onToggle, onEdit, onDelete }: ServiceCardProps) 
   const { t } = useTranslation();
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 12 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-    >
-      <Card
-        className={cn(
-          'group relative overflow-hidden interactive-scale',
-          'bg-card border shadow-sm',
-          service.is_enabled
-            ? 'hover:shadow-md hover:border-primary/50'
-            : 'opacity-60'
-        )}
-      >
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-semibold truncate">
-                  {service.name}
-                </h3>
-                {service.is_builtin && (
-                  <Badge variant="secondary" className="shrink-0">
-                    {t('aiChat.builtin')}
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Globe className="h-3.5 w-3.5" />
-                <span className="truncate">{service.url}</span>
-              </div>
+    <Card className={cn(
+      "card-vivid group",
+      !service.is_enabled && "opacity-60 grayscale-[0.5]"
+    )}>
+      {/* Side Accent Bar */}
+      <div className={cn(
+        "card-accent-bar",
+        service.is_builtin ? "bg-primary/40 group-hover:bg-primary" : "bg-accent-2/40 group-hover:bg-accent-2"
+      )} />
+
+      <div className="p-5 flex flex-col flex-1">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <h3 className="card-title-vivid">
+                {service.name}
+              </h3>
+              {service.is_builtin && (
+                <Badge variant="soft-primary" className="shrink-0 text-[10px] h-5 font-bold uppercase tracking-wider">
+                  {t('aiChat.builtin')}
+                </Badge>
+              )}
             </div>
-
-            {/* Actions Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth interactive-scale"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={onEdit}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  {t('common.edit')}
-                </DropdownMenuItem>
-                {!service.is_builtin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={onDelete}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {t('common.delete')}
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 w-fit px-2 py-1 rounded-lg border border-border/30">
+              <Globe className="h-3.5 w-3.5 text-primary/70" />
+              <span className="truncate">{service.url}</span>
+            </div>
           </div>
 
-          {/* Footer with Toggle */}
-          <div className="flex items-center justify-between pt-4 border-t border-border/50">
-            <span className="text-sm text-muted-foreground">
-              {service.is_enabled ? t('aiChat.enabled') : t('aiChat.disabled')}
-            </span>
-            <Switch
-              checked={service.is_enabled}
-              onCheckedChange={onToggle}
-            />
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 -mr-2 -mt-2 opacity-40 group-hover:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl">
+              <DropdownMenuItem onClick={onEdit} className="rounded-lg gap-3">
+                <Edit className="h-4 w-4 text-primary" />
+                {t('common.edit')}
+              </DropdownMenuItem>
+              {!service.is_builtin && (
+                <>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={onDelete}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg gap-3"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </Card>
-    </motion.div>
+
+        {/* Footer with Toggle */}
+        <div className="mt-auto flex items-center justify-between pt-4 border-t border-border/30">
+          <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+            {service.is_enabled ? t('aiChat.enabled') : t('aiChat.disabled')}
+          </span>
+          <Switch
+            checked={service.is_enabled}
+            onCheckedChange={onToggle}
+            className="data-[state=checked]:bg-primary"
+          />
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -204,9 +198,9 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] rounded-2xl">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-xl font-black tracking-tighter text-primary">
             {service ? t('aiChat.editService') : t('aiChat.addService')}
           </DialogTitle>
           <DialogDescription>{t('aiChat.description')}</DialogDescription>
@@ -214,36 +208,39 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
 
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name">{t('aiChat.serviceName')} *</Label>
+            <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">{t('aiChat.serviceName')} *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('aiChat.serviceNamePlaceholder')}
+              className="rounded-xl h-10 border-border/50 focus:border-primary/50"
               autoFocus
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="url">{t('aiChat.serviceUrl')} *</Label>
+            <Label htmlFor="url" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">{t('aiChat.serviceUrl')} *</Label>
             <Input
               id="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder={t('aiChat.serviceUrlPlaceholder')}
+              className="rounded-xl h-10 border-border/50 focus:border-primary/50"
               type="url"
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="rounded-xl"
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={!isValid || isLoading}>
+            <Button type="submit" disabled={!isValid || isLoading} className="rounded-xl btn-gradient-primary border-0 font-bold">
               {isLoading ? t('common.loading') : service ? t('common.save') : t('common.create')}
             </Button>
           </DialogFooter>
@@ -269,6 +266,9 @@ export function AiChatSettingsPage() {
 
   const builtinServices = services.filter((s) => s.is_builtin);
   const customServices = services.filter((s) => !s.is_builtin);
+
+  const containerVariants = createStaggerContainer({ staggerChildren: 0.03, delayChildren: 0.05 });
+  const itemVariants = createFadeUpItem({ y: 8, scale: 0.98 });
 
   const handleCreateOrUpdate = (name: string, url: string) => {
     if (editingService) {
@@ -318,100 +318,125 @@ export function AiChatSettingsPage() {
     <PageContainer
       className="h-full"
       title={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/ai-chat')}
-            className="h-8 w-8 interactive-scale"
+            className="h-9 w-9 rounded-full hover:bg-muted"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5 text-primary" />
           </Button>
-          <span className="text-2xl font-bold tracking-tight">{t('aiChat.settings')}</span>
+          <span className="text-2xl">{t('aiChat.settings')}</span>
         </div>
       }
       actions={
         <Button
           size="sm"
-          className="shadow-sm interactive-scale"
+          className="shadow-md btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all"
           onClick={() => { setEditingService(null); setDialogOpen(true); }}
         >
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 mr-2 stroke-[3px]" />
           {t('aiChat.addService')}
         </Button>
       }
     >
-      <PageContent maxWidth="lg" className="pb-32">
-        {/* Built-in Services */}
-        {builtinServices.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-              {t('aiChat.builtinServices')}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {builtinServices.map((service) => (
-                <ServiceCard
-                  key={service.id}
-                  service={service}
-                  onToggle={() => toggleService.mutate(service.id)}
-                  onEdit={() => handleEdit(service)}
-                  onDelete={() => handleDelete(service)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Custom Services */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-            {t('aiChat.customServices')}
-          </h2>
-          {customServices.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {customServices.map((service) => (
-                <ServiceCard
-                  key={service.id}
-                  service={service}
-                  onToggle={() => toggleService.mutate(service.id)}
-                  onEdit={() => handleEdit(service)}
-                  onDelete={() => handleDelete(service)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-border/60 bg-muted/20 interactive-scale">
-              <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-muted-foreground">{t('aiChat.noCustomServices')}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 shadow-sm interactive-scale"
-                onClick={() => { setEditingService(null); setDialogOpen(true); }}
+      <PageContent maxWidth="lg" className="pb-32 pt-2">
+        <div className="space-y-10">
+          {/* Built-in Services */}
+          {builtinServices.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <Badge variant="soft-primary" className="rounded-md">
+                  <Settings className="h-3 w-3 mr-1.5" />
+                  {t('aiChat.builtinServices')}
+                </Badge>
+              </div>
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('aiChat.addService')}
-              </Button>
+                {builtinServices.map((service) => (
+                  <motion.div key={service.id} variants={itemVariants}>
+                    <ServiceCard
+                      service={service}
+                      onToggle={() => toggleService.mutate(service.id)}
+                      onEdit={() => handleEdit(service)}
+                      onDelete={() => handleDelete(service)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
             </div>
           )}
-        </div>
 
-        {/* Settings */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-            {t('aiChat.cacheSettings')}
-          </h2>
-          <Card className="p-4 interactive-scale">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-sm font-medium">{t('aiChat.maxCachedWebviews')}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('aiChat.maxCachedWebviewsDescription')}
-                </p>
-              </div>
-              <CacheSettingSelect />
+          {/* Custom Services */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <Badge variant="soft-primary" className="rounded-md bg-accent-2/10 text-accent-2 border-accent-2/20">
+                <Plus className="h-3 w-3 mr-1.5" />
+                {t('aiChat.customServices')}
+              </Badge>
             </div>
-          </Card>
+            {customServices.length > 0 ? (
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {customServices.map((service) => (
+                  <motion.div key={service.id} variants={itemVariants}>
+                    <ServiceCard
+                      service={service}
+                      onToggle={() => toggleService.mutate(service.id)}
+                      onEdit={() => handleEdit(service)}
+                      onDelete={() => handleDelete(service)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-border/60 bg-muted/10">
+                <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground text-sm font-medium">{t('aiChat.noCustomServices')}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 rounded-xl shadow-sm hover:bg-primary/5 hover:text-primary transition-all"
+                  onClick={() => { setEditingService(null); setDialogOpen(true); }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('aiChat.addService')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <Badge variant="soft-primary" className="rounded-md bg-info/10 text-info border-info/20">
+                <Settings className="h-3 w-3 mr-1.5" />
+                {t('aiChat.cacheSettings')}
+              </Badge>
+            </div>
+            <motion.div initial="hidden" animate="show" variants={itemVariants}>
+              <Card className="card-vivid group p-6 flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-base font-bold tracking-tight">{t('aiChat.maxCachedWebviews')}</Label>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {t('aiChat.maxCachedWebviewsDescription')}
+                  </p>
+                </div>
+                <div className="pl-6">
+                  <CacheSettingSelect />
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       </PageContent>
 
@@ -432,18 +457,18 @@ export function AiChatSettingsPage() {
         open={!!deleteConfirmService}
         onOpenChange={(open) => !open && setDeleteConfirmService(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('aiChat.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogTitle className="text-xl font-black tracking-tighter text-primary">{t('aiChat.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('aiChat.deleteConfirmMessage', { name: deleteConfirmService?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
             >
               {t('common.delete')}
             </AlertDialogAction>

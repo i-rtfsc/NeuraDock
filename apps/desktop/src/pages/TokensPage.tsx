@@ -198,8 +198,8 @@ export function TokensPage() {
     toggleMutation.mutate(key);
   };
 
-  const containerVariants = createStaggerContainer({ staggerChildren: 0.05 });
-  const itemVariants = createFadeUpItem({ y: 10, scale: 1 });
+  const containerVariants = createStaggerContainer({ staggerChildren: 0.03, delayChildren: 0.05 });
+  const itemVariants = createFadeUpItem({ y: 8, scale: 0.98 });
 
   return (
     <PageContainer
@@ -246,9 +246,9 @@ export function TokensPage() {
           <Button
             size="sm"
             onClick={handleAddKey}
-            className="shadow-sm ml-2"
+            className="shadow-md ml-2 btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
             {t('token.addKey', 'Add API Key')}
           </Button>
         </HeaderActions>
@@ -319,111 +319,136 @@ export function TokensPage() {
               exit={{ opacity: 0 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
             >
-              {filteredKeys.map((key) => (
-                <motion.div key={key.id} variants={itemVariants} layout>
-                  <Card
-                    className={cn(
-                      'group relative overflow-hidden transition-all duration-base ease-smooth interactive-scale',
-                      key.is_active
-                        ? 'border-border/60 bg-card hover:shadow-md cursor-pointer'
-                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default hover:shadow-md'
-                    )}
-                  >
-                    <div className="p-4 space-y-3">
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-base font-semibold text-foreground truncate leading-tight">
-                              {key.name}
-                            </h3>
-                            {key.is_active ? (
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/40 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
-                              </span>
-                            ) : (
-                              <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-                            )}
-                          </div>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal">
-                            {key.provider_type_display}
-                          </Badge>
-                        </div>
+              {filteredKeys.map((key) => {
+                const isCustom = key.provider_type === 'custom';
+                const isOpenAI = key.provider_type === 'openai';
+                const isAnthropic = key.provider_type === 'anthropic';
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="h-8 w-8 -mr-2 -mt-2 opacity-60 hover:opacity-100 hover:bg-muted"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => handleEditKey(key)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              {t('common.edit', 'Edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleKey(key)}>
-                              {key.is_active ? (
-                                <>
-                                  <PowerOff className="mr-2 h-4 w-4" />
-                                  {t('common.disable', 'Disable')}
-                                </>
-                              ) : (
-                                <>
-                                  <Power className="mr-2 h-4 w-4" />
-                                  {t('common.enable', 'Enable')}
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteKey(key)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {t('common.delete', 'Delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Info Grid */}
-                      <div className="space-y-2 pt-1">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-1.5 rounded-md">
-                          <Key className="h-3.5 w-3.5 shrink-0" />
-                          <code className="font-mono truncate select-all">{key.masked_key}</code>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground px-1.5">
-                          <Globe className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate" title={key.base_url}>
-                            {key.base_url}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Action Button */}
-                      {key.is_active && (
-                        <div className="pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-base ease-smooth"
-                            onClick={() => handleConfigureKey(key, 'claude')}
-                          >
-                            <Settings2 className="mr-2 h-3.5 w-3.5" />
-                            {t('token.configureAI', 'Configure AI Tool')}
-                          </Button>
-                        </div>
+                return (
+                  <motion.div key={key.id} variants={itemVariants} layout>
+                    <Card
+                      className={cn(
+                        'card-vivid group',
+                        !key.is_active && 'bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default hover:shadow-md'
                       )}
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
+                    >
+                      {/* Side Accent Bar */}
+                      <div className={cn(
+                        "card-accent-bar",
+                        isOpenAI && "bg-[#10a37f]/40 group-hover:bg-[#10a37f]",
+                        isAnthropic && "bg-[#d97757]/40 group-hover:bg-[#d97757]",
+                        isCustom && "bg-primary/40 group-hover:bg-primary"
+                      )} />
+
+                      <div className="p-4 flex flex-col flex-1">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-base font-extrabold tracking-tight truncate group-hover:text-primary transition-colors">
+                                {key.name}
+                              </h3>
+                              {key.is_active && (
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="soft-primary" className="text-[9px] px-1.5 py-0 h-4 font-bold uppercase tracking-wider">
+                                {key.provider_type_display}
+                              </Badge>
+                              {!key.is_active && (
+                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-medium opacity-70">
+                                  {t('common.inactive', 'Inactive')}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-8 w-8 -mr-1 -mt-1 opacity-40 group-hover:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl">
+                              <DropdownMenuItem onClick={() => handleEditKey(key)} className="rounded-lg gap-3">
+                                <Edit className="h-4 w-4 text-primary" />
+                                {t('common.edit', 'Edit')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleKey(key)} className="rounded-lg gap-3">
+                                {key.is_active ? (
+                                  <>
+                                    <PowerOff className="h-4 w-4 text-warning" />
+                                    {t('common.disable', 'Disable')}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Power className="h-4 w-4 text-success" />
+                                    {t('common.enable', 'Enable')}
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="my-1" />
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteKey(key)}
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg gap-3"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {t('common.delete', 'Delete')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* Info Section - More Compact */}
+                        <div className="flex-1 flex flex-col gap-2">
+                          <div className={cn("card-info-box p-2.5 space-y-1.5")}>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <Key className="h-3 w-3 text-primary/60" />
+                              <code className="font-mono text-muted-foreground truncate select-all">{key.masked_key}</code>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <Globe className="h-3 w-3 text-primary/60" />
+                              <span className="text-muted-foreground/80 truncate font-medium" title={key.base_url}>
+                                {key.base_url}
+                              </span>
+                            </div>
+                          </div>
+
+                          {key.description && (
+                            <p className="text-[11px] text-muted-foreground px-1 line-clamp-1 italic opacity-70 group-hover:opacity-100 transition-opacity">
+                              {key.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Action Footer */}
+                        {key.is_active && (
+                          <div className="pt-3 mt-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-[11px] font-bold rounded-lg h-8 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all"
+                              onClick={() => handleConfigureKey(key, 'claude')}
+                            >
+                              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                              {t('token.configureAI', 'Configure AI Tool')}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>

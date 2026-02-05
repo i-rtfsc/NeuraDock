@@ -128,7 +128,7 @@ export function AccountsTable({
                 {...props} 
                   className={cn(
                     "border-b transition-all duration-base ease-smooth relative group cursor-pointer",
-                    "hover:bg-accent/60 hover:shadow-md hover:-translate-y-[2px] hover:z-10",
+                    "hover:bg-primary/[0.03] hover:shadow-md hover:-translate-y-[2px] hover:z-10",
                     "active:scale-[var(--scale-active-subtle)] active:translate-y-0 active:shadow-sm",
                     "data-[state=selected]:bg-muted"
                   )}
@@ -268,10 +268,10 @@ export function AccountsTable({
                             onClick={handleClick}
                             disabled={buttonDisabled}
                             className={cn(
-                              "h-8 px-4 text-xs font-medium shadow-sm transition-all duration-slow ease-smooth",
+                              "h-8 px-4 text-xs font-bold shadow-sm transition-all duration-slow ease-smooth rounded-lg border-0",
                               supportsCheckIn
-                                ? 'bg-gradient-to-r from-primary to-primary/85 hover:from-primary hover:to-primary/70 text-primary-foreground'
-                                : 'bg-gradient-to-r from-info to-info/85 hover:from-info hover:to-info/70 text-info-foreground',
+                                ? 'btn-gradient-primary text-primary-foreground'
+                                : 'btn-gradient-success text-white',
                               'disabled:opacity-50 disabled:cursor-not-allowed',
                               isChecking && supportsCheckIn && 'animate-pulse'
                             )}

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
-import type { NotificationChannelDto } from './NotificationChannelList';
+import type { NotificationChannelDto } from '@/types/notification';
 
 interface NotificationChannelDialogProps {
   open: boolean;

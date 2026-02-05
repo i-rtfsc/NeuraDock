@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
-import type { NotificationChannelDto } from '@/components/notification/NotificationChannelList';
+import type { NotificationChannelDto } from '@/types/notification';
 
 export function useNotificationChannels() {
   return useQuery({

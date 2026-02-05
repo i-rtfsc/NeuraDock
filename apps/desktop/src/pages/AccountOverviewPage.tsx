@@ -210,7 +210,7 @@ export function AccountOverviewPage() {
   };
 
   // Shared card classes
-  const cardClass = "border-border/50 shadow-sm bg-card hover:shadow-md interactive-scale";
+  const cardClass = "card-vivid group p-6";
 
   return (
     <PageContainer
@@ -321,31 +321,31 @@ export function AccountOverviewPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedTokens.map((token) => (
                 <Card
                   key={token.id}
                   className={cn(
-                    "flex flex-col border-none shadow-sm bg-muted/30 dark:bg-muted/10 ring-1 ring-border/50 hover:shadow-md hover:bg-card interactive-scale",
+                    "card-vivid group flex flex-col border-none shadow-sm ring-1 ring-border/50",
                     !token.is_active && "opacity-60 grayscale"
                   )}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold truncate flex-1" title={token.name}>
+                      <CardTitle className="text-base font-extrabold truncate flex-1 group-hover:text-primary transition-colors" title={token.name}>
                         {token.name}
                       </CardTitle>
                       <Badge
-                        variant={token.is_active ? 'default' : 'secondary'}
+                        variant={token.is_active ? 'soft-primary' : 'secondary'}
                         className={cn(
-                          "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5",
-                          token.is_active ? "bg-success text-success-foreground hover:bg-success/90" : ""
+                          "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] h-5 font-bold uppercase tracking-wider",
+                          token.is_active ? "" : ""
                         )}
                       >
                         {token.status_text}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-background w-fit px-2 py-1 rounded-md border border-border/50">
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/30 w-fit px-2 py-1 rounded-md border border-border/20 group-hover:border-primary/10 group-hover:bg-primary/5 transition-colors">
                       <Key className="h-3 w-3" />
                       {token.masked_key}
                     </div>
@@ -436,11 +436,11 @@ export function AccountOverviewPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-auto text-xs font-medium rounded-lg shadow-sm bg-gradient-to-r from-background/80 to-background/50 hover:from-primary/10 hover:to-primary/5 hover:text-primary hover:border-primary/30 transition-all duration-base ease-smooth"
+                      className="w-full mt-auto text-xs font-bold rounded-lg h-9 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all"
                       onClick={() => handleConfigureToken(token)}
                       disabled={!token.is_active}
                     >
-                      <Settings2 className="mr-2 h-3.5 w-3.5" />
+                      <Settings2 className="mr-1.5 h-3.5 w-3.5" />
                       {t('token.configureAI', 'Configure AI Tool')}
                     </Button>
                   </CardContent>

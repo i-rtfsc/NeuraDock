@@ -14,6 +14,8 @@ import { HeaderActions, HeaderActionsSeparator } from '@/components/layout/Heade
 import type { ProviderDto } from '@/hooks/useProviders';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { motion } from 'framer-motion';
+import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
 
 export function ProvidersPage() {
   const { t } = useTranslation();
@@ -39,6 +41,9 @@ export function ProvidersPage() {
   const [nodesDialogOpen, setNodesDialogOpen] = useState(false);
   const [nodesProvider, setNodesProvider] = useState<ProviderDto | null>(null);
   const [pendingOpenProviderId, setPendingOpenProviderId] = useState<string | null>(null);
+
+  const containerVariants = createStaggerContainer({ staggerChildren: 0.03, delayChildren: 0.05 });
+  const itemVariants = createFadeUpItem({ y: 8, scale: 0.98 });
 
   useEffect(() => {
     const state = location.state as any;
@@ -134,9 +139,13 @@ export function ProvidersPage() {
           <HeaderActionsSeparator />
 
           {/* Add Provider Button */}
-          <Button onClick={handleCreate} size="sm" className="shadow-sm">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('providers.addButton', '添加中转站')}
+          <Button 
+            onClick={handleCreate} 
+            size="sm" 
+            className="shadow-md btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all"
+          >
+            <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
+            {t('providers.addButton', 'Add Provider')}
           </Button>
         </HeaderActions>
       }
@@ -163,18 +172,24 @@ export function ProvidersPage() {
                   ({builtinProviders.length})
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
                 {builtinProviders.map((provider) => (
-                  <ProviderCard
-                    key={provider.id}
-                    provider={provider}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onManageNodes={handleManageNodes}
-                    isDeleting={deleteMutation.isPending}
-                  />
+                  <motion.div key={provider.id} variants={itemVariants}>
+                    <ProviderCard
+                      provider={provider}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onManageNodes={handleManageNodes}
+                      isDeleting={deleteMutation.isPending}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -188,18 +203,24 @@ export function ProvidersPage() {
                   ({customProviders.length})
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
                 {customProviders.map((provider) => (
-                  <ProviderCard
-                    key={provider.id}
-                    provider={provider}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onManageNodes={handleManageNodes}
-                    isDeleting={deleteMutation.isPending}
-                  />
+                  <motion.div key={provider.id} variants={itemVariants}>
+                    <ProviderCard
+                      provider={provider}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onManageNodes={handleManageNodes}
+                      isDeleting={deleteMutation.isPending}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
 

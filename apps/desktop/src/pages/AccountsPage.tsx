@@ -372,7 +372,7 @@ export function AccountsPage() {
           >
             {/* Current Balance */}
             <motion.div variants={itemVariants}>
-              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+              <Card className="card-vivid group">
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
@@ -389,7 +389,7 @@ export function AccountsPage() {
 
             {/* Total Quota */}
             <motion.div variants={itemVariants}>
-              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+              <Card className="card-vivid group">
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalQuota')}</p>
@@ -406,7 +406,7 @@ export function AccountsPage() {
 
             {/* Historical Consumption */}
             <motion.div variants={itemVariants}>
-              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+              <Card className="card-vivid group">
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>

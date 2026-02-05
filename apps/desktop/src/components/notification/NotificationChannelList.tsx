@@ -9,14 +9,8 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-
-export interface NotificationChannelDto {
-  id: string;
-  channel_type: string;
-  config: string;
-  enabled: boolean;
-  created_at: string;
-}
+import { Card } from '@/components/ui/card';
+import type { NotificationChannelDto } from '@/types/notification';
 
 interface NotificationChannelListProps {
   channels: NotificationChannelDto[];
@@ -104,8 +98,8 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
   const getChannelStyle = (type: string) => {
     switch (type) {
-      case 'feishu': return 'bg-[hsl(var(--brand-feishu)/0.12)] text-[hsl(var(--brand-feishu))] border-[hsl(var(--brand-feishu)/0.25)]';
-      case 'dingtalk': return 'bg-[hsl(var(--brand-dingtalk)/0.12)] text-[hsl(var(--brand-dingtalk))] border-[hsl(var(--brand-dingtalk)/0.25)]';
+      case 'feishu': return 'bg-[#00d2ff]/10 text-[#0070cc] border-[#00d2ff]/20';
+      case 'dingtalk': return 'bg-[#007fff]/10 text-[#007fff] border-[#007fff]/20';
       case 'email': return 'bg-accent-2-soft text-accent-2 border-accent-2-border';
       default: return 'bg-muted text-muted-foreground border-border';
     }
@@ -116,28 +110,32 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
   };
 
   return (
-    <div className="w-full space-y-4">
-      {/* Main Container */}
-      <div className="bg-card/50 backdrop-blur-md border border-border/60 rounded-[var(--radius-panel)] overflow-hidden shadow-sm w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-muted/20">
-           <h3 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
-             <Bell className="h-4 w-4" />
-             {t('settings.notification')}
-           </h3>
-           <Button onClick={handleAddNew} size="sm" className="rounded-full px-4 text-xs font-medium shadow-none hover:shadow-sm transition-all duration-base ease-smooth">
-             <Plus className="h-3.5 w-3.5 mr-1.5" />
-             {t('notification.addChannel')}
-           </Button>
-        </div>
+    <div className="w-full space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between px-1 ml-1">
+        <Badge variant="soft-primary" className="rounded-md h-6 font-bold uppercase tracking-wider text-[10px] gap-1.5">
+          <Bell className="h-3 w-3" />
+          {t('settings.notification')}
+        </Badge>
+        <Button 
+          onClick={handleAddNew} 
+          size="sm" 
+          className="h-8 rounded-lg btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all shadow-md"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1.5 stroke-[3px]" />
+          {t('notification.addChannel')}
+        </Button>
+      </div>
 
+      {/* Main Container */}
+      <Card className="card-vivid group p-0 overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.005] cursor-default">
         {/* List Content */}
         {channels.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center space-y-4 text-muted-foreground/60">
              <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-2">
                 <AlertCircle className="h-8 w-8 opacity-50" />
              </div>
-             <p className="text-sm">{t('notification.noChannelsDesc')}</p>
+             <p className="text-sm font-medium">{t('notification.noChannelsDesc')}</p>
           </div>
         ) : (
           <div className="divide-y divide-border/40">
@@ -150,13 +148,13 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                 <div 
                   key={channel.id} 
                   className={cn(
-                    "group flex items-center gap-5 px-6 py-5 transition-all duration-base ease-smooth hover:bg-muted/30",
+                    "group/item flex items-center gap-5 px-6 py-5 transition-all duration-base ease-smooth hover:bg-primary/[0.03]",
                     !channel.enabled && "opacity-70 grayscale-[0.3]"
                   )}
                 >
                   {/* Icon */}
                   <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm transition-transform duration-base ease-smooth group-hover:scale-[var(--scale-pop)]",
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm transition-all duration-base ease-smooth group-hover/item:scale-110",
                     styleClass
                   )}>
                     <Icon className="h-5 w-5" />
@@ -165,17 +163,17 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                   {/* Info */}
                   <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-base font-medium text-foreground">
+                      <span className="text-base font-bold tracking-tight text-foreground">
                         {getChannelTypeName(channel.channel_type)}
                       </span>
                       {!channel.enabled && (
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0 bg-transparent text-muted-foreground border-muted-foreground/30">
+                        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 font-bold uppercase tracking-wider">
                           {t('notification.disabled')}
                         </Badge>
                       )}
                     </div>
                     
-                    <div className="text-sm text-muted-foreground font-mono truncate max-w-md flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground font-mono truncate max-w-md flex items-center gap-2 font-medium opacity-80">
                        {channel.channel_type === 'feishu' && config.webhook_key && `Webhook: ${config.webhook_key.slice(0, 12)}...`}
                        {channel.channel_type === 'dingtalk' && config.webhook_key && `Token: ${config.webhook_key.slice(0, 12)}...`}
                        {channel.channel_type === 'email' && config.from && `From: ${config.from}`}
@@ -183,10 +181,10 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
                   </div>
 
                   {/* Actions (Hover Reveal) */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-base ease-smooth -mr-2">
+                  <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity duration-base ease-smooth -mr-2">
                      <Tooltip>
                         <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-primary" onClick={() => handleTest(channel.id)}>
+                           <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => handleTest(channel.id)}>
                               {testingId === channel.id ? <span className="animate-spin text-xs">⟳</span> : <TestTube2 className="h-4 w-4" />}
                            </Button>
                         </TooltipTrigger>
@@ -195,7 +193,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
                      <Tooltip>
                         <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground" onClick={() => handleEdit(channel)}>
+                           <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full" onClick={() => handleEdit(channel)}>
                               <Edit2 className="h-4 w-4" />
                            </Button>
                         </TooltipTrigger>
@@ -204,7 +202,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
                      <Tooltip>
                         <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" onClick={() => handleDelete(channel.id)}>
+                           <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={() => handleDelete(channel.id)}>
                               <Trash2 className="h-4 w-4" />
                            </Button>
                         </TooltipTrigger>
@@ -227,7 +225,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
             })}
           </div>
         )}
-      </div>
+      </Card>
 
       <NotificationChannelDialog
         open={showDialog}

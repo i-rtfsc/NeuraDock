@@ -61,9 +61,6 @@ export function HomePage() {
   const container: Variants = createStaggerContainer({ staggerChildren: 0.05, delayChildren: 0.1 });
   const item: Variants = createFadeUpItem({ y: 10, scale: 1 });
 
-  // Common card interactive styles
-  const interactiveCardClass = "bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale";
-
   return (
     <PageContainer title={t('dashboard.title')}>
       <PageContent maxWidth="lg">
@@ -76,11 +73,7 @@ export function HomePage() {
           <BentoGrid>
             {/* Main Balance Card - Spans 2 cols on large screens */}
             <motion.div variants={item} className="md:col-span-2">
-              <Card className={cn(
-                "h-full relative overflow-hidden border-primary/20 shadow-md",
-                "bg-gradient-to-br from-background via-primary/5 to-accent-2/5 dark:from-background dark:via-primary/10 dark:to-accent-2/10",
-                "hover:shadow-xl hover:border-primary/40 cursor-pointer interactive-scale group"
-              )}>
+              <Card className="card-vivid group relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-primary/5 to-accent-2/5 dark:from-background dark:via-primary/10 dark:to-accent-2/10">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity duration-slow">
                   <Wallet className="w-32 h-32 text-primary rotate-12" />
                 </div>
@@ -120,7 +113,7 @@ export function HomePage() {
 
             {/* Accounts Status */}
             <motion.div variants={item} className="md:col-span-2 lg:col-span-2">
-              <Card className={cn(interactiveCardClass, "h-full")}>
+              <Card className="card-vivid group h-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalAccounts')}</CardTitle>
                   <div className="p-2 rounded-full bg-success-soft">
@@ -130,14 +123,14 @@ export function HomePage() {
                 <CardContent>
                   <div className="text-3xl font-bold tabular-nums text-foreground">{isLoading ? '...' : totalAccounts}</div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" className="shadow-sm" onClick={() => navigate('/accounts')}>
+                    <Button size="sm" className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary" onClick={() => navigate('/accounts')}>
                       <Users className="mr-2 h-4 w-4" />
                       {t('nav.accounts')}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="shadow-sm"
+                      className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary"
                       onClick={() => navigate('/providers')}
                     >
                       <Server className="mr-2 h-4 w-4" />
@@ -175,42 +168,50 @@ export function HomePage() {
 
                   return (
                     <motion.div key={provider.provider_id} variants={item} className="h-full">
-                      <Card className={cn(interactiveCardClass, "h-full flex flex-col overflow-hidden")}>
-                        {/* Provider Header */}
-                        <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-background rounded-full border shadow-sm">
-                              <Zap className="h-4 w-4 text-warning" />
+                      <Card className="card-vivid group h-full">
+                        {/* Side Accent Bar */}
+                        <div className={cn(
+                          "card-accent-bar",
+                          "bg-primary/40 group-hover:bg-primary"
+                        )} />
+                        
+                        <div className="flex flex-col flex-1">
+                          {/* Provider Header */}
+                          <div className="p-4 border-b border-border/30 flex items-center justify-between bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-background rounded-full border shadow-sm">
+                                <Zap className="h-4 w-4 text-warning" />
+                              </div>
+                              <div className="min-w-0">
+                                <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">{provider.provider_name}</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  {provider.account_count} {provider.account_count === 1 ? t('dashboard.account') : t('dashboard.accounts_plural')}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="font-semibold text-foreground">{provider.provider_name}</h3>
-                              <p className="text-xs text-muted-foreground">
-                                {provider.account_count} {provider.account_count === 1 ? t('dashboard.account') : t('dashboard.accounts_plural')}
-                              </p>
+                            <div className="text-right shrink-0">
+                               <div className="font-mono font-bold text-success text-sm">
+                                 {formatCurrency(provider.current_balance)}
+                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                             <div className="font-mono font-bold text-success">
-                               {formatCurrency(provider.current_balance)}
-                             </div>
-                          </div>
-                        </div>
 
-                        {/* Models List - Flex grow to push content */}
-                        <CardContent className="p-4 flex-grow">
-                          {providerAccount ? (
-                            <ProviderModelsSection
-                              providerId={provider.provider_id}
-                              providerName={provider.provider_name}
-                              accountId={providerAccount.id}
-                              compact={true} // Use compact mode for grid layout
-                            />
-                          ) : (
-                            <div className="h-full flex items-center justify-center text-sm text-muted-foreground italic min-h-[60px]">
-                              {t('dashboard.noActiveAccounts')}
-                            </div>
-                          )}
-                        </CardContent>
+                          {/* Models List - Flex grow to push content */}
+                          <CardContent className="p-4 flex-grow">
+                            {providerAccount ? (
+                              <ProviderModelsSection
+                                providerId={provider.provider_id}
+                                providerName={provider.provider_name}
+                                accountId={providerAccount.id}
+                                compact={true} // Use compact mode for grid layout
+                              />
+                            ) : (
+                              <div className="h-full flex items-center justify-center text-sm text-muted-foreground italic min-h-[60px] bg-muted/10 rounded-lg border border-dashed border-border/50">
+                                {t('dashboard.noActiveAccounts')}
+                              </div>
+                            )}
+                          </CardContent>
+                        </div>
                       </Card>
                     </motion.div>
                   );

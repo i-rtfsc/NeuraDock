@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { useTheme } from '@/hooks/useTheme';
 import { useProxyConfig } from '@/hooks/useProxyConfig';
 import { useTranslation } from 'react-i18next';
@@ -40,20 +42,22 @@ interface SettingsGroupProps {
 }
 
 const SettingsGroup = ({ title, children, className, contentClassName }: SettingsGroupProps) => (
-  <div className={cn("space-y-element-gap w-full", className)}>
+  <div className={cn("space-y-3 w-full", className)}>
     {title && (
-      <h3 className="text-sm font-semibold text-foreground/70 px-1 ml-1 uppercase tracking-wide">
-        {title}
-      </h3>
+      <div className="flex items-center gap-2 px-1 ml-1">
+        <Badge variant="soft-primary" className="rounded-md h-6 font-bold uppercase tracking-wider text-[10px]">
+          {title}
+        </Badge>
+      </div>
     )}
-    <div className={cn(
-      "bg-card/50 backdrop-blur-md border border-border/60 rounded-[var(--radius-panel)] overflow-hidden shadow-sm w-full",
+    <Card className={cn(
+      "card-vivid group p-0 overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.005] cursor-default",
       contentClassName
     )}>
       <div className="flex flex-col w-full">
         {children}
       </div>
-    </div>
+    </Card>
   </div>
 );
 
@@ -69,34 +73,34 @@ interface SettingsRowProps {
 }
 
 const SettingsRow = ({ icon: Icon, label, description, children, onClick, className, action, isLast }: SettingsRowProps) => (
-  <div className="relative group w-full">
+  <div className="relative w-full">
     <div
       className={cn(
-        "flex items-center gap-element-gap px-[var(--layout-page-content-padding)] py-5 min-h-[4rem] transition-all duration-base ease-smooth hover:bg-muted/30 w-full interactive-scale",
-        onClick && "cursor-pointer active:bg-muted/50 active:scale-[var(--scale-active)]",
+        "flex items-center gap-4 px-6 py-5 min-h-[4.5rem] transition-all duration-base ease-smooth hover:bg-primary/[0.03] w-full",
+        onClick && "cursor-pointer active:bg-primary/5",
         className
       )}
       onClick={onClick}
     >
       {Icon && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0">
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0 group-hover:scale-110">
           <Icon className="h-5 w-5" />
         </div>
       )}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <Label className={cn("text-base font-medium text-foreground", onClick && "cursor-pointer")}>
+        <Label className={cn("text-base font-bold tracking-tight text-foreground", onClick && "cursor-pointer")}>
           {label}
         </Label>
-        {description && <p className="text-sm text-muted-foreground mt-1 leading-normal">{description}</p>}
+        {description && <p className="text-sm text-muted-foreground mt-1 leading-normal font-medium opacity-80">{description}</p>}
       </div>
-      <div className="shrink-0 flex items-center gap-element-gap pl-4">
+      <div className="shrink-0 flex items-center gap-3 pl-4">
         {children}
         {action}
-        {onClick && !action && !children && <ChevronRight className="h-5 w-5 text-muted-foreground/40" />}
+        {onClick && !action && !children && <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />}
       </div>
     </div>
     {!isLast && (
-      <div className="absolute bottom-0 left-20 right-0 h-px bg-border/40" />
+      <div className="mx-6 h-px bg-border/40" />
     )}
   </div>
 );
