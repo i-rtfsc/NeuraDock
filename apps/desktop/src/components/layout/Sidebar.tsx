@@ -10,6 +10,8 @@ import {
   Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// ... rest of imports
+
 import { useTranslation } from 'react-i18next';
 import {
   Tooltip,
@@ -49,26 +51,25 @@ export function Sidebar() {
         className={cn(
           'relative group flex items-center transition-all duration-base ease-smooth',
           collapsed
-            ? 'justify-center w-10 h-10 rounded-xl'
-            : 'w-full h-10 px-3 rounded-lg gap-3',
+            ? 'justify-center w-11 h-11 rounded-2xl'
+            : 'w-full h-11 px-4 rounded-2xl gap-3',
           isActive
-            ? 'bg-primary/10 text-primary font-medium'
-            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            ? 'bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/30 scale-[1.02]'
+            : 'text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-[1.05]'
         )}
       >
-        <Icon className={cn("shrink-0 transition-transform duration-base ease-smooth", collapsed ? "h-5 w-5" : "h-4 w-4", isActive && "stroke-[2.5px]")} />
+        <Icon className={cn(
+          "shrink-0 transition-all duration-base ease-smooth group-hover:animate-float",
+          collapsed ? "h-6 w-6" : "h-5 w-5", 
+          isActive && "stroke-[2.5px]"
+        )} />
         {!collapsed && (
           <span className={cn(
-            "text-sm whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
-            isActive ? "font-semibold" : ""
+            "text-sm tracking-tight whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
+            isActive ? "font-bold" : "font-medium"
           )}>
             {item.name}
           </span>
-        )}
-
-        {/* Active Indicator for Collapsed Mode */}
-        {collapsed && isActive && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full" />
         )}
       </div>
     );
@@ -145,8 +146,8 @@ export function Sidebar() {
             size="icon"
             onClick={toggle}
             className={cn(
-              "h-9 w-full flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors",
-              collapsed ? "justify-center rounded-xl" : "justify-start px-2 gap-3 rounded-lg"
+              "h-9 w-full flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-base hover:scale-[1.02]",
+              collapsed ? "justify-center rounded-xl" : "justify-start px-2 gap-3 rounded-xl"
             )}
          >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}

@@ -49,7 +49,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div
-      className="flex h-screen overflow-hidden bg-sidebar text-foreground relative"
+      className="flex h-screen overflow-hidden bg-mesh bg-mesh-active bg-sidebar text-foreground relative"
       onPointerDownCapture={handleStartDrag}
       onMouseDownCapture={handleStartDrag}
     >

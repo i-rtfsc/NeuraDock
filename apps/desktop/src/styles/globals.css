@@ -4,43 +4,43 @@
 
 @layer base {
   :root {
-    /* Light Theme - Neutral & Soft (Slate-inspired) */
-    /* Background: Light cool gray to reduce glare */
-    --background: 220 20% 98%;
-    --foreground: 222 20% 20%; /* Stronger for clarity */
+    /* Light Theme - Vivid & Young (Violet-inspired) */
+    /* Background: Very light cool tint */
+    --background: 265 30% 98%;
+    --foreground: 260 25% 20%; /* Deep violet-gray */
     
-    /* Cards: Pure white for depth */
+    /* Cards: Pure white */
     --card: 0 0% 100%;
-    --card-foreground: 222 20% 20%;
+    --card-foreground: 260 25% 20%;
     
     /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 20%;
+    --popover-foreground: 260 25% 20%;
     
-    /* Primary: Clear Blue */
-    --primary: 213 94% 52%;
+    /* Primary: Electric Violet */
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
     
-    /* Secondary: Very light neutral */
-    --secondary: 220 16% 95%;
-    --secondary-foreground: 222 20% 20%;
+    /* Secondary: Light violet tint */
+    --secondary: 262 30% 96%;
+    --secondary-foreground: 262 83% 58%;
     
     /* Muted */
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 260 20% 96%;
+    --muted-foreground: 260 10% 55%;
     
     /* Accent */
-    --accent: 220 16% 95%;
-    --accent-foreground: 222 20% 20%;
+    --accent: 262 30% 96%;
+    --accent-foreground: 262 83% 58%;
     
     /* Destructive */
     --destructive: var(--danger);
     --destructive-foreground: var(--danger-foreground);
     
     /* Borders */
-    --border: 220 10% 92%;
-    --input: 220 10% 92%;
-    --ring: 213 94% 52%;
+    --border: 262 20% 92%;
+    --input: 262 20% 92%;
+    --ring: 262 83% 58%;
 
     /* Typography */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -64,12 +64,12 @@
     --card-border: var(--border);
     --popover-border: var(--border);
     
-    /* Radius Tokens */
-    --radius-sm: 0.5rem;
-    --radius-md: 0.75rem;
-    --radius-lg: 1rem;
-    --radius-xl: 1.25rem;
-    --radius-2xl: 1.5rem;
+    /* Radius Tokens - More rounded/playful */
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.25rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 1.75rem;
     --radius-full: 9999px;
     --radius-control-sm: var(--radius-sm);
     --radius-control: var(--radius-md);
@@ -169,18 +169,18 @@
        参考Tailwind CSS + Material Design，更明显的阴影效果
        ============================================ */
 
-    /* Light Mode Shadows - 清晰可见的阴影 */
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    /* Light Mode Shadows - Vivid Violet Tint */
+    --shadow-xs: 0 1px 2px 0 rgba(80, 60, 160, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(80, 60, 160, 0.1), 0 1px 2px -1px rgba(80, 60, 160, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(80, 60, 160, 0.1), 0 2px 4px -2px rgba(80, 60, 160, 0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(80, 60, 160, 0.1), 0 4px 6px -4px rgba(80, 60, 160, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(80, 60, 160, 0.1), 0 8px 10px -6px rgba(80, 60, 160, 0.05);
+    --shadow-2xl: 0 25px 50px -12px rgba(80, 60, 160, 0.25);
 
-    /* Hover Shadows - 悬浮时明显提升 */
-    --shadow-hover-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.08);
-    --shadow-hover-md: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -4px rgba(0, 0, 0, 0.08);
-    --shadow-hover-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 8px 16px -8px rgba(0, 0, 0, 0.1);
+    /* Hover Shadows - Vivid */
+    --shadow-hover-sm: 0 2px 8px 0 rgba(80, 60, 160, 0.12), 0 1px 4px -1px rgba(80, 60, 160, 0.08);
+    --shadow-hover-md: 0 8px 16px -4px rgba(80, 60, 160, 0.12), 0 4px 8px -4px rgba(80, 60, 160, 0.08);
+    --shadow-hover-lg: 0 16px 32px -8px rgba(80, 60, 160, 0.14), 0 8px 16px -8px rgba(80, 60, 160, 0.1);
 
     /* ============================================
        ANIMATION TOKENS - 动画系统
@@ -222,13 +222,13 @@
     --grid-cards-cols-desktop: 3;
     --grid-cards-cols-wide: 4;
 
-    /* Layout Colors - Light */
-    --sidebar-background: 220 20% 97%;
-    --sidebar-foreground: 222 20% 20%;
-    --sidebar-border: 220 10% 92%;
+    /* Layout Colors - Vivid Light */
+    --sidebar-background: 265 30% 97%;
+    --sidebar-foreground: 260 25% 20%;
+    --sidebar-border: 262 20% 92%;
     
-    --sidebar: 220 20% 97%;
-    --topbar: 220 20% 97%;
+    --sidebar: 265 30% 97%;
+    --topbar: 265 30% 97%;
     
     /* Semantic Colors */
     --success: 152 60% 40%;
@@ -255,11 +255,17 @@
     --danger-soft-foreground: 0 60% 42%;
     --danger-border: 0 60% 88%;
 
-    --accent-2: 265 70% 55%;
+    --accent-2: 280 70% 55%;
     --accent-2-foreground: 0 0% 100%;
-    --accent-2-soft: 265 80% 96%;
-    --accent-2-soft-foreground: 265 50% 40%;
-    --accent-2-border: 265 45% 86%;
+    --accent-2-soft: 280 80% 96%;
+    --accent-2-soft-foreground: 280 50% 40%;
+    --accent-2-border: 280 45% 86%;
+
+    --vivid-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-2)) 100%);
+    --mesh-gradient: 
+      radial-gradient(at 0% 0%, hsla(262, 83%, 58%, 0.1) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(280, 70%, 55%, 0.08) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(213, 94%, 52%, 0.08) 0, transparent 50%);
 
     /* Brand Colors */
     --brand-feishu: 222 100% 60%;
@@ -2065,6 +2071,16 @@
 }
 
 @layer utilities {
+  .bg-vivid {
+    background: var(--vivid-gradient);
+  }
+
+  .text-vivid {
+    background: var(--vivid-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
   /* Glassmorphism effects */
   .glass {
     @apply backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-white/10;
@@ -2081,6 +2097,63 @@
 
   .interactive-scale {
     @apply transition-all duration-base ease-smooth hover:scale-[var(--scale-hover)] active:scale-[var(--scale-active)];
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-soft-pulse {
+    animation: soft-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+    100% { transform: translateY(0px); }
+  }
+
+  @keyframes soft-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(0.98); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes mesh-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes shine {
+    from { mask-position: 150%; }
+    to { mask-position: -50%; }
+  }
+
+  @keyframes gradient-x {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-gradient-x {
+    background-size: 200% 200%;
+    animation: gradient-x 6s ease infinite;
+  }
+
+  .bg-mesh-active {
+    background-size: 200% 200%;
+    animation: mesh-flow 15s ease infinite;
+  }
+
+  .btn-gradient-primary {
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280, 70%, 55%) 100%);
+    background-size: 200% auto;
+    transition: background-position 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn-gradient-primary:hover {
+    background-position: right center;
+    box-shadow: 0 4px 15px -3px rgba(124, 58, 237, 0.4);
   }
 
   .button-active {

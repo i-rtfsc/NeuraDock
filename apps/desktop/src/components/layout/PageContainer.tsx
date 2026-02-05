@@ -22,18 +22,21 @@ export function PageContainer({ children, className, title, actions, headerClass
     <div className="flex flex-col h-full">
       {/* Header - 使用design tokens统一高度和padding */}
       <div className={cn(
-        "flex items-center justify-between shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10",
+        "flex items-center justify-between shrink-0 bg-background/40 backdrop-blur-md z-10",
         "px-[var(--layout-page-header-padding-x)] py-[var(--layout-page-header-padding-y)]",
         "gap-[var(--spacing-element-gap)]",
         "h-[var(--layout-page-header-height)]",
         headerClassName,
       )}>
-        <div className="flex items-center gap-[var(--spacing-element-gap)] min-w-0 shrink-0">
-          {typeof title === 'string' ? (
-            <h1 className="text-2xl font-bold tracking-tight truncate">{title}</h1>
-          ) : (
-            title
-          )}
+        <div className="flex items-center gap-3 min-w-0 shrink-0 text-primary">
+          <div className="w-1.5 h-6 bg-primary rounded-full shrink-0" />
+          <div className="flex items-center gap-[var(--spacing-element-gap)] font-black tracking-tighter truncate">
+            {typeof title === 'string' ? (
+              <h1 className="text-2xl truncate">{title}</h1>
+            ) : (
+              title
+            )}
+          </div>
         </div>
 
         <div className="flex items-center flex-1 justify-end min-w-0 gap-[var(--spacing-element-gap)]">

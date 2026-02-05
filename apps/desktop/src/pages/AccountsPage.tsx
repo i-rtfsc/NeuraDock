@@ -245,9 +245,9 @@ export function AccountsPage() {
       className="h-full flex flex-col"
       title={
         <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold tracking-tight">{t('accounts.title')}</span>
+          <span className="text-2xl">{t('accounts.title')}</span>
           {accounts && accounts.length > 0 && (
-            <Badge variant="secondary" className="text-sm font-normal rounded-full px-2.5">
+            <Badge variant="soft-primary" className="text-sm rounded-full px-2.5">
               {accounts.length}
             </Badge>
           )}

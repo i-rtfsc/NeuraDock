@@ -78,20 +78,20 @@ export function HomePage() {
             <motion.div variants={item} className="md:col-span-2">
               <Card className={cn(
                 "h-full relative overflow-hidden border-primary/20 shadow-md",
-                "bg-gradient-to-br from-background via-background to-primary/5 dark:from-background dark:via-background dark:to-primary/10",
-                "hover:shadow-lg cursor-pointer interactive-scale"
+                "bg-gradient-to-br from-background via-primary/5 to-accent-2/5 dark:from-background dark:via-primary/10 dark:to-accent-2/10",
+                "hover:shadow-xl hover:border-primary/40 cursor-pointer interactive-scale group"
               )}>
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Wallet className="w-24 h-24 text-primary" />
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity duration-slow">
+                  <Wallet className="w-32 h-32 text-primary rotate-12" />
                 </div>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
                     {t('dashboard.stats.currentBalance')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold tracking-tight tabular-nums text-success">
+                  <div className="text-4xl font-black tracking-tight tabular-nums text-vivid bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500 animate-gradient-x">
                     {statsLoading ? '...' : statistics ? formatCurrency(statistics.total_current_balance) : '$0.00'}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3">
