@@ -37,14 +37,12 @@ pub async fn get_trend(
     let mut prev_income: Option<f64> = None;
 
     for row in rows {
-        let income_increment = prev_income.map_or(0.0, |prev| {
+        let income_increment = if let Some(prev) = prev_income {
             let diff = row.daily_total_quota() - prev;
-            if diff > 0.0 {
-                diff
-            } else {
-                0.0
-            }
-        });
+            if diff > 0.0 { diff } else { 0.0 }
+        } else {
+            row.daily_total_quota() // First day handle
+        };
 
         let is_checked_in = income_increment > 0.0 || prev_income.is_none();
 
@@ -89,18 +87,17 @@ pub async fn get_day_detail(
         .await?;
 
     if let Some(row) = row {
-        // Get previous day's income to calculate increment
-        let prev_income: Option<f64> = if let Some(prev_date) = parsed_date.pred_opt() {
+        // Get previous day's snapshot to calculate increments
+        let prev_summary = if let Some(prev_date) = parsed_date.pred_opt() {
             balance_history_repo
                 .find_daily_summary(&AccountId::from_string(account_id), prev_date)
                 .await?
-                .map(|s| s.daily_total_quota())
         } else {
             None
         };
 
-        let income_increment = prev_income.and_then(|prev| {
-            let diff = row.daily_total_quota() - prev;
+        let income_increment = prev_summary.as_ref().and_then(|prev| {
+            let diff = row.daily_total_quota() - prev.daily_total_quota();
             if diff > 0.0 {
                 Some(diff)
             } else {
@@ -108,13 +105,23 @@ pub async fn get_day_detail(
             }
         });
 
-        let is_checked_in = income_increment.is_some() || prev_income.is_none();
+        let daily_consumed = prev_summary.as_ref().map_or(0.0, |prev| {
+            let diff = row.daily_consumed() - prev.daily_consumed();
+            if diff > 0.0 {
+                diff
+            } else {
+                0.0
+            }
+        });
+
+        let is_checked_in = income_increment.is_some() || prev_summary.is_none();
 
         Ok(CheckInDayDto {
             date: date.to_string(),
             is_checked_in,
             income_increment,
             current_balance: row.daily_balance(),
+            daily_consumed,
             total_consumed: row.daily_consumed(),
             total_quota: row.daily_total_quota(),
         })
@@ -129,6 +136,7 @@ pub async fn get_day_detail(
             is_checked_in: false,
             income_increment: None,
             current_balance: 0.0,
+            daily_consumed: 0.0,
             total_consumed: 0.0,
             total_quota: 0.0,
         })

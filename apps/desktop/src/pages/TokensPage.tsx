@@ -412,19 +412,19 @@ export function TokensPage() {
                           <div className={cn("card-info-box p-2.5 space-y-1.5")}>
                             <div className="flex items-center gap-2 text-[11px]">
                               <Key className="h-3 w-3 text-primary/60" />
-                              <code className="font-mono text-muted-foreground truncate select-all">{key.masked_key}</code>
+                              <code className="font-mono text-foreground/90 truncate select-all">{key.masked_key}</code>
                             </div>
 
                             <div className="flex items-center gap-2 text-[11px]">
                               <Globe className="h-3 w-3 text-primary/60" />
-                              <span className="text-muted-foreground/80 truncate font-medium" title={key.base_url}>
+                              <span className="text-foreground/80 truncate font-medium" title={key.base_url}>
                                 {key.base_url}
                               </span>
                             </div>
                           </div>
 
                           {key.description && (
-                            <p className="text-[11px] text-muted-foreground px-1 line-clamp-1 italic opacity-70 group-hover:opacity-100 transition-opacity">
+                            <p className="text-[11px] text-foreground/70 px-1 line-clamp-1 italic opacity-90 group-hover:opacity-100 transition-opacity">
                               {key.description}
                             </p>
                           )}

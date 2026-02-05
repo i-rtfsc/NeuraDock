@@ -19,6 +19,7 @@ pub struct CheckInDayDto {
     pub is_checked_in: bool,
     pub income_increment: Option<f64>,
     pub current_balance: f64,
+    pub daily_consumed: f64,
     pub total_consumed: f64,
     pub total_quota: f64,
 }

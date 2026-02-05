@@ -89,7 +89,7 @@ export function ProviderModelsSection({
               <Badge 
                 key={model} 
                 variant="secondary" 
-                className="text-[10px] px-1.5 py-0 h-5 font-medium bg-muted/50 text-muted-foreground border-transparent"
+                className="text-[10px] px-1.5 py-0 h-5 font-medium bg-muted/60 text-foreground/90 border-transparent shadow-sm"
               >
                 {model}
               </Badge>
@@ -135,9 +135,9 @@ export function ProviderModelsSection({
       )}
 
       {!isLoading && models.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto Macos-scrollbar">
           {models.map((model) => (
-            <Badge key={model} variant="secondary" className="text-xs">
+            <Badge key={model} variant="secondary" className="text-xs bg-muted/60 text-foreground/90 border-transparent">
               {model}
             </Badge>
           ))}

@@ -89,8 +89,8 @@ export function ProviderCard({
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 w-fit px-2 py-1 rounded-lg border border-border/30">
-                  <Globe className="h-3.5 w-3.5 text-primary/70" />
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground/80 bg-muted/40 w-fit px-2 py-1 rounded-lg border border-border/30">
+                  <Globe className="h-3.5 w-3.5 text-primary/80" />
                   <span className="truncate">{provider.domain}</span>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export function ProviderCard({
             {/* Stats - Grid style for energy */}
             <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-border/30">
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+                <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest px-1">
                   {t('dashboard.accounts_plural', 'Accounts')}
                 </span>
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-primary/5 border border-primary/10 group-hover:bg-primary/10 transition-colors">
@@ -145,7 +145,7 @@ export function ProviderCard({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+                <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest px-1">
                   Security
                 </span>
                 <div className={cn(
@@ -157,7 +157,7 @@ export function ProviderCard({
                   {needsWafBypass ? (
                     <Shield className="h-3.5 w-3.5" />
                   ) : (
-                    <ShieldOff className="h-3.5 w-3.5 opacity-70" />
+                    <ShieldOff className="h-3.5 w-3.5 opacity-80" />
                   )}
                   <span className="text-sm font-bold truncate">
                     {needsWafBypass ? "WAF" : "Open"}

@@ -7,8 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, XCircle, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import type { CheckInDayDto } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
 
@@ -37,81 +36,76 @@ export function CheckInDayDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{t('streaks.dayDetailTitle', { date: formatDate(dayData.date) })}</DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4">
-          {/* Check-in Status */}
-          <Card className="p-4 flex items-center justify-between shadow-sm border-border/50">
-            <span className="text-sm font-medium text-muted-foreground">{t('streaks.checkInStatus')}</span>
+      <DialogContent className="sm:max-w-[400px] rounded-[var(--radius-panel)] border-none p-0 overflow-hidden shadow-2xl">
+        <DialogHeader className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
+              {formatDate(dayData.date)}
+            </span>
             {dayData.is_checked_in ? (
-              <Badge className="bg-success text-success-foreground hover:bg-success/90">
-                <CheckCircle className="w-3 h-3 mr-1" />
+              <Badge className="bg-success-soft text-success border-0 font-black px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider">
                 {t('streaks.checkedIn')}
               </Badge>
             ) : (
-              <Badge variant="secondary">
-                <XCircle className="w-3 h-3 mr-1" />
+              <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 font-black px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider">
                 {t('streaks.notCheckedIn')}
               </Badge>
             )}
-          </Card>
+          </div>
+          <DialogTitle className="text-2xl font-black tracking-tighter text-foreground">
+            {t('streaks.dailyBalanceChanges')}
+          </DialogTitle>
+        </DialogHeader>
 
-          {/* Balance Changes */}
-          <Card className="shadow-sm border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{t('streaks.dailyBalanceChanges')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">{t('streaks.totalQuota')}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">${dayData.total_quota.toFixed(2)}</span>
-                  {dayData.income_increment !== null && dayData.income_increment > 0 && (
-                    <span className="text-xs text-success flex items-center bg-success-soft px-1.5 py-0.5 rounded">
-                      <TrendingUp className="w-3 h-3 mr-0.5" />
-                      +${dayData.income_increment.toFixed(2)}
-                    </span>
-                  )}
-                </div>
+        <div className="px-6 pb-6 space-y-6">
+          {/* Main Stats Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col gap-1">
+              <span className="text-[9px] font-black text-primary/60 uppercase tracking-widest">{t('streaks.totalQuota')}</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-black tracking-tighter text-primary">${dayData.total_quota.toFixed(2)}</span>
+                {dayData.income_increment !== null && dayData.income_increment > 0 && (
+                  <span className="text-[10px] font-black text-success">+{dayData.income_increment.toFixed(2)}</span>
+                )}
               </div>
+            </div>
+            
+            <div className="p-4 rounded-2xl bg-warning/5 border border-warning/10 flex flex-col gap-1">
+              <span className="text-[9px] font-black text-warning/60 uppercase tracking-widest">{t('streaks.dailyConsumption')}</span>
+              <span className="text-xl font-black tracking-tighter text-warning">${dayData.daily_consumed.toFixed(2)}</span>
+            </div>
+          </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">{t('streaks.historicalConsumption')}</span>
-                <span className="font-medium">${dayData.total_consumed.toFixed(2)}</span>
+          {/* Current Balance - Large Highlight */}
+          <div className="relative overflow-hidden p-6 rounded-[2rem] bg-card border border-border/40 shadow-sm group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <TrendingUp className="w-16 h-16" />
+            </div>
+            <div className="relative z-10">
+              <span className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em]">{t('streaks.currentBalance')}</span>
+              <div className="text-4xl font-black tracking-tighter text-vivid bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent-2 to-primary animate-gradient-x mt-1">
+                ${dayData.current_balance.toFixed(2)}
               </div>
+            </div>
+          </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                <span className="text-sm font-medium">{t('streaks.currentBalance')}</span>
-                <span className="font-bold text-info">
-                  ${dayData.current_balance.toFixed(2)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Income Increment Info */}
-          {dayData.income_increment !== null && (
-            <Card className="p-4 bg-muted/30 border-none shadow-none">
-              {dayData.income_increment > 0 ? (
-                <p className="text-sm text-muted-foreground text-center">
-                  {t('streaks.incrementPositivePrefix')}{' '}
-                  <span className="font-semibold text-success">
-                    ${dayData.income_increment.toFixed(2)}
-                  </span>
-                  {t('streaks.incrementPositiveSuffix')}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center">{t('streaks.incrementZero')}</p>
-              )}
-            </Card>
-          )}
+          {/* Bottom Reference Info */}
+          <div className="flex items-center justify-between px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-t border-border/20 pt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary/20" />
+              <span>{t('streaks.historicalConsumption')}</span>
+            </div>
+            <span className="font-mono text-foreground/80 tracking-tight">${dayData.total_consumed.toFixed(2)}</span>
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+        <DialogFooter className="px-6 pb-6 pt-0">
+          <Button 
+            onClick={() => onOpenChange(false)}
+            className="w-full font-black rounded-2xl h-12 bg-muted hover:bg-muted/80 text-foreground border-0 shadow-none transition-all active:scale-95"
+          >
+            {t('common.close')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
