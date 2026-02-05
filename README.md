@@ -14,7 +14,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 
 <!-- 项目信息 -->
-[![Version](https://img.shields.io/badge/version-0.6.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
+[![Version](https://img.shields.io/badge/version-0.7.0-brightgreen?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![License: GPLv3 + Commercial](https://img.shields.io/badge/License-GPLv3%20%2B%20Commercial-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square)](https://github.com/i-rtfsc/NeuraDock/releases)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](docs/contributing.md)

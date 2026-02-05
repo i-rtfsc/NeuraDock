@@ -8,7 +8,7 @@ members = [
 default-members = ["crates/neuradock-app"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 authors = ["NeuraDock"]
 edition = "2021"
 license = "GPL-3.0"
@@ -92,7 +92,7 @@ tempfile = "3.13"
 # For Tauri CLI compatibility, re-export the app package
 [package]
 name = "neuradock"
-version = "0.6.0"
+version = "0.7.0"
 description = "Auto check-in manager for API services"
 authors = ["NeuraDock"]
 edition = "2021"

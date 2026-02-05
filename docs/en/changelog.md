@@ -85,7 +85,7 @@ _No entries yet_
 
 #### Improvements
 - Improved error handling to prevent sensitive information leakage in logs
-- Continued progress on credential encryption (planned for 0.6.0)
+- Continued progress on credential encryption (planned for 0.7.0)
 - Minimized log output to reduce potential information leakage risks
 
 ### Performance
@@ -106,7 +106,7 @@ _No entries yet_
 
 ### Known Issues
 
-- Credentials still stored in plaintext (encryption planned for 0.6.0)
+- Credentials still stored in plaintext (encryption planned for 0.7.0)
 - Some notification channels (Email, Telegram) not yet implemented
 - Some advanced features (model usage statistics) still in development
 
