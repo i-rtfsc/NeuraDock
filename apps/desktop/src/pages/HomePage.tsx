@@ -59,7 +59,7 @@ export function HomePage() {
   const totalAccounts = accounts?.length || 0;
 
   const container: Variants = createStaggerContainer({ staggerChildren: 0.05, delayChildren: 0.1 });
-  const item: Variants = createFadeUpItem({ y: 10, scale: 0.98 });
+  const item: Variants = createFadeUpItem({ y: 10, scale: 1 });
 
   // Common card interactive styles
   const interactiveCardClass = "bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale";

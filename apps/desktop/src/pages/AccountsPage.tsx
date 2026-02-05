@@ -55,6 +55,8 @@ import { cn } from '@/lib/utils';
 import { useCheckIn, useBatchCheckIn } from '@/hooks/useCheckIn';
 import { useRefreshAccountBalance, useRefreshAllBalances } from '@/hooks/useBalance';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { motion, type Variants } from 'framer-motion';
+import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
 
 export function AccountsPage() {
   const { t } = useTranslation();
@@ -100,6 +102,9 @@ export function AccountsPage() {
     key: keyof Account;
     direction: 'asc' | 'desc';
   } | null>('neuradock.accounts.sortConfig', null);
+
+  const containerVariants: Variants = createStaggerContainer({ staggerChildren: 0.05 });
+  const itemVariants: Variants = createFadeUpItem({ y: 10, scale: 1 });
 
   // Get unique providers from accounts
   const allProviders = useMemo(() => {
@@ -359,52 +364,63 @@ export function AccountsPage() {
       <div className="flex-1 flex flex-col gap-6 overflow-visible pt-2">
         {/* Statistics Cards */}
         {filteredStatistics && (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid gap-4 grid-cols-1 md:grid-cols-3"
+          >
             {/* Current Balance */}
-            <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
-                  <p className="text-2xl font-bold text-success font-mono mt-1">
-                    ${filteredStatistics.total_current_balance.toFixed(2)}
-                  </p>
+            <motion.div variants={itemVariants}>
+              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.currentBalance')}</p>
+                    <p className="text-2xl font-bold text-success font-mono mt-1">
+                      ${filteredStatistics.total_current_balance.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-success-soft text-success">
+                    <Wallet className="h-5 w-5" />
+                  </div>
                 </div>
-                <div className="p-3 rounded-full bg-success-soft text-success">
-                  <Wallet className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </motion.div>
 
             {/* Total Quota */}
-            <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalQuota')}</p>
-                  <p className="text-2xl font-bold text-info font-mono mt-1">
-                    ${filteredStatistics.total_quota.toFixed(2)}
-                  </p>
+            <motion.div variants={itemVariants}>
+              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalQuota')}</p>
+                    <p className="text-2xl font-bold text-info font-mono mt-1">
+                      ${filteredStatistics.total_quota.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-info-soft text-info">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
                 </div>
-                <div className="p-3 rounded-full bg-info-soft text-info">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </motion.div>
 
             {/* Historical Consumption */}
-            <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>
-                  <p className="text-2xl font-bold text-warning font-mono mt-1">
-                    ${filteredStatistics.total_consumed.toFixed(2)}
-                  </p>
+            <motion.div variants={itemVariants}>
+              <Card className="bg-card border shadow-sm hover:shadow-md cursor-pointer interactive-scale">
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.historicalConsumption')}</p>
+                    <p className="text-2xl font-bold text-warning font-mono mt-1">
+                      ${filteredStatistics.total_consumed.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-warning-soft text-warning">
+                    <History className="h-5 w-5" />
+                  </div>
                 </div>
-                <div className="p-3 rounded-full bg-warning-soft text-warning">
-                  <History className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-          </div>
+              </Card>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Table */}

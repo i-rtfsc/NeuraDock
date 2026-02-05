@@ -82,7 +82,7 @@ export function AccountActivityPage() {
 
       {/* 统计概览卡片 */}
       <BentoGrid className="mb-section-gap-sm">
-        <Card className="bg-gradient-to-br from-info/10 to-info/5 border-info-border">
+        <Card className="bg-gradient-to-br from-info/10 to-info/5 border-info-border interactive-scale">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-info flex items-center gap-2">
               <Flame className="h-4 w-4" />
@@ -99,7 +99,7 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-accent-2/10 to-accent-2/5 border-accent-2-border">
+        <Card className="bg-gradient-to-br from-accent-2/10 to-accent-2/5 border-accent-2-border interactive-scale">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-accent-2 flex items-center gap-2">
               <Trophy className="h-4 w-4" />
@@ -116,7 +116,7 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success-border">
+        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success-border interactive-scale">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-success flex items-center gap-2">
               <CalendarCheck className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning-border">
+        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning-border interactive-scale">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-warning flex items-center gap-2">
               <Percent className="h-4 w-4" />
@@ -156,7 +156,7 @@ export function AccountActivityPage() {
 
       {/* 签到日历和趋势图 */}
       <div className="grid gap-card-gap lg:grid-cols-2">
-        <Card className="border-border/50">
+        <Card className="border-border/50 interactive-scale">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
@@ -181,7 +181,7 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="border-border/50 interactive-scale">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />

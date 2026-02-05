@@ -199,7 +199,7 @@ export function TokensPage() {
   };
 
   const containerVariants = createStaggerContainer({ staggerChildren: 0.05 });
-  const itemVariants = createFadeUpItem({ y: 20, scale: 1 });
+  const itemVariants = createFadeUpItem({ y: 10, scale: 1 });
 
   return (
     <PageContainer
@@ -256,37 +256,39 @@ export function TokensPage() {
     >
       <div className="space-y-5">
         {/* Info Alert */}
-        <Alert className="border-info-border bg-info-soft">
-          <div className="flex items-center gap-3">
-            <Info className="h-4 w-4 text-info shrink-0" />
-            <div className="flex items-center justify-between gap-4 flex-1 min-w-0">
-              <span className="text-sm text-info-soft-foreground">
-                {t(
-                  'token.relayTokensHint',
-                  'Relay API Key Configuration: Go to Account Management → Account Details → Configure'
-                )}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-3 text-xs font-medium text-info hover:text-info/90 hover:bg-info-soft shrink-0"
-                onClick={() => navigate('/accounts')}
-              >
-                {t('token.goToAccounts', 'Go to Accounts')}
-                <ArrowRight className="ml-1.5 h-3 w-3" />
-              </Button>
+        <motion.div initial="hidden" animate="show" variants={itemVariants}>
+          <Alert className="border-info-border bg-info-soft shadow-sm hover:shadow-md interactive-scale">
+            <div className="flex items-center gap-3">
+              <Info className="h-4 w-4 text-info shrink-0" />
+              <div className="flex items-center justify-between gap-4 flex-1 min-w-0">
+                <span className="text-sm text-info-soft-foreground">
+                  {t(
+                    'token.relayTokensHint',
+                    'Relay API Key Configuration: Go to Account Management → Account Details → Configure'
+                  )}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-3 text-xs font-medium text-info hover:text-info/90 hover:bg-info-soft shrink-0"
+                  onClick={() => navigate('/accounts')}
+                >
+                  {t('token.goToAccounts', 'Go to Accounts')}
+                  <ArrowRight className="ml-1.5 h-3 w-3" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </Alert>
+          </Alert>
+        </motion.div>
 
         {/* Keys List - Grid Layout */}
         <AnimatePresence mode="wait">
           {filteredKeys.length === 0 ? (
             <motion.div
               key="empty-state"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.2 }}
               className="text-center py-12"
             >
@@ -321,10 +323,10 @@ export function TokensPage() {
                 <motion.div key={key.id} variants={itemVariants} layout>
                   <Card
                     className={cn(
-                      'group relative overflow-hidden transition-all duration-base ease-smooth',
+                      'group relative overflow-hidden transition-all duration-base ease-smooth interactive-scale',
                       key.is_active
-                        ? 'border-border/60 bg-card hover:shadow-md cursor-pointer interactive-scale'
-                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default'
+                        ? 'border-border/60 bg-card hover:shadow-md cursor-pointer'
+                        : 'border-border/40 bg-muted/20 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 cursor-default hover:shadow-md'
                     )}
                   >
                     <div className="p-4 space-y-3">
