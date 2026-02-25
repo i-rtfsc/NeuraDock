@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use reqwest::header;
 use std::collections::HashMap;
 
+use super::types::{extract_set_cookies, SetCookieResult};
+
 impl super::HttpClient {
     /// Call API endpoint with GET request (for triggering balance updates)
     pub async fn call_api_endpoint(
@@ -10,7 +12,7 @@ impl super::HttpClient {
         cookies: &HashMap<String, String>,
         api_user_key: &str,
         api_user_value: &str,
-    ) -> Result<()> {
+    ) -> Result<SetCookieResult> {
         log::info!("Calling API endpoint: {}", url);
 
         // Build headers
@@ -55,6 +57,9 @@ impl super::HttpClient {
         let status = response.status();
         log::info!("API endpoint response status: {}", status);
 
+        // Extract Set-Cookie headers before consuming the response
+        let set_cookie_result = extract_set_cookies(&response);
+
         // Get response text to check for WAF challenge
         let response_text = response.text().await.unwrap_or_else(|_| String::new());
 
@@ -76,6 +81,6 @@ impl super::HttpClient {
             // Don't fail, just log warning
         }
 
-        Ok(())
+        Ok(set_cookie_result)
     }
 }

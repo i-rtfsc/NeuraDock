@@ -2,13 +2,15 @@ use anyhow::{Context, Result};
 use reqwest::header;
 use std::collections::HashMap;
 
+use super::types::{extract_set_cookies, SetCookieResult};
+
 impl super::HttpClient {
     /// Visit login page (for providers that trigger check-in on login page visit)
     pub async fn visit_login_page(
         &self,
         url: &str,
         cookies: &HashMap<String, String>,
-    ) -> Result<()> {
+    ) -> Result<SetCookieResult> {
         log::info!("Visiting login page: {}", url);
 
         // Build headers
@@ -50,10 +52,13 @@ impl super::HttpClient {
             final_url
         );
 
+        // Extract Set-Cookie headers before consuming the response
+        let set_cookie_result = extract_set_cookies(&response);
+
         if !status.is_success() {
             anyhow::bail!("Failed to visit login page, status: {}", status);
         }
 
-        Ok(())
+        Ok(set_cookie_result)
     }
 }

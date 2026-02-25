@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use reqwest::header;
 use std::collections::HashMap;
 
-use super::types::{extract_domain, CheckInResult};
+use super::types::{extract_domain, extract_set_cookies, CheckInResult, SetCookieResult};
 
 impl super::HttpClient {
     /// Execute check-in with retry logic
@@ -12,7 +12,7 @@ impl super::HttpClient {
         cookies: &HashMap<String, String>,
         api_user_key: &str,
         api_user_value: &str,
-    ) -> Result<CheckInResult> {
+    ) -> Result<(CheckInResult, SetCookieResult)> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_DELAY_MS: u64 = 1000;
 
@@ -53,7 +53,7 @@ impl super::HttpClient {
         cookies: &HashMap<String, String>,
         api_user_key: &str,
         api_user_value: &str,
-    ) -> Result<CheckInResult> {
+    ) -> Result<(CheckInResult, SetCookieResult)> {
         // Build headers
         let mut headers = header::HeaderMap::new();
         headers.insert(
@@ -108,6 +108,9 @@ impl super::HttpClient {
         let status = response.status();
 
         log::info!("Check-in response status: {}", status);
+
+        // Extract Set-Cookie headers before consuming the response body
+        let set_cookie_result = extract_set_cookies(&response);
 
         if !status.is_success() {
             let error_text = response
@@ -196,7 +199,7 @@ impl super::HttpClient {
                 error_msg.to_string()
             };
 
-            Ok(CheckInResult { success, message })
+            Ok((CheckInResult { success, message }, set_cookie_result))
         } else {
             log::warn!("Failed to parse as JSON, raw response: {}", text);
 
@@ -215,7 +218,7 @@ impl super::HttpClient {
                 )
             };
 
-            Ok(CheckInResult { success, message })
+            Ok((CheckInResult { success, message }, set_cookie_result))
         }
     }
 }

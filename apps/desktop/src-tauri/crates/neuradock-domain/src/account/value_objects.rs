@@ -32,4 +32,11 @@ impl Credentials {
             .collect::<Vec<_>>()
             .join("; ")
     }
+
+    /// Merge new cookies into existing ones (additive, same-key override)
+    pub fn merge_cookies(&mut self, new_cookies: &HashMap<String, String>) {
+        for (k, v) in new_cookies {
+            self.cookies.insert(k.clone(), v.clone());
+        }
+    }
 }

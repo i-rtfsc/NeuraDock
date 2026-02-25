@@ -41,7 +41,7 @@ impl BalanceService {
         const MAX_CACHE_AGE_HOURS: i64 = 1;
 
         let acc_id = AccountId::from_string(account_id);
-        let mut account = self
+        let account = self
             .account_repo
             .find_by_id(&acc_id)
             .await?
@@ -80,6 +80,13 @@ impl BalanceService {
             .fetch_balance_only(account_id, &provider)
             .await
             .map_err(|e| DomainError::Infrastructure(e.to_string()))?;
+
+        // Re-load account since fetch_balance_only may have updated cookies
+        let mut account = self
+            .account_repo
+            .find_by_id(&acc_id)
+            .await?
+            .ok_or_else(|| DomainError::AccountNotFound(account_id.to_string()))?;
 
         let current_balance = user_info.current_balance;
         let total_consumed = user_info.total_consumed;

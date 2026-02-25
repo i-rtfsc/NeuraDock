@@ -4,7 +4,7 @@ mod types;
 mod user_info;
 mod visit;
 
-pub use types::{CheckInResult, RetryConfig, UserInfo};
+pub use types::{CheckInResult, RetryConfig, SetCookieResult, UserInfo};
 
 use anyhow::{Context, Result};
 use log::{debug, warn};

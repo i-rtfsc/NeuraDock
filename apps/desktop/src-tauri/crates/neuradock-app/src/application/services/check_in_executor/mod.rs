@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use neuradock_domain::waf_cookies::WafCookiesRepository;
 use neuradock_domain::{account::AccountRepository, check_in::Provider, shared::AccountId};
-use neuradock_infrastructure::http::{CheckInResult, HttpClient, UserInfo};
+use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult, UserInfo};
 
 use crate::application::services::user_info_service::UserInfoService;
 use crate::application::services::waf_cookie_manager::WafCookieManager;
@@ -66,7 +66,7 @@ impl CheckInExecutor {
         let account_id_obj = AccountId::from_string(account_id);
 
         // 1. Load and validate account
-        let account =
+        let mut account =
             validation::load_and_validate_account(&*self.account_repo, &account_id_obj).await?;
         let account_name = account.name().to_string();
 
@@ -80,27 +80,45 @@ impl CheckInExecutor {
         }
 
         // 3. Prepare cookies and fetch user info with WAF handling
-        let (mut cookies, user_info) = self
+        let (mut cookies, user_info, info_set_cookies) = self
             .prepare_cookies_and_fetch_user_info(&account, provider, &account_name)
             .await?;
 
+        // Collect all Set-Cookie results for later persistence
+        let mut all_set_cookies = info_set_cookies;
+
         // 4. Execute check-in request
-        let check_in_result = self
+        let (check_in_result, checkin_set_cookies) = self
             .perform_check_in_request(&account, provider, &account_name, &mut cookies)
             .await;
+        all_set_cookies.cookies.extend(checkin_set_cookies.cookies);
+        if checkin_set_cookies.session_expires_at.is_some() {
+            all_set_cookies.session_expires_at = checkin_set_cookies.session_expires_at;
+        }
 
         // 5. Fetch updated balance after successful check-in
         let user_info_service = self.create_user_info_service();
-        let final_user_info = balance::fetch_updated_balance_after_check_in(
-            &user_info_service,
-            &account,
-            provider,
-            &account_name,
-            &cookies,
-            &check_in_result,
-            user_info,
-        )
-        .await;
+        let (final_user_info, balance_set_cookies) =
+            balance::fetch_updated_balance_after_check_in(
+                &user_info_service,
+                &account,
+                provider,
+                &account_name,
+                &cookies,
+                &check_in_result,
+                user_info,
+            )
+            .await;
+        all_set_cookies.cookies.extend(balance_set_cookies.cookies);
+        if balance_set_cookies.session_expires_at.is_some() {
+            all_set_cookies.session_expires_at = balance_set_cookies.session_expires_at;
+        }
+
+        // 6. Persist updated cookies and session expiration
+        if !all_set_cookies.is_empty() || all_set_cookies.session_expires_at.is_some() {
+            self.persist_updated_cookies(&mut account, &all_set_cookies, &account_name)
+                .await;
+        }
 
         Ok(AccountCheckInResult {
             account_name,
@@ -121,7 +139,7 @@ impl CheckInExecutor {
         let account_id_obj = AccountId::from_string(account_id);
 
         // Load account
-        let account = self
+        let mut account = self
             .account_repo
             .find_by_id(&account_id_obj)
             .await
@@ -145,9 +163,17 @@ impl CheckInExecutor {
         let api_user = account.credentials().api_user();
 
         // Get user info (balance)
-        user_info_service
+        let (user_info, set_cookies) = user_info_service
             .fetch_user_info(&account_name, provider, &cookies, api_user)
-            .await
+            .await?;
+
+        // Persist updated cookies if any
+        if !set_cookies.is_empty() || set_cookies.session_expires_at.is_some() {
+            self.persist_updated_cookies(&mut account, &set_cookies, &account_name)
+                .await;
+        }
+
+        Ok(user_info)
     }
 
     // ========== Private helper methods for execute_check_in ==========
@@ -158,7 +184,7 @@ impl CheckInExecutor {
         account: &neuradock_domain::account::Account,
         provider: &Provider,
         account_name: &str,
-    ) -> Result<(std::collections::HashMap<String, String>, Option<UserInfo>)> {
+    ) -> Result<(std::collections::HashMap<String, String>, Option<UserInfo>, SetCookieResult)> {
         let user_info_service = self.create_user_info_service();
         let api_user = account.credentials().api_user();
 
@@ -179,7 +205,7 @@ impl CheckInExecutor {
         provider: &Provider,
         account_name: &str,
         cookies: &mut std::collections::HashMap<String, String>,
-    ) -> CheckInResult {
+    ) -> (CheckInResult, SetCookieResult) {
         let api_user = account.credentials().api_user();
 
         // Check if provider requires explicit check-in
@@ -189,10 +215,13 @@ impl CheckInExecutor {
                 account_name,
                 provider.name()
             );
-            return CheckInResult {
-                success: true,
-                message: "Provider does not require explicit check-in".to_string(),
-            };
+            return (
+                CheckInResult {
+                    success: true,
+                    message: "Provider does not require explicit check-in".to_string(),
+                },
+                SetCookieResult::default(),
+            );
         };
 
         info!(
@@ -234,7 +263,7 @@ impl CheckInExecutor {
         sign_in_url: &str,
         cookies: &mut std::collections::HashMap<String, String>,
         api_user: &str,
-    ) -> CheckInResult {
+    ) -> (CheckInResult, SetCookieResult) {
         let check_in_call = execution::execute_api_check_in(
             &self.http_client,
             sign_in_url,
@@ -246,7 +275,7 @@ impl CheckInExecutor {
         .await;
 
         match check_in_call {
-            Ok(result) => result,
+            Ok((result, set_cookies)) => (result, set_cookies),
             Err(e) if self.waf_manager.is_waf_challenge_error(&e) => {
                 waf_handler::retry_check_in_after_waf_refresh(
                     &self.waf_manager,
@@ -262,8 +291,60 @@ impl CheckInExecutor {
             }
             Err(e) => {
                 log::error!("[{}] Check-in request error: {}", account_name, e);
-                execution::create_error_result(&format!("Request failed: {}", e))
+                (
+                    execution::create_error_result(&format!("Request failed: {}", e)),
+                    SetCookieResult::default(),
+                )
             }
+        }
+    }
+
+    /// Persist updated cookies and session expiration to the account
+    async fn persist_updated_cookies(
+        &self,
+        account: &mut neuradock_domain::account::Account,
+        set_cookies: &SetCookieResult,
+        account_name: &str,
+    ) {
+        // Merge updated cookie values into account credentials
+        if !set_cookies.is_empty() {
+            account.merge_cookies(&set_cookies.cookies);
+            log::info!(
+                "[{}] Merged {} updated cookie(s) from server response",
+                account_name,
+                set_cookies.cookies.len(),
+            );
+        }
+
+        // Update session expiration if present
+        if let Some(expires_at) = set_cookies.session_expires_at {
+            let session_token = set_cookies
+                .cookies
+                .get("session")
+                .cloned()
+                .or_else(|| {
+                    account
+                        .credentials()
+                        .cookies()
+                        .get("session")
+                        .cloned()
+                })
+                .unwrap_or_default();
+            account.update_session(session_token, expires_at);
+            log::info!(
+                "[{}] Updated session expiration: {}",
+                account_name,
+                expires_at.to_rfc3339(),
+            );
+        }
+
+        // Save to database
+        if let Err(e) = self.account_repo.save(account).await {
+            log::error!(
+                "[{}] Failed to persist updated cookies: {}",
+                account_name,
+                e
+            );
         }
     }
 }

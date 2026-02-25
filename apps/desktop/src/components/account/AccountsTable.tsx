@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { MoreVertical, Calendar, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
+import { MoreVertical, Calendar, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, KeyRound } from 'lucide-react';
 import { TableVirtuoso } from 'react-virtuoso';
 import { Button } from '@/components/ui/button';
 import {
@@ -158,6 +158,9 @@ export function AccountsTable({
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
                 <SortableHeader label={t('management.lastCheckIn', '最后签到')} columnKey="last_check_in" />
               </th>
+              <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm">
+                {t('management.session', 'Session')}
+              </th>
               <th className="px-4 py-2 text-center font-semibold pr-6 bg-muted/50 backdrop-blur-sm w-32">
                 {t('management.actions', '操作')}
               </th>
@@ -232,6 +235,31 @@ export function AccountsTable({
                 >
                   <span className="text-xs text-muted-foreground font-mono">
                     {formatLastCheckIn(account.last_check_in ?? undefined)}
+                  </span>
+                </td>
+                <td
+                  className="p-2 align-middle text-center cursor-pointer"
+                  onClick={() => onAccountClick(account)}
+                >
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full",
+                      account.session_days_remaining == null
+                        ? "text-muted-foreground bg-muted/30"
+                        : account.session_days_remaining <= 0
+                          ? "text-destructive bg-destructive/10"
+                          : account.session_expires_soon
+                            ? "text-warning bg-warning/10"
+                            : "text-success bg-success/10"
+                    )}
+                  >
+                    <KeyRound className="h-3 w-3" />
+                    {account.session_days_remaining == null
+                      ? t('accountCard.sessionUnknown')
+                      : account.session_days_remaining <= 0
+                        ? t('accountCard.sessionExpired')
+                        : t('accountCard.sessionValidDays', { days: account.session_days_remaining })
+                    }
                   </span>
                 </td>
                 <td className="p-2 align-middle pr-6">

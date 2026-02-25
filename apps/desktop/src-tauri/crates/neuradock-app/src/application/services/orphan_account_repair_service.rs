@@ -105,7 +105,7 @@ impl OrphanAccountRepairService {
                         )
                         .await
                     {
-                        Ok(_) => {
+                        Ok(_info) => {
                             matches.push(provider.clone());
                             if matches.len() > 1 {
                                 break;

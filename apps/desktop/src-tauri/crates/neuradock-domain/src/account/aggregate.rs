@@ -260,6 +260,13 @@ impl Account {
         self.last_balance_check_at = Some(Utc::now());
     }
 
+    /// Merge updated cookies from server Set-Cookie headers into credentials
+    pub fn merge_cookies(&mut self, new_cookies: &std::collections::HashMap<String, String>) {
+        if !new_cookies.is_empty() {
+            self.credentials.merge_cookies(new_cookies);
+        }
+    }
+
     pub fn is_balance_stale(&self, max_age_hours: i64) -> bool {
         match self.last_balance_check_at {
             Some(last_check) => {

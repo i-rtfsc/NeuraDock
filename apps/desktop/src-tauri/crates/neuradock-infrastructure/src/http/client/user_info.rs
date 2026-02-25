@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use reqwest::{header, Client};
 use std::collections::HashMap;
 
-use super::types::{extract_domain, UserInfo};
+use super::types::{extract_domain, extract_set_cookies, SetCookieResult, UserInfo};
 
 impl super::HttpClient {
     /// Get user info (quota and used quota) with retry
@@ -12,7 +12,7 @@ impl super::HttpClient {
         cookies: &HashMap<String, String>,
         api_user_key: &str,
         api_user_value: &str,
-    ) -> Result<UserInfo> {
+    ) -> Result<(UserInfo, SetCookieResult)> {
         let url = url.to_string();
         let cookies = cookies.clone();
         let api_user_key = api_user_key.to_string();
@@ -40,7 +40,7 @@ impl super::HttpClient {
         cookies: &HashMap<String, String>,
         api_user_key: &str,
         api_user_value: &str,
-    ) -> Result<UserInfo> {
+    ) -> Result<(UserInfo, SetCookieResult)> {
         // Build headers
         let mut headers = header::HeaderMap::new();
         headers.insert(
@@ -86,6 +86,9 @@ impl super::HttpClient {
 
         let status = response.status();
         log::info!("User info response status: {}", status);
+
+        // Extract Set-Cookie headers before consuming the response body
+        let set_cookie_result = extract_set_cookies(&response);
 
         if !status.is_success() {
             let error_text = response
@@ -171,10 +174,10 @@ impl super::HttpClient {
         // NOTE: Upstream's HTTP payload still calls `quota`, `used_quota`, and `total_income`.
         // We normalize semantics right here so the rest of the app only deals with
         // `current_balance`, `total_consumed`, and `total_quota` to avoid confusion.
-        Ok(UserInfo {
+        Ok((UserInfo {
             current_balance,
             total_consumed,
             total_quota,
-        })
+        }, set_cookie_result))
     }
 }

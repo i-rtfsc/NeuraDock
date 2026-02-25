@@ -590,6 +590,7 @@
     "balance": "余额",
     "totalQuota": "总额度",
     "lastCheckIn": "最后签到",
+    "session": "Session",
     "actions": "操作",
     "overview": "概览",
     "tokens": "Token",

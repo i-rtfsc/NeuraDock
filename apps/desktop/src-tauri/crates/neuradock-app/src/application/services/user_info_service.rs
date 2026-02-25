@@ -1,7 +1,7 @@
 use anyhow::Result;
 use log::{info, warn};
 use neuradock_domain::check_in::Provider;
-use neuradock_infrastructure::http::{HttpClient, UserInfo};
+use neuradock_infrastructure::http::{HttpClient, SetCookieResult, UserInfo};
 use std::collections::HashMap;
 
 use super::waf_cookie_manager::WafCookieManager;
@@ -24,14 +24,14 @@ impl<'a> UserInfoService<'a> {
     }
 
     /// Fetch user info with automatic WAF retry handling
-    /// Returns (cookies, user_info) where cookies may be updated after WAF refresh
+    /// Returns (cookies, user_info, set_cookie_result) where cookies may be updated after WAF refresh
     pub async fn fetch_user_info_with_retry(
         &self,
         account_name: &str,
         provider: &Provider,
         account_cookies: &HashMap<String, String>,
         api_user: &str,
-    ) -> Result<(HashMap<String, String>, Option<UserInfo>)> {
+    ) -> Result<(HashMap<String, String>, Option<UserInfo>, SetCookieResult)> {
         // Prepare cookies (with WAF cookies from cache or bypass)
         let mut cookies = self
             .waf_manager
@@ -50,13 +50,13 @@ impl<'a> UserInfoService<'a> {
             .await;
 
         // Check if we got a WAF challenge and need to refresh cookies
-        let user_info = match &user_info_result {
-            Ok(info) => {
+        let (user_info, set_cookies) = match &user_info_result {
+            Ok((info, set_cookies)) => {
                 info!(
                     "[{}] Current balance: ${:.2}, Used: ${:.2}",
                     account_name, info.current_balance, info.total_consumed
                 );
-                Some(info.clone())
+                (Some(info.clone()), set_cookies.clone())
             }
             Err(e) if self.waf_manager.is_waf_challenge_error(e) => {
                 warn!(
@@ -81,29 +81,29 @@ impl<'a> UserInfoService<'a> {
                     )
                     .await
                 {
-                    Ok(info) => {
+                    Ok((info, set_cookies)) => {
                         info!(
                             "[{}] Retry successful, balance: ${:.2}",
                             account_name, info.current_balance
                         );
-                        Some(info)
+                        (Some(info), set_cookies)
                     }
                     Err(e) => {
                         warn!(
                             "[{}] Failed to get user info after retry: {}",
                             account_name, e
                         );
-                        None
+                        (None, SetCookieResult::default())
                     }
                 }
             }
             Err(e) => {
                 warn!("[{}] Failed to get user info: {}", account_name, e);
-                None
+                (None, SetCookieResult::default())
             }
         };
 
-        Ok((cookies, user_info))
+        Ok((cookies, user_info, set_cookies))
     }
 
     /// Fetch updated balance after successful check-in
@@ -115,7 +115,7 @@ impl<'a> UserInfoService<'a> {
         cookies: &HashMap<String, String>,
         api_user: &str,
         initial_user_info: Option<UserInfo>,
-    ) -> Option<UserInfo> {
+    ) -> (Option<UserInfo>, SetCookieResult) {
         info!(
             "[{}] Fetching updated balance after check-in...",
             account_name
@@ -134,19 +134,19 @@ impl<'a> UserInfoService<'a> {
             )
             .await
         {
-            Ok(updated_info) => {
+            Ok((updated_info, set_cookies)) => {
                 info!(
                     "[{}] Updated balance: ${:.2}, Used: ${:.2}",
                     account_name, updated_info.current_balance, updated_info.total_consumed
                 );
-                Some(updated_info)
+                (Some(updated_info), set_cookies)
             }
             Err(e) => {
                 warn!(
                     "[{}] Failed to get updated balance: {}, using pre-check-in balance",
                     account_name, e
                 );
-                initial_user_info
+                (initial_user_info, SetCookieResult::default())
             }
         }
     }
@@ -158,8 +158,8 @@ impl<'a> UserInfoService<'a> {
         provider: &Provider,
         cookies: &HashMap<String, String>,
         api_user: &str,
-    ) -> Result<UserInfo> {
-        let user_info = self
+    ) -> Result<(UserInfo, SetCookieResult)> {
+        let (user_info, set_cookies) = self
             .http_client
             .get_user_info(
                 &provider.user_info_url(),
@@ -174,6 +174,6 @@ impl<'a> UserInfoService<'a> {
             account_name, user_info.current_balance, user_info.total_consumed
         );
 
-        Ok(user_info)
+        Ok((user_info, set_cookies))
     }
 }

@@ -1,7 +1,7 @@
 use log::{error, info};
 use std::collections::HashMap;
 
-use neuradock_infrastructure::http::{CheckInResult, HttpClient};
+use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult};
 
 /// Execute check-in via page visit
 pub async fn execute_page_visit_check_in(
@@ -9,20 +9,26 @@ pub async fn execute_page_visit_check_in(
     account_name: &str,
     sign_in_url: &str,
     cookies: &HashMap<String, String>,
-) -> CheckInResult {
+) -> (CheckInResult, SetCookieResult) {
     info!("[{}] Visiting check-in page: {}", account_name, sign_in_url);
 
     match http_client.visit_login_page(sign_in_url, cookies).await {
-        Ok(_) => {
+        Ok(set_cookies) => {
             info!("[{}] Check-in page visited successfully!", account_name);
-            CheckInResult {
-                success: true,
-                message: "Check-in page visited successfully".to_string(),
-            }
+            (
+                CheckInResult {
+                    success: true,
+                    message: "Check-in page visited successfully".to_string(),
+                },
+                set_cookies,
+            )
         }
         Err(e) => {
             error!("[{}] Failed to visit check-in page: {}", account_name, e);
-            create_error_result(&format!("Failed to visit page: {}", e))
+            (
+                create_error_result(&format!("Failed to visit page: {}", e)),
+                SetCookieResult::default(),
+            )
         }
     }
 }
@@ -35,8 +41,8 @@ pub async fn execute_api_check_in(
     api_user_key: &str,
     api_user: &str,
     account_name: &str,
-) -> anyhow::Result<CheckInResult> {
-    let result = http_client
+) -> anyhow::Result<(CheckInResult, SetCookieResult)> {
+    let (result, set_cookies) = http_client
         .execute_check_in(sign_in_url, cookies, api_user_key, api_user)
         .await?;
 
@@ -46,7 +52,7 @@ pub async fn execute_api_check_in(
         log::warn!("[{}] Check-in failed: {}", account_name, result.message);
     }
 
-    Ok(result)
+    Ok((result, set_cookies))
 }
 
 /// Create an error CheckInResult with a given message

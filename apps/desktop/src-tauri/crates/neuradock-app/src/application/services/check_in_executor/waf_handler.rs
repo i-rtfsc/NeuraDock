@@ -2,7 +2,7 @@ use log::{error, info, warn};
 use std::collections::HashMap;
 
 use neuradock_domain::{account::Account, check_in::Provider};
-use neuradock_infrastructure::http::{CheckInResult, HttpClient};
+use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult};
 
 use super::execution::create_error_result;
 use crate::application::services::waf_cookie_manager::WafCookieManager;
@@ -18,7 +18,7 @@ pub async fn retry_check_in_after_waf_refresh(
     sign_in_url: &str,
     cookies: &mut HashMap<String, String>,
     api_user: &str,
-) -> CheckInResult {
+) -> (CheckInResult, SetCookieResult) {
     warn!(
         "[{}] WAF challenge detected during check-in, refreshing cookies and retrying...",
         account_name
@@ -35,7 +35,10 @@ pub async fn retry_check_in_after_waf_refresh(
                 "[{}] Failed to refresh WAF cookies: {}",
                 account_name, refresh_err
             );
-            return create_error_result(&format!("WAF refresh failed: {}", refresh_err));
+            return (
+                create_error_result(&format!("WAF refresh failed: {}", refresh_err)),
+                SetCookieResult::default(),
+            );
         }
     };
 
@@ -47,16 +50,19 @@ pub async fn retry_check_in_after_waf_refresh(
         .execute_check_in(sign_in_url, cookies, provider.api_user_key(), api_user)
         .await
     {
-        Ok(result) => {
+        Ok((result, set_cookies)) => {
             info!(
                 "[{}] Check-in retry successful after WAF refresh!",
                 account_name
             );
-            result
+            (result, set_cookies)
         }
         Err(retry_err) => {
             error!("[{}] Check-in retry failed: {}", account_name, retry_err);
-            create_error_result(&format!("Check-in failed after WAF retry: {}", retry_err))
+            (
+                create_error_result(&format!("Check-in failed after WAF retry: {}", retry_err)),
+                SetCookieResult::default(),
+            )
         }
     }
 }
