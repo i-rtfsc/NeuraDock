@@ -31,6 +31,9 @@ const AiChatSettingsPage = lazy(() =>
 const AiChatPage = lazy(() =>
   import('./pages/AiChatPage').then((m) => ({ default: m.AiChatPage }))
 );
+const CalendarPage = lazy(() =>
+  import('./pages/CalendarPage').then((m) => ({ default: m.CalendarPage }))
+);
 
 function App() {
   return (
@@ -47,6 +50,7 @@ function App() {
                   <Route path="/account/:accountId/records" element={<AccountActivityPage />} />
                   <Route path="/tokens" element={<TokensPage />} />
                   <Route path="/providers" element={<ProvidersPage />} />
+                  <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/ai-chat" element={<AiChatPage />} />
                   <Route path="/ai-chat/settings" element={<AiChatSettingsPage />} />
                   <Route path="/settings" element={<PreferencesPage />} />

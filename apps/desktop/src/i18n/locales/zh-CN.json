@@ -10,7 +10,12 @@
     "tokens": "API Key",
     "providers": "中转站",
     "settings": "设置",
-    "aiChat": "AI 对话"
+    "aiChat": "AI 对话",
+    "calendar": "日历",
+    "group": {
+      "checkin": "签到管理",
+      "tools": "工具箱"
+    }
   },
   "sidebar": {
     "doubleClickToExpand": "双击展开侧边栏",

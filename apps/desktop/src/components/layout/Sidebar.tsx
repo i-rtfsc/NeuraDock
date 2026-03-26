@@ -8,6 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bot,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ... rest of imports
@@ -29,12 +30,23 @@ export function Sidebar() {
   // Check if we're on the AI Chat page (disable tooltips due to webview z-index)
   const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
 
-  const navigation = [
-    { name: t('nav.dashboard'), href: '/', icon: Home },
-    { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
-    { name: t('nav.tokens'), href: '/tokens', icon: Key },
-    { name: t('nav.providers'), href: '/providers', icon: Server },
-    { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
+  const navGroups = [
+    {
+      label: t('nav.group.checkin', { defaultValue: 'Check-in' }),
+      items: [
+        { name: t('nav.dashboard'), href: '/', icon: Home },
+        { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
+        { name: t('nav.tokens'), href: '/tokens', icon: Key },
+        { name: t('nav.providers'), href: '/providers', icon: Server },
+      ],
+    },
+    {
+      label: t('nav.group.tools', { defaultValue: 'Tools' }),
+      items: [
+        { name: t('nav.calendar'), href: '/calendar', icon: CalendarDays },
+        { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
+      ],
+    },
   ];
 
   // Helper for rendering links to avoid duplication between nav and settings
@@ -125,7 +137,19 @@ export function Sidebar() {
           collapsed ? "px-3 items-center" : "px-4 items-start"
         )}
       >
-        {navigation.map((item) => renderLink(item))}
+        {navGroups.map((group, gi) => (
+          <div key={group.label} className="w-full">
+            {gi > 0 && <div className={cn("my-2", collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40")} />}
+            {!collapsed && (
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
+                {group.label}
+              </div>
+            )}
+            <div className="w-full space-y-1">
+              {group.items.map((item) => renderLink(item))}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Spacer */}

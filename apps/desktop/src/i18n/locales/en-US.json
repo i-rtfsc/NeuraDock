@@ -10,7 +10,12 @@
     "tokens": "API Key",
     "providers": "Providers",
     "settings": "Settings",
-    "aiChat": "AI Chat"
+    "aiChat": "AI Chat",
+    "calendar": "Calendar",
+    "group": {
+      "checkin": "Check-in",
+      "tools": "Tools"
+    }
   },
   "sidebar": {
     "doubleClickToExpand": "Double click to expand sidebar",
