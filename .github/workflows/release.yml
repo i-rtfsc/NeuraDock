@@ -138,6 +138,42 @@ jobs:
           sudo apt-get install -y --no-install-recommends libsoup-3.0-dev \
             || sudo apt-get install -y --no-install-recommends libsoup2.4-dev
 
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nasm --yes --no-progress
+
+          $searchRoots = @(
+            "$env:ProgramFiles\NASM",
+            "${env:ProgramFiles(x86)}\NASM",
+            "$env:ChocolateyInstall\bin",
+            "$env:ChocolateyInstall\lib\nasm",
+            "$env:ChocolateyInstall\lib\nasm\tools"
+          ) | Where-Object { $_ -and (Test-Path $_) }
+
+          $nasmExe = $null
+          foreach ($root in $searchRoots) {
+            $candidate = Get-ChildItem -Path $root -Filter nasm.exe -File -Recurse `
+              -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candidate) {
+              $nasmExe = $candidate.FullName
+              break
+            }
+          }
+
+          if (-not $nasmExe) {
+            Write-Error "nasm.exe not found after Chocolatey install"
+            exit 1
+          }
+
+          $nasmDir = Split-Path -Parent $nasmExe
+          Add-Content -Path $env:GITHUB_PATH -Value $nasmDir
+          $env:PATH = "$nasmDir;$env:PATH"
+
+          where.exe nasm
+          & $nasmExe -v
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:

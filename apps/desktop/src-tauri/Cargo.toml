@@ -8,7 +8,7 @@ members = [
 default-members = ["crates/neuradock-app"]
 
 [workspace.package]
-version = "0.7.0"
+version = "0.8.0"
 authors = ["NeuraDock"]
 edition = "2021"
 license = "GPL-3.0"
@@ -49,7 +49,7 @@ dirs = "5.0"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "cookies", "native-tls", "gzip", "socks"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls", "gzip", "socks", "charset", "http2", "system-proxy"] }
 
 # Encryption
 aes-gcm = "0.10"
@@ -95,7 +95,7 @@ tempfile = "3.13"
 # For Tauri CLI compatibility, re-export the app package
 [package]
 name = "neuradock"
-version = "0.7.0"
+version = "0.8.0"
 description = "Auto check-in manager for API services"
 authors = ["NeuraDock"]
 edition = "2021"

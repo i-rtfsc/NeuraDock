@@ -126,8 +126,8 @@ fn extract_account_id(claims: &Value) -> String {
 // ─── HTTP client setup ────────────────────────────────────────────────────────
 
 /// Detect proxy URL from environment variables (HTTP_PROXY / HTTPS_PROXY).
-/// rquest with BoringSSL does not auto-read macOS system proxy settings the same way
-/// reqwest with native-tls does, so we need to detect and pass it explicitly.
+/// rquest does not reuse the application's higher-level proxy handling here,
+/// so we detect and pass the proxy explicitly.
 fn detect_env_proxy() -> Option<String> {
     for key in &["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
         if let Ok(v) = std::env::var(key) {
