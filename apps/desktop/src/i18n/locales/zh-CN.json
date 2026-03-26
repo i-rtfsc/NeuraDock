@@ -888,5 +888,212 @@
     "cacheSettings": "缓存设置",
     "maxCachedWebviews": "最大缓存页面数",
     "maxCachedWebviewsDescription": "同时保持在内存中的页面数量，更多缓存意味着切换更快但占用更多内存"
+  },
+  "codex": {
+    "page": {
+      "register": "注册",
+      "accounts": "账号"
+    },
+    "common": {
+      "loading": "加载中...",
+      "close": "关闭",
+      "empty": "—",
+      "unnamed": "未命名",
+      "copyFailed": "复制失败",
+      "copyUnavailable": "当前没有可复制的内容"
+    },
+    "quota": {
+      "unlimited": "无限",
+      "cycleFallback": "额度周期",
+      "monthlyQuota": "月额度",
+      "weeklyQuota": "周额度",
+      "dailyQuota": "日额度",
+      "hourlyQuota": "{{hours}} 小时额度",
+      "resetSoon": "即将重置",
+      "remainingDaysHours": "剩余 {{days}} 天 {{hours}} 小时",
+      "remainingHoursMinutes": "剩余 {{hours}} 小时 {{minutes}} 分钟",
+      "remainingMinutes": "剩余 {{minutes}} 分钟"
+    },
+    "register": {
+      "mode": "注册模式",
+      "modeSingle": "单个注册",
+      "modeBatch": "批量注册",
+      "count": "注册数量",
+      "concurrency": "并发数",
+      "minInterval": "最小间隔（秒）",
+      "maxInterval": "最大间隔（秒）",
+      "proxy": "代理 URL（可选）",
+      "start": "开始注册",
+      "cancel": "取消",
+      "cancelling": "取消中...",
+      "progress": "进度 {{current}}/{{total}}",
+      "summary": "✅ {{success}}   ❌ {{failed}}",
+      "consoleTitle": "注册控制台",
+      "copyLogs": "复制日志",
+      "clearLogs": "清空日志",
+      "logsCopied": "日志已复制",
+      "waiting": "等待任务开始...",
+      "fetching": "获取中...",
+      "recentTitle": "最近注册（最多 30 个）",
+      "noRecent": "暂无最近注册记录",
+      "recentTable": {
+        "email": "邮箱",
+        "status": "状态",
+        "quota": "额度",
+        "createdAt": "创建时间",
+        "hasQuota": "有额度"
+      },
+      "currentTask": {
+        "taskId": "任务 ID",
+        "email": "邮箱",
+        "emailProvider": "邮箱服务",
+        "status": "状态"
+      },
+      "status": {
+        "running": "运行中",
+        "success": "成功",
+        "failed": "失败",
+        "cancelled": "已取消",
+        "pending": "待执行"
+      }
+    },
+    "accounts": {
+      "title": "账号库",
+      "description": "集中管理 Codex 账号、当前激活 auth、额度与支付入口。",
+      "empty": "暂无 Codex 账号",
+      "paymentSessionReady": "支付会话已就绪",
+      "tokenExpired": "Auth 已过期",
+      "copyAccount": "复制账号",
+      "accountCopied": "账号已复制",
+      "password": "密码",
+      "passwordMissing": "未保存",
+      "copyPassword": "复制密码",
+      "passwordCopied": "密码已复制",
+      "copyAccountId": "复制 Account ID",
+      "accountIdCopied": "Account ID 已复制",
+      "table": {
+        "account": "账号",
+        "createdAt": "注册时间",
+        "plan": "套餐",
+        "remaining": "剩余额度",
+        "reset": "下次重置",
+        "actions": "操作"
+      },
+      "stats": {
+        "totalAccounts": "账号总数",
+        "totalAccountsHint": "当前已入库的 Codex 账号",
+        "validAuth": "有效 Auth",
+        "validAuthHint": "当前可直接切换使用",
+        "accountsWithQuota": "有额度账号",
+        "accountsWithQuotaHint": "检测到可用额度或无限额度"
+      },
+      "status": {
+        "active": "正常",
+        "expired": "过期",
+        "banned": "封禁"
+      },
+      "source": {
+        "register": "注册导入",
+        "import": "手动导入"
+      },
+      "actions": {
+        "payment": "生成支付链接",
+        "inbox": "收件箱",
+        "refreshQuota": "刷新额度",
+        "switchAuth": "切换 Auth",
+        "more": "更多",
+        "delete": "删除账号"
+      },
+      "activeAuth": {
+        "title": "当前激活 Auth",
+        "description": "这里显示当前 ~/.codex/auth.json 对应的账号与实时额度。",
+        "refresh": "刷新",
+        "refreshQuota": "刷新额度",
+        "clear": "清除",
+        "current": "当前使用",
+        "remaining": "剩余额度",
+        "nextReset": "下次重置",
+        "sourceAccount": "来源账号",
+        "lastRefresh": "最近刷新",
+        "accountId": "Account ID",
+        "statusLabel": "状态",
+        "fileSource": "读取来源：当前系统 ~/.codex/auth.json",
+        "cachedQuota": "已读取本地缓存额度",
+        "manualRefreshRequired": "手动刷新后获取额度",
+        "manualRefreshHint": "当前不自动拉取实时额度，点击上方“刷新额度”后再更新。",
+        "unlinked": "未关联账号库",
+        "quotaError": "额度查询失败：{{message}}",
+        "noQuota": "当前未获取到额度信息",
+        "nonChatgptMode": "当前不是 ChatGPT OAuth 模式，无法显示 Codex 额度。",
+        "empty": "当前没有激活的 Codex Auth。"
+      },
+      "inbox": {
+        "title": "收件箱",
+        "description": "查询该账号邮箱中的最新 OpenAI 验证码。",
+        "loading": "正在检查收件箱...",
+        "email": "邮箱",
+        "code": "验证码",
+        "copy": "复制验证码",
+        "codeCopied": "验证码已复制"
+      }
+    },
+    "payment": {
+      "dialogTitle": "生成支付链接",
+      "dialogDescription": "选择支付套餐与国家/货币后，生成可直接打开的结算链接。",
+      "dialogDescriptionWithAccount": "为 {{email}} 生成支付链接。",
+      "tokenOnlyHint": "仅有 token，可能生成失败",
+      "plan": "套餐",
+      "planPlaceholder": "选择套餐",
+      "countryLabel": "计费国家/地区",
+      "countryPlaceholder": "选择国家/地区",
+      "currencyLabel": "结算货币",
+      "intervalLabel": "计费周期",
+      "intervalPlaceholder": "选择计费周期",
+      "workspaceLabel": "Team 名称",
+      "workspacePlaceholder": "例如：MyTeam",
+      "seatsLabel": "席位数",
+      "generate": "生成链接",
+      "generating": "生成中...",
+      "generatedLink": "支付链接",
+      "copy": "复制链接",
+      "open": "浏览器打开",
+      "linkCopied": "支付链接已复制",
+      "openFailed": "打开链接失败：{{message}}",
+      "interval": {
+        "month": "月付",
+        "year": "年付"
+      },
+      "country": {
+        "sg": "新加坡",
+        "us": "美国",
+        "tr": "土耳其",
+        "jp": "日本",
+        "hk": "中国香港",
+        "gb": "英国",
+        "eu": "欧盟",
+        "au": "澳大利亚",
+        "ca": "加拿大",
+        "in": "印度",
+        "br": "巴西",
+        "mx": "墨西哥"
+      }
+    },
+    "toast": {
+      "accountDeleted": "账号已删除",
+      "accountDeleteFailed": "删除失败：{{message}}",
+      "quotaRefreshed": "额度已刷新",
+      "quotaRefreshFailed": "刷新失败：{{message}}",
+      "authSwitched": "已切换 Codex Auth",
+      "authSwitchFailed": "切换失败：{{message}}",
+      "apiKeySaved": "API Key 已保存",
+      "apiKeySaveFailed": "保存失败：{{message}}",
+      "loggedOut": "已退出登录",
+      "logoutFailed": "退出失败：{{message}}",
+      "activeAuthRefreshed": "当前 Auth 额度已刷新",
+      "activeAuthRefreshFailed": "刷新当前 Auth 额度失败：{{message}}",
+      "inboxCodeFetchFailed": "获取收件箱验证码失败：{{message}}",
+      "paymentLinkGenerated": "支付链接已生成",
+      "paymentLinkGenerateFailed": "生成失败：{{message}}"
+    }
   }
 }

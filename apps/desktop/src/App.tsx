@@ -34,6 +34,9 @@ const AiChatPage = lazy(() =>
 const CalendarPage = lazy(() =>
   import('./pages/CalendarPage').then((m) => ({ default: m.CalendarPage }))
 );
+const CodexPage = lazy(() =>
+  import('./pages/CodexPage').then((m) => ({ default: m.CodexPage }))
+);
 
 function App() {
   return (
@@ -53,6 +56,7 @@ function App() {
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/ai-chat" element={<AiChatPage />} />
                   <Route path="/ai-chat/settings" element={<AiChatSettingsPage />} />
+                  <Route path="/codex" element={<CodexPage />} />
                   <Route path="/settings" element={<PreferencesPage />} />
                 </Routes>
               </Suspense>

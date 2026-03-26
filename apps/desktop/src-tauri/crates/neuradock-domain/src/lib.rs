@@ -2,6 +2,7 @@
 // No dependencies on infrastructure or presentation layers
 
 pub mod account;
+pub mod codex;
 pub mod ai_chat;
 pub mod balance;
 pub mod balance_history;

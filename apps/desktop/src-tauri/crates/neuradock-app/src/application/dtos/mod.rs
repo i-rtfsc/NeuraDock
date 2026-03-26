@@ -2,6 +2,11 @@
 mod account_dto;
 pub use account_dto::*;
 
+// Codex DTOs
+mod codex_dto;
+pub use codex_dto::*;
+mod codex_mapper;
+
 // AI Chat DTOs
 mod ai_chat_dto;
 pub use ai_chat_dto::*;

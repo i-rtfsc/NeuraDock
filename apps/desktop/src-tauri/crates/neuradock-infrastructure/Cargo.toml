@@ -41,6 +41,8 @@ sqlx = { workspace = true }
 
 # HTTP client
 reqwest = { workspace = true }
+rquest = { version = "5.1.0", features = ["json", "cookies", "socks", "gzip"] }
+rquest-util = { version = "2.2.1" }
 
 # Browser automation
 chromiumoxide = { workspace = true }
@@ -50,6 +52,9 @@ aes-gcm = { workspace = true }
 argon2 = { workspace = true }
 rand = { workspace = true }
 base64 = { workspace = true }
+regex = { workspace = true }
+urlencoding = { workspace = true }
+sha2 = { workspace = true }
 
 # URL handling
 url = { workspace = true }

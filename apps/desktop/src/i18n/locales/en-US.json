@@ -887,5 +887,212 @@
     "cacheSettings": "Cache Settings",
     "maxCachedWebviews": "Max Cached Pages",
     "maxCachedWebviewsDescription": "Number of pages kept in memory. More cache means faster switching but uses more memory"
+  },
+  "codex": {
+    "page": {
+      "register": "Register",
+      "accounts": "Accounts"
+    },
+    "common": {
+      "loading": "Loading...",
+      "close": "Close",
+      "empty": "—",
+      "unnamed": "Unnamed",
+      "copyFailed": "Copy failed",
+      "copyUnavailable": "Nothing to copy right now"
+    },
+    "quota": {
+      "unlimited": "Unlimited",
+      "cycleFallback": "Quota cycle",
+      "monthlyQuota": "Monthly quota",
+      "weeklyQuota": "Weekly quota",
+      "dailyQuota": "Daily quota",
+      "hourlyQuota": "{{hours}}h quota",
+      "resetSoon": "Resets soon",
+      "remainingDaysHours": "{{days}}d {{hours}}h left",
+      "remainingHoursMinutes": "{{hours}}h {{minutes}}m left",
+      "remainingMinutes": "{{minutes}}m left"
+    },
+    "register": {
+      "mode": "Registration mode",
+      "modeSingle": "Single account",
+      "modeBatch": "Batch accounts",
+      "count": "Account count",
+      "concurrency": "Concurrency",
+      "minInterval": "Min interval (s)",
+      "maxInterval": "Max interval (s)",
+      "proxy": "Proxy URL (optional)",
+      "start": "Start registration",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling...",
+      "progress": "Progress {{current}}/{{total}}",
+      "summary": "✅ {{success}}   ❌ {{failed}}",
+      "consoleTitle": "Registration console",
+      "copyLogs": "Copy logs",
+      "clearLogs": "Clear logs",
+      "logsCopied": "Logs copied",
+      "waiting": "Waiting for tasks to start...",
+      "fetching": "Fetching...",
+      "recentTitle": "Recent registrations (latest 30)",
+      "noRecent": "No recent registrations yet",
+      "recentTable": {
+        "email": "Email",
+        "status": "Status",
+        "quota": "Quota",
+        "createdAt": "Created",
+        "hasQuota": "Has quota"
+      },
+      "currentTask": {
+        "taskId": "Task ID",
+        "email": "Email",
+        "emailProvider": "Mail provider",
+        "status": "Status"
+      },
+      "status": {
+        "running": "Running",
+        "success": "Success",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "pending": "Pending"
+      }
+    },
+    "accounts": {
+      "title": "Account library",
+      "description": "Manage Codex accounts, the active auth, quota, and payment entry points in one place.",
+      "empty": "No Codex accounts yet",
+      "paymentSessionReady": "Payment session ready",
+      "tokenExpired": "Auth expired",
+      "copyAccount": "Copy account",
+      "accountCopied": "Account copied",
+      "password": "Password",
+      "passwordMissing": "Not saved",
+      "copyPassword": "Copy password",
+      "passwordCopied": "Password copied",
+      "copyAccountId": "Copy account ID",
+      "accountIdCopied": "Account ID copied",
+      "table": {
+        "account": "Account",
+        "createdAt": "Registered",
+        "plan": "Plan",
+        "remaining": "Remaining",
+        "reset": "Next reset",
+        "actions": "Actions"
+      },
+      "stats": {
+        "totalAccounts": "Accounts",
+        "totalAccountsHint": "Codex accounts stored locally",
+        "validAuth": "Valid auth",
+        "validAuthHint": "Ready to switch right away",
+        "accountsWithQuota": "Accounts with quota",
+        "accountsWithQuotaHint": "Detected credits or unlimited access"
+      },
+      "status": {
+        "active": "Active",
+        "expired": "Expired",
+        "banned": "Banned"
+      },
+      "source": {
+        "register": "Registered",
+        "import": "Imported"
+      },
+      "actions": {
+        "payment": "Generate payment link",
+        "inbox": "Inbox",
+        "refreshQuota": "Refresh quota",
+        "switchAuth": "Switch auth",
+        "more": "More",
+        "delete": "Delete account"
+      },
+      "activeAuth": {
+        "title": "Active auth",
+        "description": "Shows the account currently represented by ~/.codex/auth.json and its live quota.",
+        "refresh": "Refresh",
+        "refreshQuota": "Refresh quota",
+        "clear": "Clear",
+        "current": "Current",
+        "remaining": "Remaining",
+        "nextReset": "Next reset",
+        "sourceAccount": "Linked account",
+        "lastRefresh": "Last refresh",
+        "accountId": "Account ID",
+        "statusLabel": "Status",
+        "fileSource": "Source: current system ~/.codex/auth.json",
+        "cachedQuota": "Using cached quota",
+        "manualRefreshRequired": "Manual refresh needed",
+        "manualRefreshHint": "Live quota is not fetched automatically. Click “Refresh quota” above to update it.",
+        "unlinked": "Not linked to library",
+        "quotaError": "Failed to load quota: {{message}}",
+        "noQuota": "No quota information available right now",
+        "nonChatgptMode": "Current auth is not in ChatGPT OAuth mode, so Codex quota cannot be shown.",
+        "empty": "No active Codex auth right now."
+      },
+      "inbox": {
+        "title": "Inbox",
+        "description": "Fetch the latest OpenAI verification code from this account's mailbox.",
+        "loading": "Checking inbox...",
+        "email": "Email",
+        "code": "Verification code",
+        "copy": "Copy code",
+        "codeCopied": "Verification code copied"
+      }
+    },
+    "payment": {
+      "dialogTitle": "Generate payment link",
+      "dialogDescription": "Choose a plan and billing region to generate a checkout link you can open directly.",
+      "dialogDescriptionWithAccount": "Generate a payment link for {{email}}.",
+      "tokenOnlyHint": "Token only, generation may fail",
+      "plan": "Plan",
+      "planPlaceholder": "Choose a plan",
+      "countryLabel": "Billing country/region",
+      "countryPlaceholder": "Choose a country/region",
+      "currencyLabel": "Currency",
+      "intervalLabel": "Billing interval",
+      "intervalPlaceholder": "Choose a billing interval",
+      "workspaceLabel": "Team name",
+      "workspacePlaceholder": "e.g. MyTeam",
+      "seatsLabel": "Seats",
+      "generate": "Generate link",
+      "generating": "Generating...",
+      "generatedLink": "Payment link",
+      "copy": "Copy link",
+      "open": "Open in browser",
+      "linkCopied": "Payment link copied",
+      "openFailed": "Failed to open link: {{message}}",
+      "interval": {
+        "month": "Monthly",
+        "year": "Yearly"
+      },
+      "country": {
+        "sg": "Singapore",
+        "us": "United States",
+        "tr": "Turkey",
+        "jp": "Japan",
+        "hk": "Hong Kong",
+        "gb": "United Kingdom",
+        "eu": "European Union",
+        "au": "Australia",
+        "ca": "Canada",
+        "in": "India",
+        "br": "Brazil",
+        "mx": "Mexico"
+      }
+    },
+    "toast": {
+      "accountDeleted": "Account deleted",
+      "accountDeleteFailed": "Delete failed: {{message}}",
+      "quotaRefreshed": "Quota refreshed",
+      "quotaRefreshFailed": "Refresh failed: {{message}}",
+      "authSwitched": "Codex auth switched",
+      "authSwitchFailed": "Switch failed: {{message}}",
+      "apiKeySaved": "API key saved",
+      "apiKeySaveFailed": "Save failed: {{message}}",
+      "loggedOut": "Signed out",
+      "logoutFailed": "Logout failed: {{message}}",
+      "activeAuthRefreshed": "Active auth quota refreshed",
+      "activeAuthRefreshFailed": "Failed to refresh active auth quota: {{message}}",
+      "inboxCodeFetchFailed": "Failed to fetch inbox code: {{message}}",
+      "paymentLinkGenerated": "Payment link generated",
+      "paymentLinkGenerateFailed": "Generation failed: {{message}}"
+    }
   }
 }

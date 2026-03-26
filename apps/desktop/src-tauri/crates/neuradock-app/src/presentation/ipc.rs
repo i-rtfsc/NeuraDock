@@ -105,9 +105,25 @@ pub fn builder() -> Builder<tauri::Wry> {
             close_embedded_ai_chat,
             close_all_embedded_ai_chats,
             refresh_embedded_ai_chat,
+            // Codex account management commands
+            list_codex_accounts,
+            get_codex_account,
+            delete_codex_account,
+            fetch_codex_quota,
+            refresh_codex_account_quota,
+            get_active_codex_auth,
+            refresh_active_codex_auth_quota,
+            get_codex_account_inbox_code,
+            switch_codex_auth,
+            set_codex_api_key,
+            logout_codex_auth,
+            generate_codex_payment_link,
+            register_codex_accounts,
+            cancel_codex_registration,
         ])
         .events(collect_events![
             crate::presentation::events::CheckInProgress,
             crate::presentation::events::BalanceUpdated,
+            crate::presentation::events::CodexRegisterProgress,
         ])
 }

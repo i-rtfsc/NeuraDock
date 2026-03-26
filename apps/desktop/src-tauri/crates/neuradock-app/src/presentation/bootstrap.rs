@@ -18,6 +18,7 @@ use neuradock_domain::account::AccountRepository;
 use neuradock_domain::ai_chat::AiChatServiceRepository;
 use neuradock_domain::balance_history::BalanceHistoryRepository;
 use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::codex::CodexAccountRepository;
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::events::account_events::*;
 use neuradock_domain::independent_key::IndependentKeyRepository;
@@ -34,9 +35,10 @@ use neuradock_infrastructure::notification::SqliteNotificationChannelRepository;
 use neuradock_infrastructure::persistence::{
     repositories::{
         SqliteAccountRepository, SqliteAiChatServiceRepository, SqliteBalanceHistoryRepository,
-        SqliteCustomProviderNodeRepository, SqliteIndependentKeyRepository,
-        SqliteProviderModelsRepository, SqliteProviderRepository, SqliteProxyConfigRepository,
-        SqliteSessionRepository, SqliteTokenRepository, SqliteWafCookiesRepository,
+        SqliteCodexAccountRepository, SqliteCustomProviderNodeRepository,
+        SqliteIndependentKeyRepository, SqliteProviderModelsRepository, SqliteProviderRepository,
+        SqliteProxyConfigRepository, SqliteSessionRepository, SqliteTokenRepository,
+        SqliteWafCookiesRepository,
     },
     Database,
 };
@@ -143,6 +145,8 @@ pub async fn build_app_state(
         as Arc<dyn BalanceHistoryRepository>;
     let ai_chat_service_repo = Arc::new(SqliteAiChatServiceRepository::new(pool.clone()))
         as Arc<dyn AiChatServiceRepository>;
+    let codex_account_repo =
+        Arc::new(SqliteCodexAccountRepository::new(pool.clone())) as Arc<dyn CodexAccountRepository>;
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();
@@ -394,6 +398,7 @@ pub async fn build_app_state(
             independent_key: independent_key_repo,
             provider: provider_repo,
             ai_chat_service: ai_chat_service_repo,
+            codex_account: codex_account_repo,
         },
         services: Services {
             token: token_service,

@@ -1,4 +1,5 @@
 mod client;
+pub mod openai;
 pub mod token;
 pub mod waf_bypass;
 

@@ -9,6 +9,7 @@ import {
   PanelLeftOpen,
   Bot,
   CalendarDays,
+  BrainCircuit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ... rest of imports
@@ -45,6 +46,7 @@ export function Sidebar() {
       items: [
         { name: t('nav.calendar'), href: '/calendar', icon: CalendarDays },
         { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
+        { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: BrainCircuit },
       ],
     },
   ];

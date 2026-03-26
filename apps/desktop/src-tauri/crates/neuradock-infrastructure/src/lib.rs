@@ -3,6 +3,7 @@
 
 pub mod bootstrap;
 pub mod browser;
+pub mod codex_auth;
 pub mod config;
 pub mod events;
 pub mod http;

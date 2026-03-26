@@ -11,6 +11,7 @@ use crate::application::services::{
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::ai_chat::AiChatServiceRepository;
 use neuradock_domain::check_in::ProviderRepository;
+use neuradock_domain::codex::CodexAccountRepository;
 use neuradock_domain::custom_node::CustomProviderNodeRepository;
 use neuradock_domain::independent_key::IndependentKeyRepository;
 use neuradock_domain::notification::NotificationChannelRepository;
@@ -43,6 +44,7 @@ pub struct Repositories {
     pub independent_key: Arc<dyn IndependentKeyRepository>,
     pub provider: Arc<dyn ProviderRepository>,
     pub ai_chat_service: Arc<dyn AiChatServiceRepository>,
+    pub codex_account: Arc<dyn CodexAccountRepository>,
 }
 
 #[derive(Clone)]
