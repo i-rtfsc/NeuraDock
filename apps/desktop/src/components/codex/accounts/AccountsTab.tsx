@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { open } from '@tauri-apps/plugin-shell';
 import { toast } from 'sonner';
@@ -40,6 +40,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -58,6 +59,12 @@ import {
   getRemainingPercent,
   pickPrimaryDisplayWindow,
 } from '@/components/codex/shared/quota';
+import {
+  buildCodexAccountList,
+  hasValidCodexAuth,
+  type CodexAccountSortOption,
+  type CodexAccountStatusFilter,
+} from './accountList';
 
 const PAYMENT_COUNTRIES = [
   { code: 'SG', labelKey: 'codex.payment.country.sg', currency: 'SGD' },
@@ -75,6 +82,7 @@ const PAYMENT_COUNTRIES = [
 ] as const;
 
 const DEFAULT_COUNTRY = PAYMENT_COUNTRIES[0].code;
+const STATIC_CARD_CLASS = 'hover:scale-100 hover:translate-y-0 hover:shadow-sm';
 
 function buildDefaultPaymentForm(): CodexPaymentFormState {
   return {
@@ -106,11 +114,20 @@ export function AccountsTab() {
   const [paymentAccount, setPaymentAccount] = useState<CodexAccountDto | null>(null);
   const [paymentForm, setPaymentForm] = useState<CodexPaymentFormState>(buildDefaultPaymentForm());
   const [generatedPaymentLink, setGeneratedPaymentLink] = useState<CodexPaymentLinkDto | null>(null);
+  const [sortOption, setSortOption] = useState<CodexAccountSortOption>('remaining-desc');
+  const [hideNoQuota, setHideNoQuota] = useState(false);
+  const [onlyValidAuth, setOnlyValidAuth] = useState(false);
+  const [onlyUnlimited, setOnlyUnlimited] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<CodexAccountStatusFilter>('all');
 
   const accountList = accounts ?? [];
+  const displayAccounts = useMemo(
+    () => buildCodexAccountList(accountList, { sortOption, hideNoQuota, onlyValidAuth, onlyUnlimited, statusFilter }),
+    [accountList, hideNoQuota, onlyUnlimited, onlyValidAuth, sortOption, statusFilter]
+  );
   const activeAccount = accountList.find((account) => isActiveAccount(activeAuth, account)) ?? null;
   const activeQuota = activeAuth?.quota ?? buildQuotaFromAccount(activeAccount);
-  const validTokenCount = accountList.filter((account) => account.hasTokens && !account.isTokenExpired).length;
+  const validTokenCount = accountList.filter(hasValidCodexAuth).length;
   const creditsCount = accountList.filter((account) => account.isUnlimited || account.hasCredits).length;
 
   const copyText = async (text: string | null | undefined, successKey: string) => {
@@ -228,41 +245,110 @@ export function AccountsTab() {
         {accountList.length === 0 ? (
           <div className="py-16 text-center text-sm text-muted-foreground">{t('codex.accounts.empty')}</div>
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                    <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.account')}</th>
-                    <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.createdAt')}</th>
-                    <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.plan')}</th>
-                    <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.remaining')}</th>
-                    <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.reset')}</th>
-                    <th className="px-4 py-3 text-right font-medium">{t('codex.accounts.table.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accountList.map((account) => (
-                    <AccountRow
-                      key={account.id}
-                      account={account}
-                      isActive={isActiveAccount(activeAuth, account)}
-                      isRefreshing={refreshingId === account.id}
-                      locale={locale}
-                      onRefreshQuota={() => handleRefreshQuota(account.id)}
-                      isInboxLoading={loadingInboxId === account.id}
-                      onSwitchAuth={() => switchAuth.mutate(account.id)}
-                      onDelete={() => deleteAccount.mutate(account.id)}
-                      onFetchInboxCode={() => handleFetchInboxCode(account)}
-                      onGeneratePaymentLink={() => handleOpenPaymentDialog(account)}
-                      onCopyAccount={(value) => copyText(value, 'codex.accounts.accountCopied')}
-                      onCopyPassword={(value) => copyText(value, 'codex.accounts.passwordCopied')}
-                    />
-                  ))}
-                </tbody>
-              </table>
+          <>
+            <div className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 px-4 py-3">
+              <div className="text-sm text-muted-foreground">
+                {t('codex.accounts.listSummary', { visible: displayAccounts.length, total: accountList.length })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="codex-account-sort" className="text-xs text-muted-foreground">
+                    {t('codex.accounts.controls.sortLabel')}
+                  </Label>
+                  <Select value={sortOption} onValueChange={(value) => setSortOption(value as CodexAccountSortOption)}>
+                    <SelectTrigger id="codex-account-sort" className="h-8 w-[220px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="remaining-desc">{t('codex.accounts.controls.sortOptions.remainingDesc')}</SelectItem>
+                      <SelectItem value="created-desc">{t('codex.accounts.controls.sortOptions.createdDesc')}</SelectItem>
+                      <SelectItem value="created-asc">{t('codex.accounts.controls.sortOptions.createdAsc')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="codex-account-status" className="text-xs text-muted-foreground">
+                    {t('codex.accounts.controls.statusLabel')}
+                  </Label>
+                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as CodexAccountStatusFilter)}>
+                    <SelectTrigger id="codex-account-status" className="h-8 w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('codex.accounts.controls.statusOptions.all')}</SelectItem>
+                      <SelectItem value="active">{t('codex.accounts.status.active')}</SelectItem>
+                      <SelectItem value="expired">{t('codex.accounts.status.expired')}</SelectItem>
+                      <SelectItem value="banned">{t('codex.accounts.status.banned')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <FilterSwitch
+                  id="codex-hide-no-quota"
+                  checked={hideNoQuota}
+                  onCheckedChange={setHideNoQuota}
+                  label={t('codex.accounts.controls.hideNoQuota')}
+                />
+                <FilterSwitch
+                  id="codex-only-valid-auth"
+                  checked={onlyValidAuth}
+                  onCheckedChange={setOnlyValidAuth}
+                  label={t('codex.accounts.controls.onlyValidAuth')}
+                />
+                <FilterSwitch
+                  id="codex-only-unlimited"
+                  checked={onlyUnlimited}
+                  onCheckedChange={setOnlyUnlimited}
+                  label={t('codex.accounts.controls.onlyUnlimited')}
+                />
+              </div>
             </div>
-          </Card>
+
+            <Card className={cn('overflow-hidden', STATIC_CARD_CLASS)}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/50 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.account')}</th>
+                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.createdAt')}</th>
+                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.plan')}</th>
+                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.remaining')}</th>
+                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.reset')}</th>
+                      <th className="px-4 py-3 text-right font-medium">{t('codex.accounts.table.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayAccounts.length > 0 ? (
+                      displayAccounts.map((account) => (
+                        <AccountRow
+                          key={account.id}
+                          account={account}
+                          isActive={isActiveAccount(activeAuth, account)}
+                          isRefreshing={refreshingId === account.id}
+                          locale={locale}
+                          onRefreshQuota={() => handleRefreshQuota(account.id)}
+                          isInboxLoading={loadingInboxId === account.id}
+                          onSwitchAuth={() => switchAuth.mutate(account.id)}
+                          onDelete={() => deleteAccount.mutate(account.id)}
+                          onFetchInboxCode={() => handleFetchInboxCode(account)}
+                          onGeneratePaymentLink={() => handleOpenPaymentDialog(account)}
+                          onCopyAccount={(value) => copyText(value, 'codex.accounts.accountCopied')}
+                          onCopyPassword={(value) => copyText(value, 'codex.accounts.passwordCopied')}
+                        />
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                          {t('codex.accounts.filteredEmpty')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </>
         )}
       </div>
 
@@ -335,7 +421,7 @@ function ActiveAuthCard({
   const remainingValue = formatRemainingPercent(displayWindow, activeQuota?.isUnlimited, t);
 
   return (
-    <Card className="h-full overflow-visible p-3">
+    <Card className={cn('h-full overflow-visible p-3', STATIC_CARD_CLASS)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -939,11 +1025,32 @@ function QuotaInfoRow({ label, value }: {
 
 function StatCard({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
-    <Card className="h-full p-2.5">
+    <Card className={cn('h-full p-2.5', STATIC_CARD_CLASS)}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-semibold">{value}</div>
       <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>
     </Card>
+  );
+}
+
+function FilterSwitch({
+  id,
+  checked,
+  onCheckedChange,
+  label,
+}: {
+  id: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/70 px-3 py-2">
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+      <Label htmlFor={id} className="cursor-pointer text-xs text-muted-foreground">
+        {label}
+      </Label>
+    </div>
   );
 }
 

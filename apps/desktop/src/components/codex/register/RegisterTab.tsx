@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Play, StopCircle, Trash2, X } from 'lucide-react';
@@ -166,33 +167,14 @@ export function RegisterTab() {
           </div>
         </Card>
 
-        {/* Progress summary */}
-        {isConsoleOpen && progress && (
-          <Card className="overflow-visible p-3 text-sm">
-            <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-              <span>{t('codex.register.progress', { current: progress.current, total: progress.total })}</span>
-              <span>
-                {t('codex.register.summary', { success: progress.successCount, failed: progress.failCount })}
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all"
-                style={{
-                  width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
-                }}
-              />
-            </div>
-          </Card>
-        )}
-        </div>
+      </div>
 
         {/* ── Right: Console while opened, otherwise recent accounts ── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <Card className="flex min-h-0 flex-1 flex-col border-border/40 bg-[#1e1e2e]">
+          <Card className="flex min-h-0 flex-1 flex-col border-border/40 bg-card/95">
             {isConsoleOpen ? (
               <>
-                <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
+                <div className="flex items-center justify-between border-b border-border/30 bg-muted/10 px-3 py-2">
                   <span className="font-mono text-xs text-muted-foreground">{t('codex.register.consoleTitle')}</span>
                   <div className="flex items-center gap-1">
                     <Button
@@ -228,8 +210,20 @@ export function RegisterTab() {
                     </Button>
                   </div>
                 </div>
+                {progress && (
+                  <div className="border-b border-border/20 bg-muted/5 px-3 py-2">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                      <span>{t('codex.register.progress', { current: progress.current, total: progress.total })}</span>
+                      <span>{t('codex.register.summary', { success: progress.successCount, failed: progress.failCount })}</span>
+                    </div>
+                    <Progress
+                      value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0}
+                      className="h-1.5"
+                    />
+                  </div>
+                )}
                 {currentTask && (
-                  <div className="grid grid-cols-4 gap-0 border-b border-border/20 bg-[#181825] text-[11px] font-mono">
+                  <div className="grid grid-cols-4 gap-0 border-b border-border/20 bg-muted/20 text-[11px] font-mono">
                     <TaskInfoCell label={t('codex.register.currentTask.taskId')} value={currentTask.taskId} truncate />
                     <TaskInfoCell
                       label={t('codex.register.currentTask.email')}
@@ -239,7 +233,7 @@ export function RegisterTab() {
                     />
                     <TaskInfoCell label={t('codex.register.currentTask.emailProvider')} value="Tempmail.lol" />
                     <div className="px-3 py-2 border-l border-border/20">
-                      <div className="mb-0.5 text-[10px] text-[#585b70]">{t('codex.register.currentTask.status')}</div>
+                      <div className="mb-0.5 text-[10px] text-muted-foreground">{t('codex.register.currentTask.status')}</div>
                       <TaskStatusBadge status={currentTask.status} />
                     </div>
                   </div>
@@ -251,7 +245,7 @@ export function RegisterTab() {
                   )}
                   {logs.map((log) => (
                     <div key={log.id} className={cn('leading-relaxed', logColor(log.status))}>
-                      <span className="text-[#585b70] mr-2">{log.timestamp}</span>
+                      <span className="mr-2 text-muted-foreground">{log.timestamp}</span>
                       {log.message}
                     </div>
                   ))}
@@ -314,11 +308,11 @@ function TaskInfoCell({
 }) {
   return (
     <div className="px-3 py-2 border-l border-border/20 first:border-l-0">
-      <div className="text-[10px] text-[#585b70] mb-0.5">{label}</div>
+      <div className="mb-0.5 text-[10px] text-muted-foreground">{label}</div>
       <div
         className={cn(
           'text-[11px]',
-          dim ? 'text-[#585b70] italic' : 'text-[#cdd6f4]',
+          dim ? 'text-muted-foreground italic' : 'text-foreground',
           truncate && 'truncate max-w-[140px]'
         )}
         title={truncate ? value : undefined}
@@ -332,10 +326,10 @@ function TaskInfoCell({
 function TaskStatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const map: Record<string, { cls: string; label: string }> = {
-    running: { cls: 'bg-blue-500/20 text-blue-400', label: t('codex.register.status.running') },
-    success: { cls: 'bg-green-500/20 text-green-400', label: t('codex.register.status.success') },
-    failed: { cls: 'bg-red-500/20 text-red-400', label: t('codex.register.status.failed') },
-    cancelled: { cls: 'bg-yellow-500/20 text-yellow-400', label: t('codex.register.status.cancelled') },
+    running: { cls: 'border border-info-border bg-info-soft text-info-soft-foreground', label: t('codex.register.status.running') },
+    success: { cls: 'border border-success-border bg-success-soft text-success-soft-foreground', label: t('codex.register.status.success') },
+    failed: { cls: 'border border-danger-border bg-danger-soft text-danger-soft-foreground', label: t('codex.register.status.failed') },
+    cancelled: { cls: 'border border-warning-border bg-warning-soft text-warning-soft-foreground', label: t('codex.register.status.cancelled') },
     pending: { cls: 'bg-muted text-muted-foreground', label: t('codex.register.status.pending') },
   };
   const { cls, label } = map[status] ?? { cls: 'bg-muted text-muted-foreground', label: status };
@@ -358,9 +352,9 @@ function StatusBadge({ status }: { status: string }) {
 
 function logColor(status?: string) {
   switch (status) {
-    case 'success':   return 'text-green-400';
-    case 'failed':    return 'text-red-400';
-    case 'cancelled': return 'text-yellow-400';
-    default:          return 'text-[#cdd6f4]';
+    case 'success': return 'text-success';
+    case 'failed': return 'text-danger';
+    case 'cancelled': return 'text-warning';
+    default: return 'text-foreground';
   }
 }

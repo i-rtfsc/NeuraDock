@@ -960,6 +960,8 @@
       "title": "Account library",
       "description": "Manage Codex accounts, the active auth, quota, and payment entry points in one place.",
       "empty": "No Codex accounts yet",
+      "filteredEmpty": "No accounts match the current filters",
+      "listSummary": "Showing {{visible}} / {{total}} accounts",
       "paymentSessionReady": "Payment session ready",
       "tokenExpired": "Auth expired",
       "copyAccount": "Copy account",
@@ -985,6 +987,21 @@
         "validAuthHint": "Ready to switch right away",
         "accountsWithQuota": "Accounts with quota",
         "accountsWithQuotaHint": "Detected credits or unlimited access"
+      },
+      "controls": {
+        "sortLabel": "Sort",
+        "hideNoQuota": "Hide accounts with no quota",
+        "onlyValidAuth": "Valid auth only",
+        "onlyUnlimited": "Unlimited only",
+        "statusLabel": "Status",
+        "sortOptions": {
+          "remainingDesc": "Remaining quota (high to low)",
+          "createdDesc": "Registration time (newest first)",
+          "createdAsc": "Registration time (oldest first)"
+        },
+        "statusOptions": {
+          "all": "All statuses"
+        }
       },
       "status": {
         "active": "Active",

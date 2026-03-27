@@ -961,6 +961,8 @@
       "title": "账号库",
       "description": "集中管理 Codex 账号、当前激活 auth、额度与支付入口。",
       "empty": "暂无 Codex 账号",
+      "filteredEmpty": "当前筛选条件下没有可显示的账号",
+      "listSummary": "显示 {{visible}} / {{total}} 个账号",
       "paymentSessionReady": "支付会话已就绪",
       "tokenExpired": "Auth 已过期",
       "copyAccount": "复制账号",
@@ -986,6 +988,21 @@
         "validAuthHint": "当前可直接切换使用",
         "accountsWithQuota": "有额度账号",
         "accountsWithQuotaHint": "检测到可用额度或无限额度"
+      },
+      "controls": {
+        "sortLabel": "排序",
+        "hideNoQuota": "隐藏无额度账号",
+        "onlyValidAuth": "只看有效 Auth",
+        "onlyUnlimited": "只看无限额度",
+        "statusLabel": "状态",
+        "sortOptions": {
+          "remainingDesc": "按剩余额度（高到低）",
+          "createdDesc": "按注册时间（新到旧）",
+          "createdAsc": "按注册时间（旧到新）"
+        },
+        "statusOptions": {
+          "all": "全部状态"
+        }
       },
       "status": {
         "active": "正常",
