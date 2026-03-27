@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Server } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -16,8 +17,17 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { motion } from 'framer-motion';
 import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
-export function ProvidersPage() {
+interface ProvidersPageProps {
+  embedded?: boolean;
+  embeddedHeaderActionsContainer?: HTMLElement | null;
+}
+
+export function ProvidersPage({
+  embedded = false,
+  embeddedHeaderActionsContainer = null,
+}: ProvidersPageProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -60,8 +70,11 @@ export function ProvidersPage() {
     setNodesProvider(provider);
     setNodesDialogOpen(true);
     setPendingOpenProviderId(null);
-    navigate(location.pathname, { replace: true, state: null });
-  }, [pendingOpenProviderId, providers, navigate, location.pathname]);
+    navigate(
+      { pathname: location.pathname, search: location.search },
+      { replace: true, state: null }
+    );
+  }, [pendingOpenProviderId, providers, navigate, location.pathname, location.search]);
 
   // Filter providers
   const filteredProviders = useMemo(() => {
@@ -120,36 +133,41 @@ export function ProvidersPage() {
     setNodesDialogOpen(true);
   };
 
-  return (
-    <PageContainer
-      title={t('providers.title', '中转站管理')}
-      actions={
-        <HeaderActions>
-          {/* Search */}
-          <div className="relative w-64">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t('providers.searchPlaceholder', '搜索中转站名称或域名...')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
-            />
-          </div>
+  const pageTitle = <span className="text-xl font-semibold tracking-tight">{t('providers.title', '中转站管理')}</span>;
 
-          <HeaderActionsSeparator />
-
-          {/* Add Provider Button */}
-          <Button 
-            onClick={handleCreate} 
-            size="sm" 
-            className="shadow-md btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all"
-          >
-            <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
-            {t('providers.addButton', 'Add Provider')}
-          </Button>
-        </HeaderActions>
+  const pageActions = (
+    <HeaderActions
+      className={
+        embedded
+          ? 'flex-nowrap justify-end [&>*]:shrink-0'
+          : 'flex-wrap justify-end'
       }
     >
+      <div className={cn('relative max-w-full', embedded ? 'w-48' : 'w-64')}>
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={t('providers.searchPlaceholder', '搜索中转站名称或域名...')}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
+        />
+      </div>
+
+      {!embedded && <HeaderActionsSeparator />}
+
+      <Button
+        onClick={handleCreate}
+        size="sm"
+        className="shadow-md btn-gradient-primary border-0 font-bold hover:scale-105 active:scale-95 transition-all"
+      >
+        <Plus className="mr-2 h-4 w-4 stroke-[3px]" />
+        {t('providers.addButton', 'Add Provider')}
+      </Button>
+    </HeaderActions>
+  );
+
+  const pageBody = (
+    <>
       {/* Loading State */}
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -284,6 +302,26 @@ export function ProvidersPage() {
         }}
         provider={nodesProvider}
       />
+    </>
+  );
+
+  const embeddedToolbar =
+    embedded && embeddedHeaderActionsContainer
+      ? createPortal(pageActions, embeddedHeaderActionsContainer)
+      : null;
+
+  if (embedded) {
+    return (
+      <>
+        {embeddedToolbar}
+        {pageBody}
+      </>
+    );
+  }
+
+  return (
+    <PageContainer title={pageTitle} actions={pageActions}>
+      {pageBody}
     </PageContainer>
   );
 }

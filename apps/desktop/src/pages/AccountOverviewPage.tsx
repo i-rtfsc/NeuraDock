@@ -36,6 +36,7 @@ import type { Account } from '@/lib/tauri-commands';
 import type { TokenDto } from '@/types/token';
 import { useAccountActions } from '@/hooks/useAccountActions';
 import { useCheckInCalendar, useCheckInTrend, useCheckInStreak, useCheckInDayDetail } from '@/hooks/useCheckInStreak';
+import { buildTransitHubPath } from '@/lib/transitHub';
 import { cn } from '@/lib/utils';
 
 export function AccountOverviewPage() {
@@ -163,7 +164,7 @@ export function AccountOverviewPage() {
     mutationFn: () => invoke('delete_account', { accountId: accountId! }),
     onSuccess: () => {
       toast.success(t('accountCard.deleted', '账号已删除'));
-      navigate('/accounts');
+      navigate(buildTransitHubPath('accounts'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -185,7 +186,7 @@ export function AccountOverviewPage() {
       <PageContainer>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-lg font-semibold">{t('accounts.accountNotFound', '账号不存在')}</p>
-          <Button onClick={() => navigate('/accounts')}>
+          <Button onClick={() => navigate(buildTransitHubPath('accounts'))}>
             {t('common.back')}
           </Button>
         </div>
@@ -220,7 +221,7 @@ export function AccountOverviewPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/accounts')}
+            onClick={() => navigate(buildTransitHubPath('accounts'))}
             className="shrink-0 h-9 w-9 rounded-full hover:bg-muted"
           >
             <ArrowLeft className="h-5 w-5" />

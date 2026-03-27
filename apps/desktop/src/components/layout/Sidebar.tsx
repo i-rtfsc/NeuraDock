@@ -1,15 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Home,
-  UserCircle,
+  Bot,
+  CalendarDays,
+  Hammer,
   Key,
   Server,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
-  Bot,
-  CalendarDays,
-  BrainCircuit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ... rest of imports
@@ -22,42 +20,60 @@ import {
 } from '@/components/ui/tooltip';
 import { useSidebarStore } from '@/hooks/useSidebarStore';
 import { Button } from '@/components/ui/button';
+import { CodexMarkIcon } from '@/components/icons/CodexMarkIcon';
 
 export function Sidebar() {
   const location = useLocation();
   const { t } = useTranslation();
   const { collapsed, toggle } = useSidebarStore();
-  
-  // Check if we're on the AI Chat page (disable tooltips due to webview z-index)
+
+  // Disable tooltips when AI Chat webview is active because native webview overlays DOM elements.
   const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
 
   const navGroups = [
     {
-      label: t('nav.group.checkin', { defaultValue: 'Check-in' }),
+      label: t('nav.aiToolbox', { defaultValue: 'AI工具箱' }),
       items: [
-        { name: t('nav.dashboard'), href: '/', icon: Home },
-        { name: t('nav.accounts'), href: '/accounts', icon: UserCircle },
-        { name: t('nav.tokens'), href: '/tokens', icon: Key },
         { name: t('nav.providers'), href: '/providers', icon: Server },
+        { name: t('nav.tokens'), href: '/tokens', icon: Key },
+        { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
+        { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: CodexMarkIcon },
       ],
     },
     {
-      label: t('nav.group.tools', { defaultValue: 'Tools' }),
+      label: t('nav.devToolbox', { defaultValue: '开发工具箱' }),
       items: [
-        { name: t('nav.calendar'), href: '/calendar', icon: CalendarDays },
-        { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
-        { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: BrainCircuit },
+        {
+          name: t('devToolbox.comingSoonTitle', '建设中'),
+          href: '/dev-tools',
+          icon: Hammer,
+        },
       ],
+    },
+    {
+      label: t('nav.dailyToolbox', { defaultValue: '日常工具箱' }),
+      items: [{ name: t('nav.calendar'), href: '/calendar', icon: CalendarDays }],
     },
   ];
 
   // Helper for rendering links to avoid duplication between nav and settings
-  const renderLink = (item: { name: string; href: string; icon: any }, isSettings = false) => {
+  const renderLink = (
+    item: { name: string; href: string; icon: any },
+    isSettings = false
+  ) => {
+    const normalizedHref = item.href.split('?')[0];
     const isActive =
-      location.pathname === item.href ||
-      (!isSettings && item.href === '/accounts' &&
-        (location.pathname.startsWith('/accounts') || location.pathname.startsWith('/account/'))) ||
-      (!isSettings && item.href === '/ai-chat' && location.pathname.startsWith('/ai-chat'));
+      location.pathname === normalizedHref ||
+      (!isSettings &&
+        normalizedHref === '/providers' &&
+        (location.pathname === '/' ||
+          location.pathname === '/accounts' ||
+          location.pathname.startsWith('/accounts/') ||
+          location.pathname.startsWith('/account/') ||
+          location.pathname.startsWith('/providers'))) ||
+      (!isSettings && normalizedHref === '/ai-chat' && location.pathname.startsWith('/ai-chat')) ||
+      (!isSettings && normalizedHref === '/calendar' && location.pathname.startsWith('/calendar')) ||
+      (!isSettings && normalizedHref === '/dev-tools' && location.pathname.startsWith('/dev-tools'));
     const Icon = item.icon;
 
     const LinkContent = (
@@ -133,29 +149,35 @@ export function Sidebar() {
       <div className="w-full h-6 shrink-0 mb-4" />
 
       {/* Navigation */}
-      <nav
-        className={cn(
-          "w-full space-y-2 flex flex-col",
-          collapsed ? "px-3 items-center" : "px-4 items-start"
-        )}
-      >
-        {navGroups.map((group, gi) => (
-          <div key={group.label} className="w-full">
-            {gi > 0 && <div className={cn("my-2", collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40")} />}
-            {!collapsed && (
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
-                {group.label}
+      <div className="w-full min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+        <nav
+          className={cn(
+            "w-full space-y-2 flex flex-col",
+            collapsed ? "px-3 items-center" : "px-4 items-start"
+          )}
+        >
+          {navGroups.map((group, gi) => (
+            <div key={group.label} className="w-full">
+              {gi > 0 && (
+                <div
+                  className={cn(
+                    "my-2",
+                    collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40"
+                  )}
+                />
+              )}
+              {!collapsed && (
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
+                  {group.label}
+                </div>
+              )}
+              <div className="w-full space-y-1">
+                {group.items.map((item) => renderLink(item))}
               </div>
-            )}
-            <div className="w-full space-y-1">
-              {group.items.map((item) => renderLink(item))}
             </div>
-          </div>
-        ))}
-      </nav>
-
-      {/* Spacer */}
-      <div className="flex-1" />
+          ))}
+        </nav>
+      </div>
 
       {/* Footer / Settings / Toggle */}
       <div className={cn(

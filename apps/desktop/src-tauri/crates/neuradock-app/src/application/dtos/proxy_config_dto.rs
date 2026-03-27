@@ -24,6 +24,16 @@ impl From<&ProxyConfig> for ProxyConfigDto {
     }
 }
 
+impl ProxyConfigDto {
+    pub fn proxy_url(&self) -> Option<String> {
+        if !self.enabled || self.host.trim().is_empty() || self.port == 0 {
+            return None;
+        }
+
+        Some(format!("{}://{}:{}", self.proxy_type, self.host.trim(), self.port))
+    }
+}
+
 /// Input for updating proxy configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct UpdateProxyConfigInput {

@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use crate::application::dtos::{RegisterConfig, RegisterMode, RegisterProgressDto, RegisterTaskStatus};
 use crate::presentation::error::CommandError;
 use crate::presentation::events::CodexRegisterProgress;
-use crate::presentation::state::Repositories;
+use crate::presentation::state::{Repositories, Services};
 use super::quota::apply_usage_quota;
 use neuradock_domain::codex::{CodexAccount, CodexAccountSource};
 use neuradock_infrastructure::http::openai::quota::fetch_codex_usage;
@@ -40,6 +40,7 @@ pub async fn register_codex_accounts(
     config: RegisterConfig,
     app_handle: tauri::AppHandle,
     repos: State<'_, Repositories>,
+    services: State<'_, Services>,
 ) -> Result<(), CommandError> {
     // Reset cancel flag
     CANCEL_FLAG.store(false, Ordering::SeqCst);
@@ -64,6 +65,12 @@ pub async fn register_codex_accounts(
 
     let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency as usize));
     let repo = repos.codex_account.clone();
+    let system_proxy_url = services
+        .proxy_config
+        .get()
+        .await
+        .map_err(CommandError::from)?
+        .proxy_url();
 
     let mut tasks = vec![];
 
@@ -75,7 +82,7 @@ pub async fn register_codex_accounts(
         let permit = semaphore.clone().acquire_owned().await.map_err(map_err)?;
         let app = app_handle.clone();
         let repo = repo.clone();
-        let proxy_url = config.proxy_url.clone();
+        let proxy_url = system_proxy_url.clone();
         let cancel_flag = CANCEL_FLAG.clone();
         let success_count = success_count.clone();
         let fail_count = fail_count.clone();

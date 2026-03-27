@@ -47,7 +47,6 @@ pub struct RegisterConfig {
     pub concurrency: Option<u32>,
     pub min_interval_secs: Option<u64>,
     pub max_interval_secs: Option<u64>,
-    pub proxy_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]

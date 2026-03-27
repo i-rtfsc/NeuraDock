@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/query-client';
 import { ThemeProvider } from './hooks/useTheme';
@@ -8,19 +8,20 @@ import { Toaster } from './components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LoadingState } from './components/ui/loading';
 
-const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const AccountsPage = lazy(() =>
-  import('./pages/AccountsPage').then((m) => ({ default: m.AccountsPage }))
-);
 const AccountOverviewPage = lazy(() =>
   import('./pages/AccountOverviewPage').then((m) => ({ default: m.AccountOverviewPage }))
 );
 const AccountActivityPage = lazy(() =>
   import('./pages/AccountActivityPage').then((m) => ({ default: m.AccountActivityPage }))
 );
-const TokensPage = lazy(() => import('./pages/TokensPage').then((m) => ({ default: m.TokensPage })));
-const ProvidersPage = lazy(() =>
-  import('./pages/ProvidersPage').then((m) => ({ default: m.ProvidersPage }))
+const TokensPage = lazy(() =>
+  import('./pages/TokensPage').then((m) => ({ default: m.TokensPage }))
+);
+const TransitHubPage = lazy(() =>
+  import('./pages/TransitHubPage').then((m) => ({ default: m.TransitHubPage }))
+);
+const DevToolboxPage = lazy(() =>
+  import('./pages/DevToolboxPage').then((m) => ({ default: m.DevToolboxPage }))
 );
 const PreferencesPage = lazy(() =>
   import('./pages/PreferencesPage').then((m) => ({ default: m.PreferencesPage }))
@@ -37,6 +38,25 @@ const CalendarPage = lazy(() =>
 const CodexPage = lazy(() =>
   import('./pages/CodexPage').then((m) => ({ default: m.CodexPage }))
 );
+import { normalizeAiToolboxSection } from './lib/aiToolbox';
+import { buildTransitHubPath, normalizeTransitHubTab } from './lib/transitHub';
+
+function LegacyAiToolsRedirect() {
+  const [searchParams] = useSearchParams();
+  const section = normalizeAiToolboxSection(searchParams.get('section'));
+
+  switch (section) {
+    case 'tokens':
+      return <Navigate to="/tokens" replace />;
+    case 'chat':
+      return <Navigate to="/ai-chat" replace />;
+    case 'codex':
+      return <Navigate to="/codex" replace />;
+    case 'transit':
+    default:
+      return <Navigate to={buildTransitHubPath(normalizeTransitHubTab(searchParams.get('tab')))} replace />;
+  }
+}
 
 function App() {
   return (
@@ -47,12 +67,15 @@ function App() {
             <MainLayout>
               <Suspense fallback={<LoadingState className="h-full" />}>
                 <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/accounts" element={<AccountsPage />} />
+                  <Route path="/" element={<Navigate to={buildTransitHubPath()} replace />} />
+                  <Route path="/accounts" element={<Navigate to={buildTransitHubPath('accounts')} replace />} />
                   <Route path="/accounts/:accountId" element={<AccountOverviewPage />} />
                   <Route path="/account/:accountId/records" element={<AccountActivityPage />} />
+                  <Route path="/providers" element={<TransitHubPage />} />
+                  <Route path="/ai-tools" element={<LegacyAiToolsRedirect />} />
                   <Route path="/tokens" element={<TokensPage />} />
-                  <Route path="/providers" element={<ProvidersPage />} />
+                  <Route path="/dev-tools" element={<DevToolboxPage />} />
+                  <Route path="/daily-tools" element={<Navigate to="/calendar" replace />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/ai-chat" element={<AiChatPage />} />
                   <Route path="/ai-chat/settings" element={<AiChatSettingsPage />} />

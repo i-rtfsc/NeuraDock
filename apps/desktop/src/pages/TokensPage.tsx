@@ -57,6 +57,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { HeaderActions } from '@/components/layout/HeaderActions';
 import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { buildTransitHubPath } from '@/lib/transitHub';
 
 type ProviderFilter = 'all' | 'openai' | 'anthropic' | 'custom';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -271,7 +272,7 @@ export function TokensPage() {
                   variant="ghost"
                   size="sm"
                   className="h-7 px-3 text-xs font-medium text-info hover:text-info/90 hover:bg-info-soft shrink-0"
-                  onClick={() => navigate('/accounts')}
+                  onClick={() => navigate(buildTransitHubPath('accounts'))}
                 >
                   {t('token.goToAccounts', 'Go to Accounts')}
                   <ArrowRight className="ml-1.5 h-3 w-3" />

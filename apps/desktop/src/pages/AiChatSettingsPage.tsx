@@ -319,12 +319,12 @@ export function AiChatSettingsPage() {
       className="h-full"
       title={
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/ai-chat')}
-            className="h-9 w-9 rounded-full hover:bg-muted"
-          >
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/ai-chat')}
+              className="h-9 w-9 rounded-full hover:bg-muted"
+            >
             <ArrowLeft className="h-5 w-5 text-primary" />
           </Button>
           <span className="text-2xl">{t('aiChat.settings')}</span>

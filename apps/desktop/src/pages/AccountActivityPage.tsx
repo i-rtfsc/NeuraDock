@@ -14,6 +14,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTranslation } from 'react-i18next';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { BentoGrid } from '@/components/layout/CardGrid';
+import { buildTransitHubPath } from '@/lib/transitHub';
 
 export function AccountActivityPage() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -44,7 +45,7 @@ export function AccountActivityPage() {
 
   useEffect(() => {
     if (!accountId || (accounts && !account)) {
-      navigate('/accounts');
+      navigate(buildTransitHubPath('accounts'));
     }
   }, [accountId, account, accounts, navigate]);
 
@@ -66,7 +67,7 @@ export function AccountActivityPage() {
       title={
         <div className="flex items-center gap-3 min-w-0">
           <Link
-            to="/accounts"
+            to={buildTransitHubPath('accounts')}
             className="inline-flex items-center justify-center h-btn-icon-sm w-btn-icon-sm rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label={t('accounts.title')}
           >

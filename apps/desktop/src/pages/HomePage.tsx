@@ -16,8 +16,13 @@ import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
+import { buildTransitHubPath } from '@/lib/transitHub';
 
-export function HomePage() {
+interface HomePageProps {
+  embedded?: boolean;
+}
+
+export function HomePage({ embedded = false }: HomePageProps) {
   const { data: accounts, isLoading } = useAccounts();
   const { data: statistics, isLoading: statsLoading } = useBalanceStatistics();
   const { t } = useTranslation();
@@ -49,11 +54,13 @@ export function HomePage() {
   }, [statistics?.providers]);
 
   if (isLoading || statsLoading) {
-    return (
-      <PageContainer>
-        <DashboardSkeleton />
-      </PageContainer>
-    );
+    const skeleton = <DashboardSkeleton />;
+
+    if (embedded) {
+      return skeleton;
+    }
+
+    return <PageContainer>{skeleton}</PageContainer>;
   }
 
   const totalAccounts = accounts?.length || 0;
@@ -61,9 +68,8 @@ export function HomePage() {
   const container: Variants = createStaggerContainer({ staggerChildren: 0.05, delayChildren: 0.1 });
   const item: Variants = createFadeUpItem({ y: 10, scale: 1 });
 
-  return (
-    <PageContainer title={t('dashboard.title')}>
-      <PageContent maxWidth="lg">
+  const pageContent = (
+    <PageContent maxWidth="lg">
         {/* Bento Grid Overview */}
         <motion.div
           variants={container}
@@ -123,7 +129,11 @@ export function HomePage() {
                 <CardContent>
                   <div className="text-3xl font-bold tabular-nums text-foreground">{isLoading ? '...' : totalAccounts}</div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary" onClick={() => navigate('/accounts')}>
+                    <Button
+                      size="sm"
+                      className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary"
+                      onClick={() => navigate(buildTransitHubPath('accounts'))}
+                    >
                       <Users className="mr-2 h-4 w-4" />
                       {t('nav.accounts')}
                     </Button>
@@ -131,7 +141,7 @@ export function HomePage() {
                       size="sm"
                       variant="outline"
                       className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary"
-                      onClick={() => navigate('/providers')}
+                      onClick={() => navigate(buildTransitHubPath('providers'))}
                     >
                       <Server className="mr-2 h-4 w-4" />
                       {t('nav.providers')}
@@ -221,6 +231,11 @@ export function HomePage() {
           </motion.div>
         )}
       </PageContent>
-    </PageContainer>
   );
+
+  if (embedded) {
+    return pageContent;
+  }
+
+  return <PageContainer title={t('dashboard.title')}>{pageContent}</PageContainer>;
 }

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   Plus,
   Upload,
@@ -58,7 +59,15 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import { motion, type Variants } from 'framer-motion';
 import { createFadeUpItem, createStaggerContainer } from '@/lib/motion';
 
-export function AccountsPage() {
+interface AccountsPageProps {
+  embedded?: boolean;
+  embeddedHeaderActionsContainer?: HTMLElement | null;
+}
+
+export function AccountsPage({
+  embedded = false,
+  embeddedHeaderActionsContainer = null,
+}: AccountsPageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: accounts = [], isLoading } = useAccounts();
@@ -240,128 +249,128 @@ export function AccountsPage() {
 
   const hasEnabledAccounts = filteredAccounts.filter(a => a.enabled).length > 0;
 
-  return (
-    <PageContainer
-      className="h-full flex flex-col"
-      title={
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{t('accounts.title')}</span>
-          {accounts && accounts.length > 0 && (
-            <Badge variant="soft-primary" className="text-sm rounded-full px-2.5">
-              {accounts.length}
-            </Badge>
-          )}
-        </div>
-      }
-      actions={
-        <HeaderActions>
-          {/* Search */}
-          <div className="relative w-64">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t('accounts.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
-            />
-          </div>
+  const pageTitle = (
+    <div className="flex items-center gap-3">
+      <span className="text-2xl">{t('accounts.title')}</span>
+      {accounts && accounts.length > 0 && (
+        <Badge variant="soft-primary" className="text-sm rounded-full px-2.5">
+          {accounts.length}
+        </Badge>
+      )}
+    </div>
+  );
 
-          {/* Provider Filter */}
-          <Select value={providerFilter} onValueChange={setProviderFilter}>
-            <SelectTrigger className="w-40 h-9 shadow-sm border-border/50">
-              <SelectValue placeholder={t('accounts.allProviders')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4" />
-                  <span>{t('accounts.allProviders')}</span>
-                </div>
-              </SelectItem>
-              {allProviders.map(p => (
-                <SelectItem key={p.id} value={p.id}>
-                  <div className="flex items-center gap-2">
-                    <Box className="h-4 w-4" />
-                    <span>{p.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <HeaderActionsSeparator />
-
-          {/* Batch Check-in Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBatchCheckIn}
-                disabled={batchCheckInMutation.isPending || !hasEnabledAccounts}
-                title={t('checkIn.batchCheckIn')}
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('checkIn.batchCheckIn', '批量签到')}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Batch Refresh Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBatchRefresh}
-                disabled={refreshAllBalancesMutation.isPending || !hasEnabledAccounts}
-                title={t('accounts.refreshBalances')}
-              >
-                <RefreshCw className={cn(
-                  "h-4 w-4",
-                  refreshAllBalancesMutation.isPending && "animate-spin"
-                )} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('accounts.refreshBalances', '批量刷新余额')}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <HeaderActionsSeparator />
-
-          {/* Add/Manage Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" className="shadow-sm">
-                <Plus className="mr-2 h-4 w-4" />
-                {t('accounts.addAndManage', '添加/管理')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>{t('accounts.accountOperations', '账号操作')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={handleCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                <span>{t('accounts.addAccount')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t('accounts.dataManagement', '数据管理')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setBatchUpdateDialogOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                <span>{t('accounts.batchUpdate')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setJsonImportDialogOpen(true)}>
-                <Download className="mr-2 h-4 w-4" />
-                <span>{t('accounts.importJSON')}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </HeaderActions>
+  const pageActions = (
+    <HeaderActions
+      className={
+        embedded
+          ? 'flex-nowrap justify-end [&>*]:shrink-0'
+          : 'flex-wrap justify-end'
       }
     >
-      <div className="flex-1 flex flex-col gap-6 overflow-visible pt-2">
+      <div className={cn('relative max-w-full', embedded ? 'w-48' : 'w-64')}>
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={t('accounts.searchPlaceholder')}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 h-9 bg-background shadow-sm border-border/50 text-sm"
+        />
+      </div>
+
+      <Select value={providerFilter} onValueChange={setProviderFilter}>
+        <SelectTrigger className={cn('h-9 shadow-sm border-border/50', embedded ? 'w-36' : 'w-40')}>
+          <SelectValue placeholder={t('accounts.allProviders')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4" />
+              <span>{t('accounts.allProviders')}</span>
+            </div>
+          </SelectItem>
+          {allProviders.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              <div className="flex items-center gap-2">
+                <Box className="h-4 w-4" />
+                <span>{p.name}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {!embedded && <HeaderActionsSeparator />}
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleBatchCheckIn}
+            disabled={batchCheckInMutation.isPending || !hasEnabledAccounts}
+            title={t('checkIn.batchCheckIn')}
+          >
+            <Calendar className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{t('checkIn.batchCheckIn', '批量签到')}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleBatchRefresh}
+            disabled={refreshAllBalancesMutation.isPending || !hasEnabledAccounts}
+            title={t('accounts.refreshBalances')}
+          >
+            <RefreshCw className={cn(
+              "h-4 w-4",
+              refreshAllBalancesMutation.isPending && "animate-spin"
+            )} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{t('accounts.refreshBalances', '批量刷新余额')}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {!embedded && <HeaderActionsSeparator />}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" className="shadow-sm">
+            <Plus className="mr-2 h-4 w-4" />
+            {t('accounts.addAndManage', '添加/管理')}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel>{t('accounts.accountOperations', '账号操作')}</DropdownMenuLabel>
+          <DropdownMenuItem onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            <span>{t('accounts.addAccount')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('accounts.dataManagement', '数据管理')}</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setBatchUpdateDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            <span>{t('accounts.batchUpdate')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setJsonImportDialogOpen(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            <span>{t('accounts.importJSON')}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </HeaderActions>
+  );
+
+  const pageBody = (
+    <div className="flex-1 flex flex-col gap-6 overflow-visible pt-2">
         {/* Statistics Cards */}
         {filteredStatistics && (
           <motion.div
@@ -491,8 +500,10 @@ export function AccountsPage() {
           )}
         </div>
       </div>
+  );
 
-      {/* Dialogs */}
+  const dialogs = (
+    <>
       <AccountDialog
         open={accountDialogOpen}
         onOpenChange={handleDialogClose}
@@ -516,6 +527,30 @@ export function AccountsPage() {
       <JsonImportDialog open={jsonImportDialogOpen} onOpenChange={setJsonImportDialogOpen} />
 
       <BatchUpdateDialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen} />
+    </>
+  );
+
+  const embeddedToolbar =
+    embedded && embeddedHeaderActionsContainer
+      ? createPortal(pageActions, embeddedHeaderActionsContainer)
+      : null;
+
+  if (embedded) {
+    return (
+      <>
+        {embeddedToolbar}
+        <div className="flex h-full flex-col">
+          {pageBody}
+          {dialogs}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <PageContainer className="h-full flex flex-col" title={pageTitle} actions={pageActions}>
+      {pageBody}
+      {dialogs}
     </PageContainer>
   );
 }

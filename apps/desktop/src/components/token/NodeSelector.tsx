@@ -12,6 +12,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import type { ProviderNode } from '@/types/token';
 import { useNavigate } from 'react-router-dom';
+import { buildTransitHubPath } from '@/lib/transitHub';
 
 interface NodeSelectorProps {
   providerId: string;
@@ -34,7 +35,7 @@ export function NodeSelector({
   const navigate = useNavigate();
 
   const handleManageNodes = () => {
-    navigate('/providers', {
+    navigate(buildTransitHubPath('providers'), {
       state: { openNodeManager: { providerId } },
     });
     onAfterNavigate?.();

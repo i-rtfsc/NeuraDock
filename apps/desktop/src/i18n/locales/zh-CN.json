@@ -8,6 +8,9 @@
     "accounts": "账号",
     "streaks": "记录",
     "tokens": "API Key",
+    "aiToolbox": "AI工具箱",
+    "devToolbox": "开发工具箱",
+    "dailyToolbox": "日常工具箱",
     "providers": "中转站",
     "settings": "设置",
     "aiChat": "AI 对话",
@@ -16,6 +19,34 @@
       "checkin": "签到管理",
       "tools": "工具箱"
     }
+  },
+  "transitHub": {
+    "manageTab": "管理"
+  },
+  "aiToolbox": {
+    "description": "将 AI 相关能力集中到一个工作区中。",
+    "sections": {
+      "transit": {
+        "title": "中转站",
+        "description": "管理中转站、账号和工作台"
+      },
+      "tokens": {
+        "title": "API Key",
+        "description": "管理独立 API Key"
+      },
+      "chat": {
+        "title": "AI 对话",
+        "description": "访问已接入的 AI 服务"
+      },
+      "codex": {
+        "title": "Codex",
+        "description": "处理注册和账号管理"
+      }
+    }
+  },
+  "devToolbox": {
+    "comingSoonTitle": "建设中",
+    "comingSoonDescription": "开发工具箱功能还在规划中，后续会逐步补充。"
   },
   "sidebar": {
     "doubleClickToExpand": "双击展开侧边栏",
@@ -918,11 +949,33 @@
       "mode": "注册模式",
       "modeSingle": "单个注册",
       "modeBatch": "批量注册",
+      "modeSingleHint": "一次只创建 1 个账号，适合先验证流程是否通顺。",
+      "modeBatchHint": "按设定数量批量创建账号，适合连续跑注册任务。",
       "count": "注册数量",
       "concurrency": "并发数",
       "minInterval": "最小间隔（秒）",
       "maxInterval": "最大间隔（秒）",
       "proxy": "代理 URL（可选）",
+      "proxyInheritedHint": "会自动复用“设置 → 系统”里的代理配置；如果系统代理已启用，注册流程会直接走该代理。",
+      "configureBadge": "准备区",
+      "configureTitle": "注册参数",
+      "configureDescription": "先选好注册方式，再决定批量任务的数量与节奏。开始后右侧会显示实时控制台和进度。",
+      "singleModeHint": "单个注册模式下不会额外展开批量参数，更适合快速确认当前环境与流程是否正常。",
+      "systemProxy": "系统代理",
+      "systemProxyLoading": "正在读取系统代理配置...",
+      "systemProxyDisabled": "未启用系统代理",
+      "openProxySettings": "打开代理设置",
+      "environmentTitle": "环境概览",
+      "environmentDescription": "把当前运行态、系统代理和最近注册数量集中放在这里，避免来回切页确认。",
+      "runtimeStatus": "运行状态",
+      "runtimeIdle": "空闲",
+      "runtimeRunning": "注册中",
+      "runtimeStopping": "停止中",
+      "recentCount": "最近注册数",
+      "recentCountValue": "{{count}} 个",
+      "consoleDescription": "实时输出注册日志、当前任务和进度，便于随时观察流程卡在哪一步。",
+      "recentDescription": "显示最近通过注册流程创建的账号，方便快速回看结果。",
+      "progressPercent": "{{percent}}%",
       "start": "开始注册",
       "cancel": "取消",
       "cancelling": "取消中...",

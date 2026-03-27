@@ -8,6 +8,9 @@
     "accounts": "Accounts",
     "streaks": "Records",
     "tokens": "API Key",
+    "aiToolbox": "AI Toolbox",
+    "devToolbox": "Dev Toolbox",
+    "dailyToolbox": "Daily Toolbox",
     "providers": "Providers",
     "settings": "Settings",
     "aiChat": "AI Chat",
@@ -16,6 +19,34 @@
       "checkin": "Check-in",
       "tools": "Tools"
     }
+  },
+  "transitHub": {
+    "manageTab": "Manage"
+  },
+  "aiToolbox": {
+    "description": "Group AI-related capabilities into one workspace.",
+    "sections": {
+      "transit": {
+        "title": "Transit Hub",
+        "description": "Manage relays, accounts, and the workspace"
+      },
+      "tokens": {
+        "title": "API Key",
+        "description": "Manage standalone API keys"
+      },
+      "chat": {
+        "title": "AI Chat",
+        "description": "Open connected AI services"
+      },
+      "codex": {
+        "title": "Codex",
+        "description": "Handle registration and account management"
+      }
+    }
+  },
+  "devToolbox": {
+    "comingSoonTitle": "Coming soon",
+    "comingSoonDescription": "The dev toolbox is still being planned and will be expanded later."
   },
   "sidebar": {
     "doubleClickToExpand": "Double click to expand sidebar",
@@ -917,11 +948,33 @@
       "mode": "Registration mode",
       "modeSingle": "Single account",
       "modeBatch": "Batch accounts",
+      "modeSingleHint": "Create one account at a time. Best for validating the flow first.",
+      "modeBatchHint": "Create multiple accounts in sequence with controlled pacing.",
       "count": "Account count",
       "concurrency": "Concurrency",
       "minInterval": "Min interval (s)",
       "maxInterval": "Max interval (s)",
       "proxy": "Proxy URL (optional)",
+      "proxyInheritedHint": "Registration automatically reuses the proxy configured under Settings -> System. If system proxy is enabled, the whole flow runs through it.",
+      "configureBadge": "Setup",
+      "configureTitle": "Registration setup",
+      "configureDescription": "Choose how you want to register, then decide the batch size and pace. Once started, the live console and progress stay visible on the right.",
+      "singleModeHint": "Single mode keeps the form lightweight and is ideal for checking whether the current environment works end to end.",
+      "systemProxy": "System proxy",
+      "systemProxyLoading": "Loading system proxy configuration...",
+      "systemProxyDisabled": "System proxy is disabled",
+      "openProxySettings": "Open proxy settings",
+      "environmentTitle": "Environment overview",
+      "environmentDescription": "Keep the current runtime state, system proxy, and recent registration count in one place.",
+      "runtimeStatus": "Runtime status",
+      "runtimeIdle": "Idle",
+      "runtimeRunning": "Running",
+      "runtimeStopping": "Stopping",
+      "recentCount": "Recent registrations",
+      "recentCountValue": "{{count}} items",
+      "consoleDescription": "Watch live logs, the active task, and progress so it is easy to spot where the flow is currently working.",
+      "recentDescription": "Shows the latest accounts created through the registration flow for quick review.",
+      "progressPercent": "{{percent}}%",
       "start": "Start registration",
       "cancel": "Cancel",
       "cancelling": "Cancelling...",
