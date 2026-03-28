@@ -1,19 +1,46 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
-type ThemeStyle = 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean' | 'cotton' | 'lavender' | 'peach';
+export type Theme = 'light' | 'dark' | 'system';
+export type ThemeStyle =
+  | 'default'
+  | 'graphite'
+  | 'emerald'
+  | 'sunset'
+  | 'midnight'
+  | 'rose'
+  | 'ocean'
+  | 'cotton'
+  | 'lavender'
+  | 'peach';
+export type ThemeSkin = 'soft' | 'sharp' | 'glass' | 'minimal' | 'vivid';
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   style: ThemeStyle;
   setThemeStyle: (style: ThemeStyle) => void;
+  skin: ThemeSkin;
+  setThemeSkin: (skin: ThemeSkin) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'neuradock-theme';
 const THEME_STYLE_STORAGE_KEY = 'neuradock-theme-style';
+const THEME_SKIN_STORAGE_KEY = 'neuradock-theme-skin';
+const THEME_STYLES: ThemeStyle[] = [
+  'default',
+  'graphite',
+  'emerald',
+  'sunset',
+  'midnight',
+  'rose',
+  'ocean',
+  'cotton',
+  'lavender',
+  'peach',
+];
+const THEME_SKINS: ThemeSkin[] = ['soft', 'sharp', 'glass', 'minimal', 'vivid'];
 const THEME_STYLE_CLASSES = [
   'theme-default',
   'theme-graphite',
@@ -26,6 +53,29 @@ const THEME_STYLE_CLASSES = [
   'theme-lavender',
   'theme-peach',
 ];
+const THEME_SKIN_CLASSES = [
+  'skin-default',
+  'skin-soft',
+  'skin-compact',
+  'skin-sharp',
+  'skin-glass',
+  'skin-minimal',
+  'skin-vivid',
+];
+const LEGACY_THEME_SKIN_MAP: Record<string, ThemeSkin> = {
+  default: 'soft',
+  compact: 'sharp',
+};
+
+function isThemeStyle(value: string | null): value is ThemeStyle {
+  return value !== null && THEME_STYLES.includes(value as ThemeStyle);
+}
+
+function normalizeThemeSkin(value: string | null): ThemeSkin {
+  if (!value) return 'soft';
+  if (THEME_SKINS.includes(value as ThemeSkin)) return value as ThemeSkin;
+  return LEGACY_THEME_SKIN_MAP[value] ?? 'soft';
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -35,9 +85,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
   const [style, setStyleState] = useState<ThemeStyle>(() => {
     const stored = localStorage.getItem(THEME_STYLE_STORAGE_KEY);
-    return (stored === 'default' || stored === 'graphite' || stored === 'emerald' || stored === 'sunset' || stored === 'midnight' || stored === 'rose' || stored === 'ocean' || stored === 'cotton' || stored === 'lavender' || stored === 'peach')
-      ? stored
-      : 'default';
+    return isThemeStyle(stored) ? stored : 'default';
+  });
+  const [skin, setSkinState] = useState<ThemeSkin>(() => {
+    const stored = localStorage.getItem(THEME_SKIN_STORAGE_KEY);
+    return normalizeThemeSkin(stored);
   });
 
   const setTheme = (newTheme: Theme) => {
@@ -48,6 +100,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setThemeStyle = (newStyle: ThemeStyle) => {
     localStorage.setItem(THEME_STYLE_STORAGE_KEY, newStyle);
     setStyleState(newStyle);
+  };
+
+  const setThemeSkin = (newSkin: ThemeSkin) => {
+    localStorage.setItem(THEME_SKIN_STORAGE_KEY, newSkin);
+    setSkinState(newSkin);
   };
 
   useEffect(() => {
@@ -88,8 +145,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.add(`theme-${style}`);
     };
 
+    const applySkin = (nextSkin: ThemeSkin) => {
+      root.classList.remove(...THEME_SKIN_CLASSES);
+      root.classList.add(`skin-${nextSkin}`);
+    };
+
     applyTheme(theme);
     applyStyle(style);
+    applySkin(skin);
     void syncTauriTheme(theme);
 
     // Listen for system theme changes when theme is 'system'
@@ -113,10 +176,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         return () => mediaQuery.removeListener(handleChange);
       }
     }
-  }, [theme, style]);
+  }, [theme, style, skin]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, style, setThemeStyle }}>
+    <ThemeContext.Provider value={{ theme, setTheme, style, setThemeStyle, skin, setThemeSkin }}>
       {children}
     </ThemeContext.Provider>
   );

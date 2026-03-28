@@ -78,7 +78,7 @@ export function TransitHubPage() {
               </TabsTrigger>
               <TabsTrigger value="providers" className={TAB_CLASS}>
                 <Server className="w-4 h-4 mr-2" />
-                {t('transitHub.manageTab', '管理')}
+                {t('transitHub.manageTab', 'Manage')}
               </TabsTrigger>
             </TabsList>
           </div>

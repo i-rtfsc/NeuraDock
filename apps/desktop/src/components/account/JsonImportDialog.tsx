@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { accountCommands } from '@/lib/tauri-commands';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
@@ -232,7 +233,6 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
                   size="sm"
                   onClick={formatJson}
                   disabled={isSubmitting}
-                  className="rounded-full"
                 >
                   {t('jsonImport.format')}
                 </Button>
@@ -242,16 +242,15 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
                   size="sm"
                   onClick={validateJson}
                   disabled={isSubmitting}
-                  className="rounded-full"
                 >
                   {t('jsonImport.validate')}
                 </Button>
               </div>
             </div>
-            <textarea
+            <Textarea
               id="json-input"
               rows={12}
-              className="w-full rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--control-bg))] px-3 py-2 text-sm text-[hsl(var(--control-text))] ring-offset-background placeholder:text-[hsl(var(--control-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--control-ring))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+              className="font-mono"
               placeholder={t('jsonImport.placeholder')}
               value={jsonInput}
               onChange={(e) => {
@@ -345,7 +344,6 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
               size="sm"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
-              className="rounded-full"
             >
               {t('jsonImport.cancel')}
             </Button>
@@ -355,7 +353,6 @@ export function JsonImportDialog({ open, onOpenChange }: JsonImportDialogProps) 
               size="sm"
               onClick={handleImport}
               disabled={!validationResult?.valid || isSubmitting}
-              className="rounded-full"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Upload className="mr-2 h-4 w-4" />

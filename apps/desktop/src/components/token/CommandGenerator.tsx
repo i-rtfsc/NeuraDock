@@ -226,8 +226,8 @@ export function CommandGenerator({
               </Button>
             </div>
 
-            <div className="relative rounded-lg border bg-zinc-950 shadow-inner overflow-hidden group">
-              <div className="absolute top-0 left-0 right-0 h-7 bg-zinc-900/50 flex items-center px-2.5 gap-1.5 border-b border-zinc-800 justify-between">
+            <div className="relative rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--popover))] shadow-inner overflow-hidden group">
+              <div className="absolute top-0 left-0 right-0 h-7 bg-[hsl(var(--muted)/0.65)] flex items-center px-2.5 gap-1.5 border-b border-[hsl(var(--control-border))] justify-between backdrop-blur-[var(--control-surface-blur,0px)]">
                 <div className="flex gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-danger/30" />
                   <div className="h-2 w-2 rounded-full bg-warning/30" />
@@ -236,7 +236,7 @@ export function CommandGenerator({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-5 px-1.5 text-[10px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                  className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
                   onClick={handleCopyCommands}
                 >
                   {copied ? (
@@ -253,7 +253,7 @@ export function CommandGenerator({
                 value={displayCommands}
                 readOnly
                 className={cn(
-                  'w-full resize-none bg-transparent font-mono text-[11px] text-zinc-300 border-none focus-visible:ring-0 px-3 pt-9 pb-3 leading-relaxed selection:bg-primary/30',
+                  'w-full resize-none bg-transparent font-mono text-[11px] text-foreground border-none focus-visible:ring-0 px-3 pt-9 pb-3 leading-relaxed selection:bg-primary/30',
                   isSingleLine
                     ? 'min-h-[70px] whitespace-nowrap overflow-x-auto'
                     : 'min-h-[100px]'

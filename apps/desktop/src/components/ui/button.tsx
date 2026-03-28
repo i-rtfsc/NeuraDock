@@ -8,11 +8,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'btn-gradient-primary text-primary-foreground shadow-sm hover:scale-[var(--scale-hover)] border-0',
+        default:
+          'bg-[hsl(var(--primary))] text-primary-foreground border border-transparent shadow-sm hover:bg-[hsl(var(--primary)/0.93)] hover:shadow-hover-sm hover:scale-[var(--scale-hover)]',
         destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-hover-sm hover:scale-[var(--scale-hover)]',
         outline: 'border-2 border-[hsl(var(--control-border))] bg-[hsl(var(--control-bg))] text-[hsl(var(--control-text))] hover:bg-[hsl(var(--control-bg-hover))] hover:border-[hsl(var(--control-border-hover))] hover:shadow-sm hover:scale-[var(--scale-hover)]',
-        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-hover-sm hover:scale-[var(--scale-hover)]',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
+        secondary:
+          'bg-secondary text-secondary-foreground border border-transparent shadow-sm hover:bg-[hsl(var(--secondary)/0.9)] hover:shadow-hover-sm hover:scale-[var(--scale-hover)]',
+        ghost:
+          'border border-transparent hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] hover:border-[hsl(var(--control-border)/0.7)]',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

@@ -10,7 +10,7 @@ export function DevToolboxPage() {
 
   return (
     <PageContainer title={t('nav.devToolbox', '开发工具箱')}>
-      <PageContent maxWidth="md" centered>
+      <PageContent maxWidth="md" centered className="page-enter-stagger">
         <EmptyState
           icon={<Hammer className="h-12 w-12" />}
           title={t('devToolbox.comingSoonTitle', '建设中')}

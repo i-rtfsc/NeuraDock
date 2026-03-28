@@ -158,13 +158,13 @@ export function IndependentKeyConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden h-[600px] flex flex-col bg-zinc-50/50 dark:bg-zinc-950/50 backdrop-blur-xl">
+      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden h-[600px] flex flex-col">
         <div className="flex h-full">
           {/* Left Sidebar - Tool Selection */}
           <div className="w-64 bg-background/80 border-r flex flex-col shrink-0 backdrop-blur-sm">
             <div className="p-5 border-b space-y-3">
               <div>
-                <h2 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                <h2 className="font-semibold text-xs text-muted-foreground tracking-wider mb-1">
                   {t('token.selectTool', 'Integrations')}
                 </h2>
                 <div className="flex items-center gap-2 text-xs">
@@ -183,11 +183,14 @@ export function IndependentKeyConfigDialog({
                   const Icon = tool.icon;
                   const isSelected = selectedTool === tool.id;
                   return (
-                    <button
+                    <Button
                       key={tool.id}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setSelectedTool(tool.id as AITool)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-base ease-smooth",
+                        "w-full h-auto justify-start gap-3 px-3 py-3 text-left transition-all duration-base ease-smooth",
                         isSelected
                           ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                           : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -206,7 +209,7 @@ export function IndependentKeyConfigDialog({
                         </div>
                       </div>
                       {isSelected && <ChevronRight className="h-4 w-4 opacity-50" />}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -364,8 +367,8 @@ export function IndependentKeyConfigDialog({
                             </Button>
                           </div>
 
-                          <div className="relative rounded-lg border bg-zinc-950 shadow-inner overflow-hidden group">
-                            <div className="absolute top-0 left-0 right-0 h-7 bg-zinc-900/50 flex items-center px-2.5 gap-1.5 border-b border-zinc-800 justify-between">
+                          <div className="relative rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--popover))] shadow-inner overflow-hidden group">
+                            <div className="absolute top-0 left-0 right-0 h-7 bg-[hsl(var(--muted)/0.65)] flex items-center px-2.5 gap-1.5 border-b border-[hsl(var(--control-border))] justify-between backdrop-blur-[var(--control-surface-blur,0px)]">
                               <div className="flex gap-1.5">
                                 <div className="h-2 w-2 rounded-full bg-danger/30" />
                                 <div className="h-2 w-2 rounded-full bg-warning/30" />
@@ -374,7 +377,7 @@ export function IndependentKeyConfigDialog({
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-5 px-1.5 text-[10px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                                className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
                                 onClick={handleCopyCommands}
                               >
                                 {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
@@ -385,7 +388,7 @@ export function IndependentKeyConfigDialog({
                               value={displayCommands}
                               readOnly
                               className={cn(
-                                "w-full resize-none bg-transparent font-mono text-[11px] text-zinc-300 border-none focus-visible:ring-0 px-3 pt-9 pb-3 leading-relaxed selection:bg-primary/30",
+                                "w-full resize-none bg-transparent font-mono text-[11px] text-foreground border-none focus-visible:ring-0 px-3 pt-9 pb-3 leading-relaxed selection:bg-primary/30",
                                 isSingleLine ? "min-h-[70px] whitespace-nowrap overflow-x-auto" : "min-h-[100px]"
                               )}
                             />

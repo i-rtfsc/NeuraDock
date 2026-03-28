@@ -50,7 +50,7 @@ export function CodexPage() {
           </TabsList>
         }
       >
-        <PageContent maxWidth="none" className="h-full">
+        <PageContent maxWidth="none" className="h-full page-enter-stagger">
           <div className="pb-8 w-full h-full">
             <TabsContent
               value="register"

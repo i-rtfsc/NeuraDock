@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -186,15 +187,14 @@ export function AccountForm({
             size="sm"
             onClick={formatJson}
             disabled={isSubmitting}
-            className="rounded-full"
           >
             {t('accountForm.formatJson')}
           </Button>
         </div>
-        <textarea
+        <Textarea
           id="cookies"
           rows={6}
-          className="w-full rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--control-bg))] px-3 py-2 text-sm text-[hsl(var(--control-text))] ring-offset-background placeholder:text-[hsl(var(--control-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--control-ring))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+          className="font-mono"
           placeholder={t('accountForm.cookiesPlaceholder')}
           {...register('cookies_json')}
           disabled={isSubmitting}
@@ -335,18 +335,11 @@ export function AccountForm({
             size="sm"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="rounded-full"
           >
             {t('accountForm.cancel')}
           </Button>
         )}
-        <Button 
-          type="submit" 
-          variant="outline" 
-          size="sm" 
-          disabled={isSubmitting} 
-          className="rounded-full"
-        >
+        <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {mode === 'create' ? t('accountForm.create') : t('accountForm.save')}
         </Button>

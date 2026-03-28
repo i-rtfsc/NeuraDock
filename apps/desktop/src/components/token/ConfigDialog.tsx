@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import {
   AlertTriangle,
   Terminal,
@@ -99,13 +100,13 @@ export function ConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden h-[600px] flex flex-col bg-zinc-50/50 dark:bg-zinc-950/50 backdrop-blur-xl">
+      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden h-[600px] flex flex-col">
         <div className="flex h-full">
           {/* Left Sidebar - Tool Selection */}
           <div className="w-64 bg-background/80 border-r flex flex-col shrink-0 backdrop-blur-sm">
             <div className="p-5 border-b space-y-3">
               <div>
-                <h2 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                <h2 className="font-semibold text-xs text-muted-foreground tracking-wider mb-1">
                   {t('token.selectTool', 'Integrations')}
                 </h2>
                 <div className="flex items-center gap-2 text-xs">
@@ -138,12 +139,15 @@ export function ConfigDialog({
                   const Icon = tool.icon;
                   const isSelected = selectedTool === tool.id;
                   return (
-                    <button
+                    <Button
                       key={tool.id}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => !tool.disabled && setSelectedTool(tool.id)}
                       disabled={tool.disabled}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-base ease-smooth',
+                        'w-full h-auto justify-start gap-3 px-3 py-3 text-left transition-all duration-base ease-smooth',
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
                           : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
@@ -176,7 +180,7 @@ export function ConfigDialog({
                         </div>
                       </div>
                       {isSelected && <ChevronRight className="h-4 w-4 opacity-50" />}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

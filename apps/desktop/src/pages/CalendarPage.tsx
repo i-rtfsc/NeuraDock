@@ -8,7 +8,7 @@ export function CalendarPage() {
 
   return (
     <PageContainer title={t('nav.calendar')}>
-      <PageContent maxWidth="md" centered>
+      <PageContent maxWidth="md" centered className="page-enter-stagger">
         <CalendarGrid />
       </PageContent>
     </PageContainer>

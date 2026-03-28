@@ -21,7 +21,10 @@ import {
   Palette,
   Settings,
   HardDrive,
-  Globe
+  Globe,
+  ShieldCheck,
+  FileText,
+  CalendarClock
 } from 'lucide-react';
 import { useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -32,18 +35,23 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import { cn } from '@/lib/utils';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageContent } from '@/components/layout/PageContent';
+import type { ThemeStyle, ThemeSkin } from '@/hooks/useTheme';
 
-type PreferencesTab = 'general' | 'system' | 'notifications' | 'about';
+type PreferencesTab = 'appearance' | 'workspace' | 'system' | 'about';
 
-const DEFAULT_PREFERENCES_TAB: PreferencesTab = 'general';
+const DEFAULT_PREFERENCES_TAB: PreferencesTab = 'appearance';
 
 function normalizePreferencesTab(value?: string | null): PreferencesTab {
   switch (value) {
+    case 'appearance':
+    case 'workspace':
     case 'system':
-    case 'notifications':
     case 'about':
-    case 'general':
       return value;
+    case 'general':
+      return 'appearance';
+    case 'notifications':
+      return 'workspace';
     default:
       return DEFAULT_PREFERENCES_TAB;
   }
@@ -62,7 +70,7 @@ const SettingsGroup = ({ title, children, className, contentClassName }: Setting
   <div className={cn("space-y-3 w-full", className)}>
     {title && (
       <div className="flex items-center gap-2 px-1 ml-1">
-        <Badge variant="soft-primary" className="rounded-md h-6 font-bold uppercase tracking-wider text-[10px]">
+        <Badge variant="soft-primary" className="rounded-md h-6 font-bold tracking-wider text-[10px]">
           {title}
         </Badge>
       </div>
@@ -125,8 +133,21 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
 // --- Sub-Components ---
 
 const GeneralSettings = () => {
-  const { theme, setTheme, style, setThemeStyle } = useTheme();
+  const { theme, setTheme, style, setThemeStyle, skin, setThemeSkin } = useTheme();
   const { t, i18n } = useTranslation();
+  const THEME_STYLE_OPTIONS: ThemeStyle[] = [
+    'default',
+    'graphite',
+    'emerald',
+    'sunset',
+    'midnight',
+    'rose',
+    'ocean',
+    'cotton',
+    'lavender',
+    'peach',
+  ];
+  const THEME_SKIN_OPTIONS: ThemeSkin[] = ['soft', 'sharp', 'glass', 'minimal', 'vivid'];
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -161,24 +182,36 @@ const GeneralSettings = () => {
         >
           <Select
             value={style}
-            onValueChange={(value) =>
-              setThemeStyle(value as 'default' | 'graphite' | 'emerald' | 'sunset' | 'midnight' | 'rose' | 'ocean' | 'cotton' | 'lavender' | 'peach')
-            }
+            onValueChange={(value) => setThemeStyle(value as ThemeStyle)}
           >
             <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">{t('settings.themeDefault')}</SelectItem>
-              <SelectItem value="graphite">{t('settings.themeGraphite')}</SelectItem>
-              <SelectItem value="emerald">{t('settings.themeEmerald')}</SelectItem>
-              <SelectItem value="sunset">{t('settings.themeSunset')}</SelectItem>
-              <SelectItem value="midnight">{t('settings.themeMidnight')}</SelectItem>
-              <SelectItem value="rose">{t('settings.themeRose')}</SelectItem>
-              <SelectItem value="ocean">{t('settings.themeOcean')}</SelectItem>
-              <SelectItem value="cotton">{t('settings.themeCotton')}</SelectItem>
-              <SelectItem value="lavender">{t('settings.themeLavender')}</SelectItem>
-              <SelectItem value="peach">{t('settings.themePeach')}</SelectItem>
+              {THEME_STYLE_OPTIONS.map((styleOption) => (
+                <SelectItem key={styleOption} value={styleOption}>
+                  {t(`settings.theme${styleOption.charAt(0).toUpperCase()}${styleOption.slice(1)}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
+
+        <SettingsRow
+          icon={Palette}
+          label={t('settings.themeSkin')}
+          description={t('settings.themeSkinDescription')}
+        >
+          <Select value={skin} onValueChange={(value) => setThemeSkin(value as ThemeSkin)}>
+            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {THEME_SKIN_OPTIONS.map((skinOption) => (
+                <SelectItem key={skinOption} value={skinOption}>
+                  {t(`settings.themeSkin${skinOption.charAt(0).toUpperCase()}${skinOption.slice(1)}`)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </SettingsRow>
@@ -464,15 +497,21 @@ const SystemSettings = () => {
   );
 };
 
-const NotificationSettings = () => {
+const WorkspaceSettings = () => {
+  const { t } = useTranslation();
   const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
 
   return (
-    <div className="animate-in fade-in duration-base w-full">
-      <NotificationChannelList
-        channels={notificationChannels}
-        onUpdate={refetchChannels}
-      />
+    <div className="space-y-section-gap animate-in fade-in duration-base w-full">
+      <SettingsGroup
+        title={t('settings.notification')}
+        contentClassName="p-4 sm:p-5"
+      >
+        <NotificationChannelList
+          channels={notificationChannels}
+          onUpdate={refetchChannels}
+        />
+      </SettingsGroup>
     </div>
   );
 };
@@ -500,69 +539,74 @@ const AboutSettings = () => {
     : 'bg-success-soft text-success border border-success-border';
 
   return (
-    <div className="space-y-section-gap animate-in fade-in duration-base w-full">
-      {/* App Info Group */}
+    <div className="space-y-section-gap w-full">
       <SettingsGroup title={t('settings.about')}>
-        <div className="p-8 flex flex-col items-center text-center gap-5 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent">
-           <div className="w-20 h-20 rounded-[1.5rem] bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-              <span className="text-4xl font-bold">N</span>
-           </div>
-           
-           <div className="space-y-1.5">
-              <h3 className="text-2xl font-bold tracking-tight text-foreground">NeuraDock</h3>
-              <div className="flex items-center gap-2 justify-center">
-                 <span className="text-muted-foreground font-mono text-sm">v{appVersion.version}</span>
-                 <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", profileColorClass)}>
-                   {profileText}
-                 </span>
+        <div className="p-6 sm:p-7 border-b border-border/40">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card className="border-border/40 bg-muted/20 p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-[var(--radius-control)] bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">{t('settings.version')}</p>
+                  <p className="text-base font-semibold text-foreground font-mono truncate">v{appVersion.version}</p>
+                </div>
               </div>
-           </div>
+            </Card>
+            <Card className="border-border/40 bg-muted/20 p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-[var(--radius-control)] bg-info-soft text-info border border-info-border flex items-center justify-center">
+                  <CalendarClock className="h-4 w-4" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">{t('settings.buildProfile')}</p>
+                  <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider", profileColorClass)}>
+                    {profileText}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
-        
-        <SettingsRow 
-           icon={Info} 
-           label={t('settings.copyright')} 
-           action={<span className="text-sm font-medium text-muted-foreground">© 2025 NeuraDock</span>}
-           isLast
+
+        <SettingsRow
+          icon={Info}
+          label={t('settings.copyright')}
+          action={<span className="text-sm font-medium text-muted-foreground">© 2026 NeuraDock</span>}
+        />
+        <SettingsRow
+          icon={FileText}
+          label={t('disclaimer.license.title')}
+          description={t('disclaimer.license.description')}
+          isLast
         />
       </SettingsGroup>
 
-      {/* Legal & Disclaimer Group */}
       <SettingsGroup title={t('disclaimer.title')}>
-         <div className="p-6 space-y-8">
-            {/* Liability Section */}
-            <div className="flex gap-5 items-start">
-               <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-warning-soft flex items-center justify-center text-warning border border-warning-border">
-                  <AlertTriangle className="h-5 w-5" />
-               </div>
-               <div className="space-y-3 flex-1">
-                  <h4 className="text-base font-semibold text-foreground">{t('disclaimer.liability.title')}</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {t('disclaimer.liability.description')}
-                  </p>
-                  <div className="text-xs font-medium text-warning-soft-foreground bg-warning-soft px-3 py-2 rounded-[var(--radius-control)] border border-warning-border">
-                    ⚠️ {t('disclaimer.liability.warning')}
-                  </div>
-               </div>
+        <div className="p-5 sm:p-6 grid gap-4">
+          <Card className="border-warning-border bg-warning-soft/40 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+              <div className="space-y-1.5">
+                <h4 className="text-sm font-semibold text-foreground">{t('disclaimer.liability.title')}</h4>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t('disclaimer.liability.description')}</p>
+                <p className="text-xs font-medium text-warning-soft-foreground">{t('disclaimer.liability.warning')}</p>
+              </div>
             </div>
+          </Card>
 
-            <div className="w-full h-px bg-border/40" />
-
-            {/* License Section */}
-            <div className="flex gap-5 items-start">
-               <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-info-soft flex items-center justify-center text-info border border-info-border">
-                  <Scale className="h-5 w-5" />
-               </div>
-               <div className="space-y-3 flex-1">
-                  <h4 className="text-base font-semibold text-foreground">{t('disclaimer.license.title')}</h4>
-                  <div className="text-sm text-muted-foreground leading-relaxed space-y-3">
-                    <p>{t('disclaimer.license.description')}</p>
-                    <p className="font-medium text-foreground/90 bg-muted/30 px-3 py-2 rounded-[var(--radius-control)]">{t('disclaimer.license.commercial')}</p>
-                    <p className="text-xs italic opacity-70">{t('disclaimer.license.footer')}</p>
-                  </div>
-               </div>
+          <Card className="border-info-border bg-info-soft/35 p-4">
+            <div className="flex items-start gap-3">
+              <Scale className="h-4 w-4 mt-0.5 text-info shrink-0" />
+              <div className="space-y-1.5">
+                <h4 className="text-sm font-semibold text-foreground">{t('disclaimer.license.title')}</h4>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t('disclaimer.license.commercial')}</p>
+                <p className="text-xs italic text-muted-foreground/80">{t('disclaimer.license.footer')}</p>
+              </div>
             </div>
-         </div>
+          </Card>
+        </div>
       </SettingsGroup>
     </div>
   );
@@ -589,11 +633,17 @@ export function PreferencesPage() {
         actions={
           <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-[var(--radius-control)] inline-flex items-center justify-center">
             <TabsTrigger 
-              value="general" 
+              value="appearance"
               className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
             >
               <Settings className="w-4 h-4 mr-2" />
-              {t('settings.general', 'General')}
+              {t('settings.appearance', 'Appearance')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="workspace"
+              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
+            >
+              {t('settings.workspace', 'Workspace')}
             </TabsTrigger>
             <TabsTrigger 
               value="system" 
@@ -601,12 +651,6 @@ export function PreferencesPage() {
             >
               <HardDrive className="w-4 h-4 mr-2" />
               {t('settings.system', 'System')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="notifications" 
-              className="text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth"
-            >
-              {t('settings.notification')}
             </TabsTrigger>
             <TabsTrigger 
               value="about" 
@@ -617,16 +661,16 @@ export function PreferencesPage() {
           </TabsList>
         }
       >
-        <PageContent maxWidth="lg" className="h-full">
+        <PageContent maxWidth="lg" className="h-full page-enter-stagger">
              <div className="pb-32 w-full">
-                <TabsContent value="general" className="mt-0 outline-none w-full">
+                <TabsContent value="appearance" className="mt-0 outline-none w-full">
                   <GeneralSettings />
+                </TabsContent>
+                <TabsContent value="workspace" className="mt-0 outline-none w-full">
+                  <WorkspaceSettings />
                 </TabsContent>
                 <TabsContent value="system" className="mt-0 outline-none w-full">
                   <SystemSettings />
-                </TabsContent>
-                <TabsContent value="notifications" className="mt-0 outline-none w-full">
-                  <NotificationSettings />
                 </TabsContent>
                 <TabsContent value="about" className="mt-0 outline-none w-full">
                   <AboutSettings />

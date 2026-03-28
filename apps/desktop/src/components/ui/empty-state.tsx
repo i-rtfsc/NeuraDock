@@ -39,7 +39,7 @@ export function EmptyState({
       {action && (
         <Button
           onClick={action.onClick}
-          className="rounded-full"
+          className="rounded-[var(--radius-control)]"
           size="sm"
         >
           {action.label}

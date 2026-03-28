@@ -84,7 +84,7 @@ export function ProviderCard({
                     {provider.name}
                   </h3>
                   {provider.is_builtin && (
-                    <Badge variant="soft-primary" className="shrink-0 text-[10px] h-5 font-bold uppercase tracking-wider">
+                    <Badge variant="soft-primary" className="shrink-0 text-[10px] h-5 font-bold tracking-wider">
                       {t('providerCard.builtin')}
                     </Badge>
                   )}
@@ -98,13 +98,13 @@ export function ProviderCard({
               {/* Actions Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="h-9 w-9 -mr-2 -mt-2 opacity-40 group-hover:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-9 w-9 -mr-2 -mt-2 opacity-40 group-hover:opacity-100 hover:bg-primary/10 hover:text-primary transition-all"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl">
                   <DropdownMenuItem onClick={() => onEdit(provider)} className="rounded-lg gap-3">
@@ -133,7 +133,7 @@ export function ProviderCard({
             {/* Stats - Grid style for energy */}
             <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-border/30">
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest px-1">
+                <span className="text-[10px] font-black text-foreground/50 tracking-widest px-1">
                   {t('dashboard.accounts_plural', 'Accounts')}
                 </span>
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-primary/5 border border-primary/10 group-hover:bg-primary/10 transition-colors">
@@ -145,24 +145,22 @@ export function ProviderCard({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest px-1">
-                  Security
+                <span className="text-[10px] font-black text-foreground/50 tracking-widest px-1">
+                  {t('providerCard.security')}
                 </span>
-                <div className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded-xl border transition-colors",
-                  needsWafBypass 
-                    ? "bg-warning/5 border-warning/10 text-warning group-hover:bg-warning/10" 
-                    : "bg-success/5 border-success/10 text-success group-hover:bg-success/10"
-                )}>
+                <Badge
+                  variant={needsWafBypass ? 'soft-warning' : 'soft-success'}
+                  className="h-auto w-fit py-1.5 px-2 text-sm gap-2 transition-colors"
+                >
                   {needsWafBypass ? (
                     <Shield className="h-3.5 w-3.5" />
                   ) : (
                     <ShieldOff className="h-3.5 w-3.5 opacity-80" />
                   )}
                   <span className="text-sm font-bold truncate">
-                    {needsWafBypass ? "WAF" : "Open"}
+                    {needsWafBypass ? t('providerCard.wafProtected') : t('providerCard.noWaf')}
                   </span>
-                </div>
+                </Badge>
               </div>
             </div>
           </div>

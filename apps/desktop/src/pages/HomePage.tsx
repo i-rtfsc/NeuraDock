@@ -84,7 +84,7 @@ export function HomePage({ embedded = false }: HomePageProps) {
                   <Wallet className="w-32 h-32 text-primary rotate-12" />
                 </div>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                  <CardTitle className="text-sm font-bold tracking-wider text-primary flex items-center gap-2">
                     <Wallet className="h-4 w-4" />
                     {t('dashboard.stats.currentBalance')}
                   </CardTitle>
@@ -121,9 +121,9 @@ export function HomePage({ embedded = false }: HomePageProps) {
             <motion.div variants={item} className="md:col-span-2 lg:col-span-2">
               <Card className="card-vivid group h-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.stats.totalAccounts')}</CardTitle>
-                  <div className="p-2 rounded-full bg-success-soft">
-                    <Users className="h-4 w-4 text-success" />
+                  <CardTitle className="text-sm font-medium text-primary/80">{t('dashboard.stats.totalAccounts')}</CardTitle>
+                  <div className="p-2 rounded-full bg-primary/10 border border-primary/20">
+                    <Users className="h-4 w-4 text-primary" />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -131,6 +131,7 @@ export function HomePage({ embedded = false }: HomePageProps) {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       size="sm"
+                      variant="outline"
                       className="shadow-sm border-0 bg-muted/50 hover:bg-primary/10 hover:text-primary"
                       onClick={() => navigate(buildTransitHubPath('accounts'))}
                     >
@@ -144,7 +145,7 @@ export function HomePage({ embedded = false }: HomePageProps) {
                       onClick={() => navigate(buildTransitHubPath('providers'))}
                     >
                       <Server className="mr-2 h-4 w-4" />
-                      {t('nav.providers')}
+                      {t('transitHub.manageTab')}
                     </Button>
                   </div>
                 </CardContent>

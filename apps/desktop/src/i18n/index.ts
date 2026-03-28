@@ -30,4 +30,12 @@ i18n
     },
   });
 
+const applyDocumentLanguage = (lng: string) => {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = lng.startsWith('zh') ? 'zh-CN' : 'en-US';
+};
+
+applyDocumentLanguage(i18n.language);
+i18n.on('languageChanged', applyDocumentLanguage);
+
 export default i18n;

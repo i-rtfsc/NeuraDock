@@ -141,28 +141,28 @@ export function AccountsTable({
           fixedHeaderContent={() => (
             <tr className="h-10 text-left align-middle font-medium text-muted-foreground">
               <th className="px-4 py-2 pl-6 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.accountName', '账号名')} columnKey="name" />
+                <SortableHeader label={t('management.accountName', 'Account Name')} columnKey="name" />
               </th>
               <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm">
-                {t('management.autoCheckIn', '自动签到')}
+                {t('management.autoCheckIn', 'Auto Check-in')}
               </th>
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.balance', '余额')} columnKey="current_balance" className="justify-end" />
+                <SortableHeader label={t('management.balance', 'Balance')} columnKey="current_balance" className="justify-end" />
               </th>
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.totalQuota', '总收入')} columnKey="total_quota" className="justify-end" />
+                <SortableHeader label={t('management.totalQuota', 'Total Quota')} columnKey="total_quota" className="justify-end" />
               </th>
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.totalConsumed', '历史消耗')} columnKey="total_consumed" className="justify-end" />
+                <SortableHeader label={t('management.totalConsumed', 'Historical Consumption')} columnKey="total_consumed" className="justify-end" />
               </th>
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.lastCheckIn', '最后签到')} columnKey="last_check_in" />
+                <SortableHeader label={t('management.lastCheckIn', 'Last Check-in')} columnKey="last_check_in" />
               </th>
-              <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm">
+              <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm min-w-[150px]">
                 {t('management.session', 'Session')}
               </th>
               <th className="px-4 py-2 text-center font-semibold pr-6 bg-muted/50 backdrop-blur-sm w-32">
-                {t('management.actions', '操作')}
+                {t('management.actions', 'Actions')}
               </th>
             </tr>
           )}
@@ -241,17 +241,17 @@ export function AccountsTable({
                   className="p-2 align-middle text-center cursor-pointer"
                   onClick={() => onAccountClick(account)}
                 >
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full",
+                  <Badge
+                    variant={
                       account.session_days_remaining == null
-                        ? "text-muted-foreground bg-muted/30"
+                        ? 'secondary'
                         : account.session_days_remaining <= 0
-                          ? "text-destructive bg-destructive/10"
+                          ? 'soft-danger'
                           : account.session_expires_soon
-                            ? "text-warning bg-warning/10"
-                            : "text-success bg-success/10"
-                    )}
+                            ? 'soft-warning'
+                            : 'soft-success'
+                    }
+                    className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] px-2 py-0.5"
                   >
                     <KeyRound className="h-3 w-3" />
                     {account.session_days_remaining == null
@@ -260,7 +260,7 @@ export function AccountsTable({
                         ? t('accountCard.sessionExpired')
                         : t('accountCard.sessionValidDays', { days: account.session_days_remaining })
                     }
-                  </span>
+                  </Badge>
                 </td>
                 <td className="p-2 align-middle pr-6">
                   <div className="flex items-start justify-center gap-2">
@@ -272,10 +272,10 @@ export function AccountsTable({
                         const isBugged = supportsCheckIn && checkInBugged;
                         const buttonDisabled = !account.enabled || (supportsCheckIn && isChecking);
                         const buttonLabel = !supportsCheckIn
-                          ? t('management.balance', '余额')
+                          ? t('management.balance', 'Balance')
                           : isChecking
-                          ? t('checkIn.checking', '签到中...')
-                          : t('checkIn.checkIn', '签到');
+                          ? t('checkIn.checking', 'Checking in...')
+                          : t('checkIn.checkIn', 'Check In');
                         const buttonIcon = supportsCheckIn ? (
                           <Calendar className="mr-1.5 h-3.5 w-3.5" />
                         ) : (
@@ -310,9 +310,9 @@ export function AccountsTable({
                         );
 
                         const tooltipMessage = !supportsCheckIn
-                          ? t('checkIn.unsupportedProvider', '该中转站仅支持刷新余额')
+                          ? t('checkIn.unsupportedProvider', 'This provider only supports balance refresh')
                           : isBugged
-                          ? t('checkIn.buggedProvider', '签到功能暂不可用，请刷新余额')
+                          ? t('checkIn.buggedProvider', 'Check-in is temporarily unavailable. Please refresh balance')
                           : null;
 
                         if (tooltipMessage) {

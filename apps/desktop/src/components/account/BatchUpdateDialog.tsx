@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { invoke } from '@tauri-apps/api/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -201,7 +202,6 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
                   size="sm"
                   onClick={formatJson}
                   disabled={updateMutation.isPending}
-                  className="rounded-full"
                 >
                   {t('batchUpdate.format')}
                 </Button>
@@ -211,16 +211,15 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
                   size="sm"
                   onClick={validateJson}
                   disabled={updateMutation.isPending}
-                  className="rounded-full"
                 >
                   {t('batchUpdate.validate')}
                 </Button>
               </div>
             </div>
-            <textarea
+            <Textarea
               id="json-input"
               rows={12}
-              className="w-full rounded-[var(--radius-control)] border border-[hsl(var(--control-border))] bg-[hsl(var(--control-bg))] px-3 py-2 text-sm text-[hsl(var(--control-text))] ring-offset-background placeholder:text-[hsl(var(--control-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--control-ring))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+              className="font-mono"
               placeholder={t('batchUpdate.placeholder')}
               value={jsonInput}
               onChange={(e) => {
@@ -324,7 +323,6 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
               size="sm"
               onClick={() => onOpenChange(false)}
               disabled={updateMutation.isPending}
-              className="rounded-full"
             >
               {t('batchUpdate.cancel')}
             </Button>
@@ -334,7 +332,6 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
               size="sm"
               onClick={handleUpdate}
               disabled={!validationResult?.valid || updateMutation.isPending}
-              className="rounded-full"
             >
               {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <RefreshCw className="mr-2 h-4 w-4" />

@@ -21,11 +21,23 @@ import {
 import { useSidebarStore } from '@/hooks/useSidebarStore';
 import { Button } from '@/components/ui/button';
 import { CodexMarkIcon } from '@/components/icons/CodexMarkIcon';
+import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 export function Sidebar() {
   const location = useLocation();
   const { t } = useTranslation();
   const { collapsed, toggle } = useSidebarStore();
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  useEffect(() => {
+    invoke<string>('get_app_version')
+      .then((fullVersion) => {
+        const match = fullVersion.match(/^(.*) \((.*)\)$/);
+        setAppVersion(match && match.length === 3 ? match[1] : fullVersion);
+      })
+      .catch(() => setAppVersion(''));
+  }, []);
 
   // Disable tooltips when AI Chat webview is active because native webview overlays DOM elements.
   const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
@@ -167,7 +179,7 @@ export function Sidebar() {
                 />
               )}
               {!collapsed && (
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
+                <div className="text-[10px] tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
                   {group.label}
                 </div>
               )}
@@ -201,6 +213,12 @@ export function Sidebar() {
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             {!collapsed && <span className="text-sm">{t('common.collapse', { defaultValue: 'Collapse' })}</span>}
          </Button>
+
+         {!!appVersion && !collapsed && (
+           <div className="w-full text-center text-[11px] font-mono text-muted-foreground/70 pt-1 pb-0.5">
+             v{appVersion}
+           </div>
+         )}
       </div>
     </aside>
   );

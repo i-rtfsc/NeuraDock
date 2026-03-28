@@ -5,13 +5,13 @@ const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'app-card-interactive rounded-[var(--radius-card)] border border-border/50 bg-card text-card-foreground shadow-sm',
-      className
-    )}
-    {...props}
+    <div
+      ref={ref}
+      className={cn(
+        'app-card-interactive card-appear rounded-[var(--radius-card)] border border-border/70 bg-card text-card-foreground shadow-sm',
+        className
+      )}
+      {...props}
   />
 ));
 Card.displayName = 'Card';
