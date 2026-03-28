@@ -4,11 +4,16 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { PageContainer } from '@/components/layout/PageContainer';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ProvidersPage } from './ProvidersPage';
-import { normalizeTransitHubTab } from '@/lib/transitHub';
+import {
+  DEFAULT_TRANSIT_HUB_TAB,
+  normalizeTransitHubTab,
+  type TransitHubTab,
+} from '@/lib/transitHub';
 
 const TAB_CLASS =
   'text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth';
@@ -16,10 +21,20 @@ const TAB_CLASS =
 export function TransitHubPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [persistedTab, setPersistedTab] = usePersistedState<TransitHubTab>(
+    'page-tab:transit-hub',
+    DEFAULT_TRANSIT_HUB_TAB
+  );
   const [embeddedHeaderActionsContainer, setEmbeddedHeaderActionsContainer] =
     useState<HTMLDivElement | null>(null);
   const tabParam = searchParams.get('tab');
-  const activeTab = normalizeTransitHubTab(tabParam);
+  const activeTab = normalizeTransitHubTab(tabParam ?? persistedTab);
+
+  useEffect(() => {
+    if (persistedTab !== activeTab) {
+      setPersistedTab(activeTab);
+    }
+  }, [activeTab, persistedTab, setPersistedTab]);
 
   useEffect(() => {
     if (tabParam === activeTab) {
@@ -32,8 +47,10 @@ export function TransitHubPage() {
   }, [activeTab, searchParams, setSearchParams, tabParam]);
 
   const handleTabChange = (value: string) => {
+    const nextTab = normalizeTransitHubTab(value);
     const next = new URLSearchParams(searchParams);
-    next.set('tab', normalizeTransitHubTab(value));
+    next.set('tab', nextTab);
+    setPersistedTab(nextTab);
     setSearchParams(next, { replace: true });
   };
 

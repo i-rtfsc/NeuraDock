@@ -4,16 +4,36 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { PageContent } from '@/components/layout/PageContent';
 import { RegisterTab } from '@/components/codex/register/RegisterTab';
 import { AccountsTab } from '@/components/codex/accounts/AccountsTab';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { UserRound, TerminalSquare } from 'lucide-react';
+
+type CodexPageTab = 'register' | 'accounts';
 
 const TAB_CLASS =
   'text-sm font-medium px-4 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-base ease-smooth';
 
+const DEFAULT_CODEX_TAB: CodexPageTab = 'register';
+
+function normalizeCodexTab(value?: string | null): CodexPageTab {
+  switch (value) {
+    case 'accounts':
+    case 'register':
+      return value;
+    default:
+      return DEFAULT_CODEX_TAB;
+  }
+}
+
 export function CodexPage() {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = usePersistedState<CodexPageTab>('page-tab:codex', DEFAULT_CODEX_TAB);
 
   return (
-    <Tabs defaultValue="register" className="h-full flex flex-col w-full bg-background/95">
+    <Tabs
+      value={normalizeCodexTab(activeTab)}
+      onValueChange={(value) => setActiveTab(normalizeCodexTab(value))}
+      className="h-full flex flex-col w-full bg-background/95"
+    >
       <PageContainer
         className="h-full bg-muted/10 w-full"
         title={<span>Codex</span>}

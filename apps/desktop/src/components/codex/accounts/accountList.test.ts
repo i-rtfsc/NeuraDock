@@ -154,6 +154,42 @@ describe('accountList helpers', () => {
     ]);
   });
 
+  it('supports ascending remaining-quota sorting', () => {
+    const unlimited = createAccount({
+      email: 'unlimited@example.com',
+      isUnlimited: true,
+    });
+    const withQuota = createAccount({
+      email: 'with-quota@example.com',
+      primaryWindow: {
+        usedPercent: 40,
+        windowMinutes: 1440,
+        resetsAt: '2026-01-04T00:00:00.000Z',
+      },
+    });
+    const noQuota = createAccount({
+      email: 'no-quota@example.com',
+      hasCredits: false,
+    });
+
+    const ascending = buildCodexAccountList(
+      [withQuota, unlimited, noQuota],
+      {
+        sortOption: 'remaining-asc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    expect(ascending.map((account) => account.email)).toEqual([
+      'no-quota@example.com',
+      'with-quota@example.com',
+      'unlimited@example.com',
+    ]);
+  });
+
   it('supports combining valid-auth, unlimited, and status filters', () => {
     const validUnlimited = createAccount({
       email: 'valid-unlimited@example.com',
@@ -195,5 +231,42 @@ describe('accountList helpers', () => {
     expect(hasValidCodexAuth(validUnlimited)).toBe(true);
     expect(hasValidCodexAuth(expiredUnlimited)).toBe(false);
     expect(filtered.map((account) => account.email)).toEqual(['valid-unlimited@example.com']);
+  });
+
+  it('pins the active account to the first row after filtering', () => {
+    const active = createAccount({
+      id: 'active-account',
+      email: 'active@example.com',
+      hasCredits: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    const newer = createAccount({
+      id: 'newer-account',
+      email: 'newer@example.com',
+      createdAt: '2026-01-04T00:00:00.000Z',
+    });
+    const older = createAccount({
+      id: 'older-account',
+      email: 'older@example.com',
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
+
+    const ordered = buildCodexAccountList(
+      [newer, active, older],
+      {
+        sortOption: 'created-desc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+        isPinned: (account) => account.id === active.id,
+      }
+    );
+
+    expect(ordered.map((account) => account.email)).toEqual([
+      'active@example.com',
+      'newer@example.com',
+      'older@example.com',
+    ]);
   });
 });

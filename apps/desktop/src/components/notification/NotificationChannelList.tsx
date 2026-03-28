@@ -128,7 +128,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
       </div>
 
       {/* Main Container */}
-      <Card className="card-vivid group p-0 overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.005] cursor-default">
+      <Card className="card-vivid group p-0 overflow-hidden cursor-default">
         {/* List Content */}
         {channels.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center space-y-4 text-muted-foreground/60">

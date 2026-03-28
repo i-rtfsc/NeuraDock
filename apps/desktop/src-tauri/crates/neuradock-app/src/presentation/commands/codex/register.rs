@@ -362,19 +362,23 @@ async fn register_single_account(
         match fetch_codex_usage(&access_token, account_id.as_deref()).await {
             Ok(quota) => {
                 apply_usage_quota(&mut account, &quota);
-                let weekly_remaining = quota
-                    .secondary_window
-                    .as_ref()
-                    .map(|window| (100.0 - window.used_percent).clamp(0.0, 100.0))
-                    .map(|value| format!("{value:.0}%"))
-                    .unwrap_or_else(|| "未知".to_string());
-                let reset_at = quota
-                    .secondary_window
-                    .as_ref()
-                    .and_then(|window| window.resets_at)
-                    .map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string())
-                    .unwrap_or_else(|| "未知".to_string());
-                log(&format!("  周额度: {}，重置 {}", weekly_remaining, reset_at), None);
+                if let Some(window) = quota.secondary_window.as_ref() {
+                    let weekly_remaining = (100.0 - window.used_percent).clamp(0.0, 100.0);
+                    if let Some(reset_at) = window.resets_at {
+                        log(
+                            &format!(
+                                "  周额度: {:.0}%，重置 {}",
+                                weekly_remaining,
+                                reset_at.format("%Y-%m-%d %H:%M UTC")
+                            ),
+                            None,
+                        );
+                    } else {
+                        log(&format!("  周额度: {:.0}%", weekly_remaining), None);
+                    }
+                } else {
+                    log("  ✅ 额度同步完成", None);
+                }
             }
             Err(e) => {
                 warn!("Failed to sync Codex quota during registration: {}", e);

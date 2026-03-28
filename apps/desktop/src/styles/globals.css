@@ -150,6 +150,8 @@
     --scale-active: 0.98;
     --scale-pop: 1.05;
     --scale-active-subtle: 0.995;
+    --card-hover-scale: 1.02;
+    --card-hover-translate-y: -0.25rem;
 
     /* Layout Colors - Vivid Light */
     --sidebar-background: 260 40% 97%;
@@ -361,11 +363,23 @@
 }
 
 @layer components {
+  .app-card-interactive,
   .card-vivid {
-    @apply relative overflow-hidden transition-all duration-base ease-smooth flex flex-col h-full
-           bg-card border border-border/50 shadow-sm
-           hover:shadow-xl hover:border-primary/40 cursor-pointer interactive-scale
-           hover:-translate-y-1;
+    position: relative;
+    overflow: hidden;
+    transition:
+      box-shadow var(--duration-base) var(--ease-smooth),
+      border-color var(--duration-base) var(--ease-smooth);
+  }
+
+  .app-card-interactive:hover,
+  .card-vivid:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: var(--shadow-hover-lg);
+  }
+
+  .card-vivid {
+    @apply flex flex-col h-full bg-card border border-border/50 shadow-sm cursor-pointer;
   }
   .card-accent-bar { @apply w-[3px] shrink-0 transition-colors duration-slow; }
   .card-title-vivid { @apply text-lg font-extrabold tracking-tight truncate group-hover:text-primary transition-colors; }

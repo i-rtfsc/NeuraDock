@@ -378,10 +378,7 @@ async fn select_workspace(
     workspace_id: &str,
     progress: &mut impl FnMut(&str),
 ) -> Result<String> {
-    progress(&format!(
-        "  📦 Workspace: {}",
-        &workspace_id[..workspace_id.len().min(30)]
-    ));
+    progress("  📦 确认工作空间授权...");
     let body = format!(r#"{{"workspace_id":"{}"}}"#, workspace_id);
     let resp = follow
         .post(SELECT_WORKSPACE_URL)
@@ -422,14 +419,9 @@ async fn follow_redirects_for_code(
     progress: &mut impl FnMut(&str),
 ) -> Result<String> {
     let mut current = start_url.to_string();
+    progress("  🔗 等待 OAuth 回调...");
 
-    for i in 0..12 {
-        progress(&format!(
-            "  ↪ 重定向 {}: {}",
-            i + 1,
-            &current[..current.len().min(80)]
-        ));
-
+    for _ in 0..12 {
         let resp = nore
             .get(&current)
             .header("Accept", "text/html,application/xhtml+xml,*/*")
@@ -455,7 +447,7 @@ async fn follow_redirects_for_code(
         let next = resolve_url(&current, &loc);
 
         if next.contains("code=") && next.contains("state=") {
-            progress("  ✓ 找到 OAuth 回调 URL");
+            progress("  ✅ 已取得 OAuth 回调");
             return Ok(next);
         }
         current = next;
@@ -614,40 +606,6 @@ fn extract_workspace_id_from_cookies(jar: &Arc<Jar>) -> Option<String> {
     None
 }
 
-fn debug_workspace_cookie_state(jar: &Arc<Jar>) -> String {
-    let cookie_names = [
-        "oai-client-auth-session",
-        "oai_client_auth_session",
-        "oai-client-auth-info",
-        "oai_client_auth_info",
-    ];
-    let base_urls = [
-        "https://auth.openai.com",
-        "https://openai.com",
-        "https://chatgpt.com",
-    ];
-
-    let mut parts = Vec::new();
-    for base_str in &base_urls {
-        for name in &cookie_names {
-            if let Some(cookie_val) = read_cookie(jar, base_str, name) {
-                parts.push(format!(
-                    "{}@{} len={}",
-                    name,
-                    base_str,
-                    cookie_val.len()
-                ));
-            }
-        }
-    }
-
-    if parts.is_empty() {
-        "(no workspace cookies)".to_string()
-    } else {
-        parts.join(", ")
-    }
-}
-
 /// Recursively scan a JSON value for workspace_id (mirrors codex-manager's payload scanner).
 fn extract_workspace_id_from_json(v: &Value, depth: u8) -> Option<String> {
     if depth > 5 {
@@ -711,7 +669,6 @@ fn extract_workspace_id_from_json(v: &Value, depth: u8) -> Option<String> {
 }
 
 /// Try all sources (JSON body, HTML text, URL, cookies) to find workspace_id.
-/// Logs diagnostic info via the progress callback.
 fn extract_workspace_id_from_all(
     html: &str,
     url: &str,
@@ -748,7 +705,7 @@ async fn resolve_workspace_id_with_cookie_retry(
         return Ok(wid);
     }
 
-    progress("  consent 页面缺少 workspace_id，回退到 Cookie 解析路径...");
+    progress("  正在从会话中恢复工作空间...");
 
     let backoff_seconds = [1u64, 2, 4];
     let max_attempts = backoff_seconds.len() + 1;
@@ -758,50 +715,13 @@ async fn resolve_workspace_id_with_cookie_retry(
             return Ok(wid);
         }
 
-        progress(&format!(
-            "  获取 Workspace ID 失败 (第 {}/{})：{}",
-            attempt,
-            max_attempts,
-            debug_workspace_cookie_state(jar)
-        ));
-
         if attempt < max_attempts {
             let wait = backoff_seconds[attempt - 1];
-            progress(&format!("  等待 {} 秒后重试 Workspace ID...", wait));
             tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
         }
     }
 
     bail!("未能从 consent 页面或 Cookie 提取 workspace_id")
-}
-
-/// Dump cookies from the jar for diagnostic purposes.
-fn debug_cookies(jar: &Arc<Jar>) -> String {
-    let base_urls = [
-        "https://auth.openai.com",
-        "https://openai.com",
-        "https://chatgpt.com",
-    ];
-    let mut parts = Vec::new();
-    for base_str in &base_urls {
-        if let Ok(base) = url::Url::parse(base_str) {
-            if let Some(hdr) = jar.cookies(&base) {
-                if let Ok(s) = hdr.to_str() {
-                    // Show only cookie names (not values) for safety
-                    let names: Vec<&str> = s
-                        .split(';')
-                        .map(|p| p.trim().split('=').next().unwrap_or("?"))
-                        .collect();
-                    parts.push(format!("{}: [{}]", base_str, names.join(", ")));
-                }
-            }
-        }
-    }
-    if parts.is_empty() {
-        "(no cookies found)".to_string()
-    } else {
-        parts.join(" | ")
-    }
 }
 
 // ─── Phase 2: Login / consent flow ───────────────────────────────────────────
@@ -831,20 +751,14 @@ where
     progress("🔄 初始化登录授权流程...");
     let (device_id2, html2, url2) = init_oauth_session(follow, jar, &auth_url2).await?;
 
-    if !device_id2.is_empty() {
-        progress(&format!(
-            "  Device ID (login): {}",
-            &device_id2[..device_id2.len().min(20)]
-        ));
-    }
-
     // Check if we're already at the consent page
     if url2.contains("sign-in-with-chatgpt/codex/consent")
         || html2.contains("sign-in-with-chatgpt/codex/consent")
     {
-        progress("  已到达 consent 页面，提取 workspace_id...");
+        progress("📄 进入授权确认页面...");
         let workspace_id =
             resolve_workspace_id_with_cookie_retry(&html2, &url2, None, jar, progress).await?;
+        progress("  ✅ 已识别工作空间");
         let continue_url = select_workspace(follow, &workspace_id, progress).await?;
         let callback_url = follow_redirects_for_code(nore, &continue_url, progress).await?;
         let code2 = extract_code_from_url(&callback_url)?;
@@ -903,7 +817,7 @@ where
     // Poll for the second OTP (triggered by password verify)
     progress("⏳ 等待第二次验证码邮件...");
     let otp2 = poll_otp(otp2_sent_at).await?;
-    progress(&format!("  ✉ 第二次验证码: {}", otp2));
+    progress("  ✅ 已收到第二次验证码");
 
     // Validate OTP → get consent_url
     progress("✅ 验证第二次 OTP...");
@@ -911,10 +825,7 @@ where
 
     // GET consent page
     let target = consent_url.as_deref().unwrap_or(auth_url2.as_str());
-    progress(&format!(
-        "  → 请求 consent 页面: {}",
-        &target[..target.len().min(80)]
-    ));
+    progress("📄 打开授权确认页面...");
     let consent_resp = follow
         .get(target)
         .header("Accept", "text/html,application/xhtml+xml,*/*")
@@ -923,20 +834,6 @@ where
         .map_err(|e| anyhow!("请求 consent 页失败: {}", e))?;
     let consent_final_url = consent_resp.url().as_str().to_string();
     let consent_html = consent_resp.text().await.unwrap_or_default();
-
-    progress(&format!(
-        "  consent 最终 URL: {}",
-        &consent_final_url[..consent_final_url.len().min(100)]
-    ));
-    // Debug: print first 300 chars of consent HTML so we can diagnose issues
-    if !consent_html.is_empty() {
-        progress(&format!(
-            "  consent HTML 预览: {}",
-            &consent_html[..consent_html.len().min(300)]
-        ));
-    }
-    // Debug: show which cookies are set in the jar
-    progress(&format!("  🍪 Cookies: {}", debug_cookies(jar)));
 
     // Extract workspace_id — mirror codex-manager: HTML/URL first, then cookie retries.
     let workspace_id =
@@ -950,7 +847,7 @@ where
                 )
             })?;
 
-    progress(&format!("  ✅ workspace_id: {}…", &workspace_id[..workspace_id.len().min(20)]));
+    progress("  ✅ 已识别工作空间");
 
     // Select workspace → continue_url → redirect chain → code
     let continue_url = select_workspace(follow, &workspace_id, progress).await?;
@@ -993,21 +890,10 @@ where
     // 2. GET auth URL → populate oai-did in cookie jar
     progress("🍪 初始化 OAuth 会话...");
     let (device_id, _html1, _url1) = init_oauth_session(&follow, &jar, &auth_url1).await?;
-    if !device_id.is_empty() {
-        progress(&format!(
-            "  Device ID: {}",
-            &device_id[..device_id.len().min(20)]
-        ));
-    } else {
-        progress("  ⚠ 未获取到 Device ID");
-    }
 
     // 3. Sentinel token
     progress("🛡️ 请求 Sentinel 令牌...");
     let sentinel = get_sentinel(&follow, &device_id).await;
-    if !sentinel.is_empty() {
-        progress("  Sentinel token 获取成功");
-    }
 
     // 4. Submit signup form
     progress(&format!("📝 提交注册表单 ({})...", email));
@@ -1067,7 +953,7 @@ where
     // 7. Poll for OTP₁
     progress("⏳ 等待注册验证码邮件...");
     let otp1 = poll_otp(otp1_sent_at).await?;
-    progress(&format!("  ✉ 验证码: {}", otp1));
+    progress("  ✅ 已收到注册验证码");
 
     // 8. Validate OTP₁
     progress("✅ 验证 OTP...");
@@ -1089,14 +975,13 @@ where
     if !create_resp.status().is_success() {
         let st = create_resp.status();
         let txt = create_resp.text().await.unwrap_or_default();
-        progress(&format!(
-            "  ⚠ create_account HTTP {} (继续): {}",
+        bail!(
+            "create_account 失败 HTTP {} — {}",
             st,
-            &txt[..txt.len().min(200)]
-        ));
-    } else {
-        let _ = create_resp.text().await;
+            &txt[..txt.len().min(400)]
+        );
     }
+    let _ = create_resp.text().await;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Phase 2: Login / consent → obtain authorization code + code_verifier
@@ -1114,10 +999,7 @@ where
     )
     .await?;
 
-    progress(&format!(
-        "  授权码: {}...",
-        &auth_code[..auth_code.len().min(20)]
-    ));
+    progress("✅ OAuth 授权完成");
 
     // ─────────────────────────────────────────────────────────────────────────
     // Token exchange
@@ -1171,7 +1053,7 @@ where
     let web_session_device_id = read_cookie(&jar, AUTH_OPENAI_BASE, "oai-did")
         .or_else(|| read_cookie(&jar, "https://openai.com/", "oai-did"));
 
-    progress(&format!("🎉 注册完成! account_id={}", account_id));
+    progress("🎉 注册完成");
 
     Ok(RegistrationResult {
         email: email.to_string(),

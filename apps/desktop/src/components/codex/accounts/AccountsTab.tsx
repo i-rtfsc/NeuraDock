@@ -3,10 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { open } from '@tauri-apps/plugin-shell';
 import { toast } from 'sonner';
 import {
+  ArrowDown,
+  Check,
   ArrowRightLeft,
+  ArrowUp,
+  ArrowUpDown,
   Copy,
   CreditCard,
   ExternalLink,
+  Filter,
   LogOut,
   Mail,
   MoreHorizontal,
@@ -32,6 +37,7 @@ import {
 } from '@/hooks/codex/useCodexAccounts';
 import { useGenerateCodexPaymentLink, type CodexPaymentFormState } from '@/hooks/codex/useCodexPayment';
 import { useActiveCodexAuth, useLogoutCodexAuth, useRefreshActiveCodexAuthQuota, useSwitchCodexAuth } from '@/hooks/codex/useCodexAuth';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -40,12 +46,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -66,6 +72,8 @@ import {
   type CodexAccountStatusFilter,
 } from './accountList';
 
+type CodexSortColumn = 'createdAt' | 'remaining';
+
 const PAYMENT_COUNTRIES = [
   { code: 'SG', labelKey: 'codex.payment.country.sg', currency: 'SGD' },
   { code: 'US', labelKey: 'codex.payment.country.us', currency: 'USD' },
@@ -82,7 +90,6 @@ const PAYMENT_COUNTRIES = [
 ] as const;
 
 const DEFAULT_COUNTRY = PAYMENT_COUNTRIES[0].code;
-const STATIC_CARD_CLASS = 'hover:scale-100 hover:translate-y-0 hover:shadow-sm';
 
 function buildDefaultPaymentForm(): CodexPaymentFormState {
   return {
@@ -114,21 +121,37 @@ export function AccountsTab() {
   const [paymentAccount, setPaymentAccount] = useState<CodexAccountDto | null>(null);
   const [paymentForm, setPaymentForm] = useState<CodexPaymentFormState>(buildDefaultPaymentForm());
   const [generatedPaymentLink, setGeneratedPaymentLink] = useState<CodexPaymentLinkDto | null>(null);
-  const [sortOption, setSortOption] = useState<CodexAccountSortOption>('remaining-desc');
-  const [hideNoQuota, setHideNoQuota] = useState(false);
-  const [onlyValidAuth, setOnlyValidAuth] = useState(false);
-  const [onlyUnlimited, setOnlyUnlimited] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<CodexAccountStatusFilter>('all');
+  const [sortOption, setSortOption] = usePersistedState<CodexAccountSortOption>(
+    'codex-accounts:sort-option',
+    'remaining-desc'
+  );
+  const [hideNoQuota, setHideNoQuota] = usePersistedState<boolean>('codex-accounts:hide-no-quota', false);
+  const [onlyValidAuth, setOnlyValidAuth] = usePersistedState<boolean>('codex-accounts:only-valid-auth', false);
+  const [onlyUnlimited, setOnlyUnlimited] = usePersistedState<boolean>('codex-accounts:only-unlimited', false);
+  const [statusFilter, setStatusFilter] = usePersistedState<CodexAccountStatusFilter>(
+    'codex-accounts:status-filter',
+    'all'
+  );
 
   const accountList = accounts ?? [];
-  const displayAccounts = useMemo(
-    () => buildCodexAccountList(accountList, { sortOption, hideNoQuota, onlyValidAuth, onlyUnlimited, statusFilter }),
-    [accountList, hideNoQuota, onlyUnlimited, onlyValidAuth, sortOption, statusFilter]
-  );
   const activeAccount = accountList.find((account) => isActiveAccount(activeAuth, account)) ?? null;
+  const displayAccounts = useMemo(
+    () =>
+      buildCodexAccountList(accountList, {
+        sortOption,
+        hideNoQuota,
+        onlyValidAuth,
+        onlyUnlimited,
+        statusFilter,
+        isPinned: activeAccount ? (account) => account.id === activeAccount.id : undefined,
+      }),
+    [accountList, activeAccount, hideNoQuota, onlyUnlimited, onlyValidAuth, sortOption, statusFilter]
+  );
   const activeQuota = activeAuth?.quota ?? buildQuotaFromAccount(activeAccount);
   const validTokenCount = accountList.filter(hasValidCodexAuth).length;
   const creditsCount = accountList.filter((account) => account.isUnlimited || account.hasCredits).length;
+  const activeFilterCount = Number(statusFilter !== 'all') + Number(hideNoQuota) + Number(onlyValidAuth) + Number(onlyUnlimited);
+  const hasActiveFilters = activeFilterCount > 0;
 
   const copyText = async (text: string | null | undefined, successKey: string) => {
     if (!text) {
@@ -214,6 +237,23 @@ export function AccountsTab() {
     });
   };
 
+  const handleClearFilters = () => {
+    setHideNoQuota(false);
+    setOnlyValidAuth(false);
+    setOnlyUnlimited(false);
+    setStatusFilter('all');
+  };
+
+  const handleSortByColumn = (column: CodexSortColumn) => {
+    setSortOption((currentSort) => {
+      if (column === 'createdAt') {
+        return currentSort === 'created-desc' ? 'created-asc' : 'created-desc';
+      }
+
+      return currentSort === 'remaining-desc' ? 'remaining-asc' : 'remaining-desc';
+    });
+  };
+
   if (isLoading) {
     return <div className="py-8 text-center text-sm text-muted-foreground">{t('codex.common.loading')}</div>;
   }
@@ -246,74 +286,98 @@ export function AccountsTab() {
           <div className="py-16 text-center text-sm text-muted-foreground">{t('codex.accounts.empty')}</div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="text-sm text-muted-foreground">
                 {t('codex.accounts.listSummary', { visible: displayAccounts.length, total: accountList.length })}
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="codex-account-sort" className="text-xs text-muted-foreground">
-                    {t('codex.accounts.controls.sortLabel')}
-                  </Label>
-                  <Select value={sortOption} onValueChange={(value) => setSortOption(value as CodexAccountSortOption)}>
-                    <SelectTrigger id="codex-account-sort" className="h-8 w-[220px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="remaining-desc">{t('codex.accounts.controls.sortOptions.remainingDesc')}</SelectItem>
-                      <SelectItem value="created-desc">{t('codex.accounts.controls.sortOptions.createdDesc')}</SelectItem>
-                      <SelectItem value="created-asc">{t('codex.accounts.controls.sortOptions.createdAsc')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm">
+                      <Filter className="h-4 w-4" />
+                      {t('common.filter')}
+                      {hasActiveFilters && (
+                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>{t('common.filter')}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                      {t('codex.accounts.controls.statusLabel')}
+                    </DropdownMenuLabel>
+                    <FilterChoiceMenuItem
+                      selected={statusFilter === 'all'}
+                      label={t('codex.accounts.controls.statusOptions.all')}
+                      onSelect={() => setStatusFilter('all')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={statusFilter === 'active'}
+                      label={t('codex.accounts.status.active')}
+                      onSelect={() => setStatusFilter('active')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={statusFilter === 'expired'}
+                      label={t('codex.accounts.status.expired')}
+                      onSelect={() => setStatusFilter('expired')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={statusFilter === 'banned'}
+                      label={t('codex.accounts.status.banned')}
+                      onSelect={() => setStatusFilter('banned')}
+                    />
+                    <DropdownMenuSeparator />
+                    <FilterMenuItem
+                      checked={hideNoQuota}
+                      label={t('codex.accounts.controls.hideNoQuota')}
+                      onToggle={() => setHideNoQuota((value) => !value)}
+                    />
+                    <FilterMenuItem
+                      checked={onlyValidAuth}
+                      label={t('codex.accounts.controls.onlyValidAuth')}
+                      onToggle={() => setOnlyValidAuth((value) => !value)}
+                    />
+                    <FilterMenuItem
+                      checked={onlyUnlimited}
+                      label={t('codex.accounts.controls.onlyUnlimited')}
+                      onToggle={() => setOnlyUnlimited((value) => !value)}
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="codex-account-status" className="text-xs text-muted-foreground">
-                    {t('codex.accounts.controls.statusLabel')}
-                  </Label>
-                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as CodexAccountStatusFilter)}>
-                    <SelectTrigger id="codex-account-status" className="h-8 w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('codex.accounts.controls.statusOptions.all')}</SelectItem>
-                      <SelectItem value="active">{t('codex.accounts.status.active')}</SelectItem>
-                      <SelectItem value="expired">{t('codex.accounts.status.expired')}</SelectItem>
-                      <SelectItem value="banned">{t('codex.accounts.status.banned')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <FilterSwitch
-                  id="codex-hide-no-quota"
-                  checked={hideNoQuota}
-                  onCheckedChange={setHideNoQuota}
-                  label={t('codex.accounts.controls.hideNoQuota')}
-                />
-                <FilterSwitch
-                  id="codex-only-valid-auth"
-                  checked={onlyValidAuth}
-                  onCheckedChange={setOnlyValidAuth}
-                  label={t('codex.accounts.controls.onlyValidAuth')}
-                />
-                <FilterSwitch
-                  id="codex-only-unlimited"
-                  checked={onlyUnlimited}
-                  onCheckedChange={setOnlyUnlimited}
-                  label={t('codex.accounts.controls.onlyUnlimited')}
-                />
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="h-9 px-3 text-muted-foreground" onClick={handleClearFilters}>
+                    {t('accounts.clearFilters')}
+                  </Button>
+                )}
               </div>
             </div>
 
-            <Card className={cn('overflow-hidden', STATIC_CARD_CLASS)}>
+            <Card className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/50 text-xs text-muted-foreground">
                       <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.account')}</th>
-                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.createdAt')}</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <SortableHeader
+                          label={t('codex.accounts.table.createdAt')}
+                          direction={getSortDirection(sortOption, 'createdAt')}
+                          onClick={() => handleSortByColumn('createdAt')}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.plan')}</th>
-                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.remaining')}</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <SortableHeader
+                          label={t('codex.accounts.table.remaining')}
+                          direction={getSortDirection(sortOption, 'remaining')}
+                          onClick={() => handleSortByColumn('remaining')}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.reset')}</th>
                       <th className="px-4 py-3 text-right font-medium">{t('codex.accounts.table.actions')}</th>
                     </tr>
@@ -421,7 +485,7 @@ function ActiveAuthCard({
   const remainingValue = formatRemainingPercent(displayWindow, activeQuota?.isUnlimited, t);
 
   return (
-    <Card className={cn('h-full overflow-visible p-3', STATIC_CARD_CLASS)}>
+    <Card className="h-full overflow-visible p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -1025,7 +1089,7 @@ function QuotaInfoRow({ label, value }: {
 
 function StatCard({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
-    <Card className={cn('h-full p-2.5', STATIC_CARD_CLASS)}>
+    <Card className="h-full p-2.5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-semibold">{value}</div>
       <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>
@@ -1033,25 +1097,101 @@ function StatCard({ label, value, hint }: { label: string; value: number; hint: 
   );
 }
 
-function FilterSwitch({
-  id,
+function FilterMenuItem({
   checked,
-  onCheckedChange,
   label,
+  onToggle,
 }: {
-  id: string;
   checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
   label: string;
+  onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/70 px-3 py-2">
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-      <Label htmlFor={id} className="cursor-pointer text-xs text-muted-foreground">
-        {label}
-      </Label>
-    </div>
+    <DropdownMenuItem
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onSelect={(event) => {
+        event.preventDefault();
+        onToggle();
+      }}
+      className="justify-between gap-4"
+    >
+      <span>{label}</span>
+      <span
+        className={cn(
+          'flex h-4 w-4 items-center justify-center rounded border border-border/60 bg-background/80',
+          checked ? 'border-primary/40 bg-primary/10 text-primary' : 'text-transparent'
+        )}
+      >
+        <Check className="h-3 w-3" />
+      </span>
+    </DropdownMenuItem>
   );
+}
+
+function FilterChoiceMenuItem({
+  selected,
+  label,
+  onSelect,
+}: {
+  selected: boolean;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <DropdownMenuItem
+      role="menuitemradio"
+      aria-checked={selected}
+      onSelect={(event) => {
+        event.preventDefault();
+        onSelect();
+      }}
+      className="justify-between gap-4"
+    >
+      <span>{label}</span>
+      <span
+        className={cn(
+          'flex h-4 w-4 items-center justify-center rounded border border-border/60 bg-background/80',
+          selected ? 'border-primary/40 bg-primary/10 text-primary' : 'text-transparent'
+        )}
+      >
+        <Check className="h-3 w-3" />
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
+function SortableHeader({
+  label,
+  direction,
+  onClick,
+}: {
+  label: string;
+  direction: 'asc' | 'desc' | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1.5 text-left transition-colors hover:text-foreground"
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <SortIcon direction={direction} />
+    </button>
+  );
+}
+
+function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
+  if (direction === 'asc') {
+    return <ArrowUp className="h-3.5 w-3.5 text-primary" />;
+  }
+
+  if (direction === 'desc') {
+    return <ArrowDown className="h-3.5 w-3.5 text-primary" />;
+  }
+
+  return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
 }
 
 function ActionButton({
@@ -1112,6 +1252,18 @@ function isActiveAccount(activeAuth: CodexAuthInfoDto | null | undefined, accoun
     return activeAuth.accountId === account.accountId;
   }
   return activeAuth.email === account.email;
+}
+
+function getSortDirection(sortOption: CodexAccountSortOption, column: CodexSortColumn) {
+  if (column === 'createdAt') {
+    if (sortOption === 'created-asc') return 'asc';
+    if (sortOption === 'created-desc') return 'desc';
+    return null;
+  }
+
+  if (sortOption === 'remaining-asc') return 'asc';
+  if (sortOption === 'remaining-desc') return 'desc';
+  return null;
 }
 
 function buildQuotaFromAccount(account: CodexAccountDto | null): CodexQuotaDto | null {

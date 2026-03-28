@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 
-export function usePersistedState<T>(key: string, defaultValue: T) {
+export function usePersistedState<T>(key: string, defaultValue: T): readonly [T, Dispatch<SetStateAction<T>>] {
   const [state, setState] = useState<T>(() => {
     if (typeof window === 'undefined') {
       return defaultValue;

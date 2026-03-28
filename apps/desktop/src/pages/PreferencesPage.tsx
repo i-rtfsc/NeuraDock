@@ -28,9 +28,26 @@ import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
 import { NotificationChannelList } from '@/components/notification/NotificationChannelList';
 import { useNotificationChannels } from '@/hooks/useNotificationChannels';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { cn } from '@/lib/utils';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageContent } from '@/components/layout/PageContent';
+
+type PreferencesTab = 'general' | 'system' | 'notifications' | 'about';
+
+const DEFAULT_PREFERENCES_TAB: PreferencesTab = 'general';
+
+function normalizePreferencesTab(value?: string | null): PreferencesTab {
+  switch (value) {
+    case 'system':
+    case 'notifications':
+    case 'about':
+    case 'general':
+      return value;
+    default:
+      return DEFAULT_PREFERENCES_TAB;
+  }
+}
 
 // --- Reusable Layout Components ---
 
@@ -51,7 +68,7 @@ const SettingsGroup = ({ title, children, className, contentClassName }: Setting
       </div>
     )}
     <Card className={cn(
-      "card-vivid group p-0 overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.005] cursor-default",
+      "card-vivid group p-0 overflow-hidden cursor-default",
       contentClassName
     )}>
       <div className="flex flex-col w-full">
@@ -83,7 +100,7 @@ const SettingsRow = ({ icon: Icon, label, description, children, onClick, classN
       onClick={onClick}
     >
       {Icon && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all duration-base ease-smooth shrink-0 group-hover:scale-110">
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-colors duration-base ease-smooth shrink-0">
           <Icon className="h-5 w-5" />
         </div>
       )}
@@ -246,7 +263,7 @@ const SystemSettings = () => {
       {/* Cache Control */}
       <SettingsGroup title={t('settings.cacheControl')}>
         <div className="p-5 space-y-6 group">
-           <div className="flex items-start justify-between interactive-scale">
+           <div className="flex items-start justify-between">
                <div className="flex gap-4">
                     <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
                        <Database className="h-5 w-5" />
@@ -269,7 +286,7 @@ const SystemSettings = () => {
                </div>
            </div>
 
-           <div className="pt-2 transition-opacity duration-slow ease-smooth interactive-scale">
+           <div className="pt-2 transition-opacity duration-slow ease-smooth">
                <input
                    type="range"
                    min="1"
@@ -294,7 +311,7 @@ const SystemSettings = () => {
       <SettingsGroup title={t('settings.network')}>
         <div className="p-6 space-y-6">
           {/* Proxy Enable/Disable */}
-          <div className="flex items-start justify-between interactive-scale">
+          <div className="flex items-start justify-between">
             <div className="flex gap-4">
               <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
                 <Globe className="h-5 w-5" />
@@ -319,7 +336,7 @@ const SystemSettings = () => {
           {proxyConfig.enabled && (
             <div className="space-y-4 pl-14 pt-2 border-l-2 border-primary/20 animate-in fade-in duration-base">
               {/* Proxy Type */}
-              <div className="space-y-2 interactive-scale">
+              <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">
                   {t('settings.proxyType')}
                 </Label>
@@ -344,7 +361,7 @@ const SystemSettings = () => {
               </div>
 
               {/* Host */}
-              <div className="space-y-2 interactive-scale">
+              <div className="space-y-2">
                 <Label htmlFor="proxy-host" className="text-sm font-medium text-foreground">
                   {t('settings.proxyHost')}
                 </Label>
@@ -360,7 +377,7 @@ const SystemSettings = () => {
               </div>
 
               {/* Port */}
-              <div className="space-y-2 interactive-scale">
+              <div className="space-y-2">
                 <Label htmlFor="proxy-port" className="text-sm font-medium text-foreground">
                   {t('settings.proxyPort')}
                 </Label>
@@ -379,7 +396,7 @@ const SystemSettings = () => {
 
               {/* Example */}
               {proxyConfig.host && proxyConfig.port > 0 && (
-                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-[var(--radius-control)] border border-border/30 font-mono interactive-scale">
+                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-[var(--radius-control)] border border-border/30 font-mono">
                   {proxyConfig.proxy_type}://{proxyConfig.host}:{proxyConfig.port}
                 </div>
               )}
@@ -486,7 +503,7 @@ const AboutSettings = () => {
     <div className="space-y-section-gap animate-in fade-in duration-base w-full">
       {/* App Info Group */}
       <SettingsGroup title={t('settings.about')}>
-        <div className="p-8 flex flex-col items-center text-center gap-5 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent interactive-scale">
+        <div className="p-8 flex flex-col items-center text-center gap-5 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent">
            <div className="w-20 h-20 rounded-[1.5rem] bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
               <span className="text-4xl font-bold">N</span>
            </div>
@@ -514,7 +531,7 @@ const AboutSettings = () => {
       <SettingsGroup title={t('disclaimer.title')}>
          <div className="p-6 space-y-8">
             {/* Liability Section */}
-            <div className="flex gap-5 items-start interactive-scale">
+            <div className="flex gap-5 items-start">
                <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-warning-soft flex items-center justify-center text-warning border border-warning-border">
                   <AlertTriangle className="h-5 w-5" />
                </div>
@@ -532,7 +549,7 @@ const AboutSettings = () => {
             <div className="w-full h-px bg-border/40" />
 
             {/* License Section */}
-            <div className="flex gap-5 items-start interactive-scale">
+            <div className="flex gap-5 items-start">
                <div className="shrink-0 w-10 h-10 rounded-[var(--radius-control-lg)] bg-info-soft flex items-center justify-center text-info border border-info-border">
                   <Scale className="h-5 w-5" />
                </div>
@@ -555,9 +572,17 @@ const AboutSettings = () => {
 
 export function PreferencesPage() {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = usePersistedState<PreferencesTab>(
+    'page-tab:preferences',
+    DEFAULT_PREFERENCES_TAB
+  );
 
   return (
-    <Tabs defaultValue="general" className="h-full flex flex-col w-full bg-background/95">
+    <Tabs
+      value={normalizePreferencesTab(activeTab)}
+      onValueChange={(value) => setActiveTab(normalizePreferencesTab(value))}
+      className="h-full flex flex-col w-full bg-background/95"
+    >
       <PageContainer 
         className="h-full bg-muted/10 w-full" 
         title={t('settings.title')}

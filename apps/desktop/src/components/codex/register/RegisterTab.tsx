@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { History, Play, Settings2, StopCircle, Trash2, X } from 'lucide-react';
+import { Minus, Play, Plus, Settings2, StopCircle, Trash2, X } from 'lucide-react';
 import { useCodexRegister } from '@/hooks/codex/useCodexRegister';
 import { useCodexAccounts } from '@/hooks/codex/useCodexAccounts';
 import type { RegisterConfig } from '@/lib/tauri';
@@ -13,11 +13,11 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { clampNumericValue, parseNumericDraft, sanitizeNumericDraft } from './numberField';
 
 type StatusTone = 'muted' | 'info' | 'success' | 'warning';
 
-const PANEL_CARD_CLASS =
-  'border-border/40 bg-card/95 shadow-sm hover:scale-100 hover:-translate-y-0 before:hidden';
+const PANEL_CARD_CLASS = 'border-border/40 bg-card/95 shadow-sm';
 
 export function RegisterTab() {
   const { t, i18n } = useTranslation();
@@ -69,7 +69,7 @@ export function RegisterTab() {
   const handleCopyLogs = async () => {
     try {
       const text = logs.map((log) => `[${log.timestamp}] ${log.message}`).join('\n');
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
       toast.success(t('codex.register.logsCopied'));
     } catch {
       toast.error(t('codex.common.copyFailed'));
@@ -111,58 +111,46 @@ export function RegisterTab() {
 
           {mode === 'batch' && (
             <>
-              <div>
-                <Label className="mb-1 block text-xs text-muted-foreground">{t('codex.register.count')}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={count}
-                  onChange={(e) => setCount(Number(e.target.value))}
-                />
-              </div>
+              <NumericField
+                id="codex-register-count"
+                label={t('codex.register.count')}
+                value={count}
+                min={1}
+                max={100}
+                onValueChange={setCount}
+                showStepper
+              />
 
-              <div>
-                <Label className="mb-1 block text-xs text-muted-foreground">{t('codex.register.concurrency')}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={5}
-                  value={concurrency}
-                  onChange={(e) => setConcurrency(Number(e.target.value))}
-                />
-              </div>
+              <NumericField
+                id="codex-register-concurrency"
+                label={t('codex.register.concurrency')}
+                value={concurrency}
+                min={1}
+                max={5}
+                onValueChange={setConcurrency}
+                showStepper
+              />
 
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="mb-1 block text-xs text-muted-foreground">{t('codex.register.minInterval')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minInterval}
-                    onChange={(e) => setMinInterval(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1 block text-xs text-muted-foreground">{t('codex.register.maxInterval')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={maxInterval}
-                    onChange={(e) => setMaxInterval(Number(e.target.value))}
-                  />
-                </div>
+                <NumericField
+                  id="codex-register-min-interval"
+                  label={t('codex.register.minInterval')}
+                  value={minInterval}
+                  min={1}
+                  onValueChange={setMinInterval}
+                />
+                <NumericField
+                  id="codex-register-max-interval"
+                  label={t('codex.register.maxInterval')}
+                  value={maxInterval}
+                  min={1}
+                  onValueChange={setMaxInterval}
+                />
               </div>
             </>
           )}
 
-          <div className="space-y-3 rounded-lg border border-border/40 bg-muted/10 px-3 py-3">
-            <CompactStat
-              icon={<History className="h-3.5 w-3.5" />}
-              label={t('codex.register.recentCount')}
-              value={t('codex.register.recentCountValue', { count: recentAccounts.length })}
-            />
-
+          <div className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
             <Button
               variant="ghost"
               size="sm"
@@ -179,11 +167,6 @@ export function RegisterTab() {
               <Button variant="destructive" className="flex-1" onClick={cancelRegistration} disabled={isCancelling}>
                 <StopCircle className="h-4 w-4" />
                 {isCancelling ? t('codex.register.cancelling') : t('codex.register.cancel')}
-              </Button>
-            ) : isConsoleOpen ? (
-              <Button variant="outline" className="flex-1" onClick={handleCloseConsole}>
-                <X className="h-4 w-4" />
-                {t('codex.common.close')}
               </Button>
             ) : (
               <Button className="flex-1" onClick={handleStart}>
@@ -202,7 +185,6 @@ export function RegisterTab() {
               <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-mono text-xs text-muted-foreground">{t('codex.register.consoleTitle')}</span>
-                  <StatusPill tone={runtimeTone}>{runtimeLabel}</StatusPill>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -257,18 +239,22 @@ export function RegisterTab() {
               )}
 
               {currentTask && (
-                <div className="grid gap-3 border-b border-border/20 bg-muted/10 px-3 py-3 md:grid-cols-2 xl:grid-cols-4">
-                  <TaskInfoCard label={t('codex.register.currentTask.taskId')} value={currentTask.taskId} truncate />
-                  <TaskInfoCard
-                    label={t('codex.register.currentTask.email')}
-                    value={currentTask.email ?? t('codex.register.fetching')}
-                    truncate
-                    dim={!currentTask.email}
-                  />
-                  <TaskInfoCard label={t('codex.register.currentTask.emailProvider')} value="Tempmail.lol" />
-                  <TaskInfoCard label={t('codex.register.currentTask.status')}>
-                    <TaskStatusBadge status={currentTask.status} />
-                  </TaskInfoCard>
+                <div className="grid gap-2 border-b border-border/20 bg-muted/10 px-3 py-2 md:grid-cols-2">
+                  <TaskDetailCard>
+                    <TaskDetailRow label={t('codex.register.currentTask.taskId')} value={currentTask.taskId} truncate />
+                    <TaskDetailRow label={t('codex.register.currentTask.status')}>
+                      <TaskStatusBadge status={currentTask.status} />
+                    </TaskDetailRow>
+                  </TaskDetailCard>
+                  <TaskDetailCard>
+                    <TaskDetailRow label={t('codex.register.currentTask.emailProvider')} value="Tempmail.lol" />
+                    <TaskDetailRow
+                      label={t('codex.register.currentTask.email')}
+                      value={currentTask.email ?? t('codex.register.fetching')}
+                      truncate
+                      dim={!currentTask.email}
+                    />
+                  </TaskDetailCard>
                 </div>
               )}
 
@@ -290,11 +276,8 @@ export function RegisterTab() {
             </>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-3 py-2">
+              <div className="border-b border-border/30 bg-muted/10 px-3 py-2">
                 <span className="text-xs text-muted-foreground">{t('codex.register.recentTitle')}</span>
-                <StatusPill tone={recentAccounts.length > 0 ? 'info' : 'muted'}>
-                  {t('codex.register.recentCountValue', { count: recentAccounts.length })}
-                </StatusPill>
               </div>
 
               {recentAccounts.length > 0 ? (
@@ -335,22 +318,134 @@ export function RegisterTab() {
   );
 }
 
-function CompactStat({
-  icon,
+function NumericField({
+  id,
   label,
   value,
+  min,
+  max,
+  step = 1,
+  onValueChange,
+  showStepper = false,
 }: {
-  icon: ReactNode;
+  id: string;
   label: string;
-  value: string;
+  value: number;
+  min: number;
+  max?: number;
+  step?: number;
+  onValueChange: (value: number) => void;
+  showStepper?: boolean;
 }) {
+  const [draft, setDraft] = useState(() => String(value));
+
+  useEffect(() => {
+    const normalizedValue = String(value);
+    setDraft((currentDraft) => (currentDraft === normalizedValue ? currentDraft : normalizedValue));
+  }, [value]);
+
+  const commitDraft = () => {
+    const parsedDraft = parseNumericDraft(draft);
+    if (parsedDraft === null) {
+      setDraft(String(value));
+      return;
+    }
+
+    const nextValue = clampNumericValue(parsedDraft, min, max);
+    setDraft(String(nextValue));
+    onValueChange(nextValue);
+  };
+
+  const handleDraftChange = (nextRawValue: string) => {
+    const nextDraft = sanitizeNumericDraft(nextRawValue);
+    setDraft(nextDraft);
+
+    const parsedDraft = parseNumericDraft(nextDraft);
+    if (parsedDraft === null) {
+      return;
+    }
+
+    if (parsedDraft < min) {
+      return;
+    }
+
+    if (typeof max === 'number' && parsedDraft > max) {
+      return;
+    }
+
+    onValueChange(parsedDraft);
+  };
+
+  const adjustValue = (delta: number) => {
+    const baseValue = parseNumericDraft(draft) ?? value;
+    const nextValue = clampNumericValue(baseValue + delta, min, max);
+    setDraft(String(nextValue));
+    onValueChange(nextValue);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      commitDraft();
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      adjustValue(step);
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      adjustValue(-step);
+    }
+  };
+
   return (
-    <div className="rounded-md border border-border/40 bg-background/70 px-2.5 py-2">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        {icon}
-        <span className="truncate">{label}</span>
+    <div>
+      <Label htmlFor={id} className="mb-1 block text-xs text-muted-foreground">
+        {label}
+      </Label>
+      <div className={cn('flex items-center', showStepper ? 'gap-2' : '')}>
+        <Input
+          id={id}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={draft}
+          onChange={(event) => handleDraftChange(event.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={handleKeyDown}
+          className={cn('text-center tabular-nums', showStepper && 'flex-1')}
+        />
+
+        {showStepper && (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="h-10 w-10"
+              onClick={() => adjustValue(-step)}
+              title={`- ${label}`}
+              aria-label={`- ${label}`}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="h-10 w-10"
+              onClick={() => adjustValue(step)}
+              title={`+ ${label}`}
+              aria-label={`+ ${label}`}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
-      <div className="mt-1 truncate text-xs font-medium text-foreground">{value}</div>
     </div>
   );
 }
@@ -370,7 +465,11 @@ function StatusPill({ tone, children }: { tone: StatusTone; children: ReactNode 
   );
 }
 
-function TaskInfoCard({
+function TaskDetailCard({ children }: { children: ReactNode }) {
+  return <div className="space-y-1.5 rounded-md border border-border/25 bg-background/70 px-2.5 py-2">{children}</div>;
+}
+
+function TaskDetailRow({
   label,
   value,
   truncate,
@@ -384,20 +483,22 @@ function TaskInfoCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border/30 bg-background/70 px-3 py-2.5">
-      <div className="mb-0.5 text-[10px] text-muted-foreground">{label}</div>
-      {children ?? (
-        <div
-          className={cn(
-            'text-[11px]',
-            dim ? 'italic text-muted-foreground' : 'text-foreground',
-            truncate && 'truncate'
-          )}
-          title={truncate ? value : undefined}
-        >
-          {value}
-        </div>
-      )}
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-[10px] leading-4 text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1 text-right">
+        {children ?? (
+          <span
+            className={cn(
+              'block text-[11px] leading-4',
+              dim ? 'italic text-muted-foreground' : 'text-foreground',
+              truncate && 'truncate'
+            )}
+            title={truncate ? value : undefined}
+          >
+            {value}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -412,7 +513,7 @@ function TaskStatusBadge({ status }: { status: string }) {
     pending: { cls: 'bg-muted text-muted-foreground', label: t('codex.register.status.pending') },
   };
   const { cls, label } = map[status] ?? { cls: 'bg-muted text-muted-foreground', label: status };
-  return <span className={cn('inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium', cls)}>{label}</span>;
+  return <span className={cn('inline-flex rounded px-1.5 py-0.5 text-[10px] leading-4 font-medium', cls)}>{label}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -436,5 +537,81 @@ function logColor(status?: string) {
       return 'text-warning';
     default:
       return 'text-foreground';
+  }
+}
+
+const LARGE_CLIPBOARD_TEXT_THRESHOLD = 100_000;
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  let latestError: unknown = null;
+
+  if (text.length >= LARGE_CLIPBOARD_TEXT_THRESHOLD) {
+    try {
+      copyTextWithSelection(text);
+      return;
+    } catch (error) {
+      latestError = error;
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    if (typeof navigator.clipboard.write === 'function' && typeof ClipboardItem !== 'undefined') {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          }),
+        ]);
+        return;
+      } catch (error) {
+        latestError = error;
+      }
+    }
+
+    if (typeof navigator.clipboard.writeText === 'function') {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (error) {
+        latestError = error;
+      }
+    }
+  }
+
+  try {
+    copyTextWithSelection(text);
+    return;
+  } catch (error) {
+    latestError = error;
+  }
+
+  throw latestError instanceof Error ? latestError : new Error('Failed to copy logs');
+}
+
+function copyTextWithSelection(text: string): void {
+  if (typeof document === 'undefined') {
+    throw new Error('Document is unavailable');
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '0';
+  textarea.style.left = '-9999px';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  textarea.style.contain = 'strict';
+
+  document.body.appendChild(textarea);
+  textarea.focus({ preventScroll: true });
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+
+  if (!copied) {
+    throw new Error('execCommand copy failed');
   }
 }

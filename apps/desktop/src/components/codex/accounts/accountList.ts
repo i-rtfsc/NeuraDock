@@ -1,7 +1,7 @@
 import { getRemainingPercent, pickPrimaryDisplayWindow } from '@/components/codex/shared/quota';
 import type { CodexAccountDto } from '@/lib/tauri';
 
-export type CodexAccountSortOption = 'remaining-desc' | 'created-desc' | 'created-asc';
+export type CodexAccountSortOption = 'remaining-desc' | 'remaining-asc' | 'created-desc' | 'created-asc';
 export type CodexAccountStatusFilter = 'all' | 'active' | 'expired' | 'banned';
 
 type CodexAccountListOptions = {
@@ -10,6 +10,7 @@ type CodexAccountListOptions = {
   onlyValidAuth: boolean;
   sortOption: CodexAccountSortOption;
   statusFilter: CodexAccountStatusFilter;
+  isPinned?: (account: CodexAccountDto) => boolean;
 };
 
 export function buildCodexAccountList(
@@ -18,7 +19,16 @@ export function buildCodexAccountList(
 ) {
   const filteredAccounts = accounts.filter((account) => matchesCodexAccountFilters(account, options));
 
-  return [...filteredAccounts].sort((left, right) => compareCodexAccounts(left, right, options.sortOption));
+  return [...filteredAccounts].sort((left, right) => {
+    const leftPinned = options.isPinned?.(left) ?? false;
+    const rightPinned = options.isPinned?.(right) ?? false;
+
+    if (leftPinned !== rightPinned) {
+      return leftPinned ? -1 : 1;
+    }
+
+    return compareCodexAccounts(left, right, options.sortOption);
+  });
 }
 
 export function hasValidCodexAuth(account: CodexAccountDto) {
@@ -66,6 +76,19 @@ function compareCodexAccounts(
   sortOption: CodexAccountSortOption
 ) {
   switch (sortOption) {
+    case 'remaining-asc': {
+      const scoreDiff = getRemainingQuotaScore(left) - getRemainingQuotaScore(right);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      const createdDiff = compareByCreatedAt(left, right);
+      if (createdDiff !== 0) {
+        return createdDiff;
+      }
+
+      return left.email.localeCompare(right.email);
+    }
     case 'created-asc':
       return compareByCreatedAt(left, right);
     case 'created-desc':
