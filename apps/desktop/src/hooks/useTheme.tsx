@@ -7,12 +7,17 @@ export type ThemeStyle =
   | 'emerald'
   | 'sunset'
   | 'midnight'
-  | 'rose'
   | 'ocean'
-  | 'cotton'
-  | 'lavender'
-  | 'peach';
-export type ThemeSkin = 'soft' | 'sharp' | 'glass' | 'minimal' | 'vivid';
+  | 'violet';
+export type ThemeSkin =
+  | 'soft'
+  | 'pill'
+  | 'sharp'
+  | 'glass'
+  | 'prism'
+  | 'hud'
+  | 'cyber'
+  | 'cyber-darkline';
 
 interface ThemeContextType {
   theme: Theme;
@@ -34,41 +39,65 @@ const THEME_STYLES: ThemeStyle[] = [
   'emerald',
   'sunset',
   'midnight',
-  'rose',
   'ocean',
-  'cotton',
-  'lavender',
-  'peach',
+  'violet',
 ];
-const THEME_SKINS: ThemeSkin[] = ['soft', 'sharp', 'glass', 'minimal', 'vivid'];
+const THEME_SKINS: ThemeSkin[] = [
+  'soft',
+  'pill',
+  'sharp',
+  'glass',
+  'prism',
+  'hud',
+  'cyber',
+  'cyber-darkline',
+];
 const THEME_STYLE_CLASSES = [
   'theme-default',
   'theme-graphite',
   'theme-emerald',
   'theme-sunset',
   'theme-midnight',
-  'theme-rose',
   'theme-ocean',
-  'theme-cotton',
-  'theme-lavender',
-  'theme-peach',
+  'theme-violet',
 ];
 const THEME_SKIN_CLASSES = [
   'skin-default',
   'skin-soft',
-  'skin-compact',
+  'skin-pill',
   'skin-sharp',
   'skin-glass',
+  'skin-prism',
+  'skin-hud',
+  'skin-cyber',
+  'skin-cyber-darkline',
+  // Legacy classes kept for safe cleanup of persisted old values.
+  'skin-compact',
+  'skin-brutalist',
   'skin-minimal',
   'skin-vivid',
 ];
 const LEGACY_THEME_SKIN_MAP: Record<string, ThemeSkin> = {
   default: 'soft',
   compact: 'sharp',
+  brutalist: 'sharp',
+  minimal: 'sharp',
+  vivid: 'hud',
+  cyberDarkline: 'cyber-darkline',
+  cyber_darkline: 'cyber-darkline',
+  cyberdarkline: 'cyber-darkline',
+};
+const LEGACY_THEME_STYLE_MAP: Record<string, ThemeStyle> = {
+  rose: 'violet',
+  cotton: 'graphite',
+  lavender: 'violet',
+  peach: 'sunset',
 };
 
-function isThemeStyle(value: string | null): value is ThemeStyle {
-  return value !== null && THEME_STYLES.includes(value as ThemeStyle);
+function normalizeThemeStyle(value: string | null): ThemeStyle {
+  if (!value) return 'default';
+  if (THEME_STYLES.includes(value as ThemeStyle)) return value as ThemeStyle;
+  return LEGACY_THEME_STYLE_MAP[value] ?? 'default';
 }
 
 function normalizeThemeSkin(value: string | null): ThemeSkin {
@@ -85,7 +114,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
   const [style, setStyleState] = useState<ThemeStyle>(() => {
     const stored = localStorage.getItem(THEME_STYLE_STORAGE_KEY);
-    return isThemeStyle(stored) ? stored : 'default';
+    return normalizeThemeStyle(stored);
   });
   const [skin, setSkinState] = useState<ThemeSkin>(() => {
     const stored = localStorage.getItem(THEME_SKIN_STORAGE_KEY);

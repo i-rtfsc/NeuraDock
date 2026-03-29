@@ -214,8 +214,16 @@ export function Sidebar() {
             {!collapsed && <span className="text-sm">{t('common.collapse', { defaultValue: 'Collapse' })}</span>}
          </Button>
 
-         {!!appVersion && !collapsed && (
-           <div className="w-full text-center text-[11px] font-mono text-muted-foreground/70 pt-1 pb-0.5">
+         {!!appVersion && (
+           <div
+             className={cn(
+               'pt-1 pb-0.5 font-mono text-muted-foreground/70',
+               collapsed
+                 ? 'w-[52px] text-center text-[9px] leading-tight truncate'
+                 : 'w-full text-center text-[11px]'
+             )}
+             title={`v${appVersion}`}
+           >
              v{appVersion}
            </div>
          )}

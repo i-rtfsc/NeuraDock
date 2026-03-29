@@ -41,6 +41,33 @@ type PreferencesTab = 'appearance' | 'workspace' | 'system' | 'about';
 
 const DEFAULT_PREFERENCES_TAB: PreferencesTab = 'appearance';
 
+const STYLE_SWATCHES: Record<ThemeStyle, { primary: string; accent: string; neutral: string }> = {
+  default: { primary: 'hsl(231 83% 58%)', accent: 'hsl(248 82% 66%)', neutral: 'hsl(222 30% 92%)' },
+  graphite: { primary: 'hsl(222 16% 32%)', accent: 'hsl(216 14% 46%)', neutral: 'hsl(220 16% 88%)' },
+  emerald: { primary: 'hsl(160 70% 36%)', accent: 'hsl(176 64% 38%)', neutral: 'hsl(156 24% 90%)' },
+  sunset: { primary: 'hsl(20 87% 50%)', accent: 'hsl(35 86% 52%)', neutral: 'hsl(32 42% 90%)' },
+  midnight: { primary: 'hsl(226 88% 50%)', accent: 'hsl(203 88% 50%)', neutral: 'hsl(224 26% 88%)' },
+  ocean: { primary: 'hsl(197 90% 44%)', accent: 'hsl(214 84% 54%)', neutral: 'hsl(203 34% 90%)' },
+  violet: { primary: 'hsl(258 72% 54%)', accent: 'hsl(280 66% 60%)', neutral: 'hsl(262 32% 90%)' },
+};
+
+const SKIN_PREVIEW_CLASS: Record<ThemeSkin, string> = {
+  soft: 'rounded-2xl border border-border/40 shadow-sm bg-card p-2.5',
+  pill: 'rounded-[1.35rem] border border-primary/35 shadow-sm bg-primary/10 p-2.5',
+  sharp: 'rounded-sm border border-border/70 shadow-none bg-card p-2.5',
+  glass: 'rounded-xl border border-border/45 shadow-md bg-background/60 backdrop-blur-md p-2.5',
+  prism: 'rounded-[0.5rem] border border-primary/45 shadow-md bg-primary/10 p-2.5',
+  hud: 'rounded-md border border-primary/45 shadow-[0_0_0_1px_hsl(var(--ring)/0.35),0_12px_24px_-14px_hsl(var(--ring)/0.55)] bg-background/60 backdrop-blur-md p-2.5',
+  cyber: 'rounded-[0.42rem] border border-primary/55 shadow-[0_0_0_1px_hsl(var(--ring)/0.45),0_0_24px_hsl(var(--ring)/0.45)] bg-background/70 backdrop-blur-sm p-2.5',
+  'cyber-darkline': 'rounded-[0.38rem] border border-primary/60 shadow-[0_0_0_1px_hsl(var(--ring)/0.55),0_0_22px_hsl(var(--ring)/0.52),inset_0_0_0_1px_hsl(var(--ring)/0.2)] bg-background/80 backdrop-blur-sm p-2.5',
+};
+
+const skinLabelKey = (option: ThemeSkin) =>
+  `settings.themeSkin${option
+    .split('-')
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join('')}`;
+
 function normalizePreferencesTab(value?: string | null): PreferencesTab {
   switch (value) {
     case 'appearance':
@@ -91,44 +118,165 @@ interface SettingsRowProps {
   label: string;
   description?: string;
   children?: ReactNode;
+  childrenPlacement?: 'inline' | 'below';
   onClick?: () => void;
   className?: string;
+  childrenContainerClassName?: string;
   action?: ReactNode;
   isLast?: boolean;
 }
 
-const SettingsRow = ({ icon: Icon, label, description, children, onClick, className, action, isLast }: SettingsRowProps) => (
-  <div className="relative w-full">
-    <div
-      className={cn(
-        "flex items-center gap-4 px-6 py-5 min-h-[4.5rem] transition-all duration-base ease-smooth hover:bg-primary/[0.03] w-full",
-        onClick && "cursor-pointer active:bg-primary/5",
-        className
-      )}
-      onClick={onClick}
-    >
-      {Icon && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-colors duration-base ease-smooth shrink-0">
-          <Icon className="h-5 w-5" />
+const SettingsRow = ({
+  icon: Icon,
+  label,
+  description,
+  children,
+  childrenPlacement = 'inline',
+  onClick,
+  className,
+  childrenContainerClassName,
+  action,
+  isLast,
+}: SettingsRowProps) => {
+  const hasInlineChildren = Boolean(children) && childrenPlacement === 'inline';
+  const hasBelowChildren = Boolean(children) && childrenPlacement === 'below';
+  const showTrailing = hasInlineChildren || Boolean(action) || (Boolean(onClick) && !action && !hasInlineChildren);
+
+  return (
+    <div className="relative w-full">
+      <div
+        className={cn(
+          "flex items-center gap-4 px-6 py-5 min-h-[4.5rem] transition-all duration-base ease-smooth hover:bg-primary/[0.03] w-full",
+          onClick && "cursor-pointer active:bg-primary/5",
+          className
+        )}
+        onClick={onClick}
+      >
+        {Icon && (
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background border border-border/60 shadow-sm text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-colors duration-base ease-smooth shrink-0">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <Label className={cn("text-base font-bold tracking-tight text-foreground", onClick && "cursor-pointer")}>
+            {label}
+          </Label>
+          {description && <p className="text-sm text-muted-foreground mt-1 leading-normal font-medium opacity-80">{description}</p>}
+        </div>
+        {showTrailing && (
+          <div className={cn('shrink-0 flex items-center gap-3 pl-4', childrenContainerClassName)}>
+            {hasInlineChildren ? children : null}
+            {action}
+            {onClick && !action && !hasInlineChildren && (
+              <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+            )}
+          </div>
+        )}
+      </div>
+      {hasBelowChildren && (
+        <div className={cn('w-full px-6 pb-5 pt-1', Icon && 'pl-[5rem]', childrenContainerClassName)}>
+          {children}
         </div>
       )}
-      <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <Label className={cn("text-base font-bold tracking-tight text-foreground", onClick && "cursor-pointer")}>
-          {label}
-        </Label>
-        {description && <p className="text-sm text-muted-foreground mt-1 leading-normal font-medium opacity-80">{description}</p>}
-      </div>
-      <div className="shrink-0 flex items-center gap-3 pl-4">
-        {children}
-        {action}
-        {onClick && !action && !children && <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />}
-      </div>
+      {!isLast && (
+        <div className="mx-6 h-px bg-border/40" />
+      )}
     </div>
-    {!isLast && (
-      <div className="mx-6 h-px bg-border/40" />
-    )}
-  </div>
-);
+  );
+};
+
+const ThemeStyleCard = ({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: ThemeStyle;
+  selected: boolean;
+  onSelect: (value: ThemeStyle) => void;
+}) => {
+  const { t } = useTranslation();
+  const swatch = STYLE_SWATCHES[option];
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(option)}
+      className={cn(
+        'group w-full rounded-[var(--radius-control)] border bg-background px-2.5 py-2 text-left transition-all duration-base ease-smooth',
+        selected
+          ? 'border-primary/55 ring-2 ring-primary/20 shadow-hover-sm'
+          : 'border-border/50 hover:border-primary/35 hover:shadow-sm'
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-semibold text-foreground">
+          {t(`settings.theme${option.charAt(0).toUpperCase()}${option.slice(1)}`)}
+        </span>
+        {selected && (
+          <Badge variant="soft-primary" className="h-4 px-1.5 text-[9px]">
+            {t('common.selected')}
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded-full border border-white/60 shadow-sm" style={{ backgroundColor: swatch.primary }} />
+        <span className="h-3 w-3 rounded-full border border-white/60 shadow-sm" style={{ backgroundColor: swatch.accent }} />
+        <span className="h-3 w-3 rounded-full border border-white/60 shadow-sm" style={{ backgroundColor: swatch.neutral }} />
+        <div
+          className="ml-auto h-4 w-12 rounded-full border border-border/50"
+          style={{ backgroundImage: `linear-gradient(135deg, ${swatch.primary} 0%, ${swatch.accent} 100%)` }}
+        />
+      </div>
+    </button>
+  );
+};
+
+const ThemeSkinCard = ({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: ThemeSkin;
+  selected: boolean;
+  onSelect: (value: ThemeSkin) => void;
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(option)}
+      className={cn(
+        'group w-full rounded-[var(--radius-control)] border bg-background px-2.5 py-2 text-left transition-all duration-base ease-smooth',
+        selected
+          ? 'border-primary/55 ring-2 ring-primary/20 shadow-hover-sm'
+          : 'border-border/50 hover:border-primary/35 hover:shadow-sm'
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-semibold text-foreground">
+          {t(skinLabelKey(option))}
+        </span>
+        {selected && (
+          <Badge variant="soft-primary" className="h-4 px-1.5 text-[9px]">
+            {t('common.selected')}
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-2">
+        <div className={SKIN_PREVIEW_CLASS[option]}>
+          <div className="mb-1.5 h-2 w-2/3 rounded bg-muted" />
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-8 rounded bg-primary/60" />
+            <div className="h-2 flex-1 rounded bg-muted" />
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+};
 
 // --- Sub-Components ---
 
@@ -141,13 +289,19 @@ const GeneralSettings = () => {
     'emerald',
     'sunset',
     'midnight',
-    'rose',
     'ocean',
-    'cotton',
-    'lavender',
-    'peach',
+    'violet',
   ];
-  const THEME_SKIN_OPTIONS: ThemeSkin[] = ['soft', 'sharp', 'glass', 'minimal', 'vivid'];
+  const THEME_SKIN_OPTIONS: ThemeSkin[] = [
+    'soft',
+    'pill',
+    'sharp',
+    'glass',
+    'prism',
+    'hud',
+    'cyber',
+    'cyber-darkline',
+  ];
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -179,41 +333,42 @@ const GeneralSettings = () => {
           icon={Palette}
           label={t('settings.themeStyle')}
           description={t('settings.themeStyleDescription')}
+          childrenPlacement="below"
+          childrenContainerClassName="w-full pt-3"
         >
-          <Select
-            value={style}
-            onValueChange={(value) => setThemeStyle(value as ThemeStyle)}
-          >
-            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="w-full">
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {THEME_STYLE_OPTIONS.map((styleOption) => (
-                <SelectItem key={styleOption} value={styleOption}>
-                  {t(`settings.theme${styleOption.charAt(0).toUpperCase()}${styleOption.slice(1)}`)}
-                </SelectItem>
+                <ThemeStyleCard
+                  key={styleOption}
+                  option={styleOption}
+                  selected={style === styleOption}
+                  onSelect={setThemeStyle}
+                />
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
         </SettingsRow>
 
         <SettingsRow
           icon={Palette}
           label={t('settings.themeSkin')}
           description={t('settings.themeSkinDescription')}
+          childrenPlacement="below"
+          childrenContainerClassName="w-full pt-3"
         >
-          <Select value={skin} onValueChange={(value) => setThemeSkin(value as ThemeSkin)}>
-            <SelectTrigger className="w-[160px] h-input-sm text-sm border-border/50 bg-background/50 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="w-full">
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {THEME_SKIN_OPTIONS.map((skinOption) => (
-                <SelectItem key={skinOption} value={skinOption}>
-                  {t(`settings.themeSkin${skinOption.charAt(0).toUpperCase()}${skinOption.slice(1)}`)}
-                </SelectItem>
+                <ThemeSkinCard
+                  key={skinOption}
+                  option={skinOption}
+                  selected={skin === skinOption}
+                  onSelect={setThemeSkin}
+                />
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
         </SettingsRow>
 
         <SettingsRow
@@ -661,7 +816,7 @@ export function PreferencesPage() {
           </TabsList>
         }
       >
-        <PageContent maxWidth="lg" className="h-full page-enter-stagger">
+        <PageContent maxWidth="none" className="h-full page-enter-stagger">
              <div className="pb-32 w-full">
                 <TabsContent value="appearance" className="mt-0 outline-none w-full">
                   <GeneralSettings />

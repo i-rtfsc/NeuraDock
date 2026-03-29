@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No entries yet_
+### Changed
+
+- **Theme palette cleanup (subtractive redesign):** Removed lower-quality presets (`Rose / Cotton / Lavender / Peach`) and kept only curated high-quality themes.
+- **Added Violet preset:** Introduced `Violet` as a modern, high-contrast purple option.
+- **Retuned all kept palettes:** Recalibrated both light and dark values for Indigo, Graphite, Emerald, Sunset, Midnight, and Ocean to improve consistency and long-term visual comfort.
+- **Backward compatibility for existing users:** Legacy stored theme values are auto-mapped to new presets (e.g., `rose -> violet`) so upgrades do not break existing preferences.
+- **Skin set cleanup and redesign:** Removed visually redundant skins (`Minimal / Vivid`) and introduced two more distinctive skins: `Prism / Sci-fi HUD`.
+- **Control morphology upgrade:** `Prism` applies angular geometry to base controls (buttons, inputs, menus), while `Sci-fi HUD` adds glass-like layers, luminous borders, and a cinematic high-tech panel feel.
+- **Legacy skin mapping:** Persisted values now migrate automatically (`minimal -> sharp`, `vivid -> hud`) to preserve existing user settings.
+- **Further skin cleanup:** Removed `Compact / Brutalist` and mapped existing persisted values to `Sharp`.
+- **Prism compatibility fix:** Replaced broad `clip-path` usage with safer asymmetric corner radii to avoid layout and hit-area issues.
+- **Pill geometry correction:** Reduced oval curvature so capsule controls no longer feel overly bloated.
+- **Added Cyber Neon skin:** Introduced a stronger cinematic sci-fi skin with neon strokes, scanline layering, and HUD-like corner framing.
+- **Unified page title typography:** Consolidated header title sizing for Transit Hub, API Keys, Codex, Dev Toolbox, Calendar, and Settings through global layout tokens.
+- **Added Cyber Darkline skin:** Introduced a darker, colder, movie-console-inspired `Cyber Darkline` with denser grid/scanline layers and sharper luminous framing.
 
 ---
 

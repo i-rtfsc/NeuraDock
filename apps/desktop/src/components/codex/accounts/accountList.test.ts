@@ -269,4 +269,111 @@ describe('accountList helpers', () => {
       'older@example.com',
     ]);
   });
+
+  it('filters by account email and plan label search query', () => {
+    const plus = createAccount({
+      email: 'alpha@example.com',
+      planType: 'plus',
+    });
+    const free = createAccount({
+      email: 'beta@example.com',
+      planType: 'free',
+    });
+    const none = createAccount({
+      email: 'gamma@example.com',
+      planType: null,
+    });
+
+    const byAccount = buildCodexAccountList(
+      [plus, free, none],
+      {
+        searchQuery: 'beta',
+        sortOption: 'remaining-desc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    const byPlan = buildCodexAccountList(
+      [plus, free, none],
+      {
+        searchQuery: 'plus',
+        sortOption: 'remaining-desc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    expect(byAccount.map((account) => account.email)).toEqual(['beta@example.com']);
+    expect(byPlan.map((account) => account.email)).toEqual(['alpha@example.com']);
+  });
+
+  it('supports alphabetical account sorting override', () => {
+    const b = createAccount({ email: 'b@example.com', createdAt: '2026-01-01T00:00:00.000Z' });
+    const a = createAccount({ email: 'a@example.com', createdAt: '2026-01-03T00:00:00.000Z' });
+    const c = createAccount({ email: 'c@example.com', createdAt: '2026-01-02T00:00:00.000Z' });
+
+    const asc = buildCodexAccountList(
+      [b, a, c],
+      {
+        sortOption: 'created-desc',
+        accountSortOrder: 'asc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    const desc = buildCodexAccountList(
+      [b, a, c],
+      {
+        sortOption: 'created-desc',
+        accountSortOrder: 'desc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    expect(asc.map((account) => account.email)).toEqual([
+      'a@example.com',
+      'b@example.com',
+      'c@example.com',
+    ]);
+    expect(desc.map((account) => account.email)).toEqual([
+      'c@example.com',
+      'b@example.com',
+      'a@example.com',
+    ]);
+  });
+
+  it('supports alphabetical plan sorting override with missing plans at end', () => {
+    const pro = createAccount({ email: 'a@example.com', planType: 'pro' });
+    const free = createAccount({ email: 'b@example.com', planType: 'free' });
+    const missing = createAccount({ email: 'c@example.com', planType: null });
+
+    const asc = buildCodexAccountList(
+      [pro, missing, free],
+      {
+        sortOption: 'created-desc',
+        planSortOrder: 'asc',
+        hideNoQuota: false,
+        onlyUnlimited: false,
+        onlyValidAuth: false,
+        statusFilter: 'all',
+      }
+    );
+
+    expect(asc.map((account) => account.email)).toEqual([
+      'b@example.com',
+      'a@example.com',
+      'c@example.com',
+    ]);
+  });
 });

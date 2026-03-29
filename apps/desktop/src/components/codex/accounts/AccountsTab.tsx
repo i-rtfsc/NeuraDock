@@ -6,6 +6,7 @@ import {
   ArrowDown,
   Check,
   ArrowRightLeft,
+  Search,
   ArrowUp,
   ArrowUpDown,
   Copy,
@@ -73,6 +74,7 @@ import {
 } from './accountList';
 
 type CodexSortColumn = 'createdAt' | 'remaining';
+type CodexTextSortOrder = 'none' | 'asc' | 'desc';
 
 const PAYMENT_COUNTRIES = [
   { code: 'SG', labelKey: 'codex.payment.country.sg', currency: 'SGD' },
@@ -90,6 +92,7 @@ const PAYMENT_COUNTRIES = [
 ] as const;
 
 const DEFAULT_COUNTRY = PAYMENT_COUNTRIES[0].code;
+const CODEX_PROGRESS_CLASS = 'h-1.5 border-border/40 bg-muted/70';
 
 function buildDefaultPaymentForm(): CodexPaymentFormState {
   return {
@@ -132,25 +135,44 @@ export function AccountsTab() {
     'codex-accounts:status-filter',
     'all'
   );
+  const [searchQuery, setSearchQuery] = usePersistedState<string>('codex-accounts:search-query', '');
+  const [accountSortOrder, setAccountSortOrder] = usePersistedState<CodexTextSortOrder>(
+    'codex-accounts:account-sort-order',
+    'none'
+  );
+  const [planSortOrder, setPlanSortOrder] = usePersistedState<CodexTextSortOrder>(
+    'codex-accounts:plan-sort-order',
+    'none'
+  );
 
   const accountList = accounts ?? [];
   const activeAccount = accountList.find((account) => isActiveAccount(activeAuth, account)) ?? null;
   const displayAccounts = useMemo(
     () =>
       buildCodexAccountList(accountList, {
+        searchQuery,
         sortOption,
         hideNoQuota,
         onlyValidAuth,
         onlyUnlimited,
         statusFilter,
+        accountSortOrder,
+        planSortOrder,
         isPinned: activeAccount ? (account) => account.id === activeAccount.id : undefined,
       }),
-    [accountList, activeAccount, hideNoQuota, onlyUnlimited, onlyValidAuth, sortOption, statusFilter]
+    [accountList, activeAccount, hideNoQuota, onlyUnlimited, onlyValidAuth, sortOption, statusFilter, searchQuery, accountSortOrder, planSortOrder]
   );
   const activeQuota = activeAuth?.quota ?? buildQuotaFromAccount(activeAccount);
   const validTokenCount = accountList.filter(hasValidCodexAuth).length;
   const creditsCount = accountList.filter((account) => account.isUnlimited || account.hasCredits).length;
-  const activeFilterCount = Number(statusFilter !== 'all') + Number(hideNoQuota) + Number(onlyValidAuth) + Number(onlyUnlimited);
+  const activeFilterCount =
+    Number(Boolean(searchQuery.trim())) +
+    Number(statusFilter !== 'all') +
+    Number(hideNoQuota) +
+    Number(onlyValidAuth) +
+    Number(onlyUnlimited) +
+    Number(accountSortOrder !== 'none') +
+    Number(planSortOrder !== 'none');
   const hasActiveFilters = activeFilterCount > 0;
 
   const copyText = async (text: string | null | undefined, successKey: string) => {
@@ -238,10 +260,13 @@ export function AccountsTab() {
   };
 
   const handleClearFilters = () => {
+    setSearchQuery('');
     setHideNoQuota(false);
     setOnlyValidAuth(false);
     setOnlyUnlimited(false);
     setStatusFilter('all');
+    setAccountSortOrder('none');
+    setPlanSortOrder('none');
   };
 
   const handleSortByColumn = (column: CodexSortColumn) => {
@@ -251,6 +276,19 @@ export function AccountsTab() {
       }
 
       return currentSort === 'remaining-desc' ? 'remaining-asc' : 'remaining-desc';
+    });
+  };
+
+  const handleToggleTextSort = (column: 'account' | 'plan') => {
+    const updater =
+      column === 'account'
+        ? setAccountSortOrder
+        : setPlanSortOrder;
+
+    updater((current) => {
+      if (current === 'none') return 'asc';
+      if (current === 'asc') return 'desc';
+      return 'none';
     });
   };
 
@@ -292,20 +330,72 @@ export function AccountsTab() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <div className="relative w-56">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={t('codex.accounts.controls.searchPlaceholder')}
+                    className="h-9 border-border/60 bg-background/80 pl-8 text-xs"
+                  />
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'h-9 gap-2 shadow-sm',
+                        hasActiveFilters
+                          ? 'border-border/50 bg-background text-foreground'
+                          : 'border-border/60 bg-background/80 text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                      )}
+                    >
                       <Filter className="h-4 w-4" />
                       {t('common.filter')}
                       {hasActiveFilters && (
-                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                        <Badge variant="soft-primary" className="h-4 px-1.5 text-[10px] leading-none">
                           {activeFilterCount}
-                        </span>
+                        </Badge>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
                     <DropdownMenuLabel>{t('common.filter')}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                      {t('codex.accounts.controls.sortLabel')}
+                    </DropdownMenuLabel>
+                    <FilterChoiceMenuItem
+                      selected={accountSortOrder === 'none'}
+                      label={t('codex.accounts.controls.accountSortNone')}
+                      onSelect={() => setAccountSortOrder('none')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={accountSortOrder === 'asc'}
+                      label={t('codex.accounts.controls.accountSortAsc')}
+                      onSelect={() => setAccountSortOrder('asc')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={accountSortOrder === 'desc'}
+                      label={t('codex.accounts.controls.accountSortDesc')}
+                      onSelect={() => setAccountSortOrder('desc')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={planSortOrder === 'none'}
+                      label={t('codex.accounts.controls.planSortNone')}
+                      onSelect={() => setPlanSortOrder('none')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={planSortOrder === 'asc'}
+                      label={t('codex.accounts.controls.planSortAsc')}
+                      onSelect={() => setPlanSortOrder('asc')}
+                    />
+                    <FilterChoiceMenuItem
+                      selected={planSortOrder === 'desc'}
+                      label={t('codex.accounts.controls.planSortDesc')}
+                      onSelect={() => setPlanSortOrder('desc')}
+                    />
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
                       {t('codex.accounts.controls.statusLabel')}
@@ -362,7 +452,13 @@ export function AccountsTab() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.account')}</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <SortableHeader
+                          label={t('codex.accounts.table.account')}
+                          direction={accountSortOrder}
+                          onClick={() => handleToggleTextSort('account')}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left font-medium">
                         <SortableHeader
                           label={t('codex.accounts.table.createdAt')}
@@ -370,7 +466,13 @@ export function AccountsTab() {
                           onClick={() => handleSortByColumn('createdAt')}
                         />
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">{t('codex.accounts.table.plan')}</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <SortableHeader
+                          label={t('codex.accounts.table.plan')}
+                          direction={planSortOrder}
+                          onClick={() => handleToggleTextSort('plan')}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left font-medium">
                         <SortableHeader
                           label={t('codex.accounts.table.remaining')}
@@ -496,7 +598,13 @@ function ActiveAuthCard({
 
         <div className="flex items-center gap-2">
           {activeAuth?.hasTokens && activeAuth.authMode === 'chatgpt' && (
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRefresh} disabled={isRefreshing}>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+            >
               <RefreshCw className={cn('h-3 w-3', isRefreshing && 'animate-spin')} />
               {t('codex.accounts.activeAuth.refreshQuota')}
             </Button>
@@ -505,7 +613,7 @@ function ActiveAuthCard({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs text-destructive hover:bg-destructive/10"
+              className="h-7 text-xs"
               onClick={onLogout}
               disabled={isLoggingOut}
             >
@@ -522,21 +630,19 @@ function ActiveAuthCard({
         <div className="mt-2.5 lg:flex lg:flex-col">
           {activeAuth.authMode === 'chatgpt' ? (
             <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="rounded-xl border border-border/50 bg-muted/20 p-4 shadow-sm">
+              <div className="overflow-hidden rounded-[var(--radius-panel)] border border-border/50 bg-muted/20 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="max-w-full truncate font-mono text-sm">{activeAuth.email ?? t('codex.common.unnamed')}</span>
-                      <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px]">
+                      <Badge variant="soft-primary" className="h-5 rounded px-1.5 text-[10px]">
                         {t('codex.accounts.activeAuth.current')}
                       </Badge>
                       <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px]">
                         {activeAuth.authMode}
                       </Badge>
                       {activeQuota?.planType && (
-                        <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px]">
-                          {formatPlanLabel(activeQuota.planType, t)}
-                        </Badge>
+                        <PlanTypeBadge planType={activeQuota.planType} className="h-5 rounded px-1.5 text-[10px]" />
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
@@ -580,13 +686,13 @@ function ActiveAuthCard({
                 </div>
 
                 {activeAuth.quotaError && (
-                  <div className="mt-3 text-xs text-yellow-600">
+                  <div className="mt-3 text-xs text-primary">
                     {t('codex.accounts.activeAuth.quotaError', { message: activeAuth.quotaError })}
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-col rounded-xl border border-primary/20 bg-primary/[0.04] p-4 shadow-sm">
+              <div className="flex flex-col overflow-hidden rounded-[var(--radius-panel)] border border-border/50 bg-background/70 p-4 shadow-sm">
                 <div className="text-[11px] text-muted-foreground">{t('codex.accounts.activeAuth.remaining')}</div>
                 <div className="mt-1 text-3xl font-semibold tracking-tight">
                   {activeQuota ? remainingValue : t('codex.common.empty')}
@@ -609,7 +715,7 @@ function ActiveAuthCard({
                 </div>
 
                 <div className="mt-auto pt-4">
-                  <Progress value={activeQuota ? progressValue : 0} className="h-1.5" />
+                  <Progress value={activeQuota ? progressValue : 0} className={CODEX_PROGRESS_CLASS} />
                   {activeQuota ? (
                     resetHint && <div className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">{resetHint}</div>
                   ) : (
@@ -676,17 +782,21 @@ function AccountRow({
   }
 
   return (
-    <tr className={cn('border-b border-border/20 transition-colors hover:bg-muted/20', isActive && 'bg-primary/5')}>
+    <tr className={cn('group border-b border-border/20 transition-colors hover:bg-muted/20', isActive && 'bg-primary/5')}>
       <td className="px-4 py-3 align-top">
         <div className="flex items-center gap-2">
-          {isActive && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+          {isActive && <Star className="h-3.5 w-3.5 fill-primary/35 text-primary" />}
           {account.status !== 'active' && <StatusBadge status={account.status} />}
           {account.status === 'active' && account.isTokenExpired && (
-            <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px] text-yellow-600">
+            <Badge variant="soft-primary" className="h-5 rounded px-1.5 text-[10px]">
               {t('codex.accounts.tokenExpired')}
             </Badge>
           )}
-          <span className="max-w-[260px] truncate font-mono text-xs">{account.email}</span>
+          <span className="max-w-[20ch] overflow-hidden">
+            <span className="codex-marquee inline-flex w-max font-mono text-xs" data-long={account.email.length > 20}>
+              {account.email}
+            </span>
+          </span>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -702,9 +812,9 @@ function AccountRow({
           <span className="rounded border border-border/40 bg-muted/30 px-1.5 py-0.5 text-muted-foreground">
             {t('codex.accounts.password')}
           </span>
-          <span className={cn('font-mono', account.password ? 'text-foreground' : 'text-muted-foreground')}>
-            {account.password ? maskPassword(account.password) : t('codex.accounts.passwordMissing')}
-          </span>
+            <span className={cn('font-mono text-xs', account.password ? 'text-foreground' : 'text-muted-foreground')}>
+              {account.password ? maskPassword(account.password) : t('codex.accounts.passwordMissing')}
+            </span>
           {account.password && (
             <Button
               variant="ghost"
@@ -725,9 +835,7 @@ function AccountRow({
 
       <td className="px-4 py-3 align-top">
         {account.planType ? (
-          <Badge variant="outline" className="text-xs">
-            {formatPlanLabel(account.planType, t)}
-          </Badge>
+          <PlanTypeBadge planType={account.planType} className="text-xs" />
         ) : (
           <span className="text-xs text-muted-foreground">{t('codex.common.empty')}</span>
         )}
@@ -739,7 +847,7 @@ function AccountRow({
             <span className="font-medium text-foreground">{formatRemainingPercent(displayWindow, account.isUnlimited, t)}</span>
             <span className="text-muted-foreground">{formatWindowLabel(displayWindow, t)}</span>
           </div>
-          <Progress value={progressValue} className="mt-2 h-1.5" />
+          <Progress value={progressValue} className={cn('mt-2', CODEX_PROGRESS_CLASS)} />
           {detailWindows.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
               {detailWindows.map(({ window, isUnlimited }, index) => (
@@ -763,6 +871,7 @@ function AccountRow({
             title={t('codex.accounts.actions.payment')}
             onClick={onGeneratePaymentLink}
             disabled={!account.hasTokens || account.isTokenExpired}
+            tone="primary"
           >
             <CreditCard className="h-3.5 w-3.5" />
           </ActionButton>
@@ -770,6 +879,7 @@ function AccountRow({
             title={t('codex.accounts.actions.switchAuth')}
             onClick={onSwitchAuth}
             disabled={!account.hasTokens || account.isTokenExpired}
+            tone="primary"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
           </ActionButton>
@@ -778,7 +888,7 @@ function AccountRow({
               <Button
                 variant="outline"
                 size="icon-sm"
-                className="h-7 w-7"
+                className="h-7 w-7 border-border/60 bg-background/80 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                 title={t('codex.accounts.actions.more')}
                 aria-label={t('codex.accounts.actions.more')}
               >
@@ -794,14 +904,18 @@ function AccountRow({
                 {t('codex.accounts.actions.inbox')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onRefreshQuota} disabled={isRefreshing || !account.hasTokens}>
+              <DropdownMenuItem
+                onClick={onRefreshQuota}
+                disabled={isRefreshing || !account.hasTokens}
+                className="focus:bg-primary/10 focus:text-primary"
+              >
                 <RefreshCw className={cn('mr-2 h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
                 {t('codex.accounts.actions.refreshQuota')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
-                className="text-destructive focus:text-destructive"
+                className="text-primary focus:bg-primary/10 focus:text-primary"
               >
                 <Trash2 className="mr-2 h-3.5 w-3.5" />
                 {t('codex.accounts.actions.delete')}
@@ -841,13 +955,13 @@ function InboxCodeDialog({
           <div className="py-8 text-center text-sm text-muted-foreground">{t('codex.accounts.inbox.loading')}</div>
         ) : result ? (
           <div className="space-y-4">
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+            <div className="rounded-[var(--radius-panel)] border border-border/50 bg-muted/20 p-3">
               <div className="text-xs text-muted-foreground">{t('codex.accounts.inbox.email')}</div>
               <div className="mt-1 font-mono text-sm">{result.email}</div>
             </div>
-            <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-4 text-center">
+            <div className="rounded-[var(--radius-panel)] border border-border/60 bg-muted/25 p-4 text-center">
               <div className="text-xs text-muted-foreground">{t('codex.accounts.inbox.code')}</div>
-              <div className="mt-2 font-mono text-3xl font-semibold tracking-[0.2em]">{result.code}</div>
+              <div className="mt-2 font-mono text-3xl font-semibold tracking-[0.2em] text-primary">{result.code}</div>
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -906,13 +1020,15 @@ function PaymentLinkDialog({
 
         {account && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+            <div className="rounded-[var(--radius-panel)] border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-foreground">{account.email}</span>
                 {account.hasPaymentSession ? (
-                  <Badge variant="outline" className="text-xs">{t('codex.accounts.paymentSessionReady')}</Badge>
+                  <Badge variant="soft-primary" className="text-xs">{t('codex.accounts.paymentSessionReady')}</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-xs text-yellow-600">{t('codex.payment.tokenOnlyHint')}</Badge>
+                  <Badge variant="soft-primary" className="text-xs">
+                    {t('codex.payment.tokenOnlyHint')}
+                  </Badge>
                 )}
               </div>
             </div>
@@ -1017,11 +1133,9 @@ function PaymentLinkDialog({
             </div>
 
             {result && (
-              <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+              <div className="rounded-[var(--radius-panel)] border border-border/50 bg-muted/20 p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {result.planType === 'plus' ? 'Plus' : 'Team'}
-                  </Badge>
+                  <PlanTypeBadge planType={result.planType} className="text-xs" />
                   <span className="text-xs text-muted-foreground">
                     {result.country} / {result.currency}
                   </span>
@@ -1063,7 +1177,7 @@ function ProfileInfoBlock({
   action?: ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border/40 bg-background/70 p-3">
+    <div className="min-w-0 rounded-[var(--radius-panel)] border border-border/40 bg-background/70 p-3">
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="mt-1 flex min-w-0 items-center gap-1.5">
         <div className={cn('min-w-0 flex-1 truncate text-[12px] text-foreground', mono && 'font-mono text-[11px]')}>
@@ -1120,7 +1234,7 @@ function FilterMenuItem({
       <span
         className={cn(
           'flex h-4 w-4 items-center justify-center rounded border border-border/60 bg-background/80',
-          checked ? 'border-primary/40 bg-primary/10 text-primary' : 'text-transparent'
+          checked ? 'border-primary/45 bg-primary/15 text-primary shadow-xs' : 'text-transparent'
         )}
       >
         <Check className="h-3 w-3" />
@@ -1152,7 +1266,7 @@ function FilterChoiceMenuItem({
       <span
         className={cn(
           'flex h-4 w-4 items-center justify-center rounded border border-border/60 bg-background/80',
-          selected ? 'border-primary/40 bg-primary/10 text-primary' : 'text-transparent'
+          selected ? 'border-primary/45 bg-primary/15 text-primary shadow-xs' : 'text-transparent'
         )}
       >
         <Check className="h-3 w-3" />
@@ -1167,7 +1281,7 @@ function SortableHeader({
   onClick,
 }: {
   label: string;
-  direction: 'asc' | 'desc' | null;
+  direction: 'asc' | 'desc' | 'none' | null;
   onClick: () => void;
 }) {
   return (
@@ -1182,7 +1296,7 @@ function SortableHeader({
   );
 }
 
-function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
+function SortIcon({ direction }: { direction: 'asc' | 'desc' | 'none' | null }) {
   if (direction === 'asc') {
     return <ArrowUp className="h-3.5 w-3.5 text-primary" />;
   }
@@ -1198,18 +1312,27 @@ function ActionButton({
   title,
   onClick,
   disabled,
+  tone = 'neutral',
   children,
 }: {
   title: string;
   onClick: () => void;
   disabled?: boolean;
+  tone?: 'neutral' | 'primary' | 'accent';
   children: ReactNode;
 }) {
+  const toneClasses: Record<'neutral' | 'primary' | 'accent', string> = {
+    neutral: '',
+    primary: 'border-primary/35 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/45',
+    accent:
+      'border-accent-2-border bg-accent-2-soft/45 text-accent-2-soft-foreground hover:bg-accent-2-soft/65 hover:border-accent-2-border',
+  };
+
   return (
     <Button
       variant="outline"
       size="icon-sm"
-      className="h-7 w-7"
+      className={cn('h-7 w-7', toneClasses[tone])}
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -1220,12 +1343,22 @@ function ActionButton({
   );
 }
 
+function PlanTypeBadge({ planType, className }: { planType: string; className?: string }) {
+  const { t } = useTranslation();
+
+  return (
+    <Badge variant="soft-primary" className={cn('text-xs', className)}>
+      {formatPlanLabel(planType, t)}
+    </Badge>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const styles: Record<string, string> = {
-    active: 'bg-green-500/15 text-green-600 border-green-500/20',
-    expired: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/20',
-    banned: 'bg-red-500/15 text-red-600 border-red-500/20',
+    active: 'bg-primary/10 text-primary border-primary/30',
+    expired: 'bg-primary/10 text-primary border-primary/30',
+    banned: 'bg-primary/10 text-primary border-primary/30',
   };
 
   const labels: Record<string, string> = {
@@ -1284,7 +1417,7 @@ function getCurrencyForCountry(country: string) {
 }
 
 function maskPassword(password: string) {
-  const maskLength = Math.min(Math.max(password.length, 8), 12);
+  const maskLength = Math.min(Math.max(password.length + 2, 10), 16);
   return '•'.repeat(maskLength);
 }
 

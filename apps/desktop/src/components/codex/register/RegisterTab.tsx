@@ -10,14 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { clampNumericValue, parseNumericDraft, sanitizeNumericDraft } from './numberField';
 
 type StatusTone = 'muted' | 'info' | 'success' | 'warning';
 
 const PANEL_CARD_CLASS = 'border-border/40 bg-card/95 shadow-sm';
+const CODEX_PROGRESS_CLASS = 'h-1.5 border-border/40 bg-muted/70';
 
 export function RegisterTab() {
   const { t, i18n } = useTranslation();
@@ -98,15 +99,20 @@ export function RegisterTab() {
 
           <div>
             <Label className="mb-1 block text-xs text-muted-foreground">{t('codex.register.mode')}</Label>
-            <Select value={mode} onValueChange={(value) => setMode(value as 'single' | 'batch')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">{t('codex.register.modeSingle')}</SelectItem>
-                <SelectItem value="batch">{t('codex.register.modeBatch')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <ModeOption
+                selected={mode === 'single'}
+                label={t('codex.register.modeSingle')}
+                hint={t('codex.register.modeSingleHint')}
+                onClick={() => setMode('single')}
+              />
+              <ModeOption
+                selected={mode === 'batch'}
+                label={t('codex.register.modeBatch')}
+                hint={t('codex.register.modeBatchHint')}
+                onClick={() => setMode('batch')}
+              />
+            </div>
           </div>
 
           {mode === 'batch' && (
@@ -154,7 +160,7 @@ export function RegisterTab() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-full justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="h-8 w-full justify-start px-2 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               onClick={() => navigate('/settings')}
             >
               <Settings2 className="h-3.5 w-3.5" />
@@ -234,7 +240,10 @@ export function RegisterTab() {
                       </span>
                     </div>
                   </div>
-                  <Progress value={progressValue} className="h-1.5" />
+                  <Progress
+                    value={progressValue}
+                    className={CODEX_PROGRESS_CLASS}
+                  />
                 </div>
               )}
 
@@ -453,15 +462,49 @@ function NumericField({
 function StatusPill({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   const toneStyles: Record<StatusTone, string> = {
     muted: 'border-border/40 bg-background/70 text-muted-foreground',
-    info: 'border-primary/20 bg-primary/5 text-primary',
-    success: 'border-success-border bg-success-soft text-success-soft-foreground',
-    warning: 'border-warning-border bg-warning-soft text-warning-soft-foreground',
+    info: 'border-primary/30 bg-primary/10 text-primary',
+    success: 'border-primary/30 bg-primary/10 text-primary',
+    warning: 'border-primary/30 bg-primary/10 text-primary',
   };
 
   return (
     <span className={cn('shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium', toneStyles[tone])}>
       {children}
     </span>
+  );
+}
+
+function ModeOption({
+  selected,
+  label,
+  hint,
+  onClick,
+}: {
+  selected: boolean;
+  label: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'rounded-[var(--radius-control)] border px-2.5 py-2 text-left transition-all duration-base ease-smooth',
+        selected
+          ? 'border-border/55 bg-background text-foreground shadow-sm'
+          : 'border-border/50 bg-background/70 text-foreground hover:border-border/70 hover:bg-muted/40'
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-semibold">{label}</span>
+        {selected ? (
+          <Badge variant="soft-primary" className="h-4 px-1.5 text-[10px] leading-none">●</Badge>
+        ) : null}
+      </div>
+      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>
+    </button>
   );
 }
 
@@ -506,10 +549,10 @@ function TaskDetailRow({
 function TaskStatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const map: Record<string, { cls: string; label: string }> = {
-    running: { cls: 'border border-info-border bg-info-soft text-info-soft-foreground', label: t('codex.register.status.running') },
-    success: { cls: 'border border-success-border bg-success-soft text-success-soft-foreground', label: t('codex.register.status.success') },
-    failed: { cls: 'border border-danger-border bg-danger-soft text-danger-soft-foreground', label: t('codex.register.status.failed') },
-    cancelled: { cls: 'border border-warning-border bg-warning-soft text-warning-soft-foreground', label: t('codex.register.status.cancelled') },
+    running: { cls: 'border border-primary/30 bg-primary/10 text-primary', label: t('codex.register.status.running') },
+    success: { cls: 'border border-primary/30 bg-primary/10 text-primary', label: t('codex.register.status.success') },
+    failed: { cls: 'border border-primary/30 bg-primary/10 text-primary', label: t('codex.register.status.failed') },
+    cancelled: { cls: 'border border-primary/30 bg-primary/10 text-primary', label: t('codex.register.status.cancelled') },
     pending: { cls: 'bg-muted text-muted-foreground', label: t('codex.register.status.pending') },
   };
   const { cls, label } = map[status] ?? { cls: 'bg-muted text-muted-foreground', label: status };
@@ -519,9 +562,9 @@ function TaskStatusBadge({ status }: { status: string }) {
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const map: Record<string, { cls: string; label: string }> = {
-    active: { cls: 'bg-green-500/20 text-green-500', label: t('codex.accounts.status.active') },
-    expired: { cls: 'bg-yellow-500/20 text-yellow-500', label: t('codex.accounts.status.expired') },
-    banned: { cls: 'bg-red-500/20 text-red-500', label: t('codex.accounts.status.banned') },
+    active: { cls: 'bg-primary/10 text-primary border border-primary/30', label: t('codex.accounts.status.active') },
+    expired: { cls: 'bg-primary/10 text-primary border border-primary/30', label: t('codex.accounts.status.expired') },
+    banned: { cls: 'bg-primary/10 text-primary border border-primary/30', label: t('codex.accounts.status.banned') },
   };
   const { cls, label } = map[status] ?? { cls: 'bg-muted text-muted-foreground', label: status };
   return <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', cls)}>{label}</span>;
@@ -530,11 +573,11 @@ function StatusBadge({ status }: { status: string }) {
 function logColor(status?: string) {
   switch (status) {
     case 'success':
-      return 'text-success';
+      return 'text-primary';
     case 'failed':
-      return 'text-danger';
+      return 'text-primary';
     case 'cancelled':
-      return 'text-warning';
+      return 'text-primary';
     default:
       return 'text-foreground';
   }

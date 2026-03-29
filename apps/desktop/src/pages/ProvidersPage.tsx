@@ -133,7 +133,7 @@ export function ProvidersPage({
     setNodesDialogOpen(true);
   };
 
-  const pageTitle = <span className="text-xl font-semibold tracking-tight">{t('providers.title', '中转站管理')}</span>;
+  const pageTitle = <span>{t('providers.title', '中转站管理')}</span>;
 
   const pageActions = (
     <HeaderActions

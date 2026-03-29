@@ -5,11 +5,14 @@ export type CodexAccountSortOption = 'remaining-desc' | 'remaining-asc' | 'creat
 export type CodexAccountStatusFilter = 'all' | 'active' | 'expired' | 'banned';
 
 type CodexAccountListOptions = {
+  searchQuery?: string;
   hideNoQuota: boolean;
   onlyUnlimited: boolean;
   onlyValidAuth: boolean;
   sortOption: CodexAccountSortOption;
   statusFilter: CodexAccountStatusFilter;
+  planSortOrder?: 'none' | 'asc' | 'desc';
+  accountSortOrder?: 'none' | 'asc' | 'desc';
   isPinned?: (account: CodexAccountDto) => boolean;
 };
 
@@ -25,6 +28,16 @@ export function buildCodexAccountList(
 
     if (leftPinned !== rightPinned) {
       return leftPinned ? -1 : 1;
+    }
+
+    const accountSortDiff = compareByAccountLabel(left, right, options.accountSortOrder ?? 'none');
+    if (accountSortDiff !== 0) {
+      return accountSortDiff;
+    }
+
+    const planSortDiff = compareByPlanLabel(left, right, options.planSortOrder ?? 'none');
+    if (planSortDiff !== 0) {
+      return planSortDiff;
     }
 
     return compareCodexAccounts(left, right, options.sortOption);
@@ -51,6 +64,10 @@ export function hasNoRemainingQuota(account: CodexAccountDto) {
 }
 
 function matchesCodexAccountFilters(account: CodexAccountDto, options: CodexAccountListOptions) {
+  if (!matchesSearchQuery(account, options.searchQuery)) {
+    return false;
+  }
+
   if (options.hideNoQuota && hasNoRemainingQuota(account)) {
     return false;
   }
@@ -68,6 +85,57 @@ function matchesCodexAccountFilters(account: CodexAccountDto, options: CodexAcco
   }
 
   return true;
+}
+
+function matchesSearchQuery(account: CodexAccountDto, searchQuery?: string) {
+  const normalizedQuery = searchQuery?.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const accountLabel = (account.email ?? '').toLowerCase();
+  const planLabel = (account.planType ?? '').toLowerCase();
+  return accountLabel.includes(normalizedQuery) || planLabel.includes(normalizedQuery);
+}
+
+function compareByAccountLabel(
+  left: CodexAccountDto,
+  right: CodexAccountDto,
+  order: 'none' | 'asc' | 'desc'
+) {
+  if (order === 'none') {
+    return 0;
+  }
+
+  const leftLabel = left.email.toLowerCase();
+  const rightLabel = right.email.toLowerCase();
+  const diff = leftLabel.localeCompare(rightLabel);
+  return order === 'asc' ? diff : -diff;
+}
+
+function compareByPlanLabel(
+  left: CodexAccountDto,
+  right: CodexAccountDto,
+  order: 'none' | 'asc' | 'desc'
+) {
+  if (order === 'none') {
+    return 0;
+  }
+
+  const leftMissing = !left.planType;
+  const rightMissing = !right.planType;
+  if (leftMissing !== rightMissing) {
+    return leftMissing ? 1 : -1;
+  }
+
+  const leftLabel = getPlanSortLabel(left);
+  const rightLabel = getPlanSortLabel(right);
+  const diff = leftLabel.localeCompare(rightLabel);
+  return order === 'asc' ? diff : -diff;
+}
+
+function getPlanSortLabel(account: CodexAccountDto) {
+  return account.planType?.toLowerCase() ?? '';
 }
 
 function compareCodexAccounts(

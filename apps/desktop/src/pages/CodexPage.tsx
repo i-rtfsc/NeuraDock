@@ -6,6 +6,7 @@ import { RegisterTab } from '@/components/codex/register/RegisterTab';
 import { AccountsTab } from '@/components/codex/accounts/AccountsTab';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { UserRound, TerminalSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type CodexPageTab = 'register' | 'accounts';
 
@@ -36,18 +37,22 @@ export function CodexPage() {
     >
       <PageContainer
         className="h-full bg-muted/10 w-full"
+        headerClassName="h-auto min-h-[var(--layout-page-header-height)]"
         title={<span>Codex</span>}
         actions={
-          <TabsList className="h-10 bg-muted/50 border border-border/50 p-1 rounded-[var(--radius-control)] inline-flex items-center justify-center">
-            <TabsTrigger value="register" className={TAB_CLASS}>
-              <TerminalSquare className="w-4 h-4 mr-2" />
-              {t('codex.page.register')}
-            </TabsTrigger>
-            <TabsTrigger value="accounts" className={TAB_CLASS}>
-              <UserRound className="w-4 h-4 mr-2" />
-              {t('codex.page.accounts')}
-            </TabsTrigger>
-          </TabsList>
+          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div className="min-w-0" />
+            <TabsList className="h-10 shrink-0 bg-muted/50 border border-border/50 p-1 rounded-[var(--radius-control)] inline-flex items-center justify-center">
+              <TabsTrigger value="register" className={cn(TAB_CLASS, 'min-w-[112px]')}>
+                <TerminalSquare className="w-4 h-4 mr-2" />
+                {t('codex.page.register')}
+              </TabsTrigger>
+              <TabsTrigger value="accounts" className={cn(TAB_CLASS, 'min-w-[112px]')}>
+                <UserRound className="w-4 h-4 mr-2" />
+                {t('codex.page.accounts')}
+              </TabsTrigger>
+            </TabsList>
+          </div>
         }
       >
         <PageContent maxWidth="none" className="h-full page-enter-stagger">

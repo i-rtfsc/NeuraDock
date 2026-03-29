@@ -30,9 +30,9 @@ export function PageContainer({ children, className, title, actions, headerClass
       )}>
         <div className="flex items-center gap-3 min-w-0 shrink-0 text-primary">
           <div className="w-1.5 h-6 bg-primary rounded-full shrink-0" />
-          <div className="flex items-center gap-[var(--spacing-element-gap)] font-black tracking-tighter truncate">
+          <div className="flex items-center gap-[var(--spacing-element-gap)] truncate [font-size:var(--layout-page-title-size)] [line-height:var(--layout-page-title-line-height)] [font-weight:var(--layout-page-title-weight)] [letter-spacing:var(--layout-page-title-tracking)]">
             {typeof title === 'string' ? (
-              <h1 className="text-2xl truncate">{title}</h1>
+              <h1 className="truncate">{title}</h1>
             ) : (
               title
             )}
