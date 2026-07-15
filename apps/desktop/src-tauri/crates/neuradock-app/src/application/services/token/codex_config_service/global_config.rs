@@ -66,7 +66,14 @@ fn configure(
 
     // config.toml: read-modify-write, preserving unrelated keys.
     let mut doc = load_toml_document(&config_path)?;
-    apply_provider_config(&mut doc, provider_slug, provider_name, base_url, model, context_1m);
+    apply_provider_config(
+        &mut doc,
+        provider_slug,
+        provider_name,
+        base_url,
+        model,
+        context_1m,
+    );
     backup_file(&config_path)?;
     atomic_write(&config_path, &doc.to_string(), false)?;
     log::info!("Codex config.toml updated at: {}", config_path.display());
@@ -106,7 +113,9 @@ pub(super) fn clear_global_impl() -> Result<String> {
             .and_then(|item| item.as_str())
             .map(|slug| slug.to_string());
         if let Some(slug) = active_slug {
-            if let Some(providers) = doc.get_mut("model_providers").and_then(|i| i.as_table_mut())
+            if let Some(providers) = doc
+                .get_mut("model_providers")
+                .and_then(|i| i.as_table_mut())
             {
                 providers.remove(&slug);
                 if providers.is_empty() {
@@ -157,8 +166,8 @@ fn load_toml_document(path: &Path) -> Result<toml_edit::DocumentMut> {
     if !path.exists() {
         return Ok(toml_edit::DocumentMut::new());
     }
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
     content.parse::<toml_edit::DocumentMut>().with_context(|| {
         format!(
             "{} is not valid TOML; fix or remove it manually, then retry",
@@ -173,8 +182,8 @@ fn load_json_object(path: &Path) -> Result<Value> {
     if !path.exists() {
         return Ok(json!({}));
     }
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
     serde_json::from_str(&content).with_context(|| {
         format!(
             "{} is not valid JSON; fix or remove it manually, then retry",

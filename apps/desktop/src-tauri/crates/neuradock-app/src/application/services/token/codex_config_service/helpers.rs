@@ -139,7 +139,14 @@ wire_api = "responses"
 "#;
         let mut doc: toml_edit::DocumentMut = existing.parse().unwrap();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
+        apply_provider_config(
+            &mut doc,
+            "relay",
+            "Relay",
+            "https://relay.example",
+            None,
+            false,
+        );
 
         let out = doc.to_string();
         assert!(out.contains("# my codex settings"));
@@ -154,7 +161,14 @@ wire_api = "responses"
     fn apply_keeps_existing_model_when_none_selected() {
         let mut doc: toml_edit::DocumentMut = "model = \"my-model\"\n".parse().unwrap();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
+        apply_provider_config(
+            &mut doc,
+            "relay",
+            "Relay",
+            "https://relay.example",
+            None,
+            false,
+        );
 
         assert_eq!(doc["model"].as_str(), Some("my-model"));
     }
@@ -163,7 +177,14 @@ wire_api = "responses"
     fn apply_writes_default_model_on_empty_config() {
         let mut doc = toml_edit::DocumentMut::new();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
+        apply_provider_config(
+            &mut doc,
+            "relay",
+            "Relay",
+            "https://relay.example",
+            None,
+            false,
+        );
 
         assert_eq!(doc["model"].as_str(), Some(DEFAULT_MODEL));
     }

@@ -71,8 +71,7 @@ pub fn atomic_write(path: &Path, contents: &str, private: bool) -> Result<()> {
         let _ = private;
     }
 
-    fs::rename(&tmp_path, path)
-        .with_context(|| format!("Failed to replace {}", path.display()))?;
+    fs::rename(&tmp_path, path).with_context(|| format!("Failed to replace {}", path.display()))?;
 
     Ok(())
 }
