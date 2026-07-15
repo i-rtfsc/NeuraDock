@@ -50,7 +50,7 @@ pub async fn build_app_state(
 ) -> Result<AppState, Box<dyn std::error::Error>> {
     let startup_started_at = Instant::now();
 
-    // Get app data directory (~/Library/Application Support/com.neuradock.app/)
+    // Get app data directory (~/Library/Application Support/com.rtfsc.neuradock/)
     let started_at = Instant::now();
     let app_data_dir = app_handle
         .path()

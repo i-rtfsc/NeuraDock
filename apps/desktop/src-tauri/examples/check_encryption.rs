@@ -12,7 +12,7 @@ struct AccountRow {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 连接数据库
     let db_path = format!(
-        "{}/Library/Application Support/com.neuradock.app/neuradock.db",
+        "{}/Library/Application Support/com.rtfsc.neuradock/neuradock.db",
         std::env::var("HOME")?
     );
 
