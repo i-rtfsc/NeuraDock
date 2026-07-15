@@ -50,6 +50,14 @@ export function IndependentKeyConfigDialog({
   const [tempCommands, setTempCommands] = useState('');
   const [copied, setCopied] = useState(false);
   const [isSingleLine, setIsSingleLine] = useState(false);
+  const [context1m, setContext1m] = useState(false);
+
+  // 1M context is tied to a concrete model selection
+  useEffect(() => {
+    if (!selectedModel) {
+      setContext1m(false);
+    }
+  }, [selectedModel]);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -58,6 +66,7 @@ export function IndependentKeyConfigDialog({
       setCopied(false);
       setSelectedModel('');
       setIsSingleLine(false);
+      setContext1m(false);
       setSelectedTool(defaultTool); // Use provided default tool
     }
   }, [open, keyData, defaultTool]);
@@ -68,11 +77,13 @@ export function IndependentKeyConfigDialog({
         return invoke<string>('configure_independent_key_claude', {
           keyId: keyData!.id,
           model: selectedModel || null,
+          context1m,
         });
       } else if (selectedTool === 'codex') {
         return invoke<string>('configure_independent_key_codex', {
           keyId: keyData!.id,
           model: selectedModel || null,
+          context1m,
         });
       } else {
         throw new Error("Not implemented");
@@ -135,7 +146,7 @@ export function IndependentKeyConfigDialog({
     setTempCommands('');
     setCopied(false);
     setIsSingleLine(false);
-  }, [selectedTool, selectedModel, open]);
+  }, [selectedTool, selectedModel, context1m, open]);
 
   if (!keyData) return null;
 
@@ -269,6 +280,26 @@ export function IndependentKeyConfigDialog({
                         ? t('token.configDialog.claudeModelHint', 'e.g., claude-3-5-sonnet-20241022, claude-3-opus-20240229')
                         : t('token.configDialog.codexModelHint', 'e.g., gpt-4o, gpt-4-turbo')}
                     </p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-3">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="independent-context-1m" className="text-sm font-medium">
+                        {t('token.configDialog.context1m', '1M 上下文')}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          'token.configDialog.context1mHint',
+                          '需要中转站支持；请先选择模型'
+                        )}
+                      </p>
+                    </div>
+                    <Switch
+                      id="independent-context-1m"
+                      checked={context1m}
+                      onCheckedChange={setContext1m}
+                      disabled={!selectedModel}
+                    />
                   </div>
                 </div>
 

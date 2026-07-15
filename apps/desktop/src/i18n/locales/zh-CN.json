@@ -628,6 +628,8 @@
       "modelPlaceholder": "留空则自动检测",
       "claudeModelHint": "例如：claude-3-5-sonnet-20241022、claude-3-opus-20240229",
       "codexModelHint": "例如：gpt-4o、gpt-4-turbo",
+      "context1m": "1M 上下文",
+      "context1mHint": "需要中转站支持；请先选择模型",
       "loadingModels": "正在加载模型...",
       "autoDetect": "自动检测",
       "noSpecificModels": "未找到特定模型",

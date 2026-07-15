@@ -18,6 +18,7 @@ interface CommandGeneratorProps {
   selectedTool: AITool;
   selectedNode: string;
   selectedModel: string;
+  context1m: boolean;
   isCompatible: boolean;
   tempCommands: string;
   setTempCommands: (commands: string) => void;
@@ -35,6 +36,7 @@ export function CommandGenerator({
   selectedTool,
   selectedNode,
   selectedModel,
+  context1m,
   isCompatible,
   tempCommands,
   setTempCommands,
@@ -55,6 +57,7 @@ export function CommandGenerator({
           accountId: token.account_id,
           baseUrl: selectedNode,
           model: selectedModel || null,
+          context1m,
         });
       } else if (selectedTool === 'codex') {
         return invoke<string>('configure_codex_global', {
@@ -63,6 +66,7 @@ export function CommandGenerator({
           providerId: account.provider_id,
           baseUrl: selectedNode,
           model: selectedModel || null,
+          context1m,
         });
       } else {
         throw new Error('Not implemented');

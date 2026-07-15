@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   AlertTriangle,
   Terminal,
@@ -82,6 +84,8 @@ export function ConfigDialog({
     setSelectedModel,
     filteredModels,
     isModelListLoading,
+    context1m,
+    setContext1m,
     tempCommands,
     setTempCommands,
     copied,
@@ -286,6 +290,26 @@ export function ConfigDialog({
                           isLoading={isModelListLoading}
                         />
                       </div>
+
+                      <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-3">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="context-1m" className="text-sm font-medium">
+                            {t('token.configDialog.context1m', '1M 上下文')}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {t(
+                              'token.configDialog.context1mHint',
+                              '需要中转站支持；请先选择模型'
+                            )}
+                          </p>
+                        </div>
+                        <Switch
+                          id="context-1m"
+                          checked={context1m}
+                          onCheckedChange={setContext1m}
+                          disabled={!selectedModel}
+                        />
+                      </div>
                     </div>
 
                     <Separator />
@@ -306,6 +330,7 @@ export function ConfigDialog({
                         selectedTool={selectedTool}
                         selectedNode={selectedNode}
                         selectedModel={selectedModel}
+                        context1m={context1m}
                         isCompatible={isCompatible}
                         tempCommands={tempCommands}
                         setTempCommands={setTempCommands}

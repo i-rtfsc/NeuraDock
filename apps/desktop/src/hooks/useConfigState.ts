@@ -29,6 +29,10 @@ interface UseConfigStateReturn {
   filteredModels: string[];
   isModelListLoading: boolean;
 
+  // 1M context option (requires relay support and a selected model)
+  context1m: boolean;
+  setContext1m: (enabled: boolean) => void;
+
   // Commands state
   tempCommands: string;
   setTempCommands: (commands: string) => void;
@@ -60,6 +64,7 @@ export function useConfigState({
   const [compatibilityWarning, setCompatibilityWarning] = useState('');
   const [isCompatible, setIsCompatible] = useState(true);
   const [isSingleLine, setIsSingleLine] = useState(false);
+  const [context1m, setContext1m] = useState(false);
   const modelLimitsEnabled = Boolean(token?.model_limits_enabled);
 
   // Fetch nodes for the account's provider
@@ -129,6 +134,13 @@ export function useConfigState({
     setSelectedModel('');
   }, [selectedTool]);
 
+  // 1M context is tied to a concrete model selection
+  useEffect(() => {
+    if (!selectedModel) {
+      setContext1m(false);
+    }
+  }, [selectedModel]);
+
   // Check compatibility when tool or token changes
   useEffect(() => {
     if (!token || !open) return;
@@ -178,6 +190,7 @@ export function useConfigState({
       setCopied(false);
       setSelectedModel('');
       setIsSingleLine(false);
+      setContext1m(false);
       setSelectedTool('claude'); // Reset to default
 
       if (nodes.length > 0) {
@@ -199,7 +212,7 @@ export function useConfigState({
     setTempCommands('');
     setCopied(false);
     setIsSingleLine(false);
-  }, [selectedTool, selectedModel, selectedNode, open]);
+  }, [selectedTool, selectedModel, selectedNode, context1m, open]);
 
   return {
     selectedTool,
@@ -212,6 +225,8 @@ export function useConfigState({
     availableModels,
     filteredModels,
     isModelListLoading,
+    context1m,
+    setContext1m,
     tempCommands,
     setTempCommands,
     copied,
