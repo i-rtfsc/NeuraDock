@@ -47,7 +47,39 @@
   },
   "devToolbox": {
     "comingSoonTitle": "Coming soon",
-    "comingSoonDescription": "The dev toolbox is still being planned and will be expanded later."
+    "comingSoonDescription": "The dev toolbox is still being planned and will be expanded later.",
+    "tabs": {
+      "aiConfig": "AI Tool Config",
+      "encoding": "Encoding Tools"
+    },
+    "aiConfig": {
+      "keysTitle": "Independent API Keys",
+      "keysDescription": "Pick a key to write it into the Codex CLI / Claude Code global config (field-level update that keeps your other settings).",
+      "emptyTitle": "No independent API keys yet",
+      "emptyDescription": "Add a relay key on the API Keys page first, then come back to configure AI tools.",
+      "inactive": "Inactive",
+      "configure": "Configure",
+      "clearTitle": "Clear written config",
+      "clearDescription": "Removes only the fields NeuraDock wrote (a .neuradock.bak backup is made first); your other config stays intact.",
+      "clearClaude": "Clear Claude Code config",
+      "clearCodex": "Clear Codex config",
+      "clearClaudeConfirmTitle": "Clear Claude Code config?",
+      "clearCodexConfirmTitle": "Clear Codex config?",
+      "clearConfirmDescription": "Only the fields NeuraDock manages (API URL, key, model, etc.) are removed; everything else is untouched.",
+      "clearConfirm": "Clear"
+    },
+    "encoding": {
+      "title": "Encode / Format",
+      "description": "Runs locally and offline; nothing is uploaded.",
+      "timestamp": "Timestamp",
+      "encode": "Encode",
+      "decode": "Decode",
+      "input": "Input",
+      "output": "Output",
+      "inputPlaceholder": "Paste content here...",
+      "copied": "Copied",
+      "error": "Cannot process: {{error}}"
+    }
   },
   "sidebar": {
     "doubleClickToExpand": "Double click to expand sidebar",

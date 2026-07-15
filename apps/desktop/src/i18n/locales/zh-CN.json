@@ -47,7 +47,39 @@
   },
   "devToolbox": {
     "comingSoonTitle": "建设中",
-    "comingSoonDescription": "开发工具箱功能还在规划中，后续会逐步补充。"
+    "comingSoonDescription": "开发工具箱功能还在规划中，后续会逐步补充。",
+    "tabs": {
+      "aiConfig": "AI 工具配置",
+      "encoding": "编解码工具"
+    },
+    "aiConfig": {
+      "keysTitle": "独立 API Key",
+      "keysDescription": "选择一个 key，一键写入 Codex CLI / Claude Code 的全局配置（字段级更新，保留你的其它设置）。",
+      "emptyTitle": "还没有独立 API Key",
+      "emptyDescription": "先到「API Keys」页面添加一个中转站 key，再回来配置 AI 工具。",
+      "inactive": "已停用",
+      "configure": "配置",
+      "clearTitle": "清除已写入的配置",
+      "clearDescription": "只移除 NeuraDock 写入的字段（写入前有 .neuradock.bak 备份），你的其它配置保持不变。",
+      "clearClaude": "清除 Claude Code 配置",
+      "clearCodex": "清除 Codex 配置",
+      "clearClaudeConfirmTitle": "清除 Claude Code 配置？",
+      "clearCodexConfirmTitle": "清除 Codex 配置？",
+      "clearConfirmDescription": "仅移除 NeuraDock 管理的字段（API 地址、密钥、模型等），其余内容不受影响。",
+      "clearConfirm": "清除"
+    },
+    "encoding": {
+      "title": "编解码 / 格式化",
+      "description": "本地离线处理，不联网、不上传。",
+      "timestamp": "时间戳",
+      "encode": "编码",
+      "decode": "解码",
+      "input": "输入",
+      "output": "输出",
+      "inputPlaceholder": "在此粘贴内容...",
+      "copied": "已复制",
+      "error": "无法处理：{{error}}"
+    }
   },
   "sidebar": {
     "doubleClickToExpand": "双击展开侧边栏",
