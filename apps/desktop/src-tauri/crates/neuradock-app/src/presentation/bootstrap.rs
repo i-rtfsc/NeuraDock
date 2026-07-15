@@ -10,8 +10,9 @@ use crate::application::queries::BalanceStatisticsQueryService;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::{
     AutoCheckInScheduler, BalanceHistoryService, BalanceService, ClaudeConfigService,
-    CodexConfigService, ConfigService, NotificationService, OrphanAccountRepairService,
-    ProviderModelsQueryService, ProviderModelsService, ProxyConfigService, TokenService,
+    CodexConfigService, ConfigService, LegacyMigrationService, NotificationService,
+    OrphanAccountRepairService, ProviderModelsQueryService, ProviderModelsService,
+    ProxyConfigService, TokenService,
 };
 use crate::presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use neuradock_domain::account::AccountRepository;
@@ -68,6 +69,15 @@ pub async fn build_app_state(
         "✓ Ensured app data dir exists ({}ms)",
         started_at.elapsed().as_millis()
     );
+
+    // Apply a staged legacy import (old com.neuradock.app data) before the
+    // database is opened or encryption is initialised, so the imported files
+    // can be moved into place safely.
+    match LegacyMigrationService::apply_pending_import(&app_data_dir) {
+        Ok(true) => info!("✓ Applied pending legacy import"),
+        Ok(false) => {}
+        Err(e) => warn!("⚠️  Failed to apply pending legacy import: {}", e),
+    }
 
     let db_filename = if cfg!(debug_assertions) {
         "neuradock-dev.db"

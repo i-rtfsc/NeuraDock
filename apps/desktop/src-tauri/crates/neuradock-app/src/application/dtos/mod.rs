@@ -2,6 +2,10 @@
 mod account_dto;
 pub use account_dto::*;
 
+// Legacy migration DTOs
+mod migration_dto;
+pub use migration_dto::*;
+
 // Codex DTOs
 mod codex_dto;
 pub use codex_dto::*;
