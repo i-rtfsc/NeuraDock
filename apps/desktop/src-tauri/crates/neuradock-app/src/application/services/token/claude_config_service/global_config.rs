@@ -41,68 +41,37 @@ pub(super) fn configure_global_with_key_impl(
         .as_object_mut()
         .context("settings.json must be a JSON object")?;
 
-    // Get or create env object
+    // Build the managed env keys once, then merge them into the existing
+    // env object so user-defined variables survive untouched.
     let api_key = ensure_sk_prefix(api_key);
+    let mut env_updates = serde_json::Map::new();
+    env_updates.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
+    env_updates.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
+    env_updates.insert(
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+        json!("1"),
+    );
+    env_updates.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
+    env_updates.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
+    env_updates.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
 
-    if let Some(env_value) = config_obj.get_mut("env") {
-        // env exists, update it if it's an object
-        if let Some(env_obj) = env_value.as_object_mut() {
-            env_obj.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
-            env_obj.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-            env_obj.insert(
-                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
-                json!("1"),
-            );
-            env_obj.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
-            env_obj.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-            env_obj.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
+    if let Some(m) = model {
+        env_updates.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
+        env_updates.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
+        env_updates.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
+    }
 
-            if let Some(m) = model {
-                env_obj.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
-                env_obj.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
-                env_obj.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
-            }
-        } else {
+    match config_obj.get_mut("env") {
+        Some(Value::Object(env_obj)) => {
+            env_obj.extend(env_updates);
+        }
+        Some(other) => {
             // env exists but is not an object, replace it
-            let mut env_map = serde_json::Map::new();
-            env_map.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
-            env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-            env_map.insert(
-                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
-                json!("1"),
-            );
-            env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
-            env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-            env_map.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
-
-            if let Some(m) = model {
-                env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
-                env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
-                env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
-            }
-
-            *env_value = Value::Object(env_map);
+            *other = Value::Object(env_updates);
         }
-    } else {
-        // env doesn't exist, create it
-        let mut env_map = serde_json::Map::new();
-        env_map.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
-        env_map.insert("ANTHROPIC_BASE_URL".to_string(), json!(base_url));
-        env_map.insert(
-            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
-            json!("1"),
-        );
-        env_map.insert("DISABLE_TELEMETRY".to_string(), json!("1"));
-        env_map.insert("API_TIMEOUT_MS".to_string(), json!("3000000"));
-        env_map.insert("CLAUDE_CODE_ATTRIBUTION_HEADER".to_string(), json!("0"));
-
-        if let Some(m) = model {
-            env_map.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), json!(m));
-            env_map.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), json!(m));
-            env_map.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), json!(m));
+        None => {
+            config_obj.insert("env".to_string(), Value::Object(env_updates));
         }
-
-        config_obj.insert("env".to_string(), Value::Object(env_map));
     }
 
     // Write back config with proper formatting
