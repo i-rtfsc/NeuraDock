@@ -1,0 +1,385 @@
+//! Embedded localhost HTTP gateway that adapts a Chat-Completions-only relay
+//! to the protocol a tool expects (OpenAI Responses for Codex, Anthropic
+//! Messages for Claude Code).
+//!
+//! The tool is pointed at `http://127.0.0.1:<port>` as its base URL. The
+//! gateway receives the tool's request, translates it to Chat Completions,
+//! forwards it to the real relay with the real key injected, then translates
+//! the response back — including streamed SSE.
+
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+use axum::{
+    body::Body,
+    extract::State,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    routing::post,
+    Router,
+};
+use futures::StreamExt;
+use serde_json::Value;
+use tokio::net::TcpListener;
+
+use super::stream::{
+    anthropic_stream_completion, anthropic_stream_preamble, chat_chunk_to_anthropic_events,
+    chat_chunk_to_responses_events, responses_stream_completion, StreamFinish,
+};
+use super::transform::{
+    anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
+    wants_stream, InboundProtocol,
+};
+
+/// Upstream relay a gateway forwards to. Supplied by the app layer from an
+/// independent key; the gateway never touches the database.
+#[derive(Debug, Clone)]
+pub struct GatewayProfile {
+    /// Relay base URL, e.g. `https://relay.example/v1`.
+    pub base_url: String,
+    /// Real relay API key, injected as a bearer token.
+    pub api_key: String,
+    /// Model id sent to the relay; when set, overrides the tool's model.
+    pub model: Option<String>,
+}
+
+struct GatewayState {
+    profile: GatewayProfile,
+    client: reqwest::Client,
+}
+
+/// A running gateway bound to a localhost port.
+pub struct GatewayHandle {
+    addr: SocketAddr,
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    join: tokio::task::JoinHandle<()>,
+}
+
+impl GatewayHandle {
+    /// The `http://127.0.0.1:<port>` address tools should use as their base URL.
+    pub fn base_url(&self) -> String {
+        format!("http://{}", self.addr)
+    }
+
+    /// The bound port.
+    pub fn port(&self) -> u16 {
+        self.addr.port()
+    }
+
+    /// Stop the gateway and wait for the server task to finish.
+    pub async fn shutdown(mut self) {
+        if let Some(tx) = self.shutdown.take() {
+            let _ = tx.send(());
+        }
+        let _ = self.join.await;
+    }
+}
+
+/// Bind a gateway to `127.0.0.1:<port>` (port 0 picks a free port) and start
+/// serving. Only loopback is ever bound.
+pub async fn start_gateway(
+    profile: GatewayProfile,
+    port: u16,
+) -> Result<GatewayHandle, std::io::Error> {
+    let state = Arc::new(GatewayState {
+        profile,
+        client: reqwest::Client::new(),
+    });
+
+    let app = Router::new()
+        .route("/responses", post(handle_responses))
+        .route("/v1/responses", post(handle_responses))
+        .route("/v1/messages", post(handle_anthropic))
+        .with_state(state);
+
+    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).await?;
+    let addr = listener.local_addr()?;
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let join = tokio::spawn(async move {
+        let server = axum::serve(listener, app).with_graceful_shutdown(async {
+            let _ = rx.await;
+        });
+        if let Err(e) = server.await {
+            log::error!("Gateway server error: {}", e);
+        }
+    });
+
+    log::info!("Provider gateway listening on http://{}", addr);
+    Ok(GatewayHandle {
+        addr,
+        shutdown: Some(tx),
+        join,
+    })
+}
+
+async fn handle_responses(
+    State(state): State<Arc<GatewayState>>,
+    body: axum::body::Bytes,
+) -> Response {
+    handle(state, InboundProtocol::Responses, body).await
+}
+
+async fn handle_anthropic(
+    State(state): State<Arc<GatewayState>>,
+    body: axum::body::Bytes,
+) -> Response {
+    handle(state, InboundProtocol::AnthropicMessages, body).await
+}
+
+async fn handle(
+    state: Arc<GatewayState>,
+    protocol: InboundProtocol,
+    body: axum::body::Bytes,
+) -> Response {
+    let inbound: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => return error_response(StatusCode::BAD_REQUEST, &format!("invalid JSON: {}", e)),
+    };
+
+    let stream = wants_stream(&inbound);
+    let model = state
+        .profile
+        .model
+        .clone()
+        .or_else(|| requested_model(&inbound))
+        .unwrap_or_default();
+
+    // Translate inbound -> Chat Completions.
+    let model_override = state.profile.model.as_deref();
+    let mut chat_body = match protocol {
+        InboundProtocol::Responses => responses_to_chat(&inbound, model_override),
+        InboundProtocol::AnthropicMessages => anthropic_to_chat(&inbound, model_override),
+    };
+    // Force the stream flag to match what the tool asked for.
+    chat_body["stream"] = Value::Bool(stream);
+    if stream {
+        chat_body["stream_options"] = serde_json::json!({ "include_usage": true });
+    }
+
+    let url = format!("{}/chat/completions", state.profile.base_url.trim_end_matches('/'));
+    let request = state
+        .client
+        .post(&url)
+        .bearer_auth(&state.profile.api_key)
+        .json(&chat_body);
+
+    let upstream = match request.send().await {
+        Ok(resp) => resp,
+        Err(e) => return error_response(StatusCode::BAD_GATEWAY, &format!("upstream error: {}", e)),
+    };
+
+    if !upstream.status().is_success() {
+        let status = StatusCode::from_u16(upstream.status().as_u16())
+            .unwrap_or(StatusCode::BAD_GATEWAY);
+        let text = upstream.text().await.unwrap_or_default();
+        return error_response(status, &text);
+    }
+
+    if stream {
+        stream_response(protocol, model, upstream)
+    } else {
+        match upstream.json::<Value>().await {
+            Ok(chat) => {
+                let translated = match protocol {
+                    InboundProtocol::Responses => chat_to_responses(&chat, &model),
+                    InboundProtocol::AnthropicMessages => chat_to_anthropic(&chat, &model),
+                };
+                json_response(StatusCode::OK, &translated)
+            }
+            Err(e) => error_response(StatusCode::BAD_GATEWAY, &format!("bad upstream body: {}", e)),
+        }
+    }
+}
+
+/// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
+fn stream_response(protocol: InboundProtocol, model: String, upstream: reqwest::Response) -> Response {
+    let mut byte_stream = upstream.bytes_stream();
+
+    let sse = async_stream::stream! {
+        // Anthropic requires preamble events before any delta.
+        if protocol == InboundProtocol::AnthropicMessages {
+            for event in anthropic_stream_preamble(&model) {
+                yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+            }
+        }
+
+        let mut buffer = String::new();
+        let mut finish = StreamFinish::default();
+
+        while let Some(chunk) = byte_stream.next().await {
+            let Ok(bytes) = chunk else { break };
+            buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            // Process complete SSE lines (`data: {...}` separated by newlines).
+            while let Some(newline) = buffer.find('\n') {
+                let line = buffer[..newline].trim().to_string();
+                buffer.drain(..=newline);
+
+                let Some(payload) = line.strip_prefix("data:") else { continue };
+                let payload = payload.trim();
+                if payload.is_empty() {
+                    continue;
+                }
+                if payload == "[DONE]" {
+                    break;
+                }
+                let Ok(chat_chunk) = serde_json::from_str::<Value>(payload) else { continue };
+                finish.observe(&chat_chunk);
+
+                let events = match protocol {
+                    InboundProtocol::Responses => chat_chunk_to_responses_events(&chat_chunk),
+                    InboundProtocol::AnthropicMessages => chat_chunk_to_anthropic_events(&chat_chunk),
+                };
+                for event in events {
+                    yield Ok(event.to_wire().into_bytes());
+                }
+            }
+        }
+
+        // Terminal events.
+        let closing = match protocol {
+            InboundProtocol::Responses => responses_stream_completion(),
+            InboundProtocol::AnthropicMessages => anthropic_stream_completion(finish.reason()),
+        };
+        for event in closing {
+            yield Ok(event.to_wire().into_bytes());
+        }
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::from_stream(sse))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn json_response(status: StatusCode, value: &Value) -> Response {
+    (
+        status,
+        [(header::CONTENT_TYPE, "application/json")],
+        value.to_string(),
+    )
+        .into_response()
+}
+
+fn error_response(status: StatusCode, message: &str) -> Response {
+    let body = serde_json::json!({ "error": { "message": message } });
+    json_response(status, &body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{routing::post, Json, Router};
+    use serde_json::json;
+
+    /// Stand up a fake Chat Completions relay that echoes a fixed reply and
+    /// records the request body it received.
+    async fn spawn_fake_relay() -> (String, Arc<tokio::sync::Mutex<Option<Value>>>) {
+        let seen = Arc::new(tokio::sync::Mutex::new(None));
+        let seen_clone = seen.clone();
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let seen = seen_clone.clone();
+                async move {
+                    *seen.lock().await = Some(body);
+                    Json(json!({
+                        "choices": [{
+                            "finish_reason": "stop",
+                            "message": { "content": "pong" }
+                        }],
+                        "usage": { "prompt_tokens": 1, "completion_tokens": 1 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        (format!("http://{}", addr), seen)
+    }
+
+    #[tokio::test]
+    async fn responses_request_round_trips_through_gateway() {
+        let (relay_url, seen) = spawn_fake_relay().await;
+        let gateway = start_gateway(
+            GatewayProfile {
+                base_url: relay_url,
+                api_key: "sk-test".to_string(),
+                model: Some("relay-model".to_string()),
+            },
+            0,
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let resp: Value = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "model": "gpt-5", "input": "ping" }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        // Upstream saw a translated Chat request with the relay model injected.
+        let upstream_body = seen.lock().await.clone().unwrap();
+        assert_eq!(upstream_body["model"], "relay-model");
+        assert_eq!(upstream_body["messages"][0]["content"], "ping");
+
+        // Tool got a Responses-shaped reply.
+        assert_eq!(resp["object"], "response");
+        assert_eq!(resp["output"][0]["content"][0]["text"], "pong");
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn anthropic_request_round_trips_through_gateway() {
+        let (relay_url, seen) = spawn_fake_relay().await;
+        let gateway = start_gateway(
+            GatewayProfile {
+                base_url: relay_url,
+                api_key: "sk-test".to_string(),
+                model: Some("deepseek-chat".to_string()),
+            },
+            0,
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let resp: Value = client
+            .post(format!("{}/v1/messages", gateway.base_url()))
+            .json(&json!({
+                "model": "claude-3",
+                "messages": [{ "role": "user", "content": "ping" }]
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        let upstream_body = seen.lock().await.clone().unwrap();
+        assert_eq!(upstream_body["model"], "deepseek-chat");
+        assert_eq!(upstream_body["messages"][0]["content"], "ping");
+
+        assert_eq!(resp["type"], "message");
+        assert_eq!(resp["content"][0]["text"], "pong");
+        assert_eq!(resp["stop_reason"], "end_turn");
+
+        gateway.shutdown().await;
+    }
+}
+

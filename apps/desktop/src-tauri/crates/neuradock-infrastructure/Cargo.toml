@@ -44,6 +44,12 @@ reqwest = { workspace = true }
 rquest = { version = "5.1.0", features = ["json", "cookies", "socks", "gzip"] }
 rquest-util = { version = "2.2.1" }
 
+# Embedded localhost provider-adaptation gateway
+axum = { workspace = true }
+bytes = { workspace = true }
+tokio-stream = { workspace = true }
+async-stream = { workspace = true }
+
 # Browser automation
 chromiumoxide = { workspace = true }
 

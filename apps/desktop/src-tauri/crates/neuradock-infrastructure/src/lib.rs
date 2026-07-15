@@ -7,6 +7,7 @@ pub mod codex_auth;
 pub mod config;
 pub mod events;
 pub mod fs_safe;
+pub mod gateway;
 pub mod http;
 pub mod logging;
 pub mod monitoring;
