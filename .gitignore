@@ -363,6 +363,7 @@ playwright/.cache/
 performance_logs/
 
 design.md
+third_party/docs
 
 # Monorepo additions
 apps/desktop/src-tauri/target/
