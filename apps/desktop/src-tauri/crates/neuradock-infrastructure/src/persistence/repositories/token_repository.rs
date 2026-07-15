@@ -84,6 +84,61 @@ impl SqliteTokenRepository {
             },
         ))
     }
+
+    async fn insert_token(
+        tx: &mut sqlx::SqliteConnection,
+        token: &ApiToken,
+    ) -> Result<(), DomainError> {
+        let model_limits_allowed = token
+            .model_limits()
+            .map(|limits| serde_json::to_string(&limits.allowed).unwrap_or_default());
+        let model_limits_denied = token
+            .model_limits()
+            .map(|limits| serde_json::to_string(&limits.denied).unwrap_or_default());
+
+        let expired_time = token.expired_time().map(|dt| dt.timestamp());
+
+        sqlx::query(
+            r#"
+            INSERT INTO api_tokens (
+                account_id, token_id, token_name, token_key, status,
+                used_quota, remain_quota, unlimited_quota, expired_time,
+                model_limits_enabled, model_limits_allowed, model_limits_denied, fetched_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(account_id, token_id) DO UPDATE SET
+                token_name = excluded.token_name,
+                token_key = excluded.token_key,
+                status = excluded.status,
+                used_quota = excluded.used_quota,
+                remain_quota = excluded.remain_quota,
+                unlimited_quota = excluded.unlimited_quota,
+                expired_time = excluded.expired_time,
+                model_limits_enabled = excluded.model_limits_enabled,
+                model_limits_allowed = excluded.model_limits_allowed,
+                model_limits_denied = excluded.model_limits_denied,
+                fetched_at = excluded.fetched_at
+            "#,
+        )
+        .bind(token.account_id().to_string())
+        .bind(token.id().value())
+        .bind(token.name())
+        .bind(token.key())
+        .bind(token.status().to_i32())
+        .bind(token.used_quota())
+        .bind(token.remain_quota())
+        .bind(if token.unlimited_quota() { 1 } else { 0 })
+        .bind(expired_time)
+        .bind(if token.model_limits_enabled() { 1 } else { 0 })
+        .bind(model_limits_allowed)
+        .bind(model_limits_denied)
+        .bind(token.fetched_at().to_rfc3339())
+        .execute(tx)
+        .await
+        .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save token in batch"))?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -148,54 +203,8 @@ impl TokenRepository for SqliteTokenRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
-        for token in tokens {
-            let model_limits_allowed = token
-                .model_limits()
-                .map(|limits| serde_json::to_string(&limits.allowed).unwrap_or_default());
-            let model_limits_denied = token
-                .model_limits()
-                .map(|limits| serde_json::to_string(&limits.denied).unwrap_or_default());
-
-            let expired_time = token.expired_time().map(|dt| dt.timestamp());
-
-            sqlx::query(
-                r#"
-                INSERT INTO api_tokens (
-                    account_id, token_id, token_name, token_key, status,
-                    used_quota, remain_quota, unlimited_quota, expired_time,
-                    model_limits_enabled, model_limits_allowed, model_limits_denied, fetched_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(account_id, token_id) DO UPDATE SET
-                    token_name = excluded.token_name,
-                    token_key = excluded.token_key,
-                    status = excluded.status,
-                    used_quota = excluded.used_quota,
-                    remain_quota = excluded.remain_quota,
-                    unlimited_quota = excluded.unlimited_quota,
-                    expired_time = excluded.expired_time,
-                    model_limits_enabled = excluded.model_limits_enabled,
-                    model_limits_allowed = excluded.model_limits_allowed,
-                    model_limits_denied = excluded.model_limits_denied,
-                    fetched_at = excluded.fetched_at
-                "#,
-            )
-            .bind(token.account_id().to_string())
-            .bind(token.id().value())
-            .bind(token.name())
-            .bind(token.key())
-            .bind(token.status().to_i32())
-            .bind(token.used_quota())
-            .bind(token.remain_quota())
-            .bind(if token.unlimited_quota() { 1 } else { 0 })
-            .bind(expired_time)
-            .bind(if token.model_limits_enabled() { 1 } else { 0 })
-            .bind(model_limits_allowed)
-            .bind(model_limits_denied)
-            .bind(token.fetched_at().to_rfc3339())
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Save token in batch"))?;
+        for token in &tokens {
+            Self::insert_token(&mut *tx, token).await?;
         }
 
         tx.commit()
@@ -256,6 +265,35 @@ impl TokenRepository for SqliteTokenRepository {
             .execute(self.base.pool())
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete tokens by account"))?;
+
+        Ok(())
+    }
+
+    async fn replace_for_account(
+        &self,
+        account_id: &AccountId,
+        tokens: Vec<ApiToken>,
+    ) -> Result<(), DomainError> {
+        let mut tx = self
+            .base
+            .pool()
+            .begin()
+            .await
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
+
+        sqlx::query("DELETE FROM api_tokens WHERE account_id = ?")
+            .bind(account_id.to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete tokens in replace"))?;
+
+        for token in &tokens {
+            Self::insert_token(&mut *tx, token).await?;
+        }
+
+        tx.commit()
+            .await
+            .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Commit replace transaction"))?;
 
         Ok(())
     }
