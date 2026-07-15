@@ -21,8 +21,16 @@ impl CodexConfigService {
         provider_name: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        global_config::configure_global_impl(token, provider_id, provider_name, base_url, model)
+        global_config::configure_global_impl(
+            token,
+            provider_id,
+            provider_name,
+            base_url,
+            model,
+            context_1m,
+        )
     }
 
     /// Configure Codex globally with API key string (for independent keys)
@@ -31,8 +39,9 @@ impl CodexConfigService {
         api_key: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        global_config::configure_global_with_key_impl(api_key, base_url, model)
+        global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
     /// Clear Codex global configuration

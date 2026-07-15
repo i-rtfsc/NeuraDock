@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::fs;
 
-use super::helpers::{ensure_sk_prefix, get_claude_config_path, MANAGED_ENV_KEYS};
+use super::helpers::{ensure_sk_prefix, get_claude_config_path, with_1m_suffix, MANAGED_ENV_KEYS};
 use neuradock_domain::token::ApiToken;
 use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
 
@@ -10,16 +10,29 @@ pub(super) fn configure_global_impl(
     token: &ApiToken,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     let api_key = ensure_sk_prefix(token.key());
-    configure_global_with_key_impl(&api_key, base_url, model)
+    configure_global_with_key_impl(&api_key, base_url, model, context_1m)
 }
 
 pub(super) fn configure_global_with_key_impl(
     api_key: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
+    // The 1M option rides on the model id, so it only applies when a model
+    // was selected; the command layer rejects 1M without a model.
+    let model_with_context = model.map(|m| {
+        if context_1m {
+            with_1m_suffix(m)
+        } else {
+            m.to_string()
+        }
+    });
+    let model = model_with_context.as_deref();
+
     let config_path = get_claude_config_path()?;
 
     // Ensure directory exists

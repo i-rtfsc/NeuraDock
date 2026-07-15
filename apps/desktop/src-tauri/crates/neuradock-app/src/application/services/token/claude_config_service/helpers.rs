@@ -27,3 +27,12 @@ pub(super) fn ensure_sk_prefix(key: &str) -> String {
         format!("sk-{}", key)
     }
 }
+
+/// Claude Code selects the 1M-context variant via a `[1m]` model id suffix.
+pub(super) fn with_1m_suffix(model: &str) -> String {
+    if model.ends_with("[1m]") {
+        model.to_string()
+    } else {
+        format!("{}[1m]", model)
+    }
+}

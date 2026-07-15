@@ -16,6 +16,7 @@ pub(super) fn configure_global_impl(
     provider_name: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     let provider_slug = sanitize_provider_slug(provider_id);
     let display_name = if provider_name.is_empty() {
@@ -24,13 +25,21 @@ pub(super) fn configure_global_impl(
         provider_name
     };
 
-    configure(&provider_slug, display_name, token.key(), base_url, model)
+    configure(
+        &provider_slug,
+        display_name,
+        token.key(),
+        base_url,
+        model,
+        context_1m,
+    )
 }
 
 pub(super) fn configure_global_with_key_impl(
     api_key: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     configure(
         GENERIC_PROVIDER_SLUG,
@@ -38,6 +47,7 @@ pub(super) fn configure_global_with_key_impl(
         api_key,
         base_url,
         model,
+        context_1m,
     )
 }
 
@@ -49,13 +59,14 @@ fn configure(
     api_key: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     let config_path = get_codex_config_path()?;
     let auth_path = get_codex_auth_path()?;
 
     // config.toml: read-modify-write, preserving unrelated keys.
     let mut doc = load_toml_document(&config_path)?;
-    apply_provider_config(&mut doc, provider_slug, provider_name, base_url, model);
+    apply_provider_config(&mut doc, provider_slug, provider_name, base_url, model, context_1m);
     backup_file(&config_path)?;
     atomic_write(&config_path, &doc.to_string(), false)?;
     log::info!("Codex config.toml updated at: {}", config_path.display());

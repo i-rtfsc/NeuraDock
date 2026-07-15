@@ -11,8 +11,16 @@ use neuradock_domain::independent_key::IndependentKeyId;
 pub async fn configure_independent_key_claude(
     key_id: i64,
     model: Option<String>,
+    context1m: Option<bool>,
     repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
+    let context_1m = context1m.unwrap_or(false);
+    if context_1m && model.is_none() {
+        return Err(CommandError::validation(
+            "1M context requires selecting a model",
+        ));
+    }
+
     let id = IndependentKeyId::new(key_id);
 
     // Get the independent key
@@ -33,7 +41,7 @@ pub async fn configure_independent_key_claude(
     // Call Claude config service directly with API key
     let service = ClaudeConfigService::new();
     service
-        .configure_global_with_key(key.api_key(), key.base_url(), model.as_deref())
+        .configure_global_with_key(key.api_key(), key.base_url(), model.as_deref(), context_1m)
         .map_err(CommandError::from)
 }
 

@@ -10,8 +10,16 @@ pub async fn configure_claude_global(
     account_id: String,
     base_url: String,
     model: Option<String>,
+    context1m: Option<bool>,
     services: State<'_, Services>,
 ) -> Result<String, CommandError> {
+    let context_1m = context1m.unwrap_or(false);
+    if context_1m && model.is_none() {
+        return Err(CommandError::validation(
+            "1M context requires selecting a model",
+        ));
+    }
+
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
 
@@ -30,7 +38,7 @@ pub async fn configure_claude_global(
     // Configure to Claude Code
     let result = services
         .claude_config
-        .configure_global(token, &base_url, model.as_deref())
+        .configure_global(token, &base_url, model.as_deref(), context_1m)
         .map_err(CommandError::from)?;
 
     Ok(result)

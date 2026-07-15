@@ -20,8 +20,9 @@ impl ClaudeConfigService {
         token: &ApiToken,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        global_config::configure_global_impl(token, base_url, model)
+        global_config::configure_global_impl(token, base_url, model, context_1m)
     }
 
     /// Configure Claude Code globally with API key string (for independent keys)
@@ -30,8 +31,9 @@ impl ClaudeConfigService {
         api_key: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        global_config::configure_global_with_key_impl(api_key, base_url, model)
+        global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
     /// Clear Claude Code global configuration

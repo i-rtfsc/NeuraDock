@@ -11,6 +11,7 @@ pub async fn configure_codex_global(
     provider_id: String,
     base_url: String,
     model: Option<String>,
+    context1m: Option<bool>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
@@ -46,6 +47,7 @@ pub async fn configure_codex_global(
             provider.name(),
             &base_url,
             model.as_deref(),
+            context1m.unwrap_or(false),
         )
         .map_err(CommandError::from)?;
 

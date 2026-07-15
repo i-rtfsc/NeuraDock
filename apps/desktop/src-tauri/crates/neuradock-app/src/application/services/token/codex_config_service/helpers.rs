@@ -63,6 +63,9 @@ pub(super) fn ensure_v1_base_url(base_url: &str) -> String {
     }
 }
 
+/// Context window advertised to Codex when the 1M option is on.
+pub(super) const CONTEXT_WINDOW_1M: i64 = 1_000_000;
+
 /// Upsert the provider fields into an existing config.toml document,
 /// leaving every unrelated key (mcp_servers, sandbox settings, other
 /// model_providers entries, comments, key order) untouched.
@@ -72,6 +75,7 @@ pub(super) fn apply_provider_config(
     provider_name: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) {
     use toml_edit::{value, Item, Table};
 
@@ -86,6 +90,14 @@ pub(super) fn apply_provider_config(
     }
     doc["model_provider"] = value(provider_slug);
     doc["preferred_auth_method"] = value("apikey");
+
+    // model_context_window is a managed key: set on, removed when off, so a
+    // previous 1M configuration never lingers after the option is unchecked.
+    if context_1m {
+        doc["model_context_window"] = value(CONTEXT_WINDOW_1M);
+    } else {
+        doc.remove("model_context_window");
+    }
 
     let providers = doc
         .entry("model_providers")
@@ -127,7 +139,7 @@ wire_api = "responses"
 "#;
         let mut doc: toml_edit::DocumentMut = existing.parse().unwrap();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
 
         let out = doc.to_string();
         assert!(out.contains("# my codex settings"));
@@ -142,7 +154,7 @@ wire_api = "responses"
     fn apply_keeps_existing_model_when_none_selected() {
         let mut doc: toml_edit::DocumentMut = "model = \"my-model\"\n".parse().unwrap();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
 
         assert_eq!(doc["model"].as_str(), Some("my-model"));
     }
@@ -151,7 +163,7 @@ wire_api = "responses"
     fn apply_writes_default_model_on_empty_config() {
         let mut doc = toml_edit::DocumentMut::new();
 
-        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None, false);
 
         assert_eq!(doc["model"].as_str(), Some(DEFAULT_MODEL));
     }
@@ -166,8 +178,23 @@ wire_api = "responses"
             "Relay",
             "https://relay.example/v1",
             Some("new-model"),
+            false,
         );
 
         assert_eq!(doc["model"].as_str(), Some("new-model"));
+    }
+
+    #[test]
+    fn apply_sets_and_removes_context_window() {
+        let mut doc = toml_edit::DocumentMut::new();
+
+        apply_provider_config(&mut doc, "relay", "Relay", "https://r.example", None, true);
+        assert_eq!(
+            doc["model_context_window"].as_integer(),
+            Some(CONTEXT_WINDOW_1M)
+        );
+
+        apply_provider_config(&mut doc, "relay", "Relay", "https://r.example", None, false);
+        assert!(doc.get("model_context_window").is_none());
     }
 }
