@@ -21,12 +21,14 @@ import {
   Palette,
   Settings,
   HardDrive,
+  HardDriveDownload,
   Globe,
   ShieldCheck,
   FileText,
   CalendarClock
 } from 'lucide-react';
 import { useState, useEffect, ReactNode } from 'react';
+import { LegacyImportDialog } from '@/components/migration/LegacyImportDialog';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
 import { NotificationChannelList } from '@/components/notification/NotificationChannelList';
@@ -396,6 +398,7 @@ const SystemSettings = () => {
   const { t } = useTranslation();
   const [cacheAgeHours, setCacheAgeHours] = useState<number>(1);
   const [logLevel, setLogLevel] = useState<string>('info');
+  const [legacyImportDialogOpen, setLegacyImportDialogOpen] = useState(false);
   const { config: proxyConfig, isLoading: proxyLoading, isSaving: proxySaving, updateField, saveConfig } = useProxyConfig();
 
   useEffect(() => {
@@ -615,9 +618,23 @@ const SystemSettings = () => {
            label={t('settings.temporaryFiles')}
            description={t('settings.temporaryFilesDescription')}
            action={<span className="text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-[var(--radius-control)] border border-border/30">{t('settings.empty')}</span>}
-           isLast
+        />
+        <SettingsRow
+          icon={HardDriveDownload}
+          label={t('settings.legacyImport', '从旧版本导入数据')}
+          description={t('settings.legacyImportDescription', '将旧版数据目录中的数据库与加密盐复制到当前版本。')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => setLegacyImportDialogOpen(true)}>
+              {t('settings.legacyImportButton', '导入')}
+            </Button>
+          }
+          isLast
         />
       </SettingsGroup>
+      <LegacyImportDialog
+        open={legacyImportDialogOpen}
+        onOpenChange={setLegacyImportDialogOpen}
+      />
 
       {/* Developer */}
       <SettingsGroup title={t('settings.developer')}>

@@ -92,3 +92,26 @@ export const checkInCommands = {
 
   recalculateStreaks: () => invoke<void>('recalculate_check_in_streaks'),
 };
+
+// Legacy Migration Commands
+export interface LegacyImportFiles {
+  production_db: boolean;
+  development_db: boolean;
+  encryption_salt: boolean;
+}
+
+export interface LegacyImportResult {
+  legacy_dir: string;
+  new_dir: string;
+  staged: boolean;
+  already_staged: boolean;
+  files: LegacyImportFiles;
+  requires_restart: boolean;
+}
+
+export const migrationCommands = {
+  detectLegacyInstallation: () => invoke<boolean>('detect_legacy_installation'),
+
+  importLegacyData: (overwrite: boolean) =>
+    invoke<LegacyImportResult>('import_legacy_data', { overwrite }),
+};

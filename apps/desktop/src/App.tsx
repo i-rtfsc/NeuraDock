@@ -7,6 +7,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { Toaster } from './components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LoadingState } from './components/ui/loading';
+import { LegacyMigrationPrompt } from './components/migration/LegacyMigrationPrompt';
 
 const AccountOverviewPage = lazy(() =>
   import('./pages/AccountOverviewPage').then((m) => ({ default: m.AccountOverviewPage }))
@@ -84,6 +85,7 @@ function App() {
                 </Routes>
               </Suspense>
             </MainLayout>
+            <LegacyMigrationPrompt />
             <Toaster />
           </BrowserRouter>
         </TooltipProvider>
