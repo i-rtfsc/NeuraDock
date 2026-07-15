@@ -7,6 +7,24 @@ members = [
 ]
 default-members = ["crates/neuradock-app"]
 
+# 编译产物瘦身：仓内代码只保留行号表，依赖不带调试信息，
+# 需要完整断点调试时用 `--profile dev-full-debug`；incremental 暂时保持默认 true。
+# Slim build artifacts: workspace code keeps
+# line tables only, dependencies carry no debuginfo. Use `--profile dev-full-debug`
+# for full breakpoint debugging. incremental stays at its default (true) for now.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.dev-full-debug]
+inherits = "dev"
+debug = true
+
+[profile.dev-full-debug.package."*"]
+debug = true
+
 [workspace.package]
 version = "0.9.5"
 authors = ["NeuraDock"]
