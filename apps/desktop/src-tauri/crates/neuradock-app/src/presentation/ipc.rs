@@ -88,6 +88,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             // Legacy migration commands
             detect_legacy_installation,
             import_legacy_data,
+            dismiss_legacy_import_prompt,
             // AI Chat Service commands
             list_ai_chat_services,
             list_enabled_ai_chat_services,

@@ -36,3 +36,14 @@ pub async fn import_legacy_data(
         _ => CommandError::infrastructure(e.to_string()),
     })
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn dismiss_legacy_import_prompt(app: tauri::AppHandle) -> Result<(), CommandError> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        CommandError::infrastructure(format!("Failed to get app data directory: {}", e))
+    })?;
+
+    LegacyMigrationService::dismiss_prompt(&app_data_dir)
+        .map_err(|e| CommandError::infrastructure(e.to_string()))
+}

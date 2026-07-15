@@ -19,6 +19,7 @@ const ENCRYPTION_SALT_FILENAME: &str = ".encryption_salt";
 const STAGING_DIR_NAME: &str = ".legacy_import_staging";
 const PENDING_MARKER_FILENAME: &str = ".legacy_import_pending.json";
 const COMPLETED_MARKER_FILENAME: &str = ".legacy_import_completed.json";
+const DISMISSED_MARKER_FILENAME: &str = ".legacy_import_dismissed.json";
 
 /// Errors that can occur during the legacy import process.
 #[derive(Debug, thiserror::Error)]
@@ -51,6 +52,12 @@ struct CompletedLegacyImportMarker {
     legacy_identifier: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DismissedLegacyImportMarker {
+    version: u32,
+    legacy_identifier: String,
+}
+
 /// Stateless service that detects, stages, and applies data from a legacy
 /// NeuraDock installation so users can upgrade without losing accounts.
 pub struct LegacyMigrationService;
@@ -60,6 +67,12 @@ impl LegacyMigrationService {
     /// and no completed-import marker has been written yet.
     pub fn detect_legacy_installation(new_app_data_dir: &Path) -> bool {
         if Self::completed_marker_path(new_app_data_dir).exists() {
+            return false;
+        }
+
+        // The dismissal marker lives beside the data it refers to, so wiping
+        // the app data directory resets the prompt along with everything else.
+        if Self::dismissed_marker_path(new_app_data_dir).exists() {
             return false;
         }
 
@@ -258,6 +271,26 @@ impl LegacyMigrationService {
         new_app_data_dir.join(COMPLETED_MARKER_FILENAME)
     }
 
+    fn dismissed_marker_path(new_app_data_dir: &Path) -> PathBuf {
+        new_app_data_dir.join(DISMISSED_MARKER_FILENAME)
+    }
+
+    /// Records that the user dismissed the import prompt, suppressing future
+    /// startup prompts until the app data directory is recreated. Manual
+    /// import from Settings stays available regardless.
+    pub fn dismiss_prompt(new_app_data_dir: &Path) -> Result<(), LegacyImportError> {
+        std::fs::create_dir_all(new_app_data_dir)?;
+        let marker = DismissedLegacyImportMarker {
+            version: 1,
+            legacy_identifier: LEGACY_IDENTIFIER.to_string(),
+        };
+        std::fs::write(
+            Self::dismissed_marker_path(new_app_data_dir),
+            serde_json::to_string_pretty(&marker)?,
+        )?;
+        Ok(())
+    }
+
     fn move_if_exists(src: &Path, dest: &Path) -> Result<(), LegacyImportError> {
         if !src.exists() {
             return Ok(());
@@ -331,5 +364,24 @@ mod tests {
         assert!(!LegacyMigrationService::detect_legacy_installation(
             &new_dir
         ));
+    }
+
+    #[test]
+    fn dismiss_prompt_suppresses_detection_until_data_dir_reset() {
+        let tmp = TempDir::new().unwrap();
+        let parent = tmp.path();
+
+        let new_dir = parent.join("com.rtfsc.neuradock");
+        let legacy_dir = parent.join(LEGACY_IDENTIFIER);
+        write_file(&legacy_dir.join(PROD_DB_FILENAME), b"sqlite");
+
+        assert!(LegacyMigrationService::detect_legacy_installation(&new_dir));
+
+        LegacyMigrationService::dismiss_prompt(&new_dir).unwrap();
+        assert!(!LegacyMigrationService::detect_legacy_installation(&new_dir));
+
+        // Wiping the app data directory resets the prompt.
+        std::fs::remove_dir_all(&new_dir).unwrap();
+        assert!(LegacyMigrationService::detect_legacy_installation(&new_dir));
     }
 }

@@ -1,24 +1,20 @@
 import { useEffect, useState } from 'react';
 
-import { usePersistedState } from '@/hooks/usePersistedState';
 import { migrationCommands } from '@/lib/tauri-commands';
 import { logger } from '@/lib/logger';
 
 import { LegacyImportDialog } from './LegacyImportDialog';
 
-const LEGACY_MIGRATION_DISMISSED_KEY = 'legacyMigration.promptDismissed.v1';
-
 export function LegacyMigrationPrompt() {
-  const [dismissed, setDismissed] = usePersistedState<boolean>(
-    LEGACY_MIGRATION_DISMISSED_KEY,
-    false,
-  );
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const startedAt = window.performance.now();
 
+    // Dismissal is recorded backend-side (a marker in the app data dir), so
+    // detect already returns false for dismissed/completed installs and
+    // wiping the data directory resets the prompt.
     migrationCommands
       .detectLegacyInstallation()
       .then((available) => {
@@ -27,12 +23,11 @@ export function LegacyMigrationPrompt() {
           'legacy installation detection completed',
           {
             available,
-            dismissed,
             elapsed_ms: Number((window.performance.now() - startedAt).toFixed(2)),
           },
           'frontend::startup',
         );
-        if (available && !dismissed) {
+        if (available) {
           setOpen(true);
         }
       })
@@ -51,7 +46,7 @@ export function LegacyMigrationPrompt() {
     return () => {
       cancelled = true;
     };
-  }, [dismissed]);
+  }, []);
 
   return (
     <LegacyImportDialog
@@ -59,7 +54,13 @@ export function LegacyMigrationPrompt() {
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         if (!nextOpen) {
-          setDismissed(true);
+          migrationCommands.dismissPrompt().catch((error) => {
+            logger.warn(
+              'failed to persist legacy import dismissal',
+              { error: String(error) },
+              'frontend::startup',
+            );
+          });
         }
       }}
     />

@@ -114,4 +114,6 @@ export const migrationCommands = {
 
   importLegacyData: (overwrite: boolean) =>
     invoke<LegacyImportResult>('import_legacy_data', { overwrite }),
+
+  dismissPrompt: () => invoke<void>('dismiss_legacy_import_prompt'),
 };
