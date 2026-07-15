@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
+use std::sync::{LazyLock, Mutex};
 
 use super::helpers::{
     apply_provider_config, ensure_sk_prefix, get_codex_auth_path, get_codex_config_path,
@@ -9,6 +10,11 @@ use super::helpers::{
 };
 use neuradock_domain::token::ApiToken;
 use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
+
+/// Serializes all read-modify-write access to the Codex config files so two
+/// concurrent "configure"/"clear" calls cannot interleave and clobber each
+/// other's changes.
+static CODEX_CONFIG_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 pub(super) fn configure_global_impl(
     token: &ApiToken,
@@ -61,6 +67,7 @@ fn configure(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<String> {
+    let _guard = CODEX_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let config_path = get_codex_config_path()?;
     let auth_path = get_codex_auth_path()?;
 
@@ -99,6 +106,7 @@ fn configure(
 }
 
 pub(super) fn clear_global_impl() -> Result<String> {
+    let _guard = CODEX_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let config_path = get_codex_config_path()?;
     let auth_path = get_codex_auth_path()?;
     let mut cleared = vec![];

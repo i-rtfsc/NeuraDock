@@ -1,10 +1,15 @@
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::fs;
+use std::sync::{LazyLock, Mutex};
 
 use super::helpers::{ensure_sk_prefix, get_claude_config_path, with_1m_suffix, MANAGED_ENV_KEYS};
 use neuradock_domain::token::ApiToken;
 use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
+
+/// Serializes read-modify-write access to ~/.claude/settings.json so two
+/// concurrent configure/clear calls cannot interleave.
+static CLAUDE_CONFIG_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 pub(super) fn configure_global_impl(
     token: &ApiToken,
@@ -22,6 +27,7 @@ pub(super) fn configure_global_with_key_impl(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<String> {
+    let _guard = CLAUDE_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // The 1M option rides on the model id, so it only applies when a model
     // was selected; the command layer rejects 1M without a model.
     let model_with_context = model.map(|m| {
@@ -104,6 +110,7 @@ pub(super) fn configure_global_with_key_impl(
 }
 
 pub(super) fn clear_global_impl() -> Result<String> {
+    let _guard = CLAUDE_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let config_path = get_claude_config_path()?;
 
     if !config_path.exists() {
