@@ -59,6 +59,9 @@ rand = { workspace = true }
 base64 = { workspace = true }
 urlencoding = { workspace = true }
 
+# Format-preserving TOML editing (external tool config files)
+toml_edit = { workspace = true }
+
 # Error handling
 thiserror = { workspace = true }
 anyhow = { workspace = true }

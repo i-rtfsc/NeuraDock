@@ -4,6 +4,7 @@ use std::fs;
 
 use super::helpers::{ensure_sk_prefix, get_claude_config_path, MANAGED_ENV_KEYS};
 use neuradock_domain::token::ApiToken;
+use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
 
 pub(super) fn configure_global_impl(
     token: &ApiToken,
@@ -106,7 +107,8 @@ pub(super) fn configure_global_with_key_impl(
 
     // Write back config with proper formatting
     let content = serde_json::to_string_pretty(&config)?;
-    fs::write(&config_path, content)?;
+    backup_file(&config_path)?;
+    atomic_write(&config_path, &content, true)?;
 
     log::info!(
         "Successfully configured Claude Code at: {}",
@@ -153,7 +155,8 @@ pub(super) fn clear_global_impl() -> Result<String> {
 
     // Write back config
     let content = serde_json::to_string_pretty(&config)?;
-    fs::write(&config_path, content)?;
+    backup_file(&config_path)?;
+    atomic_write(&config_path, &content, true)?;
 
     log::info!(
         "Successfully cleared Claude Code configuration at: {}",

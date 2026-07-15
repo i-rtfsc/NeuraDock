@@ -78,6 +78,9 @@ regex = "1"
 urlencoding = "2"
 sha2 = "0.10"
 
+# Format-preserving TOML editing (external tool config files)
+toml_edit = "0.22"
+
 # Browser automation
 chromiumoxide = { version = "0.7", features = ["tokio-runtime"] }
 

@@ -1,6 +1,24 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
+/// Top-level config.toml keys owned by the configure feature. Clearing the
+/// configuration removes exactly these (plus the provider table we wrote);
+/// everything else in the file belongs to the user.
+pub(super) const MANAGED_TOP_LEVEL_KEYS: &[&str] = &[
+    "model",
+    "model_provider",
+    "preferred_auth_method",
+    "model_context_window",
+];
+
+/// Provider slug used when configuring from an independent key.
+pub(super) const GENERIC_PROVIDER_SLUG: &str = "openai_compatible";
+pub(super) const GENERIC_PROVIDER_NAME: &str = "OpenAI Compatible API";
+
+/// Fallback model written only when neither the caller nor the existing
+/// config supplies one, so Codex never points at a provider without a model.
+pub(super) const DEFAULT_MODEL: &str = "gpt-5";
+
 pub(super) fn get_codex_dir() -> Result<PathBuf> {
     let home = dirs::home_dir().context("Cannot find home directory")?;
     Ok(home.join(".codex"))
@@ -45,46 +63,111 @@ pub(super) fn ensure_v1_base_url(base_url: &str) -> String {
     }
 }
 
-pub(super) fn generate_provider_config(
+/// Upsert the provider fields into an existing config.toml document,
+/// leaving every unrelated key (mcp_servers, sandbox settings, other
+/// model_providers entries, comments, key order) untouched.
+pub(super) fn apply_provider_config(
+    doc: &mut toml_edit::DocumentMut,
     provider_slug: &str,
     provider_name: &str,
     base_url: &str,
     model: Option<&str>,
-) -> String {
-    let model_name = model.unwrap_or("gpt-5");
-    let base_url_v1 = ensure_v1_base_url(base_url);
+) {
+    use toml_edit::{value, Item, Table};
 
-    format!(
-        r#"model = "{}"
-model_provider = "{}"
-preferred_auth_method = "apikey"
+    match model {
+        Some(model) => doc["model"] = value(model),
+        // Keep the user's existing model; only fall back when none is set.
+        None => {
+            if doc.get("model").is_none() {
+                doc["model"] = value(DEFAULT_MODEL);
+            }
+        }
+    }
+    doc["model_provider"] = value(provider_slug);
+    doc["preferred_auth_method"] = value("apikey");
 
+    let providers = doc
+        .entry("model_providers")
+        .or_insert(Item::Table(Table::new()));
+    if !providers.is_table() {
+        *providers = Item::Table(Table::new());
+    }
+    let providers = providers.as_table_mut().expect("just ensured table");
+    providers.set_implicit(true);
 
-[model_providers.{}]
-name = "{}"
-base_url = "{}"
-wire_api = "responses"
-"#,
-        model_name, provider_slug, provider_slug, provider_name, base_url_v1
-    )
+    let entry = providers
+        .entry(provider_slug)
+        .or_insert(Item::Table(Table::new()));
+    if !entry.is_table() {
+        *entry = Item::Table(Table::new());
+    }
+    let entry = entry.as_table_mut().expect("just ensured table");
+    entry["name"] = value(provider_name);
+    entry["base_url"] = value(ensure_v1_base_url(base_url));
+    entry["wire_api"] = value("responses");
 }
 
-/// Generate config.toml content for generic OpenAI-compatible provider (for independent keys)
-pub(super) fn generate_generic_config(base_url: &str, model: Option<&str>) -> String {
-    let model_name = model.unwrap_or("gpt-4o");
-    let base_url_v1 = ensure_v1_base_url(base_url);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    format!(
-        r#"model = "{}"
-model_provider = "openai_compatible"
-preferred_auth_method = "apikey"
+    #[test]
+    fn apply_preserves_unrelated_keys_and_comments() {
+        let existing = r#"# my codex settings
+approval_policy = "on-request"
 
+[mcp_servers.docs]
+command = "docs-server"
 
-[model_providers.openai_compatible]
-name = "OpenAI Compatible API"
-base_url = "{}"
+[model_providers.other]
+name = "Other"
+base_url = "https://other.example/v1"
 wire_api = "responses"
-"#,
-        model_name, base_url_v1
-    )
+"#;
+        let mut doc: toml_edit::DocumentMut = existing.parse().unwrap();
+
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+
+        let out = doc.to_string();
+        assert!(out.contains("# my codex settings"));
+        assert!(out.contains("approval_policy = \"on-request\""));
+        assert!(out.contains("[mcp_servers.docs]"));
+        assert!(out.contains("[model_providers.other]"));
+        assert!(out.contains("model_provider = \"relay\""));
+        assert!(out.contains("base_url = \"https://relay.example/v1\""));
+    }
+
+    #[test]
+    fn apply_keeps_existing_model_when_none_selected() {
+        let mut doc: toml_edit::DocumentMut = "model = \"my-model\"\n".parse().unwrap();
+
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+
+        assert_eq!(doc["model"].as_str(), Some("my-model"));
+    }
+
+    #[test]
+    fn apply_writes_default_model_on_empty_config() {
+        let mut doc = toml_edit::DocumentMut::new();
+
+        apply_provider_config(&mut doc, "relay", "Relay", "https://relay.example", None);
+
+        assert_eq!(doc["model"].as_str(), Some(DEFAULT_MODEL));
+    }
+
+    #[test]
+    fn apply_overwrites_model_when_selected() {
+        let mut doc: toml_edit::DocumentMut = "model = \"old\"\n".parse().unwrap();
+
+        apply_provider_config(
+            &mut doc,
+            "relay",
+            "Relay",
+            "https://relay.example/v1",
+            Some("new-model"),
+        );
+
+        assert_eq!(doc["model"].as_str(), Some("new-model"));
+    }
 }
