@@ -41,25 +41,17 @@ impl super::TokenService {
 
         log::info!("Session token valid for account {}", account_id);
 
-        // 3. If not forcing refresh, try cache first
+        // 3. If not forcing refresh, always serve the cache when it exists —
+        // opening the account detail must never trigger a destructive network
+        // refresh; stale data is refreshed only via the explicit refresh action.
         if !force_refresh {
             log::info!("Checking cache for account {}", account_id);
             let cached_tokens = self.token_repo.find_by_account(account_id).await?;
             log::info!("Found {} cached tokens", cached_tokens.len());
 
             if !cached_tokens.is_empty() {
-                // Check if cache is stale (> 1 hour)
-                let cache_valid = cached_tokens.iter().all(|t| {
-                    let elapsed = chrono::Utc::now() - t.fetched_at();
-                    elapsed.num_hours() < 1
-                });
-
-                if cache_valid {
-                    log::info!("Returning cached tokens for account {}", account_id);
-                    return Ok(cached_tokens);
-                } else {
-                    log::info!("Cache is stale, fetching fresh tokens");
-                }
+                log::info!("Returning cached tokens for account {}", account_id);
+                return Ok(cached_tokens);
             }
         }
 
@@ -192,14 +184,13 @@ impl super::TokenService {
             .map(|data| self.convert_to_domain(data, account_id.clone()))
             .collect::<Result<Vec<_>>>()?;
 
-        // 6. Delete old tokens and save new ones (to handle deleted tokens on server side)
+        // 6. Replace cached tokens atomically: delete + insert commit in one
+        // transaction, and only after fresh data is in hand. An empty response
+        // never wipes the local cache.
         if !tokens.is_empty() {
-            log::info!(
-                "Deleting old tokens for account {} before saving new ones",
-                account_id
-            );
-            self.token_repo.delete_by_account(account_id).await?;
-            self.token_repo.save_batch(tokens.clone()).await?;
+            self.token_repo
+                .replace_for_account(account_id, tokens.clone())
+                .await?;
             log::info!("Cached {} tokens for account {}", tokens.len(), account_id);
         }
 
