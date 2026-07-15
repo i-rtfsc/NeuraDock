@@ -68,6 +68,19 @@
       "clearConfirmDescription": "仅移除 NeuraDock 管理的字段（API 地址、密钥、模型等），其余内容不受影响。",
       "clearConfirm": "清除"
     },
+    "gateway": {
+      "title": "本地适配网关",
+      "running": "运行中",
+      "description": "把只支持 chat 接口的中转站，适配成 Codex 的 responses 或 Claude Code 的 Anthropic 接口。启动后把工具的 base URL 指向下面的本地地址。",
+      "selectKey": "选择中转站 Key",
+      "selectKeyPlaceholder": "选择一个 key",
+      "start": "启动网关",
+      "stop": "停止网关",
+      "started": "网关已启动",
+      "stopped": "网关已停止",
+      "baseUrlLabel": "本地 base URL",
+      "copied": "已复制"
+    },
     "encoding": {
       "title": "编解码 / 格式化",
       "description": "本地离线处理，不联网、不上传。",

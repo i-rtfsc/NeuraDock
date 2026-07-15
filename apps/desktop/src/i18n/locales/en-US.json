@@ -68,6 +68,19 @@
       "clearConfirmDescription": "Only the fields NeuraDock manages (API URL, key, model, etc.) are removed; everything else is untouched.",
       "clearConfirm": "Clear"
     },
+    "gateway": {
+      "title": "Local Adaptation Gateway",
+      "running": "Running",
+      "description": "Adapts a chat-only relay into Codex's responses API or Claude Code's Anthropic API. Once running, point the tool's base URL at the local address below.",
+      "selectKey": "Select relay key",
+      "selectKeyPlaceholder": "Pick a key",
+      "start": "Start gateway",
+      "stop": "Stop gateway",
+      "started": "Gateway started",
+      "stopped": "Gateway stopped",
+      "baseUrlLabel": "Local base URL",
+      "copied": "Copied"
+    },
     "encoding": {
       "title": "Encode / Format",
       "description": "Runs locally and offline; nothing is uploaded.",
