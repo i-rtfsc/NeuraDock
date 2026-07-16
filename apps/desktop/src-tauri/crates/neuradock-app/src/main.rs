@@ -194,6 +194,24 @@ async fn main() {
                             }
                         }
                     }
+
+                    // Rebuild saved gateway bindings (references only; keys are
+                    // re-resolved). The server is left stopped for the user to
+                    // start explicitly.
+                    let restore_handle = handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        use presentation::commands::gateway::restore_gateway_bindings;
+                        let gateway_state = restore_handle.state::<GatewayState>();
+                        let services = restore_handle.state::<Services>();
+                        let repositories = restore_handle.state::<Repositories>();
+                        restore_gateway_bindings(
+                            &restore_handle,
+                            &gateway_state,
+                            &services,
+                            &repositories,
+                        )
+                        .await;
+                    });
                     tracing::info!(
                         "✅ App state initialized successfully ({}ms)",
                         started_at.elapsed().as_millis()

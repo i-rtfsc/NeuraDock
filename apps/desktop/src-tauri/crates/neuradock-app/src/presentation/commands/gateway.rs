@@ -32,10 +32,30 @@ impl Default for GatewayState {
     }
 }
 
+/// Per-client runtime metadata plus everything needed to persist and rebuild
+/// the binding across restarts (the real key is never stored; it is re-resolved
+/// from the source).
 #[derive(Debug, Clone)]
 struct BindingMeta {
     label: String,
+    source: GatewaySourceDto,
+    kind: UpstreamKindDto,
     model: Option<String>,
+    impersonate: bool,
+}
+
+/// On-disk shape of a saved binding. Keys are never written; only the reference
+/// (account token ids or independent key id) is, so the key is re-resolved on
+/// startup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedBinding {
+    client: GatewayClientDto,
+    source: GatewaySourceDto,
+    kind: UpstreamKindDto,
+    model: Option<String>,
+    #[serde(default)]
+    impersonate: bool,
+    label: String,
 }
 
 /// Which tool a binding applies to.
@@ -109,6 +129,8 @@ pub struct GatewayBindingDto {
     /// Human-readable description of the bound key (name, never the key).
     pub label: String,
     pub model: Option<String>,
+    pub upstream_kind: UpstreamKindDto,
+    pub impersonate: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -126,6 +148,7 @@ async fn resolve_upstream(
     source: &GatewaySourceDto,
     kind: UpstreamKind,
     model: Option<&str>,
+    impersonate: bool,
     services: &Services,
     repositories: &Repositories,
 ) -> Result<(GatewayUpstream, String), CommandError> {
@@ -167,6 +190,7 @@ async fn resolve_upstream(
                     api_key: token.key().to_string(),
                     kind,
                     model: model.map(str::to_string),
+                    impersonate,
                 },
                 label,
             ))
@@ -192,6 +216,7 @@ async fn resolve_upstream(
                     api_key: key.api_key().to_string(),
                     kind,
                     model: model.map(str::to_string),
+                    impersonate,
                 },
                 key.name().to_string(),
             ))
@@ -208,6 +233,8 @@ async fn status_of(state: &GatewayState) -> GatewayStatusDto {
             client: (*client).into(),
             label: meta.label.clone(),
             model: meta.model.clone(),
+            upstream_kind: meta.kind,
+            impersonate: meta.impersonate,
         })
         .collect();
     bindings.sort_by_key(|b| b.client == GatewayClientDto::ClaudeCode);
@@ -235,15 +262,20 @@ pub async fn set_gateway_binding(
     source: GatewaySourceDto,
     upstream_kind: UpstreamKindDto,
     model: Option<String>,
+    impersonate: Option<bool>,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    // Impersonation defaults on: the point of the gateway is to reach relays
+    // that only admit recognised clients.
+    let impersonate = impersonate.unwrap_or(true);
     let (upstream, label) = resolve_upstream(
         &source,
         upstream_kind.into(),
         model.as_deref(),
+        impersonate,
         &services,
         &repositories,
     )
@@ -259,9 +291,14 @@ pub async fn set_gateway_binding(
         gateway_client,
         BindingMeta {
             label,
+            source,
+            kind: upstream_kind,
             model: model.clone(),
+            impersonate,
         },
     );
+
+    persist_bindings(&app, &state).await;
 
     // Refresh the takeover when the server is already running.
     let server = state.server.lock().await;
@@ -289,12 +326,107 @@ pub async fn clear_gateway_binding(
     state.bindings.write().await.remove(&gateway_client);
     state.meta.lock().await.remove(&gateway_client);
 
+    persist_bindings(&app, &state).await;
+
     let takeover = takeover_for(&app)?;
     takeover
         .restore(gateway_client)
         .map_err(|e| CommandError::infrastructure(e.to_string()))?;
 
     Ok(status_of(&state).await)
+}
+
+const BINDINGS_FILENAME: &str = "gateway_bindings.json";
+
+/// Persist the current bindings (references only, never keys) to app data so
+/// they survive a restart.
+async fn persist_bindings(app: &tauri::AppHandle, state: &GatewayState) {
+    let Ok(dir) = app.path().app_data_dir() else {
+        return;
+    };
+    let meta = state.meta.lock().await;
+    let bindings: Vec<PersistedBinding> = meta
+        .iter()
+        .map(|(client, meta)| PersistedBinding {
+            client: (*client).into(),
+            source: meta.source.clone(),
+            kind: meta.kind,
+            model: meta.model.clone(),
+            impersonate: meta.impersonate,
+            label: meta.label.clone(),
+        })
+        .collect();
+    drop(meta);
+
+    let path = dir.join(BINDINGS_FILENAME);
+    match serde_json::to_string_pretty(&bindings) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(&path, json) {
+                log::warn!("Failed to persist gateway bindings: {}", e);
+            }
+        }
+        Err(e) => log::warn!("Failed to serialize gateway bindings: {}", e),
+    }
+}
+
+/// Rebuild the binding table from disk on startup. Re-resolves each saved
+/// reference into a live upstream (the key is fetched fresh); bindings whose
+/// key was deleted or disabled are skipped with a log line. The gateway server
+/// is NOT started — the user starts it explicitly.
+pub async fn restore_gateway_bindings(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+    services: &Services,
+    repositories: &Repositories,
+) {
+    let Ok(dir) = app.path().app_data_dir() else {
+        return;
+    };
+    let path = dir.join(BINDINGS_FILENAME);
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    let saved: Vec<PersistedBinding> = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("Failed to parse saved gateway bindings: {}", e);
+            return;
+        }
+    };
+
+    for binding in saved {
+        match resolve_upstream(
+            &binding.source,
+            binding.kind.into(),
+            binding.model.as_deref(),
+            binding.impersonate,
+            services,
+            repositories,
+        )
+        .await
+        {
+            Ok((upstream, label)) => {
+                let client: GatewayClient = binding.client.into();
+                state.bindings.write().await.insert(client, upstream);
+                state.meta.lock().await.insert(
+                    client,
+                    BindingMeta {
+                        label,
+                        source: binding.source,
+                        kind: binding.kind,
+                        model: binding.model,
+                        impersonate: binding.impersonate,
+                    },
+                );
+            }
+            Err(e) => log::warn!(
+                "Skipping saved gateway binding for {:?}: {}",
+                binding.client,
+                e
+            ),
+        }
+    }
+    log::info!("Restored gateway bindings from disk (server left stopped)");
 }
 
 /// Start the gateway server and take over every bound client's tool config.

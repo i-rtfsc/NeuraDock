@@ -87,6 +87,11 @@ pub struct GatewayUpstream {
     pub kind: UpstreamKind,
     /// Model id sent to the relay; when set, overrides the tool's model.
     pub model: Option<String>,
+    /// Overwrite the incoming request's client fingerprint headers so the relay
+    /// sees a canonical Codex / Claude Code request regardless of the real
+    /// caller. Lets any agent (or a bare script) reach a relay that only admits
+    /// recognised clients.
+    pub impersonate: bool,
 }
 
 /// Live client -> upstream binding table, shared between the running server
@@ -270,7 +275,7 @@ async fn handle(
     // the relay's client fingerprint check passes, replacing only auth. The
     // body is our translated chat body, so drop the client's content-length.
     let chat_bytes = serde_json::to_vec(&chat_body).unwrap_or_default();
-    let request = forward_headers(state.client.post(&url), &headers, &upstream)
+    let request = forward_headers(state.client.post(&url), &headers, &upstream, protocol)
         .header(header::CONTENT_TYPE, "application/json")
         .body(chat_bytes);
 
@@ -364,7 +369,7 @@ async fn forward_passthrough(
     // reject requests that don't look like a real Codex / Claude Code. We keep
     // every header the tool sent except hop-by-hop / CDN / tracing ones, and
     // replace only the auth header inline with the real relay key.
-    let request = forward_headers(state.client.post(&url), inbound_headers, upstream)
+    let request = forward_headers(state.client.post(&url), inbound_headers, upstream, protocol)
         .header(header::CONTENT_TYPE, "application/json")
         .body(body_bytes);
 
@@ -483,6 +488,34 @@ fn apply_auth(request: reqwest::RequestBuilder, upstream: &GatewayUpstream) -> r
     }
 }
 
+/// Canonical client fingerprint of a real Codex CLI, injected when
+/// impersonation is on so any caller looks like Codex to the relay.
+const CODEX_USER_AGENT: &str = "codex_cli_rs/0.20.0 (Mac OS 15.0.0; arm64) NeuraDock";
+const CODEX_ORIGINATOR: &str = "codex_cli_rs";
+/// Canonical client fingerprint of a real Claude Code CLI.
+const CLAUDE_CODE_USER_AGENT: &str = "claude-cli/1.0.119 (external, cli)";
+
+/// Whether a header is part of the client's identity fingerprint that a relay
+/// inspects to recognise Codex / Claude Code. On the impersonation path these
+/// are dropped from the caller and replaced with canonical values so an
+/// arbitrary agent is presented as the expected client.
+fn is_client_fingerprint_header(name: &str) -> bool {
+    matches!(
+        name,
+        "user-agent"
+            | "originator"
+            | "session_id"
+            | "session-id"
+            | "thread-id"
+            | "conversation_id"
+            | "x-app"
+            | "x-client-request-id"
+            | "openai-beta"
+            | "anthropic-beta"
+    ) || name.starts_with("x-stainless-")
+        || name.starts_with("x-codex-")
+}
+
 /// Copy the tool's request headers onto the upstream request, matching
 /// cc-switch: relays fingerprint the client (user-agent, originator, session
 /// id, ...) and reject requests that don't look like a real Codex / Claude
@@ -490,10 +523,16 @@ fn apply_auth(request: reqwest::RequestBuilder, upstream: &GatewayUpstream) -> r
 /// tracing ones. The auth header is replaced inline with the real relay key,
 /// and Anthropic upstreams get a default `anthropic-version` when the client
 /// did not send one. Used on both the passthrough and convert paths.
+///
+/// When `upstream.impersonate` is on, the caller's fingerprint headers are
+/// dropped and replaced with a canonical Codex / Claude Code fingerprint, so a
+/// non-Codex/Claude agent (or a bare script) is presented to the relay as the
+/// expected client.
 fn forward_headers(
     mut request: reqwest::RequestBuilder,
     inbound_headers: &axum::http::HeaderMap,
     upstream: &GatewayUpstream,
+    protocol: InboundProtocol,
 ) -> reqwest::RequestBuilder {
     let mut saw_auth = false;
     for (name, value) in inbound_headers {
@@ -521,8 +560,19 @@ fn forward_headers(
             continue;
         }
 
+        // On the impersonation path, drop the caller's own fingerprint headers;
+        // canonical values are injected below.
+        if upstream.impersonate && is_client_fingerprint_header(&key.to_ascii_lowercase()) {
+            continue;
+        }
+
         request = request.header(name.clone(), value.clone());
     }
+
+    if upstream.impersonate {
+        request = inject_canonical_fingerprint(request, inbound_headers, protocol);
+    }
+
     if !saw_auth {
         request = apply_auth(request, upstream);
     }
@@ -532,6 +582,36 @@ fn forward_headers(
         request = request.header("anthropic-version", "2023-06-01");
     }
     request
+}
+
+/// Inject a canonical Codex / Claude Code fingerprint onto an impersonated
+/// request. The tool a caller is bound to (by inbound protocol) decides which
+/// identity to present. Session-style ids the caller already sent are reused;
+/// otherwise a stable synthetic id is supplied so relays that require one are
+/// satisfied. The value is derived from the caller's own session id when
+/// present, so retries within a conversation stay consistent.
+fn inject_canonical_fingerprint(
+    request: reqwest::RequestBuilder,
+    inbound_headers: &axum::http::HeaderMap,
+    protocol: InboundProtocol,
+) -> reqwest::RequestBuilder {
+    match protocol {
+        InboundProtocol::Responses => {
+            let session = inbound_headers
+                .get("session_id")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string)
+                .unwrap_or_else(|| "neuradock-gateway-session".to_string());
+            request
+                .header(header::USER_AGENT, CODEX_USER_AGENT)
+                .header("originator", CODEX_ORIGINATOR)
+                .header("session_id", session)
+                .header("openai-beta", "responses=experimental")
+        }
+        InboundProtocol::AnthropicMessages => request
+            .header(header::USER_AGENT, CLAUDE_CODE_USER_AGENT)
+            .header("x-app", "cli"),
+    }
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
@@ -674,6 +754,7 @@ mod tests {
                 api_key: "sk-test".to_string(),
                 kind: UpstreamKind::OpenAiChat,
                 model: Some(model.to_string()),
+                impersonate: false,
             },
         );
         Arc::new(RwLock::new(map))
@@ -787,6 +868,7 @@ mod tests {
                 api_key: "sk-test".to_string(),
                 kind: UpstreamKind::OpenAiChat,
                 model: Some("second".to_string()),
+                impersonate: false,
             },
         );
 
@@ -923,6 +1005,7 @@ mod tests {
                 api_key: "sk-test".to_string(),
                 kind: UpstreamKind::OpenAiResponses,
                 model: Some("relay-model".to_string()),
+                impersonate: false,
             },
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
@@ -987,6 +1070,7 @@ mod tests {
                 api_key: "sk-real-relay-key".to_string(),
                 kind: UpstreamKind::OpenAiResponses,
                 model: None,
+                impersonate: false,
             },
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
@@ -1052,6 +1136,7 @@ mod tests {
                 api_key: "sk-real-relay-key".to_string(),
                 kind: UpstreamKind::OpenAiChat, // chat-only relay -> convert path
                 model: None,
+                impersonate: false,
             },
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
@@ -1070,6 +1155,69 @@ mod tests {
         assert_eq!(got.get("user-agent").unwrap(), "codex_cli_rs/1.0.0");
         assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
         assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn impersonation_rewrites_caller_fingerprint_to_codex() {
+        // A non-Codex agent (e.g. a bare script with its own user-agent) must be
+        // presented to the relay as a canonical Codex client when impersonation
+        // is on.
+        use axum::http::HeaderMap;
+        let seen = Arc::new(tokio::sync::Mutex::new(None::<HeaderMap>));
+        let seen_clone = seen.clone();
+        let app = Router::new().route(
+            "/v1/responses",
+            post(move |headers: HeaderMap| {
+                let seen = seen_clone.clone();
+                async move {
+                    *seen.lock().await = Some(headers);
+                    Json(json!({ "id": "ok" }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut map = HashMap::new();
+        map.insert(
+            GatewayClient::Codex,
+            GatewayUpstream {
+                base_url: format!("http://{}", addr),
+                api_key: "sk-real".to_string(),
+                kind: UpstreamKind::OpenAiResponses,
+                model: None,
+                impersonate: true,
+            },
+        );
+        let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
+
+        reqwest::Client::new()
+            .post(format!("{}/responses", gateway.base_url()))
+            .header("user-agent", "my-random-script/9.9")
+            .header("originator", "not-codex")
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        let got = seen.lock().await.clone().unwrap();
+        // The caller's own fingerprint is replaced with a canonical Codex one.
+        assert!(got
+            .get("user-agent")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("codex_cli_rs/"));
+        assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
+        assert!(got.get("session_id").is_some());
+        assert!(got.get("openai-beta").is_some());
 
         gateway.shutdown().await;
     }
