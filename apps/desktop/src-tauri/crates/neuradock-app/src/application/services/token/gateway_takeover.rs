@@ -16,7 +16,7 @@ use neuradock_infrastructure::gateway::GatewayClient;
 
 /// Placeholder key written into tool configs during takeover; the real key
 /// only lives inside the gateway process.
-pub const GATEWAY_PLACEHOLDER_KEY: &str = "sk-neuradock-gateway";
+const GATEWAY_PLACEHOLDER_KEY: &str = "sk-neuradock-gateway";
 
 const STATE_FILENAME: &str = "gateway_takeover.json";
 const SNAPSHOT_DIR: &str = "gateway_takeover";
