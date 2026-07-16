@@ -9,7 +9,7 @@ use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
 use neuradock_domain::shared::{AccountId, ProviderId};
 use neuradock_infrastructure::gateway::{
-    start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream,
+    start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream, UpstreamKind,
 };
 
 use crate::application::services::GatewayTakeover;
@@ -64,6 +64,28 @@ impl From<GatewayClient> for GatewayClientDto {
     }
 }
 
+/// Protocol the relay upstream speaks, chosen by the user when binding.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UpstreamKindDto {
+    /// OpenAI Chat Completions — needs translation for both tools.
+    OpenaiChat,
+    /// OpenAI Responses — native for Codex, passthrough.
+    OpenaiResponses,
+    /// Anthropic Messages — native for Claude Code, passthrough.
+    Anthropic,
+}
+
+impl From<UpstreamKindDto> for UpstreamKind {
+    fn from(dto: UpstreamKindDto) -> Self {
+        match dto {
+            UpstreamKindDto::OpenaiChat => UpstreamKind::OpenAiChat,
+            UpstreamKindDto::OpenaiResponses => UpstreamKind::OpenAiResponses,
+            UpstreamKindDto::Anthropic => UpstreamKind::Anthropic,
+        }
+    }
+}
+
 /// Where a binding's upstream key comes from: any relay-station account token
 /// or an independent API key.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -102,6 +124,7 @@ pub struct GatewayStatusDto {
 /// fails to compile until handled.
 async fn resolve_upstream(
     source: &GatewaySourceDto,
+    kind: UpstreamKind,
     model: Option<&str>,
     services: &Services,
     repositories: &Repositories,
@@ -142,6 +165,7 @@ async fn resolve_upstream(
                 GatewayUpstream {
                     base_url,
                     api_key: token.key().to_string(),
+                    kind,
                     model: model.map(str::to_string),
                 },
                 label,
@@ -166,6 +190,7 @@ async fn resolve_upstream(
                 GatewayUpstream {
                     base_url: key.base_url().to_string(),
                     api_key: key.api_key().to_string(),
+                    kind,
                     model: model.map(str::to_string),
                 },
                 key.name().to_string(),
@@ -208,14 +233,21 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
 pub async fn set_gateway_binding(
     client: GatewayClientDto,
     source: GatewaySourceDto,
+    upstream_kind: UpstreamKindDto,
     model: Option<String>,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let (upstream, label) =
-        resolve_upstream(&source, model.as_deref(), &services, &repositories).await?;
+    let (upstream, label) = resolve_upstream(
+        &source,
+        upstream_kind.into(),
+        model.as_deref(),
+        &services,
+        &repositories,
+    )
+    .await?;
     let gateway_client: GatewayClient = client.into();
 
     state
