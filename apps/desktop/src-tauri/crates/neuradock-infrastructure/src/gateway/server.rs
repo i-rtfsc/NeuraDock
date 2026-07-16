@@ -266,11 +266,13 @@ async fn handle(
         model,
         stream
     );
-    let request = state
-        .client
-        .post(&url)
-        .bearer_auth(&upstream.api_key)
-        .json(&chat_body);
+    // Forward the tool's headers (user-agent, originator, session id, ...) so
+    // the relay's client fingerprint check passes, replacing only auth. The
+    // body is our translated chat body, so drop the client's content-length.
+    let chat_bytes = serde_json::to_vec(&chat_body).unwrap_or_default();
+    let request = forward_headers(state.client.post(&url), &headers, &upstream)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(chat_bytes);
 
     let upstream = match request.send().await {
         Ok(resp) => resp,
@@ -362,47 +364,9 @@ async fn forward_passthrough(
     // reject requests that don't look like a real Codex / Claude Code. We keep
     // every header the tool sent except hop-by-hop / CDN / tracing ones, and
     // replace only the auth header inline with the real relay key.
-    let mut request = state.client.post(&url).body(body_bytes);
-
-    let mut saw_auth = false;
-    for (name, value) in inbound_headers {
-        let key = name.as_str();
-
-        // Hop-by-hop, CDN, and tracing headers must not be forwarded.
-        if is_hop_by_hop_header(key) {
-            continue;
-        }
-
-        // Replace the client's credential header(s) with the real relay key,
-        // in whichever shape the upstream protocol expects.
-        if key.eq_ignore_ascii_case("authorization")
-            || key.eq_ignore_ascii_case("x-api-key")
-            || key.eq_ignore_ascii_case("x-goog-api-key")
-        {
-            if !saw_auth {
-                saw_auth = true;
-                request = apply_auth(request, upstream);
-            }
-            continue;
-        }
-
-        // Content-length is recomputed by reqwest from the body we set.
-        if key.eq_ignore_ascii_case("content-length") {
-            continue;
-        }
-
-        request = request.header(name.clone(), value.clone());
-    }
-    if !saw_auth {
-        request = apply_auth(request, upstream);
-    }
-    // Anthropic upstreams require a version header; supply a default if the
-    // client did not send one.
-    if upstream.kind == UpstreamKind::Anthropic
-        && inbound_headers.get("anthropic-version").is_none()
-    {
-        request = request.header("anthropic-version", "2023-06-01");
-    }
+    let request = forward_headers(state.client.post(&url), inbound_headers, upstream)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(body_bytes);
 
     let upstream_resp = match request.send().await {
         Ok(resp) => resp,
@@ -517,6 +481,57 @@ fn apply_auth(request: reqwest::RequestBuilder, upstream: &GatewayUpstream) -> r
             request.bearer_auth(&upstream.api_key)
         }
     }
+}
+
+/// Copy the tool's request headers onto the upstream request, matching
+/// cc-switch: relays fingerprint the client (user-agent, originator, session
+/// id, ...) and reject requests that don't look like a real Codex / Claude
+/// Code, so every header the tool sent is forwarded except hop-by-hop / CDN /
+/// tracing ones. The auth header is replaced inline with the real relay key,
+/// and Anthropic upstreams get a default `anthropic-version` when the client
+/// did not send one. Used on both the passthrough and convert paths.
+fn forward_headers(
+    mut request: reqwest::RequestBuilder,
+    inbound_headers: &axum::http::HeaderMap,
+    upstream: &GatewayUpstream,
+) -> reqwest::RequestBuilder {
+    let mut saw_auth = false;
+    for (name, value) in inbound_headers {
+        let key = name.as_str();
+
+        if is_hop_by_hop_header(key) {
+            continue;
+        }
+
+        if key.eq_ignore_ascii_case("authorization")
+            || key.eq_ignore_ascii_case("x-api-key")
+            || key.eq_ignore_ascii_case("x-goog-api-key")
+        {
+            if !saw_auth {
+                saw_auth = true;
+                request = apply_auth(request, upstream);
+            }
+            continue;
+        }
+
+        // reqwest recomputes content-length from the body we set; the caller
+        // sets content-type explicitly (the body may be reshaped), so skip
+        // both here to avoid duplicate or mismatched headers.
+        if key.eq_ignore_ascii_case("content-length") || key.eq_ignore_ascii_case("content-type") {
+            continue;
+        }
+
+        request = request.header(name.clone(), value.clone());
+    }
+    if !saw_auth {
+        request = apply_auth(request, upstream);
+    }
+    if upstream.kind == UpstreamKind::Anthropic
+        && inbound_headers.get("anthropic-version").is_none()
+    {
+        request = request.header("anthropic-version", "2023-06-01");
+    }
+    request
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
@@ -997,6 +1012,64 @@ mod tests {
         assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
         // Tracing header dropped.
         assert!(got.get("x-amzn-trace-id").is_none());
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn convert_path_also_forwards_client_headers() {
+        // The chat-conversion path (chat-only relay) must forward the client's
+        // fingerprint headers too, or the relay rejects it as an unknown client
+        // (the agentrouter.org 401 regression).
+        use axum::http::HeaderMap;
+        let seen = Arc::new(tokio::sync::Mutex::new(None::<HeaderMap>));
+        let seen_clone = seen.clone();
+        let app = Router::new().route(
+            "/v1/chat/completions",
+            post(move |headers: HeaderMap| {
+                let seen = seen_clone.clone();
+                async move {
+                    *seen.lock().await = Some(headers);
+                    Json(json!({
+                        "choices": [{ "finish_reason": "stop", "message": { "content": "ok" } }]
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut map = HashMap::new();
+        map.insert(
+            GatewayClient::Codex,
+            GatewayUpstream {
+                base_url: format!("http://{}", addr),
+                api_key: "sk-real-relay-key".to_string(),
+                kind: UpstreamKind::OpenAiChat, // chat-only relay -> convert path
+                model: None,
+            },
+        );
+        let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
+
+        reqwest::Client::new()
+            .post(format!("{}/responses", gateway.base_url()))
+            .header("user-agent", "codex_cli_rs/1.0.0")
+            .header("originator", "codex_cli_rs")
+            .header("authorization", "Bearer sk-placeholder")
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        let got = seen.lock().await.clone().unwrap();
+        assert_eq!(got.get("user-agent").unwrap(), "codex_cli_rs/1.0.0");
+        assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
+        assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
 
         gateway.shutdown().await;
     }
