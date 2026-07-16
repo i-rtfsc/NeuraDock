@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { IndependentKeyConfigDialog } from '@/components/token/IndependentKeyConfigDialog';
-import { GatewayControl } from '@/components/devtoolbox/GatewayControl';
 import type { IndependentKeyDto } from '@/types/independentKey';
 
 type ClearTarget = 'claude' | 'codex';
@@ -123,9 +122,6 @@ export function AiToolConfigurator() {
           </div>
         )}
       </Card>
-
-      {/* Local adaptation gateway */}
-      <GatewayControl keys={keys} />
 
       {/* Clear managed config */}
       <Card className="p-5 space-y-4">

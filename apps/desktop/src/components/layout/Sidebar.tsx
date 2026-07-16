@@ -21,6 +21,7 @@ import {
 import { useSidebarStore } from '@/hooks/useSidebarStore';
 import { Button } from '@/components/ui/button';
 import { CodexMarkIcon } from '@/components/icons/CodexMarkIcon';
+import { SidebarGatewaySwitch } from '@/components/layout/SidebarGatewaySwitch';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -196,6 +197,9 @@ export function Sidebar() {
         "w-full mt-auto flex flex-col gap-2 shrink-0",
         collapsed ? "px-3 items-center" : "px-4"
       )}>
+         {/* Local gateway status + entry */}
+         <SidebarGatewaySwitch collapsed={collapsed} tooltipsDisabled={isOnAiChatPage} />
+
          {/* Settings Button */}
          {renderLink({ name: t('nav.settings'), href: '/settings', icon: Settings }, true)}
 

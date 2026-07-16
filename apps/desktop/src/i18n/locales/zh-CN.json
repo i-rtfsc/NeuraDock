@@ -1276,5 +1276,25 @@
       "paymentLinkGenerated": "支付链接已生成",
       "paymentLinkGenerateFailed": "生成失败：{{message}}"
     }
+  },
+  "gateway": {
+    "title": "本地适配网关",
+    "sidebarLabel": "本地网关",
+    "running": "运行中",
+    "stoppedBadge": "已停止",
+    "description": "把只支持 chat 接口的中转站适配给 Codex / Claude Code。启动后自动接管工具配置（原配置已备份，停止时还原）。",
+    "bindingsTitle": "客户端绑定",
+    "noBindings": "还没有绑定。到中转站账号详情或 API Key 详情里，把一个 key 绑定给 Codex / Claude Code。",
+    "unbind": "解绑",
+    "start": "启动网关",
+    "stop": "停止网关",
+    "started": "网关已启动，已接管绑定客户端的配置",
+    "stopped": "网关已停止，工具配置已还原",
+    "unbound": "已解绑并还原该客户端配置",
+    "bindTitle": "经本地网关配置",
+    "bindDescription": "把此 key 绑定给一个客户端，请求经本地网关做协议适配（如 chat→responses）。",
+    "bindCodex": "绑定给 Codex",
+    "bindClaude": "绑定给 Claude Code",
+    "bound": "已绑定，可在侧边栏「本地网关」启动"
   }
 }

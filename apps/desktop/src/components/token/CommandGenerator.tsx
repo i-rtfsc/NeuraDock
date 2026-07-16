@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
-import { Globe, Terminal, Copy, Check } from 'lucide-react';
+import { Globe, Terminal, Copy, Check, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,6 +78,31 @@ export function CommandGenerator({
     },
     onError: (error: Error) => {
       toast.error(t('token.configError', 'Configuration failed: ') + error.message);
+    },
+  });
+
+  const bindGatewayMutation = useMutation({
+    mutationFn: () => {
+      const client = selectedTool === 'claude' ? 'claude_code' : 'codex';
+      return invoke<unknown>('set_gateway_binding', {
+        client,
+        source: {
+          type: 'account_token',
+          account_id: token.account_id,
+          provider_id: account.provider_id,
+          token_id: token.id,
+          base_url: selectedNode || null,
+        },
+        model: selectedModel || null,
+      });
+    },
+    onSuccess: () => {
+      toast.success(t('gateway.bound', '已绑定，可在侧边栏「本地网关」启动'));
+      onSuccess?.();
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(t('token.configError', 'Configuration failed: ') + message);
     },
   });
 
@@ -171,6 +196,19 @@ export function CommandGenerator({
             ? t('common.configuring', 'Installing Configuration...')
             : t('token.configDialog.installConfig', 'Install Configuration')}
         </Button>
+        {selectedTool !== 'gemini' && (
+          <Button
+            variant="outline"
+            className="w-full h-10 text-sm font-medium"
+            onClick={() => bindGatewayMutation.mutate()}
+            disabled={!selectedNode || bindGatewayMutation.isPending || !isCompatible}
+          >
+            <Server className="h-3.5 w-3.5" />
+            {selectedTool === 'claude'
+              ? t('gateway.bindClaude', '绑定给 Claude Code')
+              : t('gateway.bindCodex', '绑定给 Codex')}
+          </Button>
+        )}
       </TabsContent>
 
       <TabsContent

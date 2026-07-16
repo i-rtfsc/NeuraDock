@@ -1276,5 +1276,25 @@
       "paymentLinkGenerated": "Payment link generated",
       "paymentLinkGenerateFailed": "Generation failed: {{message}}"
     }
+  },
+  "gateway": {
+    "title": "Local Adaptation Gateway",
+    "sidebarLabel": "Local Gateway",
+    "running": "Running",
+    "stoppedBadge": "Stopped",
+    "description": "Adapts a chat-only relay for Codex / Claude Code. Starting takes over the tool config (originals are backed up and restored on stop).",
+    "bindingsTitle": "Client bindings",
+    "noBindings": "No bindings yet. Bind a key to Codex / Claude Code from an account detail or API Key detail.",
+    "unbind": "Unbind",
+    "start": "Start gateway",
+    "stop": "Stop gateway",
+    "started": "Gateway started; bound clients' configs taken over",
+    "stopped": "Gateway stopped; tool configs restored",
+    "unbound": "Unbound and restored the client's config",
+    "bindTitle": "Configure via local gateway",
+    "bindDescription": "Bind this key to a client so its requests go through the local gateway for protocol adaptation (e.g. chat->responses).",
+    "bindCodex": "Bind to Codex",
+    "bindClaude": "Bind to Claude Code",
+    "bound": "Bound. Start it from Local Gateway in the sidebar."
   }
 }

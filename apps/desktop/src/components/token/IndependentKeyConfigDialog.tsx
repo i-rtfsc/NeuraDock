@@ -21,6 +21,7 @@ import {
   Code2,
   ChevronRight,
   HardDrive,
+  Server,
   Zap
 } from 'lucide-react';
 import type { IndependentKeyDto } from '@/types/independentKey';
@@ -95,6 +96,23 @@ export function IndependentKeyConfigDialog({
     },
     onError: (error: Error) => {
       toast.error(t('token.configError', 'Configuration failed: ') + error.message);
+    },
+  });
+
+  const bindGatewayMutation = useMutation({
+    mutationFn: (client: 'codex' | 'claude_code') =>
+      invoke<unknown>('set_gateway_binding', {
+        client,
+        source: { type: 'independent_key', key_id: keyData!.id },
+        model: selectedModel || null,
+      }),
+    onSuccess: () => {
+      toast.success(t('gateway.bound', '已绑定，可在侧边栏「本地网关」启动'));
+      onOpenChange(false);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(t('token.configError', 'Configuration failed: ') + message);
     },
   });
 
@@ -300,6 +318,42 @@ export function IndependentKeyConfigDialog({
                       onCheckedChange={setContext1m}
                       disabled={!selectedModel}
                     />
+                  </div>
+                </div>
+
+                {/* Bind via local gateway */}
+                <div className="space-y-3 rounded-lg border border-border/60 p-4">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Server className="h-4 w-4 text-primary" />
+                      {t('gateway.bindTitle', '经本地网关配置')}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        'gateway.bindDescription',
+                        '把此 key 绑定给一个客户端，请求经本地网关做协议适配（如 chat→responses）。'
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={bindGatewayMutation.isPending}
+                      onClick={() => bindGatewayMutation.mutate('codex')}
+                    >
+                      <Code2 className="h-3.5 w-3.5" />
+                      {t('gateway.bindCodex', '绑定给 Codex')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={bindGatewayMutation.isPending}
+                      onClick={() => bindGatewayMutation.mutate('claude_code')}
+                    >
+                      <Terminal className="h-3.5 w-3.5" />
+                      {t('gateway.bindClaude', '绑定给 Claude Code')}
+                    </Button>
                   </div>
                 </div>
 
