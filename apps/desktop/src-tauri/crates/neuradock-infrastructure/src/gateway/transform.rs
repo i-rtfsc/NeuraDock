@@ -214,7 +214,10 @@ pub fn chat_to_responses(chat: &Value, model: &str) -> Value {
         "content": [{ "type": "output_text", "text": text }],
     }));
 
-    if let Some(calls) = message.and_then(|m| m.get("tool_calls")).and_then(Value::as_array) {
+    if let Some(calls) = message
+        .and_then(|m| m.get("tool_calls"))
+        .and_then(Value::as_array)
+    {
         for call in calls {
             let function = call.get("function");
             output.push(json!({
@@ -333,7 +336,11 @@ fn append_anthropic_message(item: &Value, messages: &mut Vec<Value>) {
         msg.insert("role".to_string(), json!("assistant"));
         msg.insert(
             "content".to_string(),
-            if text.is_empty() { Value::Null } else { json!(text) },
+            if text.is_empty() {
+                Value::Null
+            } else {
+                json!(text)
+            },
         );
         if !tool_calls.is_empty() {
             msg.insert("tool_calls".to_string(), Value::Array(tool_calls));
@@ -400,12 +407,18 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
         .unwrap_or("stop");
 
     let mut content = Vec::new();
-    if let Some(text) = message.and_then(|m| m.get("content")).and_then(Value::as_str) {
+    if let Some(text) = message
+        .and_then(|m| m.get("content"))
+        .and_then(Value::as_str)
+    {
         if !text.is_empty() {
             content.push(json!({ "type": "text", "text": text }));
         }
     }
-    if let Some(calls) = message.and_then(|m| m.get("tool_calls")).and_then(Value::as_array) {
+    if let Some(calls) = message
+        .and_then(|m| m.get("tool_calls"))
+        .and_then(Value::as_array)
+    {
         for call in calls {
             let function = call.get("function");
             let args = function

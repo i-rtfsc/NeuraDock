@@ -164,7 +164,11 @@ async fn handle_anthropic(
     handle(state, GatewayClient::ClaudeCode, body).await
 }
 
-async fn handle(state: Arc<GatewayState>, client: GatewayClient, body: axum::body::Bytes) -> Response {
+async fn handle(
+    state: Arc<GatewayState>,
+    client: GatewayClient,
+    body: axum::body::Bytes,
+) -> Response {
     let protocol = client.protocol();
 
     // Look up this client's upstream binding; each client is bound
@@ -203,7 +207,10 @@ async fn handle(state: Arc<GatewayState>, client: GatewayClient, body: axum::bod
         chat_body["stream_options"] = serde_json::json!({ "include_usage": true });
     }
 
-    let url = format!("{}/chat/completions", upstream.base_url.trim_end_matches('/'));
+    let url = format!(
+        "{}/chat/completions",
+        upstream.base_url.trim_end_matches('/')
+    );
     let request = state
         .client
         .post(&url)
@@ -212,12 +219,14 @@ async fn handle(state: Arc<GatewayState>, client: GatewayClient, body: axum::bod
 
     let upstream = match request.send().await {
         Ok(resp) => resp,
-        Err(e) => return error_response(StatusCode::BAD_GATEWAY, &format!("upstream error: {}", e)),
+        Err(e) => {
+            return error_response(StatusCode::BAD_GATEWAY, &format!("upstream error: {}", e))
+        }
     };
 
     if !upstream.status().is_success() {
-        let status = StatusCode::from_u16(upstream.status().as_u16())
-            .unwrap_or(StatusCode::BAD_GATEWAY);
+        let status =
+            StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
         let text = upstream.text().await.unwrap_or_default();
         return error_response(status, &text);
     }
@@ -233,13 +242,20 @@ async fn handle(state: Arc<GatewayState>, client: GatewayClient, body: axum::bod
                 };
                 json_response(StatusCode::OK, &translated)
             }
-            Err(e) => error_response(StatusCode::BAD_GATEWAY, &format!("bad upstream body: {}", e)),
+            Err(e) => error_response(
+                StatusCode::BAD_GATEWAY,
+                &format!("bad upstream body: {}", e),
+            ),
         }
     }
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
-fn stream_response(protocol: InboundProtocol, model: String, upstream: reqwest::Response) -> Response {
+fn stream_response(
+    protocol: InboundProtocol,
+    model: String,
+    upstream: reqwest::Response,
+) -> Response {
     let mut byte_stream = upstream.bytes_stream();
 
     let sse = async_stream::stream! {
@@ -437,12 +453,9 @@ mod tests {
     async fn unbound_client_gets_service_unavailable() {
         let (relay_url, _seen) = spawn_fake_relay().await;
         // Only Codex is bound; a Claude Code request must be rejected.
-        let gateway = start_gateway(
-            bindings_for(GatewayClient::Codex, relay_url, "m"),
-            0,
-        )
-        .await
-        .unwrap();
+        let gateway = start_gateway(bindings_for(GatewayClient::Codex, relay_url, "m"), 0)
+            .await
+            .unwrap();
 
         let client = reqwest::Client::new();
         let resp = client
@@ -492,4 +505,3 @@ mod tests {
         gateway.shutdown().await;
     }
 }
-

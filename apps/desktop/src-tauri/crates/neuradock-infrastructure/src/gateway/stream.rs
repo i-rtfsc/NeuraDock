@@ -80,9 +80,7 @@ pub fn chat_chunk_to_responses_events(chunk: &Value) -> Vec<SseEvent> {
 
 /// Terminal Responses events emitted once the upstream stream ends.
 pub fn responses_stream_completion() -> Vec<SseEvent> {
-    vec![
-        SseEvent::data_only(json!({ "type": "response.completed" })),
-    ]
+    vec![SseEvent::data_only(json!({ "type": "response.completed" }))]
 }
 
 // ---------------------------------------------------------------------------

@@ -272,8 +272,7 @@ pub async fn start_gateway_server(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let bound_clients: Vec<GatewayClient> =
-        state.bindings.read().await.keys().copied().collect();
+    let bound_clients: Vec<GatewayClient> = state.bindings.read().await.keys().copied().collect();
     if bound_clients.is_empty() {
         return Err(CommandError::validation(
             "No client is bound to a relay key yet. Bind one from an account token or API key first.",

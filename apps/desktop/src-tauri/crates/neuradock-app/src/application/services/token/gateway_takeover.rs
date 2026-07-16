@@ -146,9 +146,8 @@ impl GatewayTakeover {
         let mut files = Vec::new();
         for (live_path, name, private) in targets {
             let snapshot_name = if live_path.exists() {
-                fs::copy(&live_path, self.snapshot_dir.join(name)).with_context(|| {
-                    format!("Failed to snapshot {}", live_path.display())
-                })?;
+                fs::copy(&live_path, self.snapshot_dir.join(name))
+                    .with_context(|| format!("Failed to snapshot {}", live_path.display()))?;
                 Some(name.to_string())
             } else {
                 None
@@ -219,7 +218,11 @@ impl GatewayTakeover {
             let _ = fs::remove_dir_all(&self.snapshot_dir);
             return Ok(());
         }
-        atomic_write(&self.state_path, &serde_json::to_string_pretty(state)?, false)?;
+        atomic_write(
+            &self.state_path,
+            &serde_json::to_string_pretty(state)?,
+            false,
+        )?;
         Ok(())
     }
 }
