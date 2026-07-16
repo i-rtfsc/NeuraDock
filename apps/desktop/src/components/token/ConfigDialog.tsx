@@ -104,7 +104,10 @@ export function ConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden h-[600px] flex flex-col">
+      <DialogContent
+        size="full"
+        className="w-[var(--layout-dialog-width-xl)] max-w-[var(--layout-dialog-width-xl)] h-[var(--layout-dialog-height-tall)] p-0 gap-0 overflow-hidden flex flex-col"
+      >
         <div className="flex h-full">
           {/* Left Sidebar - Tool Selection */}
           <div className="w-64 bg-background/80 border-r flex flex-col shrink-0 backdrop-blur-sm">
