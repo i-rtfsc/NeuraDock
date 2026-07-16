@@ -24,6 +24,9 @@ const TransitHubPage = lazy(() =>
 const DevToolboxPage = lazy(() =>
   import('./pages/DevToolboxPage').then((m) => ({ default: m.DevToolboxPage }))
 );
+const AgentConfigPage = lazy(() =>
+  import('./pages/AgentConfigPage').then((m) => ({ default: m.AgentConfigPage }))
+);
 const PreferencesPage = lazy(() =>
   import('./pages/PreferencesPage').then((m) => ({ default: m.PreferencesPage }))
 );
@@ -75,6 +78,7 @@ function App() {
                   <Route path="/providers" element={<TransitHubPage />} />
                   <Route path="/ai-tools" element={<LegacyAiToolsRedirect />} />
                   <Route path="/tokens" element={<TokensPage />} />
+                  <Route path="/agent-config" element={<AgentConfigPage />} />
                   <Route path="/dev-tools" element={<DevToolboxPage />} />
                   <Route path="/daily-tools" element={<Navigate to="/calendar" replace />} />
                   <Route path="/calendar" element={<CalendarPage />} />
