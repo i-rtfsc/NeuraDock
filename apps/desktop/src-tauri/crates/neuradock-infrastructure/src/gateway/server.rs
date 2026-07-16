@@ -26,8 +26,7 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 
 use super::stream::{
-    anthropic_stream_completion, anthropic_stream_preamble, chat_chunk_to_anthropic_events,
-    chat_chunk_to_responses_events, responses_stream_completion, StreamFinish,
+    anthropic_sse_from_accumulator, responses_sse_from_accumulator, StreamAccumulator,
 };
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
@@ -251,6 +250,11 @@ async fn handle(
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
+///
+/// The upstream stream is accumulated in full, then a protocol-correct event
+/// sequence is emitted. Codex/Claude Code reject a partial or malformed
+/// lifecycle (e.g. a Responses stream without `response.completed` carrying a
+/// populated body), so a naive per-chunk passthrough is not enough.
 fn stream_response(
     protocol: InboundProtocol,
     model: String,
@@ -259,15 +263,8 @@ fn stream_response(
     let mut byte_stream = upstream.bytes_stream();
 
     let sse = async_stream::stream! {
-        // Anthropic requires preamble events before any delta.
-        if protocol == InboundProtocol::AnthropicMessages {
-            for event in anthropic_stream_preamble(&model) {
-                yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
-            }
-        }
-
         let mut buffer = String::new();
-        let mut finish = StreamFinish::default();
+        let mut acc = StreamAccumulator::default();
 
         while let Some(chunk) = byte_stream.next().await {
             let Ok(bytes) = chunk else { break };
@@ -287,25 +284,16 @@ fn stream_response(
                     break;
                 }
                 let Ok(chat_chunk) = serde_json::from_str::<Value>(payload) else { continue };
-                finish.observe(&chat_chunk);
-
-                let events = match protocol {
-                    InboundProtocol::Responses => chat_chunk_to_responses_events(&chat_chunk),
-                    InboundProtocol::AnthropicMessages => chat_chunk_to_anthropic_events(&chat_chunk),
-                };
-                for event in events {
-                    yield Ok(event.to_wire().into_bytes());
-                }
+                acc.observe(&chat_chunk);
             }
         }
 
-        // Terminal events.
-        let closing = match protocol {
-            InboundProtocol::Responses => responses_stream_completion(),
-            InboundProtocol::AnthropicMessages => anthropic_stream_completion(finish.reason()),
+        let events = match protocol {
+            InboundProtocol::Responses => responses_sse_from_accumulator(&model, &acc),
+            InboundProtocol::AnthropicMessages => anthropic_sse_from_accumulator(&model, &acc),
         };
-        for event in closing {
-            yield Ok(event.to_wire().into_bytes());
+        for event in events {
+            yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
         }
     };
 
@@ -501,6 +489,91 @@ mod tests {
 
         let upstream_body = seen.lock().await.clone().unwrap();
         assert_eq!(upstream_body["model"], "second");
+
+        gateway.shutdown().await;
+    }
+
+    /// A fake relay that answers /chat/completions with an SSE stream, mimicking
+    /// how a real chat-only relay streams deltas.
+    async fn spawn_streaming_relay() -> String {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                let body = concat!(
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"po\"}}]}\n\n",
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"ng\"}}]}\n\n",
+                    "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                    "data: [DONE]\n\n",
+                );
+                ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], body)
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        format!("http://{}", addr)
+    }
+
+    #[tokio::test]
+    async fn streamed_responses_end_with_completed_event() {
+        let relay_url = spawn_streaming_relay().await;
+        let gateway = start_gateway(
+            bindings_for(GatewayClient::Codex, relay_url, "relay-model"),
+            0,
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let sse = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping", "stream": true }))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+
+        // The regression: Codex disconnects if the stream lacks a proper
+        // lifecycle. It must open with response.created and close with a
+        // response.completed carrying the assembled text.
+        assert!(sse.contains("event: response.created"));
+        assert!(sse.contains("event: response.completed"));
+        assert!(sse.contains("response.output_text.delta"));
+        assert!(sse.contains("pong"));
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn streamed_anthropic_ends_with_message_stop() {
+        let relay_url = spawn_streaming_relay().await;
+        let gateway = start_gateway(
+            bindings_for(GatewayClient::ClaudeCode, relay_url, "deepseek-chat"),
+            0,
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let sse = client
+            .post(format!("{}/v1/messages", gateway.base_url()))
+            .json(&json!({ "messages": [{ "role": "user", "content": "ping" }], "stream": true }))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+
+        assert!(sse.contains("event: message_start"));
+        assert!(sse.contains("event: message_stop"));
+        assert!(sse.contains("pong"));
 
         gateway.shutdown().await;
     }
