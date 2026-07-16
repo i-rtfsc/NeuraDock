@@ -14,7 +14,6 @@ import {
   TrendingUp,
   History,
   KeyRound,
-  Settings2,
   Key,
   Clock,
   Award,
@@ -31,7 +30,7 @@ import { AccountDialog } from '@/components/account/AccountDialog';
 import { CheckInCalendar } from '@/components/checkin/streak/CheckInCalendar';
 import { CheckInTrendChart } from '@/components/checkin/streak/CheckInTrendChart';
 import { CheckInDayDetailDialog } from '@/components/checkin/streak/CheckInDayDetailDialog';
-import { ConfigDialog } from '@/components/token/ConfigDialog';
+import { TokenAccessButton } from '@/components/token/TokenAccessButton';
 import type { Account } from '@/lib/tauri-commands';
 import type { TokenDto } from '@/types/token';
 import { useAccountActions } from '@/hooks/useAccountActions';
@@ -47,8 +46,6 @@ export function AccountOverviewPage() {
   const { editingAccount, dialogOpen, handleEdit, handleDialogClose } = useAccountActions();
 
   // Token configuration state
-  const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<TokenDto | null>(null);
 
   // Day detail dialog state
   const [dayDetailDialogOpen, setDayDetailDialogOpen] = useState(false);
@@ -193,11 +190,6 @@ export function AccountOverviewPage() {
       </PageContainer>
     );
   }
-
-  const handleConfigureToken = (token: TokenDto) => {
-    setSelectedToken(token);
-    setConfigDialogOpen(true);
-  };
 
   const handleDayClick = (date: string) => {
     setSelectedDate(date);
@@ -432,16 +424,7 @@ export function AccountOverviewPage() {
                     </div>
 
                     {/* Configure Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-auto text-xs font-black rounded-xl h-10 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all uppercase tracking-tight"
-                      onClick={() => handleConfigureToken(token)}
-                      disabled={!token.is_active}
-                    >
-                      <Settings2 className="mr-2 h-4 w-4" />
-                      {t('token.configureAI', 'Configure AI Tool')}
-                    </Button>
+                    <TokenAccessButton token={token} account={account} />
                   </div>
                 </Card>
               ))}
@@ -630,16 +613,6 @@ export function AccountOverviewPage() {
           check_in_interval_hours: (editingAccount ?? account).check_in_interval_hours,
         }}
       />
-
-      {/* Config Dialog for Tokens */}
-      {selectedToken && (
-        <ConfigDialog
-          open={configDialogOpen}
-          onOpenChange={setConfigDialogOpen}
-          token={selectedToken}
-          account={account}
-        />
-      )}
 
       {/* Day Detail Dialog */}
       <CheckInDayDetailDialog

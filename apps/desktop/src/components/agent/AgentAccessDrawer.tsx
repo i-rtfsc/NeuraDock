@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -24,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import type { ProviderNode } from '@/types/token';
 import type { AgentDef, AgentAccess } from './AgentConfigGateway';
 
 type UpstreamKind = 'openai_chat' | 'openai_responses' | 'anthropic';
@@ -33,6 +35,10 @@ export interface KeyOption {
   label: string;
   masked: string;
   providerName: string;
+  /** Relay provider id (for account tokens; drives node/model lookup). */
+  providerId: string | null;
+  /** Self-contained base URL (independent keys only). */
+  baseUrl: string | null;
   /** Relay account this key belongs to (null for independent keys). */
   accountId: string | null;
   accountName: string | null;
@@ -51,6 +57,8 @@ interface Props {
   agent: AgentDef;
   keyOptions: KeyOption[];
   existing?: AgentAccess;
+  /** When opened from a specific token (account detail), lock the key to it. */
+  presetOptionId?: string;
   onDone: () => void;
 }
 
@@ -70,7 +78,15 @@ interface KeySource {
 
 const INDEPENDENT_SOURCE_ID = 'independent';
 
-export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, existing, onDone }: Props) {
+export function AgentAccessDrawer({
+  open,
+  onOpenChange,
+  agent,
+  keyOptions,
+  existing,
+  presetOptionId,
+  onDone,
+}: Props) {
   const { t } = useTranslation();
   const [sourceId, setSourceId] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -78,7 +94,13 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
   const [method, setMethod] = useState<Method>('gateway');
   const [kind, setKind] = useState<UpstreamKind>(agent.nativeKind);
   const [impersonate, setImpersonate] = useState(true);
+  const [node, setNode] = useState('');
+  const [model, setModel] = useState('');
+  const [context1m, setContext1m] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // When opened for a specific token, the key is fixed — hide the pickers.
+  const locked = !!presetOptionId;
 
   // Group keys into selectable sources: one per relay provider, plus a single
   // "独立 API Key" bucket. The first dropdown picks a source, the second picks a
@@ -115,14 +137,24 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
     setMethod(existing?.method ?? 'gateway');
     setKind((existing?.upstream_kind as UpstreamKind) ?? agent.nativeKind);
     setImpersonate(existing?.impersonate ?? true);
-    // Default to the first source, clear the account + key selection.
-    setSourceId(sources[0]?.id ?? '');
-    setAccountId('');
-    setSelectedId('');
+    setModel('');
+    setNode('');
+    setContext1m(false);
+    if (presetOptionId) {
+      // Locked to a specific token: derive its source/account so lookups work.
+      const preset = keyOptions.find((o) => optionId(o) === presetOptionId);
+      setSelectedId(presetOptionId);
+      setSourceId(preset?.sourceGroup === 'relay' ? `relay:${preset.providerName}` : INDEPENDENT_SOURCE_ID);
+      setAccountId(preset?.accountId ?? '');
+    } else {
+      setSourceId(sources[0]?.id ?? '');
+      setAccountId('');
+      setSelectedId('');
+    }
     // sources is derived from keyOptions; intentionally not a dep to avoid
     // resetting the picker while the dialog is open and lists refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, agent.nativeKind, existing]);
+  }, [open, agent.nativeKind, existing, presetOptionId]);
 
   const activeSource = sources.find((s) => s.id === sourceId);
   const isRelay = activeSource?.group === 'relay';
@@ -154,37 +186,66 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
   }, [isRelay, accounts, accountId]);
 
   const selected = keyOptions.find((o) => optionId(o) === selectedId);
+  const isAccountToken = selected?.source.type === 'account_token';
 
-  // Direct write for a relay account token needs the node base_url, which lives
-  // in the account-detail flow; from here account tokens must use the gateway.
-  const directDisabled = selected?.source.type === 'account_token';
+  // Account tokens carry no base_url of their own; the relay provider exposes
+  // one or more nodes to choose from. Independent keys are self-contained.
+  const { data: nodes = [] } = useQuery<ProviderNode[]>({
+    queryKey: ['provider-nodes', selected?.providerId],
+    enabled: !!selected?.providerId,
+    queryFn: () => invoke<ProviderNode[]>('get_provider_nodes', { providerId: selected!.providerId }),
+  });
+  const { data: providerModels = [] } = useQuery<string[]>({
+    queryKey: ['provider-models', selected?.providerId],
+    enabled: !!selected?.providerId,
+    queryFn: async () =>
+      (await invoke<string[]>('get_cached_provider_models', { providerId: selected!.providerId })) ?? [],
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Keep method valid when the selected key can't be direct-written.
+  // Auto-select the first node so a single-node provider needs no click.
   useEffect(() => {
-    if (directDisabled && method === 'direct') setMethod('gateway');
-  }, [directDisabled, method]);
+    if (isAccountToken && nodes.length > 0 && !node) setNode(nodes[0].base_url);
+  }, [isAccountToken, nodes, node]);
+
+  // Resolved base_url for direct write: node for account tokens, own for independent.
+  const baseUrl = isAccountToken ? node : selected?.baseUrl ?? '';
+  const modelOptions = isAccountToken ? providerModels : [];
+  // 1M only applies when a concrete model is chosen.
+  useEffect(() => {
+    if (!model) setContext1m(false);
+  }, [model]);
 
   const confirm = async () => {
     if (!selected) return;
+    // Account tokens need a node (base_url) resolved before either path.
+    if (isAccountToken && !baseUrl) {
+      toast.error(t('agentConfig.needNode', '请先选择一个节点'));
+      return;
+    }
     setBusy(true);
     try {
       if (method === 'gateway') {
+        const source =
+          selected.source.type === 'account_token'
+            ? { ...selected.source, base_url: baseUrl || null }
+            : selected.source;
         await invoke('set_gateway_binding', {
           client: agent.id,
-          source: selected.source,
+          source,
           upstreamKind: kind,
-          model: null,
+          model: model || null,
           impersonate,
         });
         toast.success(t('agentConfig.bound', '已接入（经网关）'));
       } else {
-        await directConfigure(agent.id, selected);
+        await directConfigure(agent.id, selected, baseUrl, model || null, context1m);
         await invoke('record_agent_access', {
           record: {
             agent: agent.id,
             method: 'direct',
             label: `${selected.providerName} · ${selected.label}`,
-            model: null,
+            model: model || null,
             upstream_kind: null,
             impersonate: null,
           },
@@ -222,7 +283,7 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
                 {t('agentConfig.step1', '① 选择 Key')}
               </h4>
 
-              <Field label={t('agentConfig.fieldSource', '来源')}>
+              <Field label={t('agentConfig.fieldSource', '来源')} hidden={locked}>
                 <Select
                   value={sourceId}
                   onValueChange={(v) => {
@@ -262,7 +323,7 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
               </Field>
 
               {isRelay && (
-                <Field label={t('agentConfig.fieldAccount', '账号')}>
+                <Field label={t('agentConfig.fieldAccount', '账号')} hidden={locked}>
                   <Select
                     value={accountId}
                     onValueChange={(v) => {
@@ -284,7 +345,7 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
                 </Field>
               )}
 
-              <Field label={t('agentConfig.fieldKey', 'Key')}>
+              <Field label={t('agentConfig.fieldKey', 'Key')} hidden={locked}>
                 <Select
                   value={selectedId}
                   onValueChange={setSelectedId}
@@ -346,15 +407,10 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
               <div className="space-y-2">
                 <MethodOption
                   active={method === 'direct'}
-                  disabled={directDisabled}
                   icon={<Server className="h-4 w-4" />}
                   title={t('agentConfig.methodDirect', '直接写入配置')}
-                  hint={
-                    directDisabled
-                      ? t('agentConfig.methodDirectRelayHint', '中转站账号请到账号详情直接写入')
-                      : t('agentConfig.methodDirectHint', '中转站原生支持时最简单')
-                  }
-                  onClick={() => !directDisabled && setMethod('direct')}
+                  hint={t('agentConfig.methodDirectHint', '中转站原生支持时最简单')}
+                  onClick={() => setMethod('direct')}
                 />
                 <MethodOption
                   active={method === 'gateway'}
@@ -364,6 +420,63 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
                   onClick={() => setMethod('gateway')}
                 />
               </div>
+
+              {/* Node (account tokens) + model + 1M, shared by both methods. */}
+              {selected && (
+                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3">
+                  {isAccountToken && (
+                    <Field label={t('agentConfig.fieldNode', '节点')}>
+                      <Select value={node} onValueChange={setNode}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder={t('agentConfig.pickNode', '选择节点')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodes.map((n) => (
+                            <SelectItem key={n.base_url} value={n.base_url}>
+                              <span className="flex items-center gap-2">
+                                <span>{n.name}</span>
+                                <code className="text-[10px] text-muted-foreground">{n.base_url}</code>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                  <Field label={t('agentConfig.fieldModel', '模型（可选）')}>
+                    {modelOptions.length > 0 ? (
+                      <Select value={model} onValueChange={setModel}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder={t('agentConfig.pickModel', '默认（不指定）')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {modelOptions.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <input
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder={t('agentConfig.modelPlaceholder', '默认（留空自动）')}
+                        className="h-9 w-full rounded-md border border-border/60 bg-background px-2 text-sm"
+                      />
+                    )}
+                  </Field>
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium">{t('agentConfig.context1m', '1M 上下文')}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t('agentConfig.context1mHint', '需中转站支持；请先选择模型')}
+                      </p>
+                    </div>
+                    <Switch checked={context1m} onCheckedChange={setContext1m} disabled={!model} />
+                  </div>
+                </div>
+              )}
 
               {method === 'gateway' && (
                 <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3">
@@ -418,7 +531,16 @@ export function AgentAccessDrawer({ open, onOpenChange, agent, keyOptions, exist
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  hidden,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hidden?: boolean;
+}) {
+  if (hidden) return null;
   return (
     <div className="space-y-1.5">
       <label className="text-xs text-muted-foreground">{label}</label>
@@ -429,14 +551,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function MethodOption({
   active,
-  disabled,
   icon,
   title,
   hint,
   onClick,
 }: {
   active: boolean;
-  disabled?: boolean;
   icon: React.ReactNode;
   title: string;
   hint: string;
@@ -445,10 +565,8 @@ function MethodOption({
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
       className={cn(
         'w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-        disabled && 'opacity-50 cursor-not-allowed',
         active ? 'border-primary/50 bg-primary/5' : 'border-border/60 hover:bg-muted/40'
       )}
     >
@@ -491,13 +609,39 @@ function KindRadio({ active, label, onClick }: { active: boolean; label: string;
   );
 }
 
-/** Direct write: reuse the existing per-tool configure commands (independent
- *  keys only; relay account tokens are handled from account detail). */
-async function directConfigure(agent: string, o: KeyOption): Promise<void> {
-  if (o.source.type !== 'independent_key') {
-    throw new Error('Direct write for a relay account token is done from the account detail.');
+/** Direct write into the tool config, for either key type. Account tokens use
+ *  the account-scoped configure command (needs the chosen node base_url);
+ *  independent keys use their own command. */
+async function directConfigure(
+  agent: string,
+  o: KeyOption,
+  baseUrl: string,
+  model: string | null,
+  context1m: boolean
+): Promise<void> {
+  if (o.source.type === 'independent_key') {
+    const command =
+      agent === 'claude_code' ? 'configure_independent_key_claude' : 'configure_independent_key_codex';
+    await invoke<string>(command, { keyId: o.source.key_id, model, context1m });
+    return;
   }
-  const command =
-    agent === 'claude_code' ? 'configure_independent_key_claude' : 'configure_independent_key_codex';
-  await invoke<string>(command, { keyId: o.source.key_id, model: null, context1m: false });
+  // Account token: configure_{codex,claude}_global takes the token + base_url.
+  if (agent === 'claude_code') {
+    await invoke<string>('configure_claude_global', {
+      tokenId: o.source.token_id,
+      accountId: o.source.account_id,
+      baseUrl,
+      model,
+      context1m,
+    });
+  } else {
+    await invoke<string>('configure_codex_global', {
+      tokenId: o.source.token_id,
+      accountId: o.source.account_id,
+      providerId: o.source.provider_id,
+      baseUrl,
+      model,
+      context1m,
+    });
+  }
 }
