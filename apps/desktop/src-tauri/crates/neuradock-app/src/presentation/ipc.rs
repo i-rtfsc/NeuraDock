@@ -85,10 +85,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_app_version,
             log_from_frontend,
             open_log_dir,
-            // Provider gateway commands
-            start_provider_gateway,
-            stop_provider_gateway,
-            get_provider_gateway_status,
+            // Local adaptation gateway commands
+            set_gateway_binding,
+            clear_gateway_binding,
+            start_gateway_server,
+            stop_gateway_server,
+            get_gateway_status,
             // Legacy migration commands
             detect_legacy_installation,
             import_legacy_data,

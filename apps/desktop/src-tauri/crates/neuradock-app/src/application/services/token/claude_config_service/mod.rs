@@ -36,6 +36,11 @@ impl ClaudeConfigService {
         global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
+    /// Path of the settings.json this service manages.
+    pub fn managed_path() -> Result<std::path::PathBuf> {
+        helpers::get_claude_config_path()
+    }
+
     /// Clear Claude Code global configuration
     /// Only removes the env keys that we manage, preserves other settings
     pub fn clear_global(&self) -> Result<String> {

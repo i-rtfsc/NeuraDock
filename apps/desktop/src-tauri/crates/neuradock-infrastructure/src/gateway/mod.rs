@@ -9,5 +9,5 @@ pub mod server;
 pub mod stream;
 pub mod transform;
 
-pub use server::{start_gateway, GatewayHandle, GatewayProfile};
+pub use server::{start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream};
 pub use transform::InboundProtocol;

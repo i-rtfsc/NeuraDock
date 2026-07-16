@@ -1,122 +1,329 @@
-use tauri::State;
-use tokio::sync::Mutex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tauri::{Manager, State};
+use tokio::sync::{Mutex, RwLock};
 
 use crate::presentation::error::CommandError;
-use crate::presentation::state::Repositories;
+use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
-use neuradock_infrastructure::gateway::{start_gateway, GatewayHandle, GatewayProfile};
+use neuradock_domain::shared::{AccountId, ProviderId};
+use neuradock_infrastructure::gateway::{
+    start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream,
+};
 
-/// Runtime state for the single embedded provider gateway. Only one gateway
-/// runs at a time; starting a new one replaces the previous.
-#[derive(Default)]
+use crate::application::services::GatewayTakeover;
+
+/// Runtime state for the local adaptation gateway: one server, one port,
+/// path-routed clients, each independently bound to an upstream relay key.
 pub struct GatewayState {
-    inner: Mutex<Option<RunningGateway>>,
+    bindings: GatewayBindings,
+    meta: Mutex<HashMap<GatewayClient, BindingMeta>>,
+    server: Mutex<Option<GatewayHandle>>,
 }
 
-struct RunningGateway {
-    handle: GatewayHandle,
-    key_id: i64,
-    base_url: String,
+impl Default for GatewayState {
+    fn default() -> Self {
+        Self {
+            bindings: Arc::new(RwLock::new(HashMap::new())),
+            meta: Mutex::new(HashMap::new()),
+            server: Mutex::new(None),
+        }
+    }
 }
 
-/// Status of the embedded gateway reported to the frontend.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone)]
+struct BindingMeta {
+    label: String,
+    model: Option<String>,
+}
+
+/// Which tool a binding applies to.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GatewayClientDto {
+    Codex,
+    ClaudeCode,
+}
+
+impl From<GatewayClientDto> for GatewayClient {
+    fn from(dto: GatewayClientDto) -> Self {
+        match dto {
+            GatewayClientDto::Codex => GatewayClient::Codex,
+            GatewayClientDto::ClaudeCode => GatewayClient::ClaudeCode,
+        }
+    }
+}
+
+impl From<GatewayClient> for GatewayClientDto {
+    fn from(client: GatewayClient) -> Self {
+        match client {
+            GatewayClient::Codex => GatewayClientDto::Codex,
+            GatewayClient::ClaudeCode => GatewayClientDto::ClaudeCode,
+        }
+    }
+}
+
+/// Where a binding's upstream key comes from: any relay-station account token
+/// or an independent API key.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GatewaySourceDto {
+    AccountToken {
+        account_id: String,
+        provider_id: String,
+        token_id: i64,
+        /// Relay node URL chosen in the UI; defaults to the provider domain.
+        base_url: Option<String>,
+    },
+    IndependentKey {
+        key_id: i64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct GatewayBindingDto {
+    pub client: GatewayClientDto,
+    /// Human-readable description of the bound key (name, never the key).
+    pub label: String,
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct GatewayStatusDto {
     pub running: bool,
-    /// `http://127.0.0.1:<port>` the tools should use, when running.
+    /// `http://127.0.0.1:<port>` when running.
     pub base_url: Option<String>,
-    /// Independent key id the gateway is forwarding to, when running.
-    pub key_id: Option<i64>,
+    pub bindings: Vec<GatewayBindingDto>,
 }
 
-/// Start (or restart) the embedded gateway forwarding to the given independent
-/// key's relay. Returns the localhost base URL to configure into tools.
+/// Resolve a binding source into the upstream the gateway forwards to. This is
+/// the single exhaustive place key shapes are read; adding a source variant
+/// fails to compile until handled.
+async fn resolve_upstream(
+    source: &GatewaySourceDto,
+    model: Option<&str>,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<(GatewayUpstream, String), CommandError> {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => {
+            let account_id = AccountId::from_string(account_id);
+            let token_id = neuradock_domain::token::TokenId::new(*token_id);
+            let tokens = services
+                .token
+                .get_cached_tokens(&account_id)
+                .await
+                .map_err(CommandError::from)?;
+            let token = tokens
+                .iter()
+                .find(|t| t.id() == &token_id)
+                .ok_or_else(|| CommandError::not_found("Token not found"))?;
+
+            let provider_id = ProviderId::from_string(provider_id);
+            let provider = repositories
+                .provider
+                .find_by_id(&provider_id)
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+
+            let base_url = base_url
+                .clone()
+                .unwrap_or_else(|| provider.domain().to_string());
+            let label = format!("{} · {}", provider.name(), token.name());
+
+            Ok((
+                GatewayUpstream {
+                    base_url,
+                    api_key: token.key().to_string(),
+                    model: model.map(str::to_string),
+                },
+                label,
+            ))
+        }
+        GatewaySourceDto::IndependentKey { key_id } => {
+            let id = IndependentKeyId::new(*key_id);
+            let key = repositories
+                .independent_key
+                .find_by_id(&id)
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| {
+                    CommandError::not_found(format!("Key with ID {} not found", key_id))
+                })?;
+            if !key.is_active() {
+                return Err(CommandError::validation(
+                    "Cannot bind an inactive API key. Please enable it first.",
+                ));
+            }
+            Ok((
+                GatewayUpstream {
+                    base_url: key.base_url().to_string(),
+                    api_key: key.api_key().to_string(),
+                    model: model.map(str::to_string),
+                },
+                key.name().to_string(),
+            ))
+        }
+    }
+}
+
+async fn status_of(state: &GatewayState) -> GatewayStatusDto {
+    let server = state.server.lock().await;
+    let meta = state.meta.lock().await;
+    let mut bindings: Vec<GatewayBindingDto> = meta
+        .iter()
+        .map(|(client, meta)| GatewayBindingDto {
+            client: (*client).into(),
+            label: meta.label.clone(),
+            model: meta.model.clone(),
+        })
+        .collect();
+    bindings.sort_by_key(|b| b.client == GatewayClientDto::ClaudeCode);
+
+    GatewayStatusDto {
+        running: server.is_some(),
+        base_url: server.as_ref().map(|handle| handle.base_url()),
+        bindings,
+    }
+}
+
+fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        CommandError::infrastructure(format!("Failed to get app data directory: {}", e))
+    })?;
+    Ok(GatewayTakeover::new(&app_data_dir))
+}
+
+/// Bind a client (Codex / Claude Code) to an upstream relay key. If the
+/// gateway is running, the client's tool config is (re)taken over immediately.
 #[tauri::command]
 #[specta::specta]
-pub async fn start_provider_gateway(
-    key_id: i64,
+pub async fn set_gateway_binding(
+    client: GatewayClientDto,
+    source: GatewaySourceDto,
     model: Option<String>,
+    app: tauri::AppHandle,
     state: State<'_, GatewayState>,
+    services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let id = IndependentKeyId::new(key_id);
-    let key = repositories
-        .independent_key
-        .find_by_id(&id)
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
+    let (upstream, label) =
+        resolve_upstream(&source, model.as_deref(), &services, &repositories).await?;
+    let gateway_client: GatewayClient = client.into();
 
-    if !key.is_active() {
+    state
+        .bindings
+        .write()
+        .await
+        .insert(gateway_client, upstream);
+    state.meta.lock().await.insert(
+        gateway_client,
+        BindingMeta {
+            label,
+            model: model.clone(),
+        },
+    );
+
+    // Refresh the takeover when the server is already running.
+    let server = state.server.lock().await;
+    if let Some(handle) = server.as_ref() {
+        let takeover = takeover_for(&app)?;
+        takeover
+            .take_over(gateway_client, &handle.base_url())
+            .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+    }
+    drop(server);
+
+    Ok(status_of(&state).await)
+}
+
+/// Remove a client's binding; restores its tool config if taken over.
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_gateway_binding(
+    client: GatewayClientDto,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+) -> Result<GatewayStatusDto, CommandError> {
+    let gateway_client: GatewayClient = client.into();
+
+    state.bindings.write().await.remove(&gateway_client);
+    state.meta.lock().await.remove(&gateway_client);
+
+    let takeover = takeover_for(&app)?;
+    takeover
+        .restore(gateway_client)
+        .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+
+    Ok(status_of(&state).await)
+}
+
+/// Start the gateway server and take over every bound client's tool config.
+#[tauri::command]
+#[specta::specta]
+pub async fn start_gateway_server(
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+) -> Result<GatewayStatusDto, CommandError> {
+    let bound_clients: Vec<GatewayClient> =
+        state.bindings.read().await.keys().copied().collect();
+    if bound_clients.is_empty() {
         return Err(CommandError::validation(
-            "Cannot start gateway for an inactive API key. Please enable it first.",
+            "No client is bound to a relay key yet. Bind one from an account token or API key first.",
         ));
     }
 
-    let profile = GatewayProfile {
-        base_url: key.base_url().to_string(),
-        api_key: key.api_key().to_string(),
-        model,
-    };
+    let mut server = state.server.lock().await;
+    if server.is_none() {
+        let handle = start_gateway(state.bindings.clone(), 0)
+            .await
+            .map_err(|e| CommandError::infrastructure(format!("Failed to start gateway: {}", e)))?;
+        *server = Some(handle);
+    }
+    let base_url = server.as_ref().expect("just started").base_url();
+    drop(server);
 
-    let mut guard = state.inner.lock().await;
-    // Replace any gateway already running.
-    if let Some(previous) = guard.take() {
-        previous.handle.shutdown().await;
+    let takeover = takeover_for(&app)?;
+    for client in bound_clients {
+        takeover
+            .take_over(client, &base_url)
+            .map_err(|e| CommandError::infrastructure(e.to_string()))?;
     }
 
-    let handle = start_gateway(profile, 0)
-        .await
-        .map_err(|e| CommandError::infrastructure(format!("Failed to start gateway: {}", e)))?;
-    let base_url = handle.base_url();
-
-    *guard = Some(RunningGateway {
-        handle,
-        key_id,
-        base_url: base_url.clone(),
-    });
-
-    Ok(GatewayStatusDto {
-        running: true,
-        base_url: Some(base_url),
-        key_id: Some(key_id),
-    })
+    Ok(status_of(&state).await)
 }
 
-/// Stop the embedded gateway if it is running.
+/// Stop the gateway server and restore every taken-over tool config.
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_provider_gateway(
+pub async fn stop_gateway_server(
+    app: tauri::AppHandle,
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let mut guard = state.inner.lock().await;
-    if let Some(running) = guard.take() {
-        running.handle.shutdown().await;
+    let takeover = takeover_for(&app)?;
+    takeover
+        .restore_all()
+        .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+
+    if let Some(handle) = state.server.lock().await.take() {
+        handle.shutdown().await;
     }
-    Ok(GatewayStatusDto {
-        running: false,
-        base_url: None,
-        key_id: None,
-    })
+
+    Ok(status_of(&state).await)
 }
 
-/// Report whether the gateway is running and its base URL.
+/// Report gateway state for the sidebar switch and panel.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_provider_gateway_status(
+pub async fn get_gateway_status(
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let guard = state.inner.lock().await;
-    Ok(match guard.as_ref() {
-        Some(running) => GatewayStatusDto {
-            running: true,
-            base_url: Some(running.base_url.clone()),
-            key_id: Some(running.key_id),
-        },
-        None => GatewayStatusDto {
-            running: false,
-            base_url: None,
-            key_id: None,
-        },
-    })
+    Ok(status_of(&state).await)
 }

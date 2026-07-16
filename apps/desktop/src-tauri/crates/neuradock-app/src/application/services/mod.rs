@@ -25,4 +25,4 @@ pub use provider_models_query_service::ProviderModelsQueryService;
 pub use provider_models_service::ProviderModelsService;
 pub use proxy_config_service::ProxyConfigService;
 pub use scheduler::AutoCheckInScheduler;
-pub use token::{ClaudeConfigService, CodexConfigService, TokenService};
+pub use token::{ClaudeConfigService, CodexConfigService, GatewayTakeover, TokenService};

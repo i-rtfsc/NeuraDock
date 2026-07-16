@@ -50,6 +50,11 @@ impl CodexConfigService {
         global_config::clear_global_impl()
     }
 
+    /// Paths of the files this service manages: (config.toml, auth.json).
+    pub fn managed_paths() -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+        Ok((helpers::get_codex_config_path()?, helpers::get_codex_auth_path()?))
+    }
+
     /// Generate temporary export commands for current shell session
     /// Note: This feature is temporarily unavailable
     #[allow(dead_code)]

@@ -5,6 +5,7 @@ mod presentation;
 
 // Use external crates
 
+use application::services::GatewayTakeover;
 use presentation::commands::ai_chat::EmbeddedAiChatState;
 use presentation::commands::gateway::GatewayState;
 use presentation::ipc;
@@ -180,6 +181,19 @@ async fn main() {
                     app.manage(command_handlers);
                     app.manage(EmbeddedAiChatState::default());
                     app.manage(GatewayState::default());
+
+                    // Self-heal: if the app crashed while the gateway had
+                    // taken over a tool config, restore the originals now.
+                    if let Ok(dir) = handle.path().app_data_dir() {
+                        let takeover = GatewayTakeover::new(&dir);
+                        if takeover.has_stale_takeover() {
+                            if let Err(e) = takeover.restore_all() {
+                                tracing::warn!("Failed to restore stale gateway takeover: {}", e);
+                            } else {
+                                tracing::info!("Restored a stale gateway takeover from a prior run");
+                            }
+                        }
+                    }
                     tracing::info!(
                         "✅ App state initialized successfully ({}ms)",
                         started_at.elapsed().as_millis()
@@ -195,9 +209,27 @@ async fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!("../../tauri.conf.json"));
+        .build(tauri::generate_context!("../../tauri.conf.json"));
 
-    if let Err(e) = app {
-        eprintln!("❌ error while running tauri application: {}", e);
+    match app {
+        Ok(app) => app.run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Put taken-over tool configs back before the process dies so
+                // Codex / Claude Code never point at a dead localhost gateway.
+                if let Ok(dir) = app_handle.path().app_data_dir() {
+                    let takeover = GatewayTakeover::new(&dir);
+                    if takeover.has_stale_takeover() {
+                        if let Err(e) = takeover.restore_all() {
+                            tracing::warn!("Failed to restore gateway takeover on exit: {}", e);
+                        } else {
+                            tracing::info!("Gateway takeover restored on exit");
+                        }
+                    }
+                }
+            }
+        }),
+        Err(e) => {
+            eprintln!("❌ error while running tauri application: {}", e);
+        }
     }
 }

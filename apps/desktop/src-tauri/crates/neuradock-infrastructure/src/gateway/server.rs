@@ -7,8 +7,11 @@
 //! forwards it to the real relay with the real key injected, then translates
 //! the response back — including streamed SSE.
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+use tokio::sync::RwLock;
 
 use axum::{
     body::Body,
@@ -31,11 +34,41 @@ use super::transform::{
     wants_stream, InboundProtocol,
 };
 
-/// Upstream relay a gateway forwards to. Supplied by the app layer from an
-/// independent key; the gateway never touches the database.
+/// A tool the gateway can serve. Requests are routed to a client by URL path
+/// (`/responses` -> Codex, `/v1/messages` -> Claude Code), and each client is
+/// independently bound to its own upstream relay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GatewayClient {
+    /// Codex CLI, speaking the OpenAI Responses protocol.
+    Codex,
+    /// Claude Code, speaking the Anthropic Messages protocol.
+    ClaudeCode,
+}
+
+impl GatewayClient {
+    /// The inbound protocol this client speaks.
+    fn protocol(self) -> InboundProtocol {
+        match self {
+            GatewayClient::Codex => InboundProtocol::Responses,
+            GatewayClient::ClaudeCode => InboundProtocol::AnthropicMessages,
+        }
+    }
+
+    /// Human-readable name used in error payloads.
+    pub fn display_name(self) -> &'static str {
+        match self {
+            GatewayClient::Codex => "Codex",
+            GatewayClient::ClaudeCode => "Claude Code",
+        }
+    }
+}
+
+/// Upstream relay a client is bound to. Supplied by the app layer from an
+/// account token or an independent key; the gateway never touches the
+/// database.
 #[derive(Debug, Clone)]
-pub struct GatewayProfile {
-    /// Relay base URL, e.g. `https://relay.example/v1`.
+pub struct GatewayUpstream {
+    /// Relay base URL, e.g. `https://relay.example`.
     pub base_url: String,
     /// Real relay API key, injected as a bearer token.
     pub api_key: String,
@@ -43,8 +76,12 @@ pub struct GatewayProfile {
     pub model: Option<String>,
 }
 
+/// Live client -> upstream binding table, shared between the running server
+/// and the app layer so bindings can change without restarting the server.
+pub type GatewayBindings = Arc<RwLock<HashMap<GatewayClient, GatewayUpstream>>>;
+
 struct GatewayState {
-    profile: GatewayProfile,
+    bindings: GatewayBindings,
     client: reqwest::Client,
 }
 
@@ -76,13 +113,13 @@ impl GatewayHandle {
 }
 
 /// Bind a gateway to `127.0.0.1:<port>` (port 0 picks a free port) and start
-/// serving. Only loopback is ever bound.
+/// serving all clients present in `bindings`. Only loopback is ever bound.
 pub async fn start_gateway(
-    profile: GatewayProfile,
+    bindings: GatewayBindings,
     port: u16,
 ) -> Result<GatewayHandle, std::io::Error> {
     let state = Arc::new(GatewayState {
-        profile,
+        bindings,
         client: reqwest::Client::new(),
     });
 
@@ -117,36 +154,45 @@ async fn handle_responses(
     State(state): State<Arc<GatewayState>>,
     body: axum::body::Bytes,
 ) -> Response {
-    handle(state, InboundProtocol::Responses, body).await
+    handle(state, GatewayClient::Codex, body).await
 }
 
 async fn handle_anthropic(
     State(state): State<Arc<GatewayState>>,
     body: axum::body::Bytes,
 ) -> Response {
-    handle(state, InboundProtocol::AnthropicMessages, body).await
+    handle(state, GatewayClient::ClaudeCode, body).await
 }
 
-async fn handle(
-    state: Arc<GatewayState>,
-    protocol: InboundProtocol,
-    body: axum::body::Bytes,
-) -> Response {
+async fn handle(state: Arc<GatewayState>, client: GatewayClient, body: axum::body::Bytes) -> Response {
+    let protocol = client.protocol();
+
+    // Look up this client's upstream binding; each client is bound
+    // independently and requests for unbound clients are rejected.
+    let Some(upstream) = state.bindings.read().await.get(&client).cloned() else {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            &format!(
+                "no relay key is bound for {}; bind one in NeuraDock first",
+                client.display_name()
+            ),
+        );
+    };
+
     let inbound: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => return error_response(StatusCode::BAD_REQUEST, &format!("invalid JSON: {}", e)),
     };
 
     let stream = wants_stream(&inbound);
-    let model = state
-        .profile
+    let model = upstream
         .model
         .clone()
         .or_else(|| requested_model(&inbound))
         .unwrap_or_default();
 
     // Translate inbound -> Chat Completions.
-    let model_override = state.profile.model.as_deref();
+    let model_override = upstream.model.as_deref();
     let mut chat_body = match protocol {
         InboundProtocol::Responses => responses_to_chat(&inbound, model_override),
         InboundProtocol::AnthropicMessages => anthropic_to_chat(&inbound, model_override),
@@ -157,11 +203,11 @@ async fn handle(
         chat_body["stream_options"] = serde_json::json!({ "include_usage": true });
     }
 
-    let url = format!("{}/chat/completions", state.profile.base_url.trim_end_matches('/'));
+    let url = format!("{}/chat/completions", upstream.base_url.trim_end_matches('/'));
     let request = state
         .client
         .post(&url)
-        .bearer_auth(&state.profile.api_key)
+        .bearer_auth(&upstream.api_key)
         .json(&chat_body);
 
     let upstream = match request.send().await {
@@ -306,15 +352,24 @@ mod tests {
         (format!("http://{}", addr), seen)
     }
 
+    fn bindings_for(client: GatewayClient, relay_url: String, model: &str) -> GatewayBindings {
+        let mut map = HashMap::new();
+        map.insert(
+            client,
+            GatewayUpstream {
+                base_url: relay_url,
+                api_key: "sk-test".to_string(),
+                model: Some(model.to_string()),
+            },
+        );
+        Arc::new(RwLock::new(map))
+    }
+
     #[tokio::test]
     async fn responses_request_round_trips_through_gateway() {
         let (relay_url, seen) = spawn_fake_relay().await;
         let gateway = start_gateway(
-            GatewayProfile {
-                base_url: relay_url,
-                api_key: "sk-test".to_string(),
-                model: Some("relay-model".to_string()),
-            },
+            bindings_for(GatewayClient::Codex, relay_url, "relay-model"),
             0,
         )
         .await
@@ -347,11 +402,7 @@ mod tests {
     async fn anthropic_request_round_trips_through_gateway() {
         let (relay_url, seen) = spawn_fake_relay().await;
         let gateway = start_gateway(
-            GatewayProfile {
-                base_url: relay_url,
-                api_key: "sk-test".to_string(),
-                model: Some("deepseek-chat".to_string()),
-            },
+            bindings_for(GatewayClient::ClaudeCode, relay_url, "deepseek-chat"),
             0,
         )
         .await
@@ -378,6 +429,65 @@ mod tests {
         assert_eq!(resp["type"], "message");
         assert_eq!(resp["content"][0]["text"], "pong");
         assert_eq!(resp["stop_reason"], "end_turn");
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn unbound_client_gets_service_unavailable() {
+        let (relay_url, _seen) = spawn_fake_relay().await;
+        // Only Codex is bound; a Claude Code request must be rejected.
+        let gateway = start_gateway(
+            bindings_for(GatewayClient::Codex, relay_url, "m"),
+            0,
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(format!("{}/v1/messages", gateway.base_url()))
+            .json(&json!({ "messages": [] }))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+        let body: Value = resp.json().await.unwrap();
+        assert!(body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Claude Code"));
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn bindings_can_change_while_running() {
+        let (relay_url, seen) = spawn_fake_relay().await;
+        let bindings = bindings_for(GatewayClient::Codex, relay_url.clone(), "first");
+        let gateway = start_gateway(bindings.clone(), 0).await.unwrap();
+
+        // Rebind Codex to a different model without restarting.
+        bindings.write().await.insert(
+            GatewayClient::Codex,
+            GatewayUpstream {
+                base_url: relay_url,
+                api_key: "sk-test".to_string(),
+                model: Some("second".to_string()),
+            },
+        );
+
+        let client = reqwest::Client::new();
+        client
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        let upstream_body = seen.lock().await.clone().unwrap();
+        assert_eq!(upstream_body["model"], "second");
 
         gateway.shutdown().await;
     }
