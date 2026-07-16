@@ -2,12 +2,13 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Bot,
   CalendarDays,
-  Hammer,
   Key,
   Server,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  MessageSquare,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ... rest of imports
@@ -21,7 +22,7 @@ import {
 import { useSidebarStore } from '@/hooks/useSidebarStore';
 import { Button } from '@/components/ui/button';
 import { CodexMarkIcon } from '@/components/icons/CodexMarkIcon';
-import { SidebarGatewaySwitch } from '@/components/layout/SidebarGatewaySwitch';
+import { useGatewayStatus } from '@/components/agent/AgentConfigGateway';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -30,6 +31,10 @@ export function Sidebar() {
   const { t } = useTranslation();
   const { collapsed, toggle } = useSidebarStore();
   const [appVersion, setAppVersion] = useState<string>('');
+  const { data: gatewayStatus } = useGatewayStatus();
+  const gatewayRunning = gatewayStatus?.running ?? false;
+  // Dev toolbox group starts collapsed; clicking its title toggles it.
+  const [devToolboxOpen, setDevToolboxOpen] = useState(false);
 
   useEffect(() => {
     invoke<string>('get_app_version')
@@ -48,19 +53,16 @@ export function Sidebar() {
       label: t('nav.aiToolbox', { defaultValue: 'AI工具箱' }),
       items: [
         { name: t('nav.providers'), href: '/providers', icon: Server },
-        { name: t('nav.tokens'), href: '/tokens', icon: Key },
-        { name: t('nav.aiChat'), href: '/ai-chat', icon: Bot },
-        { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: CodexMarkIcon },
+        { name: t('nav.agentConfig', 'Agent 配置'), href: '/agent-config', icon: Bot, gatewayStatus: true },
+        { name: t('nav.aiChat'), href: '/ai-chat', icon: MessageSquare },
       ],
     },
     {
       label: t('nav.devToolbox', { defaultValue: '开发工具箱' }),
+      collapsible: true,
       items: [
-        {
-          name: t('devToolbox.comingSoonTitle', '建设中'),
-          href: '/dev-tools',
-          icon: Hammer,
-        },
+        { name: t('nav.tokens'), href: '/tokens', icon: Key },
+        { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: CodexMarkIcon },
       ],
     },
     {
@@ -71,7 +73,7 @@ export function Sidebar() {
 
   // Helper for rendering links to avoid duplication between nav and settings
   const renderLink = (
-    item: { name: string; href: string; icon: any },
+    item: { name: string; href: string; icon: any; gatewayStatus?: boolean },
     isSettings = false
   ) => {
     const normalizedHref = item.href.split('?')[0];
@@ -85,9 +87,11 @@ export function Sidebar() {
           location.pathname.startsWith('/account/') ||
           location.pathname.startsWith('/providers'))) ||
       (!isSettings && normalizedHref === '/ai-chat' && location.pathname.startsWith('/ai-chat')) ||
+      (!isSettings && normalizedHref === '/agent-config' && location.pathname.startsWith('/agent-config')) ||
       (!isSettings && normalizedHref === '/calendar' && location.pathname.startsWith('/calendar')) ||
       (!isSettings && normalizedHref === '/dev-tools' && location.pathname.startsWith('/dev-tools'));
     const Icon = item.icon;
+    const showGatewayDot = !!item.gatewayStatus;
 
     const LinkContent = (
       <div
@@ -101,18 +105,36 @@ export function Sidebar() {
             : 'text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-[1.05]'
         )}
       >
-        <Icon className={cn(
-          "shrink-0 transition-all duration-base ease-smooth group-hover:animate-float",
-          collapsed ? "h-6 w-6" : "h-5 w-5", 
-          isActive && "stroke-[2.5px]"
-        )} />
+        <span className="relative shrink-0 flex items-center">
+          <Icon className={cn(
+            "shrink-0 transition-all duration-base ease-smooth group-hover:animate-float",
+            collapsed ? "h-6 w-6" : "h-5 w-5",
+            isActive && "stroke-[2.5px]"
+          )} />
+          {showGatewayDot && (
+            <span
+              className={cn(
+                'absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-background',
+                gatewayRunning ? 'bg-success' : 'bg-muted-foreground/40'
+              )}
+            />
+          )}
+        </span>
         {!collapsed && (
           <span className={cn(
-            "text-sm tracking-tight whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
+            "flex-1 text-sm tracking-tight whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
             isActive ? "font-bold" : "font-medium"
           )}>
             {item.name}
           </span>
+        )}
+        {!collapsed && showGatewayDot && (
+          <span
+            className={cn(
+              'h-2 w-2 rounded-full shrink-0',
+              gatewayRunning ? 'bg-success shadow-[0_0_6px_var(--success)]' : 'bg-muted-foreground/40'
+            )}
+          />
         )}
       </div>
     );
@@ -169,26 +191,48 @@ export function Sidebar() {
             collapsed ? "px-3 items-center" : "px-4 items-start"
           )}
         >
-          {navGroups.map((group, gi) => (
-            <div key={group.label} className="w-full">
-              {gi > 0 && (
-                <div
-                  className={cn(
-                    "my-2",
-                    collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40"
-                  )}
-                />
-              )}
-              {!collapsed && (
-                <div className="text-[10px] tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
-                  {group.label}
-                </div>
-              )}
-              <div className="w-full space-y-1">
-                {group.items.map((item) => renderLink(item))}
+          {navGroups.map((group, gi) => {
+            const isCollapsibleGroup = 'collapsible' in group && group.collapsible;
+            const groupOpen = isCollapsibleGroup ? devToolboxOpen : true;
+            return (
+              <div key={group.label} className="w-full">
+                {gi > 0 && (
+                  <div
+                    className={cn(
+                      "my-2",
+                      collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40"
+                    )}
+                  />
+                )}
+                {!collapsed && (
+                  isCollapsibleGroup ? (
+                    <button
+                      type="button"
+                      onClick={() => setDevToolboxOpen((v) => !v)}
+                      className="w-full flex items-center gap-1 text-[10px] tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5 hover:text-muted-foreground transition-colors"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          'h-3 w-3 transition-transform duration-base',
+                          groupOpen && 'rotate-90'
+                        )}
+                      />
+                      {group.label}
+                    </button>
+                  ) : (
+                    <div className="text-[10px] tracking-widest text-muted-foreground/60 font-semibold px-1 mb-1.5">
+                      {group.label}
+                    </div>
+                  )
+                )}
+                {groupOpen && (
+                  <div className="w-full space-y-1">
+                    {group.items.map((item) => renderLink(item))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
       </div>
 
@@ -197,9 +241,6 @@ export function Sidebar() {
         "w-full mt-auto flex flex-col gap-2 shrink-0",
         collapsed ? "px-3 items-center" : "px-4"
       )}>
-         {/* Local gateway status + entry */}
-         <SidebarGatewaySwitch collapsed={collapsed} tooltipsDisabled={isOnAiChatPage} />
-
          {/* Settings Button */}
          {renderLink({ name: t('nav.settings'), href: '/settings', icon: Settings }, true)}
 
