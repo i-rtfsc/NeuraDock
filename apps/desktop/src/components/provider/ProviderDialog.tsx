@@ -111,7 +111,7 @@ export function ProviderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>
             {mode === 'create' ? t('providerDialog.createTitle') : t('providerDialog.editTitle')}

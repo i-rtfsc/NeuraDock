@@ -195,7 +195,7 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(false)}>
-      <DialogContent className="sm:max-w-[500px] rounded-[var(--radius-popover)]">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{channel ? t('notification.dialog.editTitle') : t('notification.dialog.createTitle')}</DialogTitle>
           <DialogDescription>

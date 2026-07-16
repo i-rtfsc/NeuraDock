@@ -198,7 +198,7 @@ function ServiceDialog({ open, onOpenChange, service, onSave, isLoading }: Servi
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px] rounded-2xl">
+      <DialogContent size="sm" className="rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-black tracking-tighter text-primary">
             {service ? t('aiChat.editService') : t('aiChat.addService')}

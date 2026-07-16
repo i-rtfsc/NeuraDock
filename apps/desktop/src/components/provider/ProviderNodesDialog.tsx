@@ -112,7 +112,7 @@ export function ProviderNodesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>
             {t('token.configDialog.manageNodes', 'Manage Nodes')} ·{' '}
