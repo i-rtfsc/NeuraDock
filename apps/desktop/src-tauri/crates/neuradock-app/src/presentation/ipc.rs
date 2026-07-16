@@ -85,6 +85,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_app_version,
             log_from_frontend,
             open_log_dir,
+            // Agent access records
+            record_agent_access,
+            clear_agent_access,
+            get_agent_access,
             // Local adaptation gateway commands
             set_gateway_binding,
             clear_gateway_binding,

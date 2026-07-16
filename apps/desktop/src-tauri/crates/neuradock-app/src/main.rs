@@ -7,6 +7,7 @@ mod presentation;
 
 use application::services::GatewayTakeover;
 use presentation::commands::ai_chat::EmbeddedAiChatState;
+use presentation::commands::agent_access::AgentAccessState;
 use presentation::commands::gateway::GatewayState;
 use presentation::ipc;
 use presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
@@ -181,6 +182,11 @@ async fn main() {
                     app.manage(command_handlers);
                     app.manage(EmbeddedAiChatState::default());
                     app.manage(GatewayState::default());
+                    {
+                        let access = AgentAccessState::default();
+                        access.load(&handle);
+                        app.manage(access);
+                    }
 
                     // Self-heal: if the app crashed while the gateway had
                     // taken over a tool config, restore the originals now.

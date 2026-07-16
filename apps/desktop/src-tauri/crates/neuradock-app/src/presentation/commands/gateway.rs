@@ -13,6 +13,9 @@ use neuradock_infrastructure::gateway::{
 };
 
 use crate::application::services::GatewayTakeover;
+use crate::presentation::commands::agent_access::{
+    AccessMethodDto, AgentAccessDto, AgentAccessState, AgentIdDto,
+};
 
 /// Runtime state for the local adaptation gateway: one server, one port,
 /// path-routed clients, each independently bound to an upstream relay key.
@@ -75,6 +78,15 @@ impl From<GatewayClientDto> for GatewayClient {
     }
 }
 
+impl From<GatewayClientDto> for AgentIdDto {
+    fn from(dto: GatewayClientDto) -> Self {
+        match dto {
+            GatewayClientDto::Codex => AgentIdDto::Codex,
+            GatewayClientDto::ClaudeCode => AgentIdDto::ClaudeCode,
+        }
+    }
+}
+
 impl From<GatewayClient> for GatewayClientDto {
     fn from(client: GatewayClient) -> Self {
         match client {
@@ -94,6 +106,15 @@ pub enum UpstreamKindDto {
     OpenaiResponses,
     /// Anthropic Messages — native for Claude Code, passthrough.
     Anthropic,
+}
+
+fn upstream_kind_str(kind: UpstreamKindDto) -> String {
+    match kind {
+        UpstreamKindDto::OpenaiChat => "openai_chat",
+        UpstreamKindDto::OpenaiResponses => "openai_responses",
+        UpstreamKindDto::Anthropic => "anthropic",
+    }
+    .to_string()
 }
 
 impl From<UpstreamKindDto> for UpstreamKind {
@@ -265,6 +286,7 @@ pub async fn set_gateway_binding(
     impersonate: Option<bool>,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<GatewayStatusDto, CommandError> {
@@ -300,6 +322,26 @@ pub async fn set_gateway_binding(
 
     persist_bindings(&app, &state).await;
 
+    // Mirror into the access record so the status card shows a consistent view.
+    let label_for_record = state
+        .meta
+        .lock()
+        .await
+        .get(&gateway_client)
+        .map(|m| m.label.clone())
+        .unwrap_or_default();
+    access.set(
+        &app,
+        AgentAccessDto {
+            agent: client.into(),
+            method: AccessMethodDto::Gateway,
+            label: label_for_record,
+            model: model.clone(),
+            upstream_kind: Some(upstream_kind_str(upstream_kind)),
+            impersonate: Some(impersonate),
+        },
+    );
+
     // Refresh the takeover when the server is already running.
     let server = state.server.lock().await;
     if let Some(handle) = server.as_ref() {
@@ -320,6 +362,7 @@ pub async fn clear_gateway_binding(
     client: GatewayClientDto,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
 ) -> Result<GatewayStatusDto, CommandError> {
     let gateway_client: GatewayClient = client.into();
 
@@ -327,6 +370,7 @@ pub async fn clear_gateway_binding(
     state.meta.lock().await.remove(&gateway_client);
 
     persist_bindings(&app, &state).await;
+    access.remove(&app, client.into());
 
     let takeover = takeover_for(&app)?;
     takeover
