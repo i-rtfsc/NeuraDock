@@ -22,13 +22,6 @@ interface ModalProps {
   className?: string;
 }
 
-const sizeClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-};
-
 export function Modal({
   open,
   onOpenChange,
@@ -42,8 +35,8 @@ export function Modal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        size={size}
         className={cn(
-          sizeClasses[size],
           "rounded-[var(--radius-popover)] shadow-2xl backdrop-blur-xl",
           "bg-[hsl(var(--popover))] text-[hsl(var(--popover-foreground))]",
           className

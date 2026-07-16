@@ -91,6 +91,19 @@
     --layout-sidebar-width-collapsed: 4.5rem;
     --layout-sidebar-page-width: 15rem;
 
+    /* Dialog / modal sizing — every dialog picks a size token via the
+       DialogContent `size` prop, so widths stay consistent app-wide and are
+       tunable from one place per theme. Widths are viewport-relative so a
+       dialog tracks the app window instead of a fixed rem width; the clamp
+       floor/ceiling only keep it usable on very small / ultrawide windows. */
+    --layout-dialog-width-sm: clamp(20rem, 60vw, 30rem);
+    --layout-dialog-width-md: clamp(26rem, 80vw, 44rem);
+    --layout-dialog-width-lg: clamp(34rem, 88vw, 60rem);
+    --layout-dialog-width-xl: clamp(48rem, 92vw, 84rem);
+    --layout-dialog-max-height: 90vh;
+    /* Fixed-height split-pane dialogs (config AI tool) track the window too. */
+    --layout-dialog-height-tall: 82vh;
+
     /* Spacing Tokens */
     --spacing-section-gap: 2rem;
     --spacing-section-gap-sm: 1.5rem;
