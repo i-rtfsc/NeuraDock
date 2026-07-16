@@ -357,34 +357,51 @@ async fn forward_passthrough(
         body
     };
 
-    let mut request = state
-        .client
-        .post(&url)
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(body_bytes);
+    // Forward the tool's original headers, matching cc-switch: relays
+    // fingerprint the client (user-agent, originator, session id, etc.) and
+    // reject requests that don't look like a real Codex / Claude Code. We keep
+    // every header the tool sent except hop-by-hop / CDN / tracing ones, and
+    // replace only the auth header inline with the real relay key.
+    let mut request = state.client.post(&url).body(body_bytes);
 
-    // Auth header shape depends on the upstream protocol.
-    match upstream.kind {
-        UpstreamKind::Anthropic => {
-            request = request.header("x-api-key", &upstream.api_key);
-            let version = inbound_headers
-                .get("anthropic-version")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("2023-06-01");
-            request = request.header("anthropic-version", version);
-            if let Some(beta) = inbound_headers.get("anthropic-beta") {
-                request = request.header("anthropic-beta", beta);
-            }
+    let mut saw_auth = false;
+    for (name, value) in inbound_headers {
+        let key = name.as_str();
+
+        // Hop-by-hop, CDN, and tracing headers must not be forwarded.
+        if is_hop_by_hop_header(key) {
+            continue;
         }
-        UpstreamKind::OpenAiChat | UpstreamKind::OpenAiResponses => {
-            request = request.bearer_auth(&upstream.api_key);
-            if let Some(beta) = inbound_headers.get("openai-beta") {
-                request = request.header("openai-beta", beta);
+
+        // Replace the client's credential header(s) with the real relay key,
+        // in whichever shape the upstream protocol expects.
+        if key.eq_ignore_ascii_case("authorization")
+            || key.eq_ignore_ascii_case("x-api-key")
+            || key.eq_ignore_ascii_case("x-goog-api-key")
+        {
+            if !saw_auth {
+                saw_auth = true;
+                request = apply_auth(request, upstream);
             }
+            continue;
         }
+
+        // Content-length is recomputed by reqwest from the body we set.
+        if key.eq_ignore_ascii_case("content-length") {
+            continue;
+        }
+
+        request = request.header(name.clone(), value.clone());
     }
-    if let Some(accept) = inbound_headers.get(header::ACCEPT) {
-        request = request.header(header::ACCEPT, accept);
+    if !saw_auth {
+        request = apply_auth(request, upstream);
+    }
+    // Anthropic upstreams require a version header; supply a default if the
+    // client did not send one.
+    if upstream.kind == UpstreamKind::Anthropic
+        && inbound_headers.get("anthropic-version").is_none()
+    {
+        request = request.header("anthropic-version", "2023-06-01");
     }
 
     let upstream_resp = match request.send().await {
@@ -449,6 +466,57 @@ fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
         combined = combined.replace("/v1/v1", "/v1");
     }
     combined
+}
+
+/// Whether a header is hop-by-hop, CDN, or tracing metadata that must not be
+/// forwarded to the upstream relay. Everything else (user-agent, originator,
+/// session ids, and other client fingerprint headers a relay checks) is kept.
+/// Mirrors cc-switch's skip list.
+fn is_hop_by_hop_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "host"
+            | "connection"
+            | "keep-alive"
+            | "proxy-authenticate"
+            | "proxy-authorization"
+            | "te"
+            | "trailer"
+            | "transfer-encoding"
+            | "upgrade"
+            | "content-length"
+            | "x-forwarded-host"
+            | "x-forwarded-for"
+            | "x-forwarded-port"
+            | "x-forwarded-proto"
+            | "forwarded"
+            | "cf-connecting-ip"
+            | "cf-ipcountry"
+            | "cf-ray"
+            | "cf-visitor"
+            | "true-client-ip"
+            | "fastly-client-ip"
+            | "x-request-id"
+            | "x-correlation-id"
+            | "x-trace-id"
+            | "x-amzn-trace-id"
+            | "x-b3-traceid"
+            | "x-b3-spanid"
+            | "x-b3-parentspanid"
+            | "x-b3-sampled"
+            | "traceparent"
+            | "tracestate"
+    )
+}
+
+/// Inject the real relay key in the shape the upstream protocol expects.
+fn apply_auth(request: reqwest::RequestBuilder, upstream: &GatewayUpstream) -> reqwest::RequestBuilder {
+    match upstream.kind {
+        UpstreamKind::Anthropic => request.header("x-api-key", &upstream.api_key),
+        UpstreamKind::OpenAiChat | UpstreamKind::OpenAiResponses => {
+            request.bearer_auth(&upstream.api_key)
+        }
+    }
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
@@ -866,6 +934,69 @@ mod tests {
         // Response passed through untouched.
         assert_eq!(resp["id"], "resp_upstream");
         assert_eq!(resp["object"], "response");
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn passthrough_forwards_client_headers_and_replaces_auth() {
+        // Relays fingerprint the client, so the tool's own headers (user-agent,
+        // originator, session id) must reach the upstream; only auth is swapped
+        // to the real key and tracing/hop-by-hop headers are dropped.
+        use axum::http::HeaderMap;
+        let seen = Arc::new(tokio::sync::Mutex::new(None::<HeaderMap>));
+        let seen_clone = seen.clone();
+        let app = Router::new().route(
+            "/v1/responses",
+            post(move |headers: HeaderMap| {
+                let seen = seen_clone.clone();
+                async move {
+                    *seen.lock().await = Some(headers);
+                    Json(json!({ "id": "ok" }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut map = HashMap::new();
+        map.insert(
+            GatewayClient::Codex,
+            GatewayUpstream {
+                base_url: format!("http://{}", addr),
+                api_key: "sk-real-relay-key".to_string(),
+                kind: UpstreamKind::OpenAiResponses,
+                model: None,
+            },
+        );
+        let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
+
+        reqwest::Client::new()
+            .post(format!("{}/responses", gateway.base_url()))
+            .header("user-agent", "codex_cli_rs/1.0.0")
+            .header("originator", "codex_cli_rs")
+            .header("session_id", "abc-123")
+            .header("authorization", "Bearer sk-placeholder")
+            .header("x-amzn-trace-id", "should-be-dropped")
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        let got = seen.lock().await.clone().unwrap();
+        // Client fingerprint headers reach the upstream.
+        assert_eq!(got.get("user-agent").unwrap(), "codex_cli_rs/1.0.0");
+        assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
+        assert_eq!(got.get("session_id").unwrap(), "abc-123");
+        // Auth is replaced with the real relay key.
+        assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
+        // Tracing header dropped.
+        assert!(got.get("x-amzn-trace-id").is_none());
 
         gateway.shutdown().await;
     }
