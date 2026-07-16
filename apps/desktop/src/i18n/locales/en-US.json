@@ -1295,6 +1295,12 @@
     "bindDescription": "Bind this key to a client so its requests go through the local gateway for protocol adaptation (e.g. chat->responses).",
     "bindCodex": "Bind to Codex",
     "bindClaude": "Bind to Claude Code",
-    "bound": "Bound. Start it from Local Gateway in the sidebar."
+    "bound": "Bound. Start it from Local Gateway in the sidebar.",
+    "viaGateway": "Via local gateway (adapt protocol)",
+    "upstreamKindHint": "Pick the relay's upstream protocol: native responses/anthropic pass through; a chat-only relay uses Chat and the gateway converts.",
+    "upstreamKindLabel": "Relay upstream protocol",
+    "kindResponses": "OpenAI Responses (native passthrough)",
+    "kindAnthropic": "Anthropic (native passthrough)",
+    "kindChat": "OpenAI Chat (gateway converts)"
   }
 }

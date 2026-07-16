@@ -38,6 +38,7 @@ interface IndependentKeyConfigDialogProps {
 }
 
 type AITool = 'claude' | 'codex';
+type UpstreamKindValue = 'openai_chat' | 'openai_responses' | 'anthropic';
 
 export function IndependentKeyConfigDialog({
   open,
@@ -52,6 +53,7 @@ export function IndependentKeyConfigDialog({
   const [copied, setCopied] = useState(false);
   const [isSingleLine, setIsSingleLine] = useState(false);
   const [context1m, setContext1m] = useState(false);
+  const [upstreamKind, setUpstreamKind] = useState<UpstreamKindValue>('openai_responses');
 
   // 1M context is tied to a concrete model selection
   useEffect(() => {
@@ -100,10 +102,17 @@ export function IndependentKeyConfigDialog({
   });
 
   const bindGatewayMutation = useMutation({
-    mutationFn: (client: 'codex' | 'claude_code') =>
+    mutationFn: ({
+      client,
+      upstreamKind,
+    }: {
+      client: 'codex' | 'claude_code';
+      upstreamKind: 'openai_chat' | 'openai_responses' | 'anthropic';
+    }) =>
       invoke<unknown>('set_gateway_binding', {
         client,
         source: { type: 'independent_key', key_id: keyData!.id },
+        upstreamKind,
         model: selectedModel || null,
       }),
     onSuccess: () => {
@@ -335,12 +344,32 @@ export function IndependentKeyConfigDialog({
                       )}
                     </p>
                   </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-muted-foreground">
+                      {t('gateway.upstreamKindLabel', '中转站上游协议')}
+                    </label>
+                    <select
+                      value={upstreamKind}
+                      onChange={(e) => setUpstreamKind(e.target.value as UpstreamKindValue)}
+                      className="h-9 w-full rounded-md border border-border/60 bg-background px-2 text-xs"
+                    >
+                      <option value="openai_responses">
+                        {t('gateway.kindResponses', 'OpenAI Responses（原生透传）')}
+                      </option>
+                      <option value="anthropic">
+                        {t('gateway.kindAnthropic', 'Anthropic（原生透传）')}
+                      </option>
+                      <option value="openai_chat">
+                        {t('gateway.kindChat', 'OpenAI Chat（网关转换）')}
+                      </option>
+                    </select>
+                  </div>
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={bindGatewayMutation.isPending}
-                      onClick={() => bindGatewayMutation.mutate('codex')}
+                      onClick={() => bindGatewayMutation.mutate({ client: 'codex', upstreamKind })}
                     >
                       <Code2 className="h-3.5 w-3.5" />
                       {t('gateway.bindCodex', '绑定给 Codex')}
@@ -349,7 +378,9 @@ export function IndependentKeyConfigDialog({
                       variant="outline"
                       size="sm"
                       disabled={bindGatewayMutation.isPending}
-                      onClick={() => bindGatewayMutation.mutate('claude_code')}
+                      onClick={() =>
+                        bindGatewayMutation.mutate({ client: 'claude_code', upstreamKind })
+                      }
                     >
                       <Terminal className="h-3.5 w-3.5" />
                       {t('gateway.bindClaude', '绑定给 Claude Code')}

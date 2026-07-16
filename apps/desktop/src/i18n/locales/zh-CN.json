@@ -1295,6 +1295,12 @@
     "bindDescription": "把此 key 绑定给一个客户端，请求经本地网关做协议适配（如 chat→responses）。",
     "bindCodex": "绑定给 Codex",
     "bindClaude": "绑定给 Claude Code",
-    "bound": "已绑定，可在侧边栏「本地网关」启动"
+    "bound": "已绑定，可在侧边栏「本地网关」启动",
+    "viaGateway": "经本地网关（适配协议）",
+    "upstreamKindHint": "选择该中转站上游的协议：原生 responses/anthropic 走透传，只支持 chat 的选 Chat 由网关转换。",
+    "upstreamKindLabel": "中转站上游协议",
+    "kindResponses": "OpenAI Responses（原生透传）",
+    "kindAnthropic": "Anthropic（原生透传）",
+    "kindChat": "OpenAI Chat（网关转换）"
   }
 }
