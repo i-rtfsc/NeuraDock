@@ -28,10 +28,10 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 // Literal class strings so Tailwind's scanner can see them (template-built
 // class names are never generated). Widths come from the shared dialog tokens.
 const alertSizeClasses = {
-  sm: "max-w-[var(--layout-dialog-width-sm)]",
-  md: "max-w-[var(--layout-dialog-width-md)]",
-  lg: "max-w-[var(--layout-dialog-width-lg)]",
-  xl: "max-w-[var(--layout-dialog-width-xl)]",
+  sm: "w-[var(--layout-dialog-width-sm)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-sm)]",
+  md: "w-[var(--layout-dialog-width-md)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-md)]",
+  lg: "w-[var(--layout-dialog-width-lg)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-lg)]",
+  xl: "w-[var(--layout-dialog-width-xl)] max-w-[calc(100vw-1rem)] max-h-[var(--layout-dialog-max-height-xl)]",
 } as const
 
 const AlertDialogContent = React.forwardRef<
@@ -45,9 +45,9 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border border-[hsl(var(--popover-border, var(--border)))] bg-[hsl(var(--popover)/var(--control-surface-alpha,1))] p-6 shadow-lg backdrop-blur-[var(--control-surface-blur,0px)] duration-base data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[var(--radius-popover)]",
+        "fixed left-[50%] top-[50%] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 border border-[hsl(var(--popover-border,var(--border)))] bg-[hsl(var(--popover)/0.98)] p-6 shadow-[var(--layout-dialog-shadow)] backdrop-blur-xl duration-base data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[var(--layout-dialog-radius)]",
         alertSizeClasses[size],
-        "max-h-[var(--layout-dialog-max-height)] overflow-y-auto",
+        "overflow-y-auto",
         className
       )}
       {...props}

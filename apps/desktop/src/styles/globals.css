@@ -91,18 +91,20 @@
     --layout-sidebar-width-collapsed: 4.5rem;
     --layout-sidebar-page-width: 15rem;
 
-    /* Dialog / modal sizing — every dialog picks a size token via the
-       DialogContent `size` prop, so widths stay consistent app-wide and are
-       tunable from one place per theme. Widths are viewport-relative so a
-       dialog tracks the app window instead of a fixed rem width; the clamp
-       floor/ceiling only keep it usable on very small / ultrawide windows. */
-    --layout-dialog-width-sm: clamp(20rem, 60vw, 30rem);
-    --layout-dialog-width-md: clamp(26rem, 80vw, 44rem);
-    --layout-dialog-width-lg: clamp(34rem, 88vw, 60rem);
-    --layout-dialog-width-xl: clamp(48rem, 92vw, 84rem);
-    --layout-dialog-max-height: 90vh;
-    /* Fixed-height split-pane dialogs (config AI tool) track the window too. */
-    --layout-dialog-height-tall: 82vh;
+    /* Dialog / modal sizing. Sizes are percentages of the app viewport instead
+       of fixed rem ceilings, so the same dialog scales with the Tauri window. */
+    --layout-dialog-width-sm: 54vw;
+    --layout-dialog-width-md: 70vw;
+    --layout-dialog-width-lg: 82vw;
+    --layout-dialog-width-xl: 92vw;
+    --layout-dialog-max-height-sm: 70vh;
+    --layout-dialog-max-height-md: 80vh;
+    --layout-dialog-max-height-lg: 88vh;
+    --layout-dialog-max-height-xl: 92vh;
+    --layout-dialog-max-height: var(--layout-dialog-max-height-lg);
+    --layout-dialog-height-tall: 86vh;
+    --layout-dialog-radius: var(--radius-xl);
+    --layout-dialog-shadow: var(--shadow-2xl);
 
     /* Spacing Tokens */
     --spacing-section-gap: 2rem;
@@ -709,6 +711,26 @@
 }
 
 @layer components {
+  .app-dialog-header {
+    @apply border-b border-border/60 px-6 pb-4 pt-6 pr-12;
+  }
+
+  .app-dialog-body {
+    @apply min-h-0 overflow-y-auto px-6 py-5;
+  }
+
+  .app-dialog-footer {
+    @apply border-t border-border/60 bg-background/95 px-6 py-4 backdrop-blur;
+  }
+
+  .app-dialog-section {
+    @apply space-y-4;
+  }
+
+  .app-dialog-section + .app-dialog-section {
+    @apply border-t border-border/60 pt-5;
+  }
+
   .app-card-interactive,
   .card-vivid {
     position: relative;
@@ -879,6 +901,15 @@
     background-size: 100% 100%, 20px 20px, 20px 20px;
     border-color: hsl(var(--ring) / 0.66);
     box-shadow: 0 0 0 1px hsl(var(--ring) / 0.58), 0 0 34px hsl(var(--ring) / 0.42);
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --layout-dialog-width-sm: 94vw;
+    --layout-dialog-width-md: 94vw;
+    --layout-dialog-width-lg: 94vw;
+    --layout-dialog-width-xl: 96vw;
   }
 }
 

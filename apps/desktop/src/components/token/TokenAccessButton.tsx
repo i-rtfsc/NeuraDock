@@ -23,6 +23,7 @@ const AGENT_ICONS: Record<AgentId, typeof Code2> = {
 export function TokenAccessButton({ token, account }: { token: TokenDto; account: AccountDto }) {
   const { t } = useTranslation();
   const [agentId, setAgentId] = useState<AgentId | null>(null);
+  const disabled = !token.is_active || !account.enabled;
 
   return (
     <>
@@ -32,7 +33,12 @@ export function TokenAccessButton({ token, account }: { token: TokenDto; account
             variant="outline"
             size="sm"
             className="w-full mt-auto text-xs font-black rounded-xl h-10 border-primary/20 hover:border-primary hover:bg-primary/5 hover:text-primary hover:scale-[1.02] shadow-sm active:scale-95 transition-all uppercase tracking-tight"
-            disabled={!token.is_active}
+            disabled={disabled}
+            title={
+              disabled
+                ? t('token.accessAgentDisabled', '账号或 Key 已禁用，无法接入 Agent')
+                : undefined
+            }
           >
             <Settings2 className="mr-2 h-4 w-4" />
             {t('token.accessAgent', '接入 Agent')}

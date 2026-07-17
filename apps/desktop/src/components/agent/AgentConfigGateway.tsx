@@ -27,6 +27,7 @@ import {
 import { AgentAccessDrawer, type KeyOption } from './AgentAccessDrawer';
 import type { IndependentKeyDto } from '@/types/independentKey';
 import type { AccountDto, TokenDto } from '@/types/token';
+import { formatQuotaUSD } from '@/lib/formatters';
 
 /** Agents the gateway can serve. Adding one is a single entry here. */
 export type AgentId = 'codex' | 'claude_code';
@@ -50,6 +51,16 @@ export const AGENTS: AgentDef[] = [
 
 type AccessMethod = 'direct' | 'gateway';
 
+export type AgentAccessSource =
+  | {
+      type: 'account_token';
+      account_id: string;
+      provider_id: string;
+      token_id: number;
+      base_url?: string | null;
+    }
+  | { type: 'independent_key'; key_id: number };
+
 /** One agent's current access record (backend source of truth). */
 export interface AgentAccess {
   agent: AgentId;
@@ -58,12 +69,14 @@ export interface AgentAccess {
   model: string | null;
   upstream_kind: string | null;
   impersonate: boolean | null;
+  source?: AgentAccessSource | null;
+  context1m?: boolean | null;
 }
 
 export interface GatewayStatus {
   running: boolean;
   base_url: string | null;
-  bindings: { client: AgentId }[];
+  bindings: { client: AgentId; model?: string | null; context1m?: boolean }[];
 }
 
 export const GATEWAY_STATUS_QUERY_KEY = ['gateway-status'];
@@ -98,37 +111,46 @@ function useKeyOptions() {
     queryKey: ['gateway-account-tokens', accounts.data?.map((a) => a.id)],
     enabled: !!accounts.data && accounts.data.length > 0,
     queryFn: async () => {
-      const all: KeyOption[] = [];
-      for (const account of accounts.data ?? []) {
-        try {
-          const list = await invoke<TokenDto[]>('fetch_account_tokens', {
-            accountId: account.id,
-            forceRefresh: false,
-          });
-          for (const tk of list) {
-            all.push({
-              label: tk.name,
-              masked: tk.masked_key,
-              providerName: account.provider_name,
-              providerId: account.provider_id,
-              baseUrl: null,
+      const enabledAccounts = (accounts.data ?? []).filter((account) => account.enabled);
+      const groups = await Promise.all(
+        enabledAccounts.map(async (account): Promise<KeyOption[]> => {
+          try {
+            const list = await invoke<TokenDto[]>('fetch_account_tokens', {
               accountId: account.id,
-              accountName: account.name,
-              sourceGroup: 'relay',
-              balance: tk.unlimited_quota ? '∞' : String(tk.remain_quota),
-              source: {
-                type: 'account_token',
-                account_id: account.id,
-                provider_id: account.provider_id,
-                token_id: tk.id,
-              },
+              forceRefresh: false,
             });
+            const options: KeyOption[] = [];
+            for (const tk of list) {
+              // Disabled tokens can't be configured; leave them out of the picker.
+              if (!tk.is_active) continue;
+              options.push({
+                label: tk.name,
+                masked: tk.masked_key,
+                providerName: account.provider_name,
+                providerId: account.provider_id,
+                baseUrl: null,
+                accountId: account.id,
+                accountName: account.name,
+                sourceGroup: 'relay',
+                balance: tk.unlimited_quota ? '∞' : formatQuotaUSD(tk.remain_quota),
+                modelLimitsEnabled: tk.model_limits_enabled,
+                allowedModels: tk.model_limits_allowed,
+                deniedModels: tk.model_limits_denied,
+                source: {
+                  type: 'account_token',
+                  account_id: account.id,
+                  provider_id: account.provider_id,
+                  token_id: tk.id,
+                },
+              });
+            }
+            return options;
+          } catch {
+            return [];
           }
-        } catch {
-          /* logged-out / expired account: skip */
-        }
-      }
-      return all;
+        })
+      );
+      return groups.flat();
     },
   });
 
@@ -145,12 +167,18 @@ function useKeyOptions() {
         accountName: null,
         sourceGroup: 'independent',
         balance: null,
+        modelLimitsEnabled: false,
+        allowedModels: [],
+        deniedModels: [],
         source: { type: 'independent_key', key_id: k.id },
       }));
     return [...(tokens.data ?? []), ...indep];
   }, [independent.data, tokens.data]);
 
-  return options;
+  return {
+    options,
+    isLoading: independent.isLoading || accounts.isLoading || tokens.isLoading,
+  };
 }
 
 function GatewayControl({ status, disabled }: { status?: GatewayStatus; disabled: boolean }) {
@@ -304,6 +332,19 @@ function AccessStatusCard({
             ? t('agentConfig.methodGatewayShort', '经本地网关')
             : t('agentConfig.methodDirectShort', '直接写入 {{path}}', { path: agent.configPath })}
         </dd>
+        {access.model && (
+          <>
+            <dt className="text-muted-foreground">{t('agentConfig.rowModel', '模型')}</dt>
+            <dd className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-mono text-xs">{access.model}</span>
+              {access.context1m && (
+                <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
+                  1M
+                </Badge>
+              )}
+            </dd>
+          </>
+        )}
         {viaGateway && (
           <>
             <dt className="text-muted-foreground">{t('agentConfig.rowUpstream', '上游')}</dt>
@@ -392,7 +433,7 @@ export function AgentConfigGateway({ selectedAgent }: { selectedAgent: AgentId }
   const queryClient = useQueryClient();
   const { data: status } = useGatewayStatus();
   const { data: accessList } = useAgentAccess();
-  const keyOptions = useKeyOptions();
+  const { options: keyOptions, isLoading: keyOptionsLoading } = useKeyOptions();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -451,6 +492,7 @@ export function AgentConfigGateway({ selectedAgent }: { selectedAgent: AgentId }
         onOpenChange={setDrawerOpen}
         agent={agent}
         keyOptions={keyOptions}
+        loading={keyOptionsLoading}
         existing={access}
         onDone={refresh}
       />

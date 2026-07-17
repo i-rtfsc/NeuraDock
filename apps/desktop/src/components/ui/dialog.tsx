@@ -33,14 +33,14 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
  * `full` opts out (for split-pane dialogs that manage their own width/height).
  */
 const dialogContentVariants = cva(
-  'fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border border-[hsl(var(--popover-border, var(--border)))] bg-[hsl(var(--popover)/var(--control-surface-alpha,1))] p-6 shadow-lg backdrop-blur-[var(--control-surface-blur,0px)] duration-slow data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[var(--radius-popover)]',
+  'fixed left-[50%] top-[50%] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 border border-[hsl(var(--popover-border,var(--border)))] bg-[hsl(var(--popover)/0.98)] p-6 shadow-[var(--layout-dialog-shadow)] backdrop-blur-xl duration-slow data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[var(--layout-dialog-radius)]',
   {
     variants: {
       size: {
-        sm: 'max-w-[var(--layout-dialog-width-sm)] max-h-[var(--layout-dialog-max-height)] overflow-y-auto',
-        md: 'max-w-[var(--layout-dialog-width-md)] max-h-[var(--layout-dialog-max-height)] overflow-y-auto',
-        lg: 'max-w-[var(--layout-dialog-width-lg)] max-h-[var(--layout-dialog-max-height)] overflow-y-auto',
-        xl: 'max-w-[var(--layout-dialog-width-xl)] max-h-[var(--layout-dialog-max-height)] overflow-y-auto',
+        sm: 'w-[var(--layout-dialog-width-sm)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-sm)] overflow-y-auto',
+        md: 'w-[var(--layout-dialog-width-md)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-md)] overflow-y-auto',
+        lg: 'w-[var(--layout-dialog-width-lg)] max-w-[calc(100vw-1.5rem)] max-h-[var(--layout-dialog-max-height-lg)] overflow-y-auto',
+        xl: 'w-[var(--layout-dialog-width-xl)] max-w-[calc(100vw-1rem)] max-h-[var(--layout-dialog-max-height-xl)] overflow-y-auto',
         full: '',
       },
     },

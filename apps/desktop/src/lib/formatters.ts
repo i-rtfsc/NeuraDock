@@ -12,6 +12,11 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** Relay token quotas are stored in 1/500000 USD units. */
+export function formatQuotaUSD(quota: number): string {
+  return formatCurrency(quota / 500000);
+}
+
 /**
  * Format a date string or Date object to a locale string.
  * @param date The date to format.

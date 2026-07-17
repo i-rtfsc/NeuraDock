@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 
 import { AgentAccessDrawer, type KeyOption } from '@/components/agent/AgentAccessDrawer';
 import { AGENTS, type AgentAccess, type AgentId } from '@/components/agent/AgentConfigGateway';
 import type { TokenDto, AccountDto } from '@/types/token';
+import { formatQuotaUSD } from '@/lib/formatters';
 
 interface Props {
   open: boolean;
@@ -20,7 +21,8 @@ interface Props {
  *  detail and the Agent config page. */
 export function TokenAgentAccessDialog({ open, onOpenChange, token, account, agentId }: Props) {
   const agent = AGENTS.find((a) => a.id === agentId)!;
-  const [, force] = useState(0);
+  const queryClient = useQueryClient();
+  const usable = token.is_active && account.enabled;
 
   const option: KeyOption = useMemo(
     () => ({
@@ -32,7 +34,10 @@ export function TokenAgentAccessDialog({ open, onOpenChange, token, account, age
       accountId: account.id,
       accountName: account.name,
       sourceGroup: 'relay',
-      balance: token.unlimited_quota ? '∞' : String(token.remain_quota),
+      balance: token.unlimited_quota ? '∞' : formatQuotaUSD(token.remain_quota),
+      modelLimitsEnabled: token.model_limits_enabled,
+      allowedModels: token.model_limits_allowed,
+      deniedModels: token.model_limits_denied,
       source: {
         type: 'account_token',
         account_id: account.id,
@@ -57,10 +62,13 @@ export function TokenAgentAccessDialog({ open, onOpenChange, token, account, age
       open={open}
       onOpenChange={onOpenChange}
       agent={agent}
-      keyOptions={[option]}
+      keyOptions={usable ? [option] : []}
       existing={existing}
       presetOptionId={presetOptionId}
-      onDone={() => force((n) => n + 1)}
+      onDone={() => {
+        queryClient.invalidateQueries({ queryKey: ['agent-access'] });
+        queryClient.invalidateQueries({ queryKey: ['gateway-status'] });
+      }}
     />
   );
 }
