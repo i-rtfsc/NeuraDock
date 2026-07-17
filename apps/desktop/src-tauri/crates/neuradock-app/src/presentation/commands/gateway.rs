@@ -14,8 +14,9 @@ use neuradock_infrastructure::gateway::{
 
 use crate::application::services::GatewayTakeover;
 use crate::presentation::commands::agent_access::{
-    AccessMethodDto, AgentAccessDto, AgentAccessState, AgentIdDto,
+    AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
+use crate::presentation::commands::token::ensure_account_token_usable;
 
 /// Runtime state for the local adaptation gateway: one server, one port,
 /// path-routed clients, each independently bound to an upstream relay key.
@@ -44,6 +45,7 @@ struct BindingMeta {
     source: GatewaySourceDto,
     kind: UpstreamKindDto,
     model: Option<String>,
+    context1m: bool,
     impersonate: bool,
 }
 
@@ -56,6 +58,8 @@ struct PersistedBinding {
     source: GatewaySourceDto,
     kind: UpstreamKindDto,
     model: Option<String>,
+    #[serde(default)]
+    context1m: bool,
     #[serde(default)]
     impersonate: bool,
     label: String,
@@ -117,6 +121,19 @@ fn upstream_kind_str(kind: UpstreamKindDto) -> String {
     .to_string()
 }
 
+fn effective_gateway_model(
+    _client: GatewayClientDto,
+    model: Option<&str>,
+    _context1m: bool,
+) -> Option<String> {
+    // `[1m]` is a Claude Code configuration marker, not an upstream model id.
+    // The takeover layer adds it to Claude's local settings so Claude Code can
+    // emit the corresponding context beta header. The gateway binding itself
+    // must keep the real upstream model name, separate from local capability
+    // markers written into the tool configuration.
+    model.map(str::to_string)
+}
+
 impl From<UpstreamKindDto> for UpstreamKind {
     fn from(dto: UpstreamKindDto) -> Self {
         match dto {
@@ -144,12 +161,32 @@ pub enum GatewaySourceDto {
     },
 }
 
+fn access_source_of(source: &GatewaySourceDto) -> AgentAccessSourceDto {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => AgentAccessSourceDto::AccountToken {
+            account_id: account_id.clone(),
+            provider_id: provider_id.clone(),
+            token_id: *token_id,
+            base_url: base_url.clone(),
+        },
+        GatewaySourceDto::IndependentKey { key_id } => {
+            AgentAccessSourceDto::IndependentKey { key_id: *key_id }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct GatewayBindingDto {
     pub client: GatewayClientDto,
     /// Human-readable description of the bound key (name, never the key).
     pub label: String,
     pub model: Option<String>,
+    pub context1m: bool,
     pub upstream_kind: UpstreamKindDto,
     pub impersonate: bool,
 }
@@ -160,6 +197,16 @@ pub struct GatewayStatusDto {
     /// `http://127.0.0.1:<port>` when running.
     pub base_url: Option<String>,
     pub bindings: Vec<GatewayBindingDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayBindingConfigDto {
+    pub upstream_kind: UpstreamKindDto,
+    pub model: Option<String>,
+    #[serde(default, rename = "context1m")]
+    pub context_1m: bool,
+    pub impersonate: Option<bool>,
 }
 
 /// Resolve a binding source into the upstream the gateway forwards to. This is
@@ -182,6 +229,12 @@ async fn resolve_upstream(
         } => {
             let account_id = AccountId::from_string(account_id);
             let token_id = neuradock_domain::token::TokenId::new(*token_id);
+            let account = repositories
+                .account
+                .find_by_id(&account_id)
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Account not found"))?;
             let tokens = services
                 .token
                 .get_cached_tokens(&account_id)
@@ -191,8 +244,14 @@ async fn resolve_upstream(
                 .iter()
                 .find(|t| t.id() == &token_id)
                 .ok_or_else(|| CommandError::not_found("Token not found"))?;
+            ensure_account_token_usable(&account, token)?;
 
             let provider_id = ProviderId::from_string(provider_id);
+            if account.provider_id() != &provider_id {
+                return Err(CommandError::validation(
+                    "The selected provider does not belong to this account.",
+                ));
+            }
             let provider = repositories
                 .provider
                 .find_by_id(&provider_id)
@@ -254,6 +313,7 @@ async fn status_of(state: &GatewayState) -> GatewayStatusDto {
             client: (*client).into(),
             label: meta.label.clone(),
             model: meta.model.clone(),
+            context1m: meta.context1m,
             upstream_kind: meta.kind,
             impersonate: meta.impersonate,
         })
@@ -281,9 +341,7 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
 pub async fn set_gateway_binding(
     client: GatewayClientDto,
     source: GatewaySourceDto,
-    upstream_kind: UpstreamKindDto,
-    model: Option<String>,
-    impersonate: Option<bool>,
+    config: GatewayBindingConfigDto,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     access: State<'_, AgentAccessState>,
@@ -292,17 +350,30 @@ pub async fn set_gateway_binding(
 ) -> Result<GatewayStatusDto, CommandError> {
     // Impersonation defaults on: the point of the gateway is to reach relays
     // that only admit recognised clients.
+    let GatewayBindingConfigDto {
+        upstream_kind,
+        model,
+        context_1m: context1m,
+        impersonate,
+    } = config;
     let impersonate = impersonate.unwrap_or(true);
+    if context1m && model.is_none() {
+        return Err(CommandError::validation(
+            "1M context requires selecting a model.",
+        ));
+    }
+    let effective_model = effective_gateway_model(client, model.as_deref(), context1m);
     let (upstream, label) = resolve_upstream(
         &source,
         upstream_kind.into(),
-        model.as_deref(),
+        effective_model.as_deref(),
         impersonate,
         &services,
         &repositories,
     )
     .await?;
     let gateway_client: GatewayClient = client.into();
+    let access_source = access_source_of(&source);
 
     state
         .bindings
@@ -316,6 +387,7 @@ pub async fn set_gateway_binding(
             source,
             kind: upstream_kind,
             model: model.clone(),
+            context1m,
             impersonate,
         },
     );
@@ -339,6 +411,8 @@ pub async fn set_gateway_binding(
             model: model.clone(),
             upstream_kind: Some(upstream_kind_str(upstream_kind)),
             impersonate: Some(impersonate),
+            source: Some(access_source),
+            context1m: Some(context1m),
         },
     );
 
@@ -347,7 +421,12 @@ pub async fn set_gateway_binding(
     if let Some(handle) = server.as_ref() {
         let takeover = takeover_for(&app)?;
         takeover
-            .take_over(gateway_client, &handle.base_url())
+            .take_over(
+                gateway_client,
+                &handle.base_url(),
+                model.as_deref(),
+                context1m,
+            )
             .map_err(|e| CommandError::infrastructure(e.to_string()))?;
     }
     drop(server);
@@ -396,6 +475,7 @@ async fn persist_bindings(app: &tauri::AppHandle, state: &GatewayState) {
             source: meta.source.clone(),
             kind: meta.kind,
             model: meta.model.clone(),
+            context1m: meta.context1m,
             impersonate: meta.impersonate,
             label: meta.label.clone(),
         })
@@ -420,6 +500,7 @@ async fn persist_bindings(app: &tauri::AppHandle, state: &GatewayState) {
 pub async fn restore_gateway_bindings(
     app: &tauri::AppHandle,
     state: &GatewayState,
+    access: &AgentAccessState,
     services: &Services,
     repositories: &Repositories,
 ) {
@@ -439,10 +520,12 @@ pub async fn restore_gateway_bindings(
     };
 
     for binding in saved {
+        let effective_model =
+            effective_gateway_model(binding.client, binding.model.as_deref(), binding.context1m);
         match resolve_upstream(
             &binding.source,
             binding.kind.into(),
-            binding.model.as_deref(),
+            effective_model.as_deref(),
             binding.impersonate,
             services,
             repositories,
@@ -451,23 +534,41 @@ pub async fn restore_gateway_bindings(
         {
             Ok((upstream, label)) => {
                 let client: GatewayClient = binding.client.into();
+                let access_source = access_source_of(&binding.source);
                 state.bindings.write().await.insert(client, upstream);
                 state.meta.lock().await.insert(
                     client,
                     BindingMeta {
-                        label,
+                        label: label.clone(),
                         source: binding.source,
                         kind: binding.kind,
-                        model: binding.model,
+                        model: binding.model.clone(),
+                        context1m: binding.context1m,
                         impersonate: binding.impersonate,
                     },
                 );
+                access.set(
+                    app,
+                    AgentAccessDto {
+                        agent: binding.client.into(),
+                        method: AccessMethodDto::Gateway,
+                        label,
+                        model: binding.model,
+                        upstream_kind: Some(upstream_kind_str(binding.kind)),
+                        impersonate: Some(binding.impersonate),
+                        source: Some(access_source),
+                        context1m: Some(binding.context1m),
+                    },
+                );
             }
-            Err(e) => log::warn!(
-                "Skipping saved gateway binding for {:?}: {}",
-                binding.client,
-                e
-            ),
+            Err(e) => {
+                access.remove(app, binding.client.into());
+                log::warn!(
+                    "Skipping saved gateway binding for {:?}: {}",
+                    binding.client,
+                    e
+                );
+            }
         }
     }
     log::info!("Restored gateway bindings from disk (server left stopped)");
@@ -480,8 +581,14 @@ pub async fn start_gateway_server(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
-    let bound_clients: Vec<GatewayClient> = state.bindings.read().await.keys().copied().collect();
-    if bound_clients.is_empty() {
+    let takeover_configs: Vec<(GatewayClient, Option<String>, bool)> = state
+        .meta
+        .lock()
+        .await
+        .iter()
+        .map(|(client, meta)| (*client, meta.model.clone(), meta.context1m))
+        .collect();
+    if takeover_configs.is_empty() {
         return Err(CommandError::validation(
             "No client is bound to a relay key yet. Bind one from an account token or API key first.",
         ));
@@ -498,9 +605,9 @@ pub async fn start_gateway_server(
     drop(server);
 
     let takeover = takeover_for(&app)?;
-    for client in bound_clients {
+    for (client, model, context1m) in takeover_configs {
         takeover
-            .take_over(client, &base_url)
+            .take_over(client, &base_url, model.as_deref(), context1m)
             .map_err(|e| CommandError::infrastructure(e.to_string()))?;
     }
 
@@ -533,4 +640,35 @@ pub async fn get_gateway_status(
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
     Ok(status_of(&state).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gateway_upstream_model_never_carries_1m_suffix() {
+        assert_eq!(
+            effective_gateway_model(GatewayClientDto::ClaudeCode, Some("claude-sonnet-4"), true),
+            Some("claude-sonnet-4".to_string())
+        );
+        assert_eq!(
+            effective_gateway_model(GatewayClientDto::Codex, Some("gpt-5"), true),
+            Some("gpt-5".to_string())
+        );
+    }
+
+    #[test]
+    fn old_gateway_bindings_default_to_standard_context() {
+        let json = r#"{
+            "client": "codex",
+            "source": { "type": "independent_key", "key_id": 1 },
+            "kind": "openai_chat",
+            "model": null,
+            "impersonate": true,
+            "label": "Key"
+        }"#;
+        let binding: PersistedBinding = serde_json::from_str(json).unwrap();
+        assert!(!binding.context1m);
+    }
 }

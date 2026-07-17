@@ -1,3 +1,4 @@
+use crate::presentation::commands::token::ensure_account_token_usable;
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::shared::{AccountId, ProviderId};
@@ -30,7 +31,20 @@ pub async fn configure_codex_global(
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
+
     let provider_id_obj = ProviderId::from_string(&provider_id);
+    if account.provider_id() != &provider_id_obj {
+        return Err(CommandError::validation(
+            "The selected provider does not belong to this account.",
+        ));
+    }
     let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)
@@ -80,7 +94,20 @@ pub async fn generate_codex_temp_commands(
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
+
     let provider_id_obj = ProviderId::from_string(&provider_id);
+    if account.provider_id() != &provider_id_obj {
+        return Err(CommandError::validation(
+            "The selected provider does not belong to this account.",
+        ));
+    }
     let provider = repositories
         .provider
         .find_by_id(&provider_id_obj)

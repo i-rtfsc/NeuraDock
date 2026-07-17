@@ -1,5 +1,6 @@
+use crate::presentation::commands::token::ensure_account_token_usable;
 use crate::presentation::error::CommandError;
-use crate::presentation::state::Services;
+use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::shared::AccountId;
 use tauri::State;
 
@@ -12,6 +13,7 @@ pub async fn configure_claude_global(
     model: Option<String>,
     context1m: Option<bool>,
     services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let context_1m = context1m.unwrap_or(false);
     if context_1m && model.is_none() {
@@ -35,6 +37,14 @@ pub async fn configure_claude_global(
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
 
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
+
     // Configure to Claude Code
     let result = services
         .claude_config
@@ -52,6 +62,7 @@ pub async fn generate_claude_temp_commands(
     base_url: String,
     model: Option<String>,
     services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let account_id = AccountId::from_string(&account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
@@ -67,6 +78,14 @@ pub async fn generate_claude_temp_commands(
         .iter()
         .find(|t| t.id() == &token_id)
         .ok_or_else(|| CommandError::not_found("Token not found"))?;
+
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
 
     // Generate temp commands
     let commands = services

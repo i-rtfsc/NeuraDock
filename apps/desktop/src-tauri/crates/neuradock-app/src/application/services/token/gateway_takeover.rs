@@ -1,8 +1,8 @@
 //! Gateway takeover: snapshot a tool's live config, point it at the local
 //! gateway with a placeholder key, and restore the snapshot afterwards.
 //!
-//! Mirrors cc-switch's takeover model: the real relay key never reaches the
-//! tool's config file while the gateway is on, and stopping the gateway (or
+//! The real relay key never reaches the tool's config file while the gateway
+//! is on, and stopping the gateway (or
 //! the next app start after a crash) puts the original file back exactly.
 
 use anyhow::{Context, Result};
@@ -67,12 +67,18 @@ impl GatewayTakeover {
 
     /// Take over `client`'s tool config: snapshot the live files, then write a
     /// config pointing at `gateway_base_url` with a placeholder key.
-    pub fn take_over(&self, client: GatewayClient, gateway_base_url: &str) -> Result<()> {
+    pub fn take_over(
+        &self,
+        client: GatewayClient,
+        gateway_base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<()> {
         let mut state = self.load_state();
         if self.client_snapshot(&state, client).is_some() {
             // Already taken over: just refresh the placeholder config so a
             // new port or binding lands in the tool config.
-            self.write_placeholder(client, gateway_base_url)?;
+            self.write_placeholder(client, gateway_base_url, model, context_1m)?;
             return Ok(());
         }
 
@@ -80,7 +86,7 @@ impl GatewayTakeover {
         *self.client_snapshot_mut(&mut state, client) = Some(snapshot);
         self.save_state(&state)?;
 
-        self.write_placeholder(client, gateway_base_url)?;
+        self.write_placeholder(client, gateway_base_url, model, context_1m)?;
         log::info!(
             "Gateway takeover active for {} -> {}",
             client.display_name(),
@@ -161,22 +167,28 @@ impl GatewayTakeover {
         Ok(ClientSnapshot { files })
     }
 
-    fn write_placeholder(&self, client: GatewayClient, gateway_base_url: &str) -> Result<()> {
+    fn write_placeholder(
+        &self,
+        client: GatewayClient,
+        gateway_base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<()> {
         match client {
             GatewayClient::Codex => {
                 CodexConfigService::new().configure_global_with_key(
                     GATEWAY_PLACEHOLDER_KEY,
                     gateway_base_url,
-                    None,
-                    false,
+                    model,
+                    context_1m,
                 )?;
             }
             GatewayClient::ClaudeCode => {
                 ClaudeConfigService::new().configure_global_with_key(
                     GATEWAY_PLACEHOLDER_KEY,
                     gateway_base_url,
-                    None,
-                    false,
+                    model,
+                    context_1m,
                 )?;
             }
         }

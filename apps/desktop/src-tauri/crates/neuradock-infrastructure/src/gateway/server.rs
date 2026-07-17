@@ -209,7 +209,7 @@ async fn handle(
     };
 
     // Passthrough when the upstream already speaks the tool's protocol
-    // (cc-switch's default path): forward verbatim with the real key, no
+    // using native protocol passthrough: forward with the real key, no
     // translation, streaming bytes proxied as-is.
     let passthrough = matches!(
         (protocol, upstream.kind),
@@ -330,7 +330,7 @@ async fn handle(
 /// Forward a request verbatim to a same-protocol upstream: real key injected,
 /// optional model override, status and body (including SSE bytes) proxied
 /// through unchanged. This is the default path for native upstreams, matching
-/// cc-switch's non-converting forward.
+/// a standard non-converting forward.
 async fn forward_passthrough(
     state: &GatewayState,
     client: GatewayClient,
@@ -351,26 +351,52 @@ async fn forward_passthrough(
         upstream.model
     );
 
+    // Parse only enough request metadata to choose the correct downstream
+    // response mode. Non-streaming responses are buffered and only
+    // a live byte stream for stream:true; treating every 200 body as a stream
+    // turns ordinary JSON into a chunked response that Claude Code can reject.
+    let inbound_json = serde_json::from_slice::<Value>(&body).ok();
+    let stream = inbound_json
+        .as_ref()
+        .and_then(|value| value.get("stream"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
     // Apply the model override without touching anything else in the body.
     let body_bytes = if let Some(model) = &upstream.model {
-        match serde_json::from_slice::<Value>(&body) {
-            Ok(mut v) => {
-                v["model"] = Value::String(model.clone());
+        // Claude Code's `[1m]` suffix is a local capability marker. Claude
+        // Code turns it into an anthropic-beta value before sending the
+        // request; native Anthropic relays expect the real model id without
+        // the suffix. Keep this defensive strip for bindings restored from an
+        // older NeuraDock version that persisted the marker upstream.
+        let outbound_model = if protocol == InboundProtocol::AnthropicMessages {
+            strip_one_m_model_marker(model)
+        } else {
+            model.as_str()
+        };
+        match inbound_json {
+            Some(mut v) => {
+                v["model"] = Value::String(outbound_model.to_string());
                 serde_json::to_vec(&v).map(Into::into).unwrap_or(body)
             }
-            Err(_) => body,
+            None => body,
         }
     } else {
         body
     };
 
-    // Forward the tool's original headers, matching cc-switch: relays
+    // Forward the tool's original headers because relays
     // fingerprint the client (user-agent, originator, session id, etc.) and
     // reject requests that don't look like a real Codex / Claude Code. We keep
     // every header the tool sent except hop-by-hop / CDN / tracing ones, and
     // replace only the auth header inline with the real relay key.
     let request = forward_headers(state.client.post(&url), inbound_headers, upstream, protocol)
         .header(header::CONTENT_TYPE, "application/json")
+        // Keep passthrough bodies inspectable and consistent with the local
+        // response contract. The relay may otherwise honor the client's
+        // `br` preference, while this gateway only guarantees identity bytes
+        // to its downstream parser and SSE client.
+        .header(header::ACCEPT_ENCODING, "identity")
         .body(body_bytes);
 
     let upstream_resp = match request.send().await {
@@ -381,8 +407,8 @@ async fn forward_passthrough(
         }
     };
 
-    let status = StatusCode::from_u16(upstream_resp.status().as_u16())
-        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let status =
+        StatusCode::from_u16(upstream_resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_success() {
         let text = upstream_resp.text().await.unwrap_or_default();
         log::error!(
@@ -394,25 +420,174 @@ async fn forward_passthrough(
         return error_response(status, &text);
     }
 
-    let content_type = upstream_resp
+    let upstream_content_type = upstream_resp
         .headers()
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/json")
+        .unwrap_or("<missing>")
+        .to_string();
+    let upstream_content_encoding = upstream_resp
+        .headers()
+        .get(header::CONTENT_ENCODING)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("identity")
         .to_string();
 
-    // Stream the upstream bytes through untouched (true incremental SSE).
-    let byte_stream = upstream_resp.bytes_stream();
+    log::info!(
+        "Gateway passthrough upstream {} responded {}, stream={}, content_type={}, content_encoding={}",
+        url,
+        status.as_u16(),
+        stream,
+        upstream_content_type,
+        upstream_content_encoding
+    );
+
+    if !stream {
+        let bytes = match upstream_resp.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                log::error!(
+                    "Gateway failed reading upstream JSON body from {}: {}",
+                    url,
+                    e
+                );
+                return error_response(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("failed reading upstream body: {}", e),
+                );
+            }
+        };
+        let normalized = match extract_anthropic_message_document(&bytes) {
+            Ok(value) => match serde_json::to_vec(&value) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    log::error!(
+                        "Gateway failed serializing upstream JSON from {}: {}",
+                        url,
+                        e
+                    );
+                    return error_response(
+                        StatusCode::BAD_GATEWAY,
+                        "failed normalizing upstream JSON",
+                    );
+                }
+            },
+            Err(e) => {
+                log::error!(
+                    "Gateway got malformed JSON from {}: {} ({} bytes)",
+                    url,
+                    e,
+                    bytes.len()
+                );
+                return error_response(StatusCode::BAD_GATEWAY, "upstream returned malformed JSON");
+            }
+        };
+
+        return Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(normalized))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+
+    // Stream Anthropic SSE incrementally, dropping relay-private billing
+    // events that appear after message_stop and are not part of the Anthropic
+    // protocol understood by Claude Code.
+    let mut byte_stream = upstream_resp.bytes_stream();
+    let filtered_stream = async_stream::stream! {
+        let mut buffer = Vec::<u8>::new();
+        while let Some(chunk) = byte_stream.next().await {
+            match chunk {
+                Ok(bytes) => buffer.extend_from_slice(&bytes),
+                Err(error) => {
+                    yield Err::<Vec<u8>, _>(std::io::Error::other(error.to_string()));
+                    break;
+                }
+            }
+
+            while let Some(end) = buffer.windows(2).position(|window| window == b"\n\n") {
+                let block: Vec<u8> = buffer.drain(..end + 2).collect();
+                if !is_relay_billing_sse_block(&block) {
+                    yield Ok::<_, std::io::Error>(block);
+                }
+            }
+        }
+        if !buffer.is_empty() && !is_relay_billing_sse_block(&buffer) {
+            yield Ok::<_, std::io::Error>(buffer);
+        }
+    };
     Response::builder()
         .status(status)
-        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
-        .body(Body::from_stream(byte_stream))
+        .body(Body::from_stream(filtered_stream))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
-/// Combine a relay base URL with an API endpoint the way cc-switch's adapters
-/// do: a base already ending in `/v1` joins directly, a bare origin gains
+fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json::Error> {
+    match serde_json::from_slice::<Value>(bytes) {
+        Ok(value) => return Ok(value),
+        Err(primary_error) => {
+            let mut fallback = None;
+            let mut message = None;
+
+            // Compatible relays sometimes prefix an otherwise valid JSON
+            // document with a transport marker (`data:`, `0:`, etc.) or append
+            // another private document. Probe each object boundary and keep
+            // only a complete top-level value. This avoids logging or relying
+            // on the response's user-visible text.
+            for (offset, byte) in bytes.iter().enumerate() {
+                if *byte != b'{' && *byte != b'[' {
+                    continue;
+                }
+                let mut values =
+                    serde_json::Deserializer::from_slice(&bytes[offset..]).into_iter::<Value>();
+                let Some(Ok(value)) = values.next() else {
+                    continue;
+                };
+
+                let message_like = value.get("type").and_then(Value::as_str) == Some("message")
+                    || (value.get("role").and_then(Value::as_str) == Some("assistant")
+                        && value.get("content").and_then(Value::as_array).is_some());
+                if message_like {
+                    message = Some(value);
+                    break;
+                }
+                if value.get("error").is_some() {
+                    fallback = Some(value);
+                } else if fallback.is_none() && value.get("billing").is_none() {
+                    fallback = Some(value);
+                }
+            }
+
+            return message.or(fallback).ok_or(primary_error);
+        }
+    }
+}
+
+fn is_relay_billing_sse_block(block: &[u8]) -> bool {
+    block
+        .windows(b"event: billing_summary".len())
+        .any(|window| window == b"event: billing_summary")
+        || block
+            .windows(b"\"type\":\"billing_summary\"".len())
+            .any(|window| window == b"\"type\":\"billing_summary\"")
+}
+
+fn strip_one_m_model_marker(model: &str) -> &str {
+    let trimmed = model.trim_end();
+    let marker = "[1m]";
+    if trimmed.len() >= marker.len()
+        && trimmed[trimmed.len() - marker.len()..].eq_ignore_ascii_case(marker)
+    {
+        trimmed[..trimmed.len() - marker.len()].trim_end()
+    } else {
+        model
+    }
+}
+
+/// Combine a relay base URL with an API endpoint: a base already ending in
+/// `/v1` joins directly, a bare origin gains
 /// `/v1`, and a custom-prefix base (e.g. `https://x/openai`) joins without
 /// inserting `/v1`. Duplicate `/v1/v1` segments collapse.
 fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
@@ -440,7 +615,7 @@ fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
 /// Whether a header is hop-by-hop, CDN, or tracing metadata that must not be
 /// forwarded to the upstream relay. Everything else (user-agent, originator,
 /// session ids, and other client fingerprint headers a relay checks) is kept.
-/// Mirrors cc-switch's skip list.
+/// Uses a conservative proxy header skip list.
 fn is_hop_by_hop_header(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
@@ -479,9 +654,23 @@ fn is_hop_by_hop_header(name: &str) -> bool {
 }
 
 /// Inject the real relay key in the shape the upstream protocol expects.
-fn apply_auth(request: reqwest::RequestBuilder, upstream: &GatewayUpstream) -> reqwest::RequestBuilder {
+fn apply_auth(
+    request: reqwest::RequestBuilder,
+    upstream: &GatewayUpstream,
+    inbound_header: Option<&str>,
+) -> reqwest::RequestBuilder {
     match upstream.kind {
-        UpstreamKind::Anthropic => request.header("x-api-key", &upstream.api_key),
+        // Claude Code configured with ANTHROPIC_AUTH_TOKEN authenticates with
+        // `Authorization: Bearer ...`. Some relays (including agentrouter)
+        // route bearer tokens and x-api-key credentials differently, so
+        // changing the header shape can select the wrong channel even though
+        // the credential itself is valid. Preserve the caller's auth shape and
+        // only replace the secret value. Default to bearer because that is the
+        // shape written by NeuraDock's Claude Code configuration.
+        UpstreamKind::Anthropic if inbound_header == Some("x-api-key") => {
+            request.header("x-api-key", &upstream.api_key)
+        }
+        UpstreamKind::Anthropic => request.bearer_auth(&upstream.api_key),
         UpstreamKind::OpenAiChat | UpstreamKind::OpenAiResponses => {
             request.bearer_auth(&upstream.api_key)
         }
@@ -511,13 +700,12 @@ fn is_client_fingerprint_header(name: &str) -> bool {
             | "x-app"
             | "x-client-request-id"
             | "openai-beta"
-            | "anthropic-beta"
     ) || name.starts_with("x-stainless-")
         || name.starts_with("x-codex-")
 }
 
-/// Copy the tool's request headers onto the upstream request, matching
-/// cc-switch: relays fingerprint the client (user-agent, originator, session
+/// Copy the tool's request headers onto the upstream request. Relays may
+/// fingerprint the client (user-agent, originator, session
 /// id, ...) and reject requests that don't look like a real Codex / Claude
 /// Code, so every header the tool sent is forwarded except hop-by-hop / CDN /
 /// tracing ones. The auth header is replaced inline with the real relay key,
@@ -534,7 +722,33 @@ fn forward_headers(
     upstream: &GatewayUpstream,
     protocol: InboundProtocol,
 ) -> reqwest::RequestBuilder {
-    let mut saw_auth = false;
+    // Impersonation is for protocol conversion (for example
+    // Codex -> Anthropic), not for an actual Claude Code request already
+    // speaking Anthropic Messages. Replacing a real Claude client's
+    // user-agent/x-stainless fingerprint can make strict relays choose a
+    // different response path.
+    let should_impersonate = upstream.impersonate
+        && !matches!(
+            (protocol, upstream.kind),
+            (InboundProtocol::AnthropicMessages, UpstreamKind::Anthropic)
+        );
+
+    // Claude Code can carry both headers (for example when a shell-level
+    // ANTHROPIC_API_KEY coexists with NeuraDock's ANTHROPIC_AUTH_TOKEN).
+    // HeaderMap iteration order is not a protocol guarantee. Prefer bearer
+    // auth explicitly because agentrouter routes it differently from
+    // x-api-key; choosing whichever header happens to be visited first can
+    // silently put the request into its `default` group.
+    let inbound_auth_header = if inbound_headers.contains_key(header::AUTHORIZATION) {
+        Some("authorization")
+    } else if inbound_headers.contains_key("x-api-key") {
+        Some("x-api-key")
+    } else if inbound_headers.contains_key("x-goog-api-key") {
+        Some("x-goog-api-key")
+    } else {
+        None
+    };
+
     for (name, value) in inbound_headers {
         let key = name.as_str();
 
@@ -546,10 +760,6 @@ fn forward_headers(
             || key.eq_ignore_ascii_case("x-api-key")
             || key.eq_ignore_ascii_case("x-goog-api-key")
         {
-            if !saw_auth {
-                saw_auth = true;
-                request = apply_auth(request, upstream);
-            }
             continue;
         }
 
@@ -560,22 +770,28 @@ fn forward_headers(
             continue;
         }
 
+        // The gateway deliberately sets `Accept-Encoding: identity` for
+        // Anthropic passthrough. Do not forward the client's gzip/br value as
+        // a second header, otherwise the relay may still select Brotli and
+        // the downstream JSON/SSE contract becomes undecodable.
+        if key.eq_ignore_ascii_case("accept-encoding") {
+            continue;
+        }
+
         // On the impersonation path, drop the caller's own fingerprint headers;
         // canonical values are injected below.
-        if upstream.impersonate && is_client_fingerprint_header(&key.to_ascii_lowercase()) {
+        if should_impersonate && is_client_fingerprint_header(&key.to_ascii_lowercase()) {
             continue;
         }
 
         request = request.header(name.clone(), value.clone());
     }
 
-    if upstream.impersonate {
+    if should_impersonate {
         request = inject_canonical_fingerprint(request, inbound_headers, protocol);
     }
 
-    if !saw_auth {
-        request = apply_auth(request, upstream);
-    }
+    request = apply_auth(request, upstream, inbound_auth_header);
     if upstream.kind == UpstreamKind::Anthropic
         && inbound_headers.get("anthropic-version").is_none()
     {
@@ -691,7 +907,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn build_upstream_url_matches_cc_switch_rules() {
+    fn build_upstream_url_handles_versioned_and_custom_bases() {
         // Bare origin gains /v1.
         assert_eq!(
             build_upstream_url("https://relay.example", "/chat/completions"),
@@ -711,6 +927,22 @@ mod tests {
         assert_eq!(
             build_upstream_url("https://relay.example/openai", "/chat/completions"),
             "https://relay.example/openai/chat/completions"
+        );
+    }
+
+    #[test]
+    fn strips_claude_code_one_m_marker_before_upstream() {
+        assert_eq!(
+            strip_one_m_model_marker("claude-opus-4-8[1m]"),
+            "claude-opus-4-8"
+        );
+        assert_eq!(
+            strip_one_m_model_marker("claude-opus-4-8[1M]"),
+            "claude-opus-4-8"
+        );
+        assert_eq!(
+            strip_one_m_model_marker("claude-opus-4-8"),
+            "claude-opus-4-8"
         );
     }
 
@@ -898,7 +1130,10 @@ mod tests {
                     "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
                     "data: [DONE]\n\n",
                 );
-                ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], body)
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    body,
+                )
             }),
         );
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
@@ -1093,9 +1328,176 @@ mod tests {
         assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
         assert_eq!(got.get("session_id").unwrap(), "abc-123");
         // Auth is replaced with the real relay key.
-        assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
+        assert_eq!(
+            got.get("authorization").unwrap(),
+            "Bearer sk-real-relay-key"
+        );
         // Tracing header dropped.
         assert!(got.get("x-amzn-trace-id").is_none());
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn anthropic_passthrough_preserves_bearer_auth_shape() {
+        // NeuraDock configures Claude Code with ANTHROPIC_AUTH_TOKEN, which
+        // makes it send Authorization: Bearer. Relays may route that
+        // differently from x-api-key, so the gateway must replace the token
+        // without changing the header shape.
+        use axum::http::HeaderMap;
+        let seen = Arc::new(tokio::sync::Mutex::new(None::<HeaderMap>));
+        let seen_clone = seen.clone();
+        let app = Router::new().route(
+            "/v1/messages",
+            post(move |headers: HeaderMap| {
+                let seen = seen_clone.clone();
+                async move {
+                    *seen.lock().await = Some(headers);
+                    Json(json!({
+                        "id": "msg_1",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{ "type": "text", "text": "pong" }],
+                        "model": "claude-opus-4-8[1m]",
+                        "stop_reason": "end_turn",
+                        "usage": { "input_tokens": 1, "output_tokens": 1 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut map = HashMap::new();
+        map.insert(
+            GatewayClient::ClaudeCode,
+            GatewayUpstream {
+                base_url: format!("http://{}", addr),
+                api_key: "relay-secret".to_string(),
+                kind: UpstreamKind::Anthropic,
+                model: Some("claude-opus-4-8[1m]".to_string()),
+                impersonate: true,
+            },
+        );
+        let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
+
+        let response: Value = reqwest::Client::new()
+            .post(format!("{}/v1/messages", gateway.base_url()))
+            .header("authorization", "Bearer local-placeholder")
+            // A stale shell-level API key may coexist with AUTH_TOKEN. Bearer
+            // must win regardless of HeaderMap iteration order.
+            .header("x-api-key", "stale-local-api-key")
+            .header("anthropic-version", "2023-06-01")
+            .header("user-agent", "claude-cli/9.9.9 (external, cli)")
+            .header("x-stainless-runtime", "node")
+            .header(
+                "anthropic-beta",
+                "claude-code-20250219,context-1m-2025-08-07",
+            )
+            .json(&json!({
+                "model": "claude-placeholder",
+                "max_tokens": 16,
+                "messages": [{ "role": "user", "content": "ping" }]
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        let got = seen.lock().await.clone().unwrap();
+        assert_eq!(got.get("authorization").unwrap(), "Bearer relay-secret");
+        assert!(got.get("x-api-key").is_none());
+        assert_eq!(
+            got.get("user-agent").unwrap(),
+            "claude-cli/9.9.9 (external, cli)"
+        );
+        assert_eq!(got.get("x-stainless-runtime").unwrap(), "node");
+        assert_eq!(
+            got.get("anthropic-beta").unwrap(),
+            "claude-code-20250219,context-1m-2025-08-07"
+        );
+        assert_eq!(response["model"], "claude-opus-4-8[1m]");
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn anthropic_non_stream_json_is_buffered_and_normalized() {
+        // Some Anthropic-compatible relays return valid JSON as text/plain.
+        // Claude Code expects a normal non-stream JSON response rather than a
+        // chunked passthrough body with the relay's incorrect media type.
+        let app = Router::new().route(
+            "/v1/messages",
+            post(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+                    format!(
+                        "0:{}",
+                        json!({
+                            "billing": { "source": "request" },
+                            "id": "msg_1",
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{ "type": "text", "text": "pong" }],
+                            "model": "claude-opus-4-8",
+                            "stop_reason": "end_turn",
+                            "usage": { "input_tokens": 1, "output_tokens": 1 }
+                        })
+                    ),
+                )
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut map = HashMap::new();
+        map.insert(
+            GatewayClient::ClaudeCode,
+            GatewayUpstream {
+                base_url: format!("http://{}", addr),
+                api_key: "relay-secret".to_string(),
+                kind: UpstreamKind::Anthropic,
+                model: Some("claude-opus-4-8[1m]".to_string()),
+                impersonate: false,
+            },
+        );
+        let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
+
+        let response = reqwest::Client::new()
+            .post(format!("{}/v1/messages", gateway.base_url()))
+            .header("authorization", "Bearer placeholder")
+            .json(&json!({
+                "model": "claude-opus-4-8",
+                "max_tokens": 16,
+                "stream": false,
+                "messages": [{ "role": "user", "content": "ping" }]
+            }))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("application/json")
+        );
+        assert!(response.content_length().is_some());
+        let body: Value = response.json().await.unwrap();
+        assert_eq!(body["content"][0]["text"], "pong");
 
         gateway.shutdown().await;
     }
@@ -1154,7 +1556,10 @@ mod tests {
         let got = seen.lock().await.clone().unwrap();
         assert_eq!(got.get("user-agent").unwrap(), "codex_cli_rs/1.0.0");
         assert_eq!(got.get("originator").unwrap(), "codex_cli_rs");
-        assert_eq!(got.get("authorization").unwrap(), "Bearer sk-real-relay-key");
+        assert_eq!(
+            got.get("authorization").unwrap(),
+            "Bearer sk-real-relay-key"
+        );
 
         gateway.shutdown().await;
     }

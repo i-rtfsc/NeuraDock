@@ -13,6 +13,7 @@ impl ClaudeConfigService {
         Self
     }
 
+    /// Model id sent by Claude Code when the 1M context variant is selected.
     /// Configure Claude Code globally by writing to ~/.claude/settings.json
     /// This properly merges with existing configuration
     pub fn configure_global(

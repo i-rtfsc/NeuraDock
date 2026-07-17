@@ -34,6 +34,22 @@ pub enum AccessMethodDto {
     Gateway,
 }
 
+/// Structured reference to the configured key. This intentionally contains no
+/// secret material; it only carries enough identity to restore the editor.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AgentAccessSourceDto {
+    AccountToken {
+        account_id: String,
+        provider_id: String,
+        token_id: i64,
+        base_url: Option<String>,
+    },
+    IndependentKey {
+        key_id: i64,
+    },
+}
+
 /// One agent's current access record. `upstream_kind` / `impersonate` only
 /// apply to the gateway method.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -45,6 +61,12 @@ pub struct AgentAccessDto {
     pub model: Option<String>,
     pub upstream_kind: Option<String>,
     pub impersonate: Option<bool>,
+    /// Added after the first access-record format shipped. Old records remain
+    /// readable and simply require the user to select the key once more.
+    #[serde(default)]
+    pub source: Option<AgentAccessSourceDto>,
+    #[serde(default)]
+    pub context1m: Option<bool>,
 }
 
 /// In-memory cache of access records, mirrored to disk.
@@ -55,7 +77,10 @@ pub struct AgentAccessState {
 
 impl AgentAccessState {
     fn path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
-        app.path().app_data_dir().ok().map(|d| d.join(ACCESS_FILENAME))
+        app.path()
+            .app_data_dir()
+            .ok()
+            .map(|d| d.join(ACCESS_FILENAME))
     }
 
     fn persist(&self, app: &tauri::AppHandle) {
@@ -138,4 +163,25 @@ pub async fn get_agent_access(
 
 fn list_records(state: &AgentAccessState) -> Vec<AgentAccessDto> {
     state.records.lock().unwrap().values().cloned().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_access_records_remain_deserializable() {
+        let json = r#"{
+            "agent": "codex",
+            "method": "direct",
+            "label": "Relay · Key",
+            "model": null,
+            "upstream_kind": null,
+            "impersonate": null
+        }"#;
+
+        let record: AgentAccessDto = serde_json::from_str(json).unwrap();
+        assert!(record.source.is_none());
+        assert!(record.context1m.is_none());
+    }
 }

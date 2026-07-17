@@ -208,11 +208,13 @@ async fn main() {
                     tauri::async_runtime::spawn(async move {
                         use presentation::commands::gateway::restore_gateway_bindings;
                         let gateway_state = restore_handle.state::<GatewayState>();
+                        let access = restore_handle.state::<AgentAccessState>();
                         let services = restore_handle.state::<Services>();
                         let repositories = restore_handle.state::<Repositories>();
                         restore_gateway_bindings(
                             &restore_handle,
                             &gateway_state,
+                            &access,
                             &services,
                             &repositories,
                         )
