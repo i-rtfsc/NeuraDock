@@ -10,24 +10,17 @@ import {
   Plus,
   Pencil,
   Unplug,
-  AlertTriangle,
-  CheckCircle2,
+  Code2,
+  Terminal,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { AgentAccessDrawer, type KeyOption } from './AgentAccessDrawer';
 import type { IndependentKeyDto } from '@/types/independentKey';
 import type { AccountDto, TokenDto } from '@/types/token';
 import { formatQuotaUSD } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 
 /** Agents the gateway can serve. Adding one is a single entry here. */
 export type AgentId = 'codex' | 'claude_code';
@@ -95,6 +88,93 @@ function useAgentAccess() {
     queryKey: AGENT_ACCESS_QUERY_KEY,
     queryFn: () => invoke<AgentAccess[]>('get_agent_access'),
   });
+}
+
+const AGENT_ICONS: Record<AgentId, typeof Code2> = {
+  codex: Code2,
+  claude_code: Terminal,
+};
+
+export function AgentSummarySelector({
+  selectedAgent,
+  onSelectAgent,
+  accessList,
+  keyOptions,
+}: {
+  selectedAgent: AgentId;
+  onSelectAgent: (agent: AgentId) => void;
+  accessList?: AgentAccess[];
+  keyOptions?: KeyOption[];
+}) {
+  const { t } = useTranslation();
+  const accessByAgent = useMemo(() => {
+    const map = new Map<AgentId, AgentAccess>();
+    accessList?.forEach((access) => map.set(access.agent, access));
+    return map;
+  }, [accessList]);
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+      {AGENTS.map((agent) => {
+        const Icon = AGENT_ICONS[agent.id];
+        const access = accessByAgent.get(agent.id);
+        const sourceOption = access?.source
+          ? keyOptions?.find((option) => {
+              if (access.source?.type !== option.source.type) return false;
+              if (access.source.type === 'account_token' && option.source.type === 'account_token') {
+                return access.source.account_id === option.source.account_id && access.source.token_id === option.source.token_id;
+              }
+              return access.source.type === 'independent_key' && option.source.type === 'independent_key' && access.source.key_id === option.source.key_id;
+            })
+          : undefined;
+        const active = agent.id === selectedAgent;
+        return (
+          <button
+            key={agent.id}
+            type="button"
+            onClick={() => onSelectAgent(agent.id)}
+            className={cn(
+              'min-w-[184px] rounded-xl border px-3 py-3 text-left transition-colors lg:min-w-0',
+              active
+                ? 'border-primary/55 bg-primary/5 ring-1 ring-primary/15'
+                : 'border-border/60 bg-background hover:border-primary/25 hover:bg-muted/25'
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <span className={cn('rounded-lg p-1.5', active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{agent.name}</span>
+              {access ? (
+                <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px] font-medium">
+                  {access.method === 'gateway'
+                    ? t('agentConfig.gatewayBadge', '网关')
+                    : t('agentConfig.directBadge', '直连')}
+                </Badge>
+              ) : (
+                <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/25" />
+              )}
+            </span>
+            <span className="mt-2 block truncate text-xs text-muted-foreground">
+              {access
+                ? sourceOption?.sourceGroup === 'independent'
+                  ? t('agentConfig.groupIndependent', '独立 API Key')
+                  : sourceOption?.providerName ?? access.label.split(' · ')[0]
+                : t('agentConfig.notConfiguredShort', '尚未配置')}
+            </span>
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="truncate font-mono">{access?.model ?? agent.configPath}</span>
+              {access?.context1m && (
+                <Badge variant="outline" className="h-4 shrink-0 px-1 text-[9px]">
+                  1M
+                </Badge>
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Every selectable key (relay account tokens + independent keys). */
@@ -260,6 +340,7 @@ function kindLabel(kind: string | null, t: ReturnType<typeof useTranslation>['t'
 function AccessStatusCard({
   agent,
   access,
+  sourceOption,
   running,
   onEdit,
   onRemove,
@@ -267,6 +348,7 @@ function AccessStatusCard({
 }: {
   agent: AgentDef;
   access?: AgentAccess;
+  sourceOption?: KeyOption;
   running: boolean;
   onEdit: () => void;
   onRemove: () => void;
@@ -277,107 +359,116 @@ function AccessStatusCard({
   // ① Not configured
   if (!access) {
     return (
-      <Card className="p-6 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold">
-            {t('agentConfig.notBoundTitle', '{{name}} 尚未接入任何 Key', { name: agent.name })}
-          </h3>
-          <Button size="sm" onClick={onEdit}>
-            <Plus className="h-3.5 w-3.5" />
-            {t('agentConfig.access', '接入 Key')}
-          </Button>
+      <div className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+          <Plus className="h-5 w-5" />
         </div>
-        <div className="h-px bg-border/50" />
-        <p className="text-xs text-muted-foreground">
+        <h3 className="mt-4 text-base font-semibold">
+          {t('agentConfig.notBoundTitle', '{{name}} 尚未接入任何 Key', { name: agent.name })}
+        </h3>
+        <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
           {t('agentConfig.notBoundHint', '选择一个 Key，可直接写入 {{path}}，或经本地网关适配。', {
             path: agent.configPath,
           })}
         </p>
-      </Card>
+        <Button className="mt-5" onClick={onEdit}>
+          <Plus className="h-4 w-4" />
+          {t('agentConfig.access', '接入 Key')}
+        </Button>
+      </div>
     );
   }
 
   const viaGateway = access.method === 'gateway';
+  const sourceTitle = sourceOption
+    ? sourceOption.sourceGroup === 'relay'
+      ? sourceOption.providerName
+      : t('agentConfig.groupIndependent', '独立 API Key')
+    : access.label;
+  const sourceDetail = sourceOption
+    ? sourceOption.sourceGroup === 'relay'
+      ? [sourceOption.accountName, sourceOption.label].filter(Boolean).join(' / ')
+      : sourceOption.label
+    : access.label;
 
   return (
-    <Card className="p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm font-semibold">
-            {viaGateway
-              ? t('agentConfig.boundGateway', '已接入（经网关）')
-              : t('agentConfig.boundDirect', '已接入（直接写入）')}
-          </h3>
-        </div>
-        <div className="flex gap-1 shrink-0">
+    <div className="space-y-4">
+      <section className="card-vivid cursor-default space-y-3 rounded-xl p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold">{t('agentConfig.sourceSectionTitle', '接入来源')}</h3>
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5" />
             {t('agentConfig.edit', '编辑')}
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onRemove}>
-            <Unplug className="h-3.5 w-3.5" />
-            {t('agentConfig.remove', '解除')}
-          </Button>
         </div>
-      </div>
+        <div className="rounded-lg bg-muted/25 px-3 py-3">
+          <p className="truncate text-sm font-semibold">{sourceTitle}</p>
+          <p className="mt-1 truncate text-sm text-muted-foreground">{sourceDetail}</p>
+        </div>
+      </section>
 
-      <div className="h-px bg-border/50" />
-
-      <dl className="grid grid-cols-[56px_1fr] gap-y-2 gap-x-3 text-sm">
-        <dt className="text-muted-foreground">{t('agentConfig.rowKey', 'Key')}</dt>
-        <dd className="font-medium truncate">{access.label}</dd>
-        <dt className="text-muted-foreground">{t('agentConfig.rowMethod', '方式')}</dt>
-        <dd>
-          {viaGateway
-            ? t('agentConfig.methodGatewayShort', '经本地网关')
-            : t('agentConfig.methodDirectShort', '直接写入 {{path}}', { path: agent.configPath })}
-        </dd>
-        {access.model && (
-          <>
-            <dt className="text-muted-foreground">{t('agentConfig.rowModel', '模型')}</dt>
-            <dd className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-mono text-xs">{access.model}</span>
+      <section className="card-vivid cursor-default space-y-3 rounded-xl p-4 sm:p-5">
+        <h3 className="text-sm font-semibold">{t('agentConfig.runtimeSectionTitle', '运行配置')}</h3>
+        <dl className="grid gap-2 text-sm">
+          <DetailRow label={t('agentConfig.rowModel', '模型')}>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-mono text-xs">{access.model ?? '—'}</span>
               {access.context1m && (
-                <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
-                  1M
-                </Badge>
+                <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">1M</Badge>
               )}
-            </dd>
-          </>
-        )}
-        {viaGateway && (
-          <>
-            <dt className="text-muted-foreground">{t('agentConfig.rowUpstream', '上游')}</dt>
-            <dd>{kindLabel(access.upstream_kind, t)}</dd>
-            <dt className="text-muted-foreground">{t('agentConfig.rowImpersonate', '伪装')}</dt>
-            <dd>
-              {access.impersonate
-                ? t('agentConfig.impersonateOn', '已伪装为 {{name}}', { name: agent.name })
-                : t('agentConfig.impersonateOff', '不伪装')}
-            </dd>
-          </>
-        )}
-      </dl>
+            </span>
+          </DetailRow>
+          <DetailRow label={t('agentConfig.rowMethod', '方式')}>
+            {viaGateway
+              ? t('agentConfig.methodGatewayShort', '经本地网关')
+              : t('agentConfig.methodDirectShort', '直接写入 {{path}}', { path: agent.configPath })}
+          </DetailRow>
+          {viaGateway && (
+            <>
+              <DetailRow label={t('agentConfig.rowUpstream', '上游')}>
+                {kindLabel(access.upstream_kind, t)}
+              </DetailRow>
+              <DetailRow label={t('agentConfig.rowCompatibility', '客户端兼容')}>
+                {access.impersonate
+                  ? t('agentConfig.impersonateOn', '已伪装为 {{name}}', { name: agent.name })
+                  : t('agentConfig.impersonateOff', '不伪装')}
+              </DetailRow>
+            </>
+          )}
+          <DetailRow label={t('agentConfig.gatewayLabel', '网关')}>
+            <span className="flex items-center gap-2">
+              <span className={cn('h-2 w-2 rounded-full', viaGateway && running ? 'bg-success' : 'bg-muted-foreground/30')} />
+              {viaGateway
+                ? running
+                  ? t('agentConfig.running', '运行中')
+                  : t('agentConfig.stopped', '已停止')
+                : t('agentConfig.notApplicable', '不适用')}
+              {viaGateway && !running && (
+                <Button size="sm" variant="ghost" className="ml-1 h-7 px-2" onClick={onStartGateway}>
+                  {t('agentConfig.startNow', '立即启动')}
+                </Button>
+              )}
+            </span>
+          </DetailRow>
+        </dl>
+      </section>
 
-      {viaGateway ? (
-        running ? (
-          <div className="flex items-center gap-2 rounded-lg bg-success-soft/40 border border-success-border px-3 py-2 text-xs text-success">
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-            {t('agentConfig.effective', '已生效，请求经网关转发')}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-lg bg-warning-soft/40 border border-warning-border px-3 py-2 text-xs text-warning">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1">{t('agentConfig.notRunningWarn', '网关未启动 —— 启动后接入才生效')}</span>
-            <Button size="sm" variant="outline" className="h-6 px-2" onClick={onStartGateway}>
-              {t('agentConfig.startNow', '立即启动')}
-            </Button>
-          </div>
-        )
-      ) : (
-        <p className="text-xs text-muted-foreground">{t('agentConfig.directNote', '不经网关，无需启动网关。')}</p>
-      )}
-    </Card>
+      <div className="flex justify-end px-1 pt-1">
+        <Button variant="destructive" size="sm" onClick={onRemove}>
+          <Unplug className="h-3.5 w-3.5" />
+          {t('agentConfig.remove', '解除接入')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid min-h-11 grid-cols-[88px_minmax(0,1fr)] items-center gap-4 rounded-lg bg-muted/20 px-3 py-2.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">{children}</dd>
+    </div>
   );
 }
 
@@ -386,49 +477,27 @@ function AccessStatusCard({
  * header's `actions` slot, so it sits on the same bar as the page title. Shares
  * the same react-query caches as the body, so no extra fetches.
  */
-export function AgentConfigHeaderControls({
+export function AgentConfigHeaderControls() {
+  const { data: status } = useGatewayStatus();
+  const { data: accessList } = useAgentAccess();
+
+  // The gateway server is only useful when some agent is bound via gateway.
+  const anyGatewayAccess = (accessList ?? []).some((a) => a.method === 'gateway');
+
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <GatewayControl status={status} disabled={!anyGatewayAccess} />
+    </div>
+  );
+}
+
+export function AgentConfigGateway({
   selectedAgent,
   onSelectAgent,
 }: {
   selectedAgent: AgentId;
   onSelectAgent: (agent: AgentId) => void;
 }) {
-  const { data: status } = useGatewayStatus();
-  const { data: accessList } = useAgentAccess();
-
-  const accessByAgent = useMemo(() => {
-    const map = new Map<AgentId, AgentAccess>();
-    accessList?.forEach((a) => map.set(a.agent, a));
-    return map;
-  }, [accessList]);
-
-  // The gateway server is only useful when some agent is bound via gateway.
-  const anyGatewayAccess = (accessList ?? []).some((a) => a.method === 'gateway');
-
-  return (
-    <div className="flex items-center gap-3 min-w-0">
-      <GatewayControl status={status} disabled={!anyGatewayAccess} />
-      <div className="w-px h-6 bg-border shrink-0" />
-      <Select value={selectedAgent} onValueChange={(v) => onSelectAgent(v as AgentId)}>
-        <SelectTrigger className="h-9 w-44 shrink-0">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AGENTS.map((a) => (
-            <SelectItem key={a.id} value={a.id}>
-              <span className="flex items-center gap-2">
-                {a.name}
-                {accessByAgent.has(a.id) && <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-export function AgentConfigGateway({ selectedAgent }: { selectedAgent: AgentId }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: status } = useGatewayStatus();
@@ -444,6 +513,23 @@ export function AgentConfigGateway({ selectedAgent }: { selectedAgent: AgentId }
     return map;
   }, [accessList]);
   const access = accessByAgent.get(selectedAgent);
+  const sourceOption = useMemo(() => {
+    if (!access?.source) return undefined;
+    return keyOptions.find((option) => {
+      if (access.source?.type !== option.source.type) return false;
+      if (access.source.type === 'account_token' && option.source.type === 'account_token') {
+        return (
+          access.source.account_id === option.source.account_id &&
+          access.source.token_id === option.source.token_id
+        );
+      }
+      return (
+        access.source.type === 'independent_key' &&
+        option.source.type === 'independent_key' &&
+        access.source.key_id === option.source.key_id
+      );
+    });
+  }, [access, keyOptions]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: GATEWAY_STATUS_QUERY_KEY });
@@ -477,15 +563,59 @@ export function AgentConfigGateway({ selectedAgent }: { selectedAgent: AgentId }
   };
 
   return (
-    <div className="space-y-5">
-      <AccessStatusCard
-        agent={agent}
-        access={access}
-        running={status?.running ?? false}
-        onEdit={() => setDrawerOpen(true)}
-        onRemove={remove}
-        onStartGateway={startGateway}
-      />
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <Badge variant="soft-primary" className="h-6 rounded-md px-2 text-[10px] font-bold tracking-wider">
+          {t('agentConfig.agentListTitle', 'Agents')}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {t('agentConfig.agentListHint', '选择 Agent 查看当前接入状态')}
+        </span>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="card-vivid cursor-default rounded-xl p-2">
+          <div className="mb-3 px-1">
+            <p className="text-xs font-medium text-muted-foreground">
+              {t('agentConfig.agentListTitle', 'Agents')}
+            </p>
+          </div>
+          <AgentSummarySelector
+            selectedAgent={selectedAgent}
+            onSelectAgent={onSelectAgent}
+            accessList={accessList}
+            keyOptions={keyOptions}
+          />
+        </aside>
+
+        <section className="min-w-0 space-y-4">
+          <header className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-semibold">{agent.name}</h2>
+              <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                {agent.configPath}
+              </p>
+            </div>
+            <Badge variant={access ? 'secondary' : 'outline'}>
+              {access
+                ? access.method === 'gateway'
+                  ? t('agentConfig.boundGateway', '已接入（经网关）')
+                  : t('agentConfig.boundDirect', '已接入（直接写入）')
+                : t('agentConfig.notConfiguredShort', '尚未配置')}
+            </Badge>
+          </header>
+
+          <AccessStatusCard
+            agent={agent}
+            access={access}
+            sourceOption={sourceOption}
+            running={status?.running ?? false}
+            onEdit={() => setDrawerOpen(true)}
+            onRemove={remove}
+            onStartGateway={startGateway}
+          />
+        </section>
+      </div>
 
       <AgentAccessDrawer
         open={drawerOpen}

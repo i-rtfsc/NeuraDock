@@ -24,17 +24,11 @@ export function AgentConfigPage() {
         </span>
       }
       actions={
-        <AgentConfigHeaderControls selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} />
+        <AgentConfigHeaderControls />
       }
     >
       <PageContent maxWidth="lg" className="page-enter-stagger pb-8">
-        <p className="text-sm text-muted-foreground mb-5">
-          {t(
-            'agentConfig.pageDescription',
-            '给 Codex / Claude Code 等 Agent 配置中转站 Key。原生协议直接透传，只支持 chat 的中转站经本地网关适配；可伪装为标准客户端以通过中转站校验。'
-          )}
-        </p>
-        <AgentConfigGateway selectedAgent={selectedAgent} />
+        <AgentConfigGateway selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} />
       </PageContent>
     </PageContainer>
   );
