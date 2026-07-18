@@ -1,5 +1,5 @@
 //! Gateway takeover: snapshot a tool's live config, point it at the local
-//! gateway with a placeholder key, and restore the snapshot afterwards.
+//! gateway with a process-local credential, and restore the snapshot afterwards.
 //!
 //! The real relay key never reaches the tool's config file while the gateway
 //! is on, and stopping the gateway (or
@@ -13,10 +13,6 @@ use std::path::{Path, PathBuf};
 use super::{ClaudeConfigService, CodexConfigService};
 use neuradock_infrastructure::fs_safe::atomic_write;
 use neuradock_infrastructure::gateway::GatewayClient;
-
-/// Placeholder key written into tool configs during takeover; the real key
-/// only lives inside the gateway process.
-pub(crate) const GATEWAY_PLACEHOLDER_KEY: &str = "sk-neuradock-gateway";
 
 const STATE_FILENAME: &str = "gateway_takeover.json";
 const SNAPSHOT_DIR: &str = "gateway_takeover";
@@ -46,6 +42,12 @@ struct SnapshotFile {
     private: bool,
 }
 
+struct LiveFileState {
+    path: PathBuf,
+    content: Option<String>,
+    private: bool,
+}
+
 /// Manages takeover snapshots under the app data directory.
 pub struct GatewayTakeover {
     state_path: PathBuf,
@@ -72,19 +74,26 @@ impl GatewayTakeover {
     }
 
     /// Take over `client`'s tool config: snapshot the live files, then write a
-    /// config pointing at `gateway_base_url` with a placeholder key.
+    /// config pointing at `gateway_base_url` with the current local credential.
     pub fn take_over(
         &self,
         client: GatewayClient,
         gateway_base_url: &str,
+        local_credential: &str,
         model: Option<&str>,
         context_1m: bool,
     ) -> Result<()> {
         let mut state = self.load_state();
         if self.client_snapshot(&state, client).is_some() {
-            // Already taken over: just refresh the placeholder config so a
+            // Already taken over: just refresh the managed config so a
             // new port or binding lands in the tool config.
-            self.write_placeholder(client, gateway_base_url, model, context_1m)?;
+            self.write_gateway_config(
+                client,
+                gateway_base_url,
+                local_credential,
+                model,
+                context_1m,
+            )?;
             return Ok(());
         }
 
@@ -92,7 +101,20 @@ impl GatewayTakeover {
         *self.client_snapshot_mut(&mut state, client) = Some(snapshot);
         self.save_state(&state)?;
 
-        self.write_placeholder(client, gateway_base_url, model, context_1m)?;
+        if let Err(write_error) = self.write_gateway_config(
+            client,
+            gateway_base_url,
+            local_credential,
+            model,
+            context_1m,
+        ) {
+            if let Err(restore_error) = self.restore(client) {
+                return Err(write_error.context(format!(
+                    "Gateway config rollback also failed: {restore_error}"
+                )));
+            }
+            return Err(write_error);
+        }
         log::info!(
             "Gateway takeover active for {} -> {}",
             client.display_name(),
@@ -107,20 +129,28 @@ impl GatewayTakeover {
         let Some(snapshot) = self.client_snapshot_mut(&mut state, client).take() else {
             return Ok(());
         };
-
-        for file in &snapshot.files {
-            match &file.snapshot_name {
-                Some(name) => {
-                    let content = fs::read_to_string(self.snapshot_dir.join(name))
-                        .with_context(|| format!("Failed to read snapshot {}", name))?;
-                    atomic_write(&file.live_path, &content, file.private)?;
-                    let _ = fs::remove_file(self.snapshot_dir.join(name));
-                }
-                None => {
-                    // The file did not exist before takeover.
-                    let _ = fs::remove_file(&file.live_path);
+        let live_state = self.capture_snapshot_targets(&snapshot)?;
+        let restore_result = (|| -> Result<()> {
+            for file in &snapshot.files {
+                match &file.snapshot_name {
+                    Some(name) => {
+                        let content = fs::read_to_string(self.snapshot_dir.join(name))
+                            .with_context(|| format!("Failed to read snapshot {}", name))?;
+                        atomic_write(&file.live_path, &content, file.private)?;
+                    }
+                    None => match fs::remove_file(&file.live_path) {
+                        Ok(()) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(error.into()),
+                    },
                 }
             }
+            Ok(())
+        })();
+        if let Err(error) = restore_result {
+            self.restore_live_files(&live_state)
+                .context("Failed to roll back an incomplete gateway restore")?;
+            return Err(error);
         }
 
         self.save_state(&state)?;
@@ -173,29 +203,90 @@ impl GatewayTakeover {
         Ok(ClientSnapshot { files })
     }
 
-    fn write_placeholder(
+    fn write_gateway_config(
         &self,
         client: GatewayClient,
         gateway_base_url: &str,
+        local_credential: &str,
         model: Option<&str>,
         context_1m: bool,
     ) -> Result<()> {
-        match client {
+        let live_state = self.capture_live_files(client)?;
+        let result = match client {
+            GatewayClient::Codex => CodexConfigService::new().configure_global_with_key(
+                local_credential,
+                gateway_base_url,
+                model,
+                context_1m,
+            ),
+            GatewayClient::ClaudeCode => ClaudeConfigService::new().configure_global_with_key(
+                local_credential,
+                gateway_base_url,
+                model,
+                context_1m,
+            ),
+        };
+        if let Err(error) = result {
+            self.restore_live_files(&live_state)
+                .with_context(|| format!("Failed to roll back {} config", client.display_name()))?;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn capture_live_files(&self, client: GatewayClient) -> Result<Vec<LiveFileState>> {
+        let targets = match client {
             GatewayClient::Codex => {
-                CodexConfigService::new().configure_global_with_key(
-                    GATEWAY_PLACEHOLDER_KEY,
-                    gateway_base_url,
-                    model,
-                    context_1m,
-                )?;
+                let (config, auth) = CodexConfigService::managed_paths()?;
+                vec![(config, false), (auth, true)]
             }
             GatewayClient::ClaudeCode => {
-                ClaudeConfigService::new().configure_global_with_key(
-                    GATEWAY_PLACEHOLDER_KEY,
-                    gateway_base_url,
-                    model,
-                    context_1m,
-                )?;
+                vec![(ClaudeConfigService::managed_path()?, true)]
+            }
+        };
+        self.capture_targets(targets)
+    }
+
+    fn capture_snapshot_targets(&self, snapshot: &ClientSnapshot) -> Result<Vec<LiveFileState>> {
+        self.capture_targets(
+            snapshot
+                .files
+                .iter()
+                .map(|file| (file.live_path.clone(), file.private))
+                .collect(),
+        )
+    }
+
+    fn capture_targets(&self, targets: Vec<(PathBuf, bool)>) -> Result<Vec<LiveFileState>> {
+        targets
+            .into_iter()
+            .map(|(path, private)| {
+                let content = if path.exists() {
+                    Some(
+                        fs::read_to_string(&path)
+                            .with_context(|| format!("Failed to read {}", path.display()))?,
+                    )
+                } else {
+                    None
+                };
+                Ok(LiveFileState {
+                    path,
+                    content,
+                    private,
+                })
+            })
+            .collect()
+    }
+
+    fn restore_live_files(&self, files: &[LiveFileState]) -> Result<()> {
+        for file in files {
+            match &file.content {
+                Some(content) => atomic_write(&file.path, content, file.private)?,
+                None => match fs::remove_file(&file.path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.into()),
+                },
             }
         }
         Ok(())
@@ -323,5 +414,44 @@ mod tests {
 
         assert_eq!(fs::read_to_string(&live).unwrap(), "original");
         assert!(!takeover.has_stale_takeover());
+    }
+
+    #[test]
+    fn incomplete_restore_rolls_live_files_back_and_keeps_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let takeover = GatewayTakeover::new(dir.path());
+        fs::create_dir_all(&takeover.snapshot_dir).unwrap();
+
+        let config = dir.path().join("config.toml");
+        let auth = dir.path().join("auth.json");
+        fs::write(&config, "gateway-config").unwrap();
+        fs::write(&auth, "gateway-auth").unwrap();
+        fs::write(
+            takeover.snapshot_dir.join("config.snapshot"),
+            "original-config",
+        )
+        .unwrap();
+
+        let mut state = TakeoverState::default();
+        state.codex = Some(ClientSnapshot {
+            files: vec![
+                SnapshotFile {
+                    live_path: config.clone(),
+                    snapshot_name: Some("config.snapshot".to_string()),
+                    private: false,
+                },
+                SnapshotFile {
+                    live_path: auth.clone(),
+                    snapshot_name: Some("missing.snapshot".to_string()),
+                    private: true,
+                },
+            ],
+        });
+        takeover.save_state(&state).unwrap();
+
+        assert!(takeover.restore(GatewayClient::Codex).is_err());
+        assert_eq!(fs::read_to_string(config).unwrap(), "gateway-config");
+        assert_eq!(fs::read_to_string(auth).unwrap(), "gateway-auth");
+        assert!(takeover.has_stale_takeover());
     }
 }

@@ -10,6 +10,8 @@ import {
   Plus,
   Pencil,
   Unplug,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +80,10 @@ export interface GatewayUpstreamStatus {
   cache_read_tokens: number;
   cache_creation_tokens: number;
   average_latency_ms: number;
+  average_first_event_latency_ms: number;
+  last_error: string | null;
+  last_error_at_ms: number | null;
+  recovery_at_ms: number | null;
 }
 
 export interface GatewayStatus {
@@ -300,6 +306,8 @@ function AccessStatusCard({
   onEdit,
   onRemove,
   onStartGateway,
+  onRecoverRequests,
+  onClearStatistics,
 }: {
   agent: AgentDef;
   access?: AgentAccess;
@@ -310,6 +318,8 @@ function AccessStatusCard({
   onEdit: () => void;
   onRemove: () => void;
   onStartGateway: () => void;
+  onRecoverRequests: () => void;
+  onClearStatistics: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -515,13 +525,36 @@ function AccessStatusCard({
                     : t('agentConfig.directStatsUnavailable')}
                 </p>
               </div>
-              {!hasRequestData && (
-                <Badge variant="outline" className="shrink-0 px-1.5 text-[9px] font-medium">
-                  {viaGateway
-                    ? t('agentConfig.noRequestData')
-                    : t('agentConfig.notApplicable', '不适用')}
-                </Badge>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                {viaGateway && upstream?.circuit_state !== 'closed' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={onRecoverRequests}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t('agentConfig.recoverRequests')}
+                  </Button>
+                )}
+                {viaGateway && hasRequestData && (
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    title={t('agentConfig.clearStatistics')}
+                    onClick={onClearStatistics}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {!hasRequestData && (
+                  <Badge variant="outline" className="px-1.5 text-[9px] font-medium">
+                    {viaGateway
+                      ? t('agentConfig.noRequestData')
+                      : t('agentConfig.notApplicable', '不适用')}
+                  </Badge>
+                )}
+              </div>
             </div>
             <dl className="grid grid-cols-2 gap-1.5 text-xs">
               <ReliabilityMetric
@@ -552,7 +585,35 @@ function AccessStatusCard({
                     : '—'
                 }
               />
+              <ReliabilityMetric
+                label={t('agentConfig.firstTokenLatency')}
+                value={
+                  upstream?.average_first_event_latency_ms
+                    ? String(upstream.average_first_event_latency_ms) + ' ms'
+                    : '—'
+                }
+              />
             </dl>
+            {viaGateway && upstream?.last_error && (
+              <div className="mt-2 rounded-md bg-destructive/5 px-2 py-1.5 text-[10px] text-muted-foreground">
+                <span className="font-medium text-destructive">
+                  {t('agentConfig.lastError')}：
+                </span>
+                <span className="ml-1">{upstream.last_error}</span>
+                {upstream.last_error_at_ms && (
+                  <span className="ml-1 opacity-70">
+                    · {new Date(upstream.last_error_at_ms).toLocaleString()}
+                  </span>
+                )}
+                {upstream.recovery_at_ms && (
+                  <span className="ml-1 opacity-70">
+                    · {t('agentConfig.recoveryAt', {
+                      time: new Date(upstream.recovery_at_ms).toLocaleTimeString(),
+                    })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -717,6 +778,26 @@ export function AgentConfigGateway({
     }
   };
 
+  const recoverRequests = async () => {
+    try {
+      await invoke('recover_gateway_requests', { client: selectedAgent });
+      toast.success(t('agentConfig.requestsRecovered'));
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  };
+
+  const clearStatistics = async () => {
+    try {
+      await invoke('clear_gateway_statistics', { client: selectedAgent });
+      toast.success(t('agentConfig.statisticsCleared'));
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <AccessStatusCard
@@ -729,6 +810,8 @@ export function AgentConfigGateway({
         onEdit={() => setDrawerOpen(true)}
         onRemove={remove}
         onStartGateway={startGateway}
+        onRecoverRequests={recoverRequests}
+        onClearStatistics={clearStatistics}
       />
 
       <AgentAccessDrawer

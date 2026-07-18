@@ -10,14 +10,13 @@ use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
 use neuradock_domain::shared::{AccountId, ProviderId};
+use neuradock_infrastructure::fs_safe::atomic_write;
 use neuradock_infrastructure::gateway::{
     start_gateway_with_runtime, CircuitState, GatewayBindings, GatewayClient, GatewayHandle,
     GatewayRuntime, GatewayUpstream, UpstreamKind,
 };
 
-use crate::application::services::{
-    ClaudeConfigService, CodexConfigService, GatewayTakeover, GATEWAY_PLACEHOLDER_KEY,
-};
+use crate::application::services::{ClaudeConfigService, CodexConfigService, GatewayTakeover};
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
@@ -30,6 +29,8 @@ pub struct GatewayState {
     meta: Mutex<HashMap<GatewayClient, BindingMeta>>,
     server: Mutex<Option<GatewayHandle>>,
     runtime: Arc<GatewayRuntime>,
+    codex_operation: Mutex<()>,
+    claude_operation: Mutex<()>,
 }
 
 impl Default for GatewayState {
@@ -39,6 +40,17 @@ impl Default for GatewayState {
             meta: Mutex::new(HashMap::new()),
             server: Mutex::new(None),
             runtime: GatewayRuntime::shared(),
+            codex_operation: Mutex::new(()),
+            claude_operation: Mutex::new(()),
+        }
+    }
+}
+
+impl GatewayState {
+    fn operation_lock(&self, client: GatewayClient) -> &Mutex<()> {
+        match client {
+            GatewayClient::Codex => &self.codex_operation,
+            GatewayClient::ClaudeCode => &self.claude_operation,
         }
     }
 }
@@ -231,6 +243,10 @@ pub struct GatewayUpstreamStatusDto {
     pub cache_read_tokens: u64,
     pub cache_creation_tokens: u64,
     pub average_latency_ms: u64,
+    pub average_first_event_latency_ms: u64,
+    pub last_error: Option<String>,
+    pub last_error_at_ms: Option<u64>,
+    pub recovery_at_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -441,6 +457,10 @@ async fn status_of(state: &GatewayState) -> GatewayStatusDto {
                 cache_read_tokens: snapshot.usage.cache_read_tokens,
                 cache_creation_tokens: snapshot.usage.cache_creation_tokens,
                 average_latency_ms: snapshot.average_latency_ms,
+                average_first_event_latency_ms: snapshot.average_first_event_latency_ms,
+                last_error: snapshot.last_error,
+                last_error_at_ms: snapshot.last_error_at_ms,
+                recovery_at_ms: snapshot.recovery_at_ms,
             })
         } else {
             None
@@ -775,6 +795,7 @@ fn fingerprint_from_preview(
 async fn expected_fingerprint(
     record: &AgentAccessDto,
     gateway_base_url: Option<&str>,
+    gateway_credential: Option<&str>,
     services: &Services,
     repositories: &Repositories,
 ) -> Result<Option<AgentConfigFingerprint>, CommandError> {
@@ -782,12 +803,12 @@ async fn expected_fingerprint(
     let context1m = record.context1m.unwrap_or(false);
     let files = match record.method {
         AccessMethodDto::Gateway => {
-            let Some(base_url) = gateway_base_url else {
+            let (Some(base_url), Some(credential)) = (gateway_base_url, gateway_credential) else {
                 return Ok(None);
             };
             preview_with_key(
                 client,
-                GATEWAY_PLACEHOLDER_KEY,
+                credential,
                 base_url,
                 record.model.as_deref(),
                 context1m,
@@ -821,12 +842,12 @@ pub async fn get_agent_configuration_states(
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<Vec<AgentConfigurationStateDto>, CommandError> {
-    let gateway_base_url = state
+    let gateway = state
         .server
         .lock()
         .await
         .as_ref()
-        .map(|handle| handle.base_url());
+        .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
     let mut states = Vec::new();
 
     for agent in [AgentIdDto::Codex, AgentIdDto::ClaudeCode] {
@@ -836,7 +857,8 @@ pub async fn get_agent_configuration_states(
         let state_kind = if let Some(record) = record.as_ref() {
             match expected_fingerprint(
                 record,
-                gateway_base_url.as_deref(),
+                gateway.as_ref().map(|(base_url, _)| base_url.as_str()),
+                gateway.as_ref().map(|(_, credential)| credential.as_str()),
                 &services,
                 &repositories,
             )
@@ -894,22 +916,27 @@ pub async fn get_agent_config_preview(
     let gateway_client: GatewayClient = request.client.into();
     let takeover = takeover_for(&app)?;
     let takeover_active = takeover.is_active_for(gateway_client);
-    let gateway_base_url = state
+    let gateway = state
         .server
         .lock()
         .await
         .as_ref()
-        .map(|handle| handle.base_url());
-    let gateway_running = gateway_base_url.is_some();
+        .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
+    let gateway_running = gateway.is_some();
 
     let raw_files = match request.method {
         AccessMethodDto::Gateway => {
-            let preview_base_url = gateway_base_url
-                .as_deref()
+            let preview_base_url = gateway
+                .as_ref()
+                .map(|(base_url, _)| base_url.as_str())
                 .unwrap_or("http://127.0.0.1:<port>");
+            let preview_credential = gateway
+                .as_ref()
+                .map(|(_, credential)| credential.as_str())
+                .unwrap_or("ndg_preview_credential");
             preview_with_key(
                 request.client,
-                GATEWAY_PLACEHOLDER_KEY,
+                preview_credential,
                 preview_base_url,
                 request.model.as_deref(),
                 request.context_1m,
@@ -1140,6 +1167,65 @@ fn redact_json_value(value: &mut serde_json::Value) {
     }
 }
 
+async fn restore_binding_memory(
+    state: &GatewayState,
+    client: GatewayClient,
+    upstream: Option<GatewayUpstream>,
+    meta: Option<BindingMeta>,
+) {
+    let mut bindings = state.bindings.write().await;
+    match upstream {
+        Some(upstream) => {
+            bindings.insert(client, upstream);
+        }
+        None => {
+            bindings.remove(&client);
+        }
+    }
+    drop(bindings);
+
+    let mut metadata = state.meta.lock().await;
+    match meta {
+        Some(meta) => {
+            metadata.insert(client, meta);
+        }
+        None => {
+            metadata.remove(&client);
+        }
+    }
+}
+
+fn restore_access_record(
+    app: &tauri::AppHandle,
+    access: &AgentAccessState,
+    agent: AgentIdDto,
+    record: Option<AgentAccessDto>,
+) -> Result<(), CommandError> {
+    match record {
+        Some(record) => access.set(app, record),
+        None => access.remove(app, agent),
+    }
+}
+
+async fn rollback_binding_change(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+    access: &AgentAccessState,
+    client: GatewayClient,
+    agent: AgentIdDto,
+    old_upstream: Option<GatewayUpstream>,
+    old_meta: Option<BindingMeta>,
+    old_access: Option<AgentAccessDto>,
+) {
+    restore_binding_memory(state, client, old_upstream, old_meta).await;
+    if let Err(error) = persist_bindings(app, state).await {
+        log::error!("Failed to roll back gateway bindings: {}", error);
+    }
+    if let Err(error) = restore_access_record(app, access, agent, old_access) {
+        log::error!("Failed to roll back agent access record: {}", error);
+    }
+}
+
 /// Bind a client (Codex / Claude Code) to an upstream relay key. If the
 /// gateway is running, the client's tool config is (re)taken over immediately.
 #[tauri::command]
@@ -1179,64 +1265,104 @@ pub async fn set_gateway_binding(
     )
     .await?;
     let gateway_client: GatewayClient = client.into();
+    let agent: AgentIdDto = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
     let access_source = access_source_of(&source);
+    let old_upstream = state.bindings.read().await.get(&gateway_client).cloned();
+    let old_meta = state.meta.lock().await.get(&gateway_client).cloned();
+    let old_access = access.get(agent);
+    let new_meta = BindingMeta {
+        label: label.clone(),
+        source,
+        kind: upstream_kind,
+        model: model.clone(),
+        context1m,
+        impersonate,
+    };
+    let new_access = AgentAccessDto {
+        agent,
+        method: AccessMethodDto::Gateway,
+        label,
+        model: model.clone(),
+        upstream_kind: Some(upstream_kind_str(upstream_kind)),
+        impersonate: Some(impersonate),
+        source: Some(access_source),
+        context1m: Some(context1m),
+    };
 
-    state.runtime.reset(gateway_client).await;
     state
         .bindings
         .write()
         .await
         .insert(gateway_client, upstream);
-    state.meta.lock().await.insert(
-        gateway_client,
-        BindingMeta {
-            label,
-            source,
-            kind: upstream_kind,
-            model: model.clone(),
-            context1m,
-            impersonate,
-        },
-    );
+    state.meta.lock().await.insert(gateway_client, new_meta);
 
-    persist_bindings(&app, &state).await;
+    if let Err(error) = persist_bindings(&app, &state).await {
+        restore_binding_memory(&state, gateway_client, old_upstream, old_meta).await;
+        return Err(error);
+    }
 
     // Mirror into the access record so the status card shows a consistent view.
-    let label_for_record = state
-        .meta
-        .lock()
-        .await
-        .get(&gateway_client)
-        .map(|m| m.label.clone())
-        .unwrap_or_default();
-    access.set(
-        &app,
-        AgentAccessDto {
-            agent: client.into(),
-            method: AccessMethodDto::Gateway,
-            label: label_for_record,
-            model: model.clone(),
-            upstream_kind: Some(upstream_kind_str(upstream_kind)),
-            impersonate: Some(impersonate),
-            source: Some(access_source),
-            context1m: Some(context1m),
-        },
-    );
+    if let Err(error) = access.set(&app, new_access) {
+        rollback_binding_change(
+            &app,
+            &state,
+            &access,
+            gateway_client,
+            agent,
+            old_upstream,
+            old_meta,
+            old_access,
+        )
+        .await;
+        return Err(error);
+    }
 
     // Refresh the takeover when the server is already running.
     let server = state.server.lock().await;
     if let Some(handle) = server.as_ref() {
-        let takeover = takeover_for(&app)?;
-        takeover
-            .take_over(
+        let takeover = match takeover_for(&app) {
+            Ok(takeover) => takeover,
+            Err(error) => {
+                drop(server);
+                rollback_binding_change(
+                    &app,
+                    &state,
+                    &access,
+                    gateway_client,
+                    agent,
+                    old_upstream,
+                    old_meta,
+                    old_access,
+                )
+                .await;
+                return Err(error);
+            }
+        };
+        if let Err(error) = takeover.take_over(
+            gateway_client,
+            &handle.base_url(),
+            handle.local_credential(),
+            model.as_deref(),
+            context1m,
+        ) {
+            drop(server);
+            rollback_binding_change(
+                &app,
+                &state,
+                &access,
                 gateway_client,
-                &handle.base_url(),
-                model.as_deref(),
-                context1m,
+                agent,
+                old_upstream,
+                old_meta,
+                old_access,
             )
-            .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+            .await;
+            return Err(CommandError::infrastructure(error.to_string()));
+        }
     }
     drop(server);
+    state.runtime.reset(gateway_client).await;
 
     Ok(status_of(&state).await)
 }
@@ -1251,30 +1377,82 @@ pub async fn clear_gateway_binding(
     access: State<'_, AgentAccessState>,
 ) -> Result<GatewayStatusDto, CommandError> {
     let gateway_client: GatewayClient = client.into();
+    let agent: AgentIdDto = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
+    let old_upstream = state.bindings.read().await.get(&gateway_client).cloned();
+    let old_meta = state.meta.lock().await.get(&gateway_client).cloned();
+    let old_access = access.get(agent);
 
     state.bindings.write().await.remove(&gateway_client);
     state.meta.lock().await.remove(&gateway_client);
+
+    if let Err(error) = persist_bindings(&app, &state).await {
+        restore_binding_memory(&state, gateway_client, old_upstream, old_meta).await;
+        return Err(error);
+    }
+    if let Err(error) = access.remove(&app, agent) {
+        rollback_binding_change(
+            &app,
+            &state,
+            &access,
+            gateway_client,
+            agent,
+            old_upstream,
+            old_meta,
+            old_access,
+        )
+        .await;
+        return Err(error);
+    }
+
+    let takeover = match takeover_for(&app) {
+        Ok(takeover) => takeover,
+        Err(error) => {
+            rollback_binding_change(
+                &app,
+                &state,
+                &access,
+                gateway_client,
+                agent,
+                old_upstream,
+                old_meta,
+                old_access,
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    if let Err(error) = takeover.restore(gateway_client) {
+        rollback_binding_change(
+            &app,
+            &state,
+            &access,
+            gateway_client,
+            agent,
+            old_upstream,
+            old_meta,
+            old_access,
+        )
+        .await;
+        return Err(CommandError::infrastructure(error.to_string()));
+    }
     state.runtime.reset(gateway_client).await;
-
-    persist_bindings(&app, &state).await;
-    access.remove(&app, client.into());
-
-    let takeover = takeover_for(&app)?;
-    takeover
-        .restore(gateway_client)
-        .map_err(|e| CommandError::infrastructure(e.to_string()))?;
 
     Ok(status_of(&state).await)
 }
 
 const BINDINGS_FILENAME: &str = "gateway_bindings.json";
+const RUNTIME_FILENAME: &str = "gateway_runtime.json";
 
 /// Persist the current bindings (references only, never keys) to app data so
 /// they survive a restart.
-async fn persist_bindings(app: &tauri::AppHandle, state: &GatewayState) {
-    let Ok(dir) = app.path().app_data_dir() else {
-        return;
-    };
+async fn persist_bindings(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+) -> Result<(), CommandError> {
+    let dir = app.path().app_data_dir().map_err(|error| {
+        CommandError::infrastructure(format!("Failed to get app data directory: {error}"))
+    })?;
     let meta = state.meta.lock().await;
     let bindings: Vec<PersistedBinding> = meta
         .iter()
@@ -1291,14 +1469,10 @@ async fn persist_bindings(app: &tauri::AppHandle, state: &GatewayState) {
     drop(meta);
 
     let path = dir.join(BINDINGS_FILENAME);
-    match serde_json::to_string_pretty(&bindings) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(&path, json) {
-                log::warn!("Failed to persist gateway bindings: {}", e);
-            }
-        }
-        Err(e) => log::warn!("Failed to serialize gateway bindings: {}", e),
-    }
+    let json = serde_json::to_string_pretty(&bindings)
+        .map_err(|error| CommandError::infrastructure(error.to_string()))?;
+    atomic_write(&path, &json, false)
+        .map_err(|error| CommandError::infrastructure(error.to_string()))
 }
 
 /// Rebuild the binding table from disk on startup. Re-resolves each saved
@@ -1315,6 +1489,10 @@ pub async fn restore_gateway_bindings(
     let Ok(dir) = app.path().app_data_dir() else {
         return;
     };
+    state
+        .runtime
+        .configure_persistence(dir.join(RUNTIME_FILENAME))
+        .await;
     let path = dir.join(BINDINGS_FILENAME);
     let Ok(content) = std::fs::read_to_string(&path) else {
         return;
@@ -1355,7 +1533,7 @@ pub async fn restore_gateway_bindings(
                         impersonate: binding.impersonate,
                     },
                 );
-                access.set(
+                if let Err(error) = access.set(
                     app,
                     AgentAccessDto {
                         agent: binding.client.into(),
@@ -1367,10 +1545,22 @@ pub async fn restore_gateway_bindings(
                         source: Some(access_source),
                         context1m: Some(binding.context1m),
                     },
-                );
+                ) {
+                    log::warn!(
+                        "Failed to restore access record for {:?}: {}",
+                        binding.client,
+                        error
+                    );
+                }
             }
             Err(e) => {
-                access.remove(app, binding.client.into());
+                if let Err(remove_error) = access.remove(app, binding.client.into()) {
+                    log::warn!(
+                        "Failed to remove stale access record for {:?}: {}",
+                        binding.client,
+                        remove_error
+                    );
+                }
                 log::warn!(
                     "Skipping saved gateway binding for {:?}: {}",
                     binding.client,
@@ -1389,6 +1579,8 @@ pub async fn start_gateway_server(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    let _codex_operation = state.codex_operation.lock().await;
+    let _claude_operation = state.claude_operation.lock().await;
     let takeover_configs: Vec<(GatewayClient, Option<String>, bool)> = state
         .meta
         .lock()
@@ -1402,21 +1594,44 @@ pub async fn start_gateway_server(
         ));
     }
 
-    let mut server = state.server.lock().await;
-    if server.is_none() {
-        let handle = start_gateway_with_runtime(state.bindings.clone(), state.runtime.clone(), 0)
-            .await
-            .map_err(|e| CommandError::infrastructure(format!("Failed to start gateway: {}", e)))?;
-        *server = Some(handle);
+    if state.server.lock().await.is_some() {
+        return Ok(status_of(&state).await);
     }
-    let base_url = server.as_ref().expect("just started").base_url();
+    let takeover = takeover_for(&app)?;
+    let handle = start_gateway_with_runtime(state.bindings.clone(), state.runtime.clone(), 0)
+        .await
+        .map_err(|e| CommandError::infrastructure(format!("Failed to start gateway: {}", e)))?;
+    let mut server = state.server.lock().await;
+    *server = Some(handle);
+    let handle = server.as_ref().expect("just started");
+    let base_url = handle.base_url();
+    let local_credential = handle.local_credential().to_string();
     drop(server);
 
-    let takeover = takeover_for(&app)?;
+    let mut taken_over = Vec::new();
     for (client, model, context1m) in takeover_configs {
-        takeover
-            .take_over(client, &base_url, model.as_deref(), context1m)
-            .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+        if let Err(error) = takeover.take_over(
+            client,
+            &base_url,
+            &local_credential,
+            model.as_deref(),
+            context1m,
+        ) {
+            for restored_client in taken_over.into_iter().rev() {
+                if let Err(restore_error) = takeover.restore(restored_client) {
+                    log::error!(
+                        "Failed to roll back gateway startup for {}: {}",
+                        restored_client.display_name(),
+                        restore_error
+                    );
+                }
+            }
+            if let Some(handle) = state.server.lock().await.take() {
+                handle.shutdown().await;
+            }
+            return Err(CommandError::infrastructure(error.to_string()));
+        }
+        taken_over.push(client);
     }
 
     Ok(status_of(&state).await)
@@ -1429,10 +1644,54 @@ pub async fn stop_gateway_server(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    let _codex_operation = state.codex_operation.lock().await;
+    let _claude_operation = state.claude_operation.lock().await;
     let takeover = takeover_for(&app)?;
-    takeover
-        .restore_all()
-        .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+    let gateway = state
+        .server
+        .lock()
+        .await
+        .as_ref()
+        .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
+    let configs: Vec<(GatewayClient, Option<String>, bool)> = state
+        .meta
+        .lock()
+        .await
+        .iter()
+        .map(|(client, meta)| (*client, meta.model.clone(), meta.context1m))
+        .collect();
+    let mut restored = Vec::new();
+    for (client, _, _) in &configs {
+        if !takeover.is_active_for(*client) {
+            continue;
+        }
+        if let Err(error) = takeover.restore(*client) {
+            if let Some((base_url, local_credential)) = &gateway {
+                for restored_client in restored.into_iter().rev() {
+                    if let Some((_, model, context1m)) = configs
+                        .iter()
+                        .find(|(client, _, _)| *client == restored_client)
+                    {
+                        if let Err(takeover_error) = takeover.take_over(
+                            restored_client,
+                            base_url,
+                            local_credential,
+                            model.as_deref(),
+                            *context1m,
+                        ) {
+                            log::error!(
+                                "Failed to roll back gateway stop for {}: {}",
+                                restored_client.display_name(),
+                                takeover_error
+                            );
+                        }
+                    }
+                }
+            }
+            return Err(CommandError::infrastructure(error.to_string()));
+        }
+        restored.push(*client);
+    }
 
     if let Some(handle) = state.server.lock().await.take() {
         handle.shutdown().await;
@@ -1447,6 +1706,47 @@ pub async fn stop_gateway_server(
 pub async fn get_gateway_status(
     state: State<'_, GatewayState>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    Ok(status_of(&state).await)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn recover_gateway_requests(
+    client: GatewayClientDto,
+    state: State<'_, GatewayState>,
+) -> Result<GatewayStatusDto, CommandError> {
+    let gateway_client: GatewayClient = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
+    let upstream = state
+        .bindings
+        .read()
+        .await
+        .get(&gateway_client)
+        .cloned()
+        .ok_or_else(|| CommandError::validation("The Agent has no gateway binding."))?;
+    state.runtime.recover(gateway_client, &upstream.id).await;
+    Ok(status_of(&state).await)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_gateway_statistics(
+    client: GatewayClientDto,
+    state: State<'_, GatewayState>,
+) -> Result<GatewayStatusDto, CommandError> {
+    let gateway_client: GatewayClient = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
+    let upstream = state
+        .bindings
+        .read()
+        .await
+        .get(&gateway_client)
+        .cloned()
+        .ok_or_else(|| CommandError::validation("The Agent has no gateway binding."))?;
+    state
+        .runtime
+        .clear_statistics(gateway_client, &upstream.id)
+        .await;
     Ok(status_of(&state).await)
 }
 

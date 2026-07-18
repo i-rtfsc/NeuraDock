@@ -6,5 +6,4 @@ mod token_service;
 pub use claude_config_service::ClaudeConfigService;
 pub use codex_config_service::CodexConfigService;
 pub use gateway_takeover::GatewayTakeover;
-pub(crate) use gateway_takeover::GATEWAY_PLACEHOLDER_KEY;
 pub use token_service::TokenService;

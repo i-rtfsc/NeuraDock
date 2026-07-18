@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 
 use crate::presentation::error::CommandError;
+use neuradock_infrastructure::fs_safe::atomic_write;
 
 const ACCESS_FILENAME: &str = "agent_access.json";
 
@@ -83,18 +84,15 @@ impl AgentAccessState {
             .map(|d| d.join(ACCESS_FILENAME))
     }
 
-    fn persist(&self, app: &tauri::AppHandle) {
-        let Some(path) = Self::path(app) else { return };
+    fn persist(&self, app: &tauri::AppHandle) -> Result<(), CommandError> {
+        let path = Self::path(app)
+            .ok_or_else(|| CommandError::infrastructure("Failed to get app data directory"))?;
         let records = self.records.lock().unwrap();
         let list: Vec<&AgentAccessDto> = records.values().collect();
-        match serde_json::to_string_pretty(&list) {
-            Ok(json) => {
-                if let Err(e) = std::fs::write(&path, json) {
-                    log::warn!("Failed to persist agent access records: {}", e);
-                }
-            }
-            Err(e) => log::warn!("Failed to serialize agent access records: {}", e),
-        }
+        let json = serde_json::to_string_pretty(&list)
+            .map_err(|error| CommandError::infrastructure(error.to_string()))?;
+        atomic_write(&path, &json, false)
+            .map_err(|error| CommandError::infrastructure(error.to_string()))
     }
 
     /// Load records from disk into memory (call once at startup).
@@ -115,9 +113,22 @@ impl AgentAccessState {
     }
 
     /// Upsert a record (used internally by the gateway commands too).
-    pub fn set(&self, app: &tauri::AppHandle, record: AgentAccessDto) {
-        self.records.lock().unwrap().insert(record.agent, record);
-        self.persist(app);
+    pub fn set(&self, app: &tauri::AppHandle, record: AgentAccessDto) -> Result<(), CommandError> {
+        let agent = record.agent;
+        let previous = self.records.lock().unwrap().insert(agent, record);
+        if let Err(error) = self.persist(app) {
+            let mut records = self.records.lock().unwrap();
+            match previous {
+                Some(previous) => {
+                    records.insert(agent, previous);
+                }
+                None => {
+                    records.remove(&agent);
+                }
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub fn get(&self, agent: AgentIdDto) -> Option<AgentAccessDto> {
@@ -125,9 +136,15 @@ impl AgentAccessState {
     }
 
     /// Remove a record.
-    pub fn remove(&self, app: &tauri::AppHandle, agent: AgentIdDto) {
-        self.records.lock().unwrap().remove(&agent);
-        self.persist(app);
+    pub fn remove(&self, app: &tauri::AppHandle, agent: AgentIdDto) -> Result<(), CommandError> {
+        let previous = self.records.lock().unwrap().remove(&agent);
+        if let Err(error) = self.persist(app) {
+            if let Some(previous) = previous {
+                self.records.lock().unwrap().insert(agent, previous);
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 }
 
@@ -140,7 +157,7 @@ pub async fn record_agent_access(
     app: tauri::AppHandle,
     state: State<'_, AgentAccessState>,
 ) -> Result<Vec<AgentAccessDto>, CommandError> {
-    state.set(&app, record);
+    state.set(&app, record)?;
     Ok(list_records(&state))
 }
 
@@ -152,7 +169,7 @@ pub async fn clear_agent_access(
     app: tauri::AppHandle,
     state: State<'_, AgentAccessState>,
 ) -> Result<Vec<AgentAccessDto>, CommandError> {
-    state.remove(&app, agent);
+    state.remove(&app, agent)?;
     Ok(list_records(&state))
 }
 
