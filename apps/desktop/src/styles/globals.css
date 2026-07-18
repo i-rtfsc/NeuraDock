@@ -88,7 +88,7 @@
     --layout-page-content-max-width-md: 80rem;
     --layout-page-content-max-width-lg: 100rem;
     --layout-sidebar-width: 10rem;
-    --layout-sidebar-width-collapsed: 4.5rem;
+    --layout-sidebar-width-collapsed: 4rem;
     --layout-sidebar-page-width: 15rem;
 
     /* Dialog / modal sizing. Sizes are percentages of the app viewport instead

@@ -9,6 +9,7 @@ import {
   PanelLeftOpen,
   MessageSquare,
   ChevronRight,
+  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // ... rest of imports
@@ -33,8 +34,11 @@ export function Sidebar() {
   const [appVersion, setAppVersion] = useState<string>('');
   const { data: gatewayStatus } = useGatewayStatus();
   const gatewayRunning = gatewayStatus?.running ?? false;
-  // Dev toolbox group starts collapsed; clicking its title toggles it.
-  const [devToolboxOpen, setDevToolboxOpen] = useState(false);
+  const devToolboxRouteActive =
+    location.pathname.startsWith('/tokens') ||
+    location.pathname.startsWith('/codex') ||
+    location.pathname.startsWith('/calendar');
+  const [devToolboxOpen, setDevToolboxOpen] = useState(devToolboxRouteActive);
 
   useEffect(() => {
     invoke<string>('get_app_version')
@@ -44,6 +48,10 @@ export function Sidebar() {
       })
       .catch(() => setAppVersion(''));
   }, []);
+
+  useEffect(() => {
+    if (devToolboxRouteActive) setDevToolboxOpen(true);
+  }, [devToolboxRouteActive, location.pathname]);
 
   // Disable tooltips when AI Chat webview is active because native webview overlays DOM elements.
   const isOnAiChatPage = location.pathname.startsWith('/ai-chat');
@@ -63,11 +71,8 @@ export function Sidebar() {
       items: [
         { name: t('nav.tokens'), href: '/tokens', icon: Key },
         { name: t('nav.codex', { defaultValue: 'Codex' }), href: '/codex', icon: CodexMarkIcon },
+        { name: t('nav.calendar'), href: '/calendar', icon: CalendarDays },
       ],
-    },
-    {
-      label: t('nav.dailyToolbox', { defaultValue: '日常工具箱' }),
-      items: [{ name: t('nav.calendar'), href: '/calendar', icon: CalendarDays }],
     },
   ];
 
@@ -98,17 +103,16 @@ export function Sidebar() {
         className={cn(
           'relative group flex items-center transition-all duration-base ease-smooth',
           collapsed
-            ? 'justify-center w-11 h-11 rounded-2xl'
-            : 'w-full h-11 px-4 rounded-2xl gap-3',
+            ? 'h-9 w-9 justify-center rounded-xl'
+            : 'h-9 w-full gap-2.5 rounded-xl px-3',
           isActive
-            ? 'bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/30 scale-[1.02]'
-            : 'text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-[1.05]'
+            ? 'bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20'
+            : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
         )}
       >
         <span className="relative shrink-0 flex items-center">
           <Icon className={cn(
-            "shrink-0 transition-all duration-base ease-smooth group-hover:animate-float",
-            collapsed ? "h-6 w-6" : "h-5 w-5",
+            "h-[18px] w-[18px] shrink-0 transition-colors duration-base ease-smooth",
             isActive && "stroke-[2.5px]"
           )} />
           {showGatewayDot && (
@@ -122,19 +126,11 @@ export function Sidebar() {
         </span>
         {!collapsed && (
           <span className={cn(
-            "flex-1 text-sm tracking-tight whitespace-nowrap overflow-hidden transition-all duration-slow ease-smooth",
+            "flex-1 overflow-hidden whitespace-nowrap text-[13px] tracking-tight transition-all duration-slow ease-smooth",
             isActive ? "font-bold" : "font-medium"
           )}>
             {item.name}
           </span>
-        )}
-        {!collapsed && showGatewayDot && (
-          <span
-            className={cn(
-              'h-2 w-2 rounded-full shrink-0',
-              gatewayRunning ? 'bg-success shadow-[0_0_6px_var(--success)]' : 'bg-muted-foreground/40'
-            )}
-          />
         )}
       </div>
     );
@@ -176,34 +172,68 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col h-full items-center py-4 transition-all duration-slow ease-smooth select-none bg-sidebar/50 backdrop-blur-sm border-r border-border/40",
-        collapsed ? "w-[72px]" : "w-40"
+        "flex h-full shrink-0 flex-col items-center border-r border-border/40 bg-sidebar/50 py-3 backdrop-blur-sm transition-all duration-slow ease-smooth select-none",
+        collapsed ? "w-16" : "w-40"
       )}
     >
       {/* Spacer for traffic lights (macOS) */}
-      <div className="w-full h-6 shrink-0 mb-4" />
+      <div className="mb-3 h-6 w-full shrink-0" />
 
       {/* Navigation */}
       <div className="w-full min-h-0 flex-1 overflow-y-auto scrollbar-hide">
         <nav
           className={cn(
-            "w-full space-y-2 flex flex-col",
-            collapsed ? "px-3 items-center" : "px-4 items-start"
+            "flex w-full flex-col space-y-1.5",
+            collapsed ? "px-2.5 items-center" : "px-3 items-start"
           )}
         >
-          {navGroups.map((group, gi) => {
+          {navGroups.map((group) => {
             const isCollapsibleGroup = 'collapsible' in group && group.collapsible;
             const groupOpen = isCollapsibleGroup ? devToolboxOpen : true;
+            const groupHasActiveItem = group.items.some((item) => {
+              const href = item.href.split('?')[0];
+              return location.pathname === href || location.pathname.startsWith(`${href}/`);
+            });
+            const collapsedGroupToggle = isCollapsibleGroup ? (
+              <button
+                type="button"
+                onClick={() => setDevToolboxOpen((value) => !value)}
+                className={cn(
+                  'relative mx-auto flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-base',
+                  groupHasActiveItem
+                    ? 'bg-primary/10 text-primary'
+                    : groupOpen
+                      ? 'bg-muted/60 text-foreground'
+                      : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
+                )}
+                aria-label={group.label}
+                aria-expanded={groupOpen}
+              >
+                <Wrench className="h-[18px] w-[18px]" />
+                <ChevronRight
+                  className={cn(
+                    'absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full bg-sidebar transition-transform duration-base',
+                    groupOpen && 'rotate-90'
+                  )}
+                />
+              </button>
+            ) : null;
             return (
               <div key={group.label} className="w-full">
-                {gi > 0 && (
-                  <div
-                    className={cn(
-                      "my-2",
-                      collapsed ? "h-px bg-border/40 w-8 mx-auto" : "h-px bg-border/40"
-                    )}
-                  />
-                )}
+                {collapsed && isCollapsibleGroup &&
+                  (isOnAiChatPage ? (
+                    collapsedGroupToggle
+                  ) : (
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>{collapsedGroupToggle}</TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        className="ml-2 border-border/50 bg-popover font-medium text-popover-foreground shadow-macos"
+                      >
+                        <p>{group.label}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
                 {!collapsed && (
                   isCollapsibleGroup ? (
                     <button
@@ -226,7 +256,7 @@ export function Sidebar() {
                   )
                 )}
                 {groupOpen && (
-                  <div className="w-full space-y-1">
+                  <div className={cn('w-full space-y-0.5', collapsed && isCollapsibleGroup && 'mt-1')}>
                     {group.items.map((item) => renderLink(item))}
                   </div>
                 )}
@@ -238,8 +268,8 @@ export function Sidebar() {
 
       {/* Footer / Settings / Toggle */}
       <div className={cn(
-        "w-full mt-auto flex flex-col gap-2 shrink-0",
-        collapsed ? "px-3 items-center" : "px-4"
+        "mt-auto flex w-full shrink-0 flex-col gap-1.5",
+        collapsed ? "px-2.5 items-center" : "px-3"
       )}>
          {/* Settings Button */}
          {renderLink({ name: t('nav.settings'), href: '/settings', icon: Settings }, true)}
@@ -251,12 +281,12 @@ export function Sidebar() {
             size="icon"
             onClick={toggle}
             className={cn(
-              "h-9 w-full flex items-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-base hover:scale-[1.02]",
-              collapsed ? "justify-center rounded-xl" : "justify-start px-2 gap-3 rounded-xl"
+              "flex h-9 w-full items-center text-muted-foreground transition-colors duration-base hover:bg-muted/60 hover:text-foreground",
+              collapsed ? "justify-center rounded-xl" : "justify-start gap-2.5 rounded-xl px-3"
             )}
          >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            {!collapsed && <span className="text-sm">{t('common.collapse', { defaultValue: 'Collapse' })}</span>}
+            {!collapsed && <span className="text-[13px]">{t('common.collapse', { defaultValue: 'Collapse' })}</span>}
          </Button>
 
          {!!appVersion && (
