@@ -12,7 +12,8 @@
 use serde_json::{json, Value};
 
 use super::reliability::{usage_from_json, GatewayTokenUsage};
-use super::transform::{chat_to_anthropic, chat_to_responses};
+use super::transform::{chat_to_anthropic, chat_to_responses, InboundProtocol};
+use uuid::Uuid;
 
 const RESPONSE_ID: &str = "resp_neuradock_gateway";
 const MESSAGE_ITEM_ID: &str = "msg_neuradock_gateway";
@@ -140,8 +141,329 @@ impl StreamAccumulator {
             "choices": [{
                 "finish_reason": self.finish_reason.clone().unwrap_or_else(|| "stop".to_string()),
                 "message": message,
-            }]
+            }],
+            "usage": {
+                "prompt_tokens": self.usage.input_tokens,
+                "completion_tokens": self.usage.output_tokens,
+                "prompt_tokens_details": {
+                    "cached_tokens": self.usage.cache_read_tokens,
+                }
+            }
         })
+    }
+}
+
+pub struct StreamBridge {
+    protocol: InboundProtocol,
+    model: String,
+    response_id: String,
+    message_id: String,
+    accumulator: StreamAccumulator,
+    lifecycle_started: bool,
+    text_started: bool,
+    saw_valid_chunk: bool,
+}
+
+impl StreamBridge {
+    pub fn new(protocol: InboundProtocol, model: String) -> Self {
+        let suffix = Uuid::new_v4().simple().to_string();
+        Self {
+            protocol,
+            model,
+            response_id: format!("resp_{suffix}"),
+            message_id: format!("msg_{suffix}"),
+            accumulator: StreamAccumulator::default(),
+            lifecycle_started: false,
+            text_started: false,
+            saw_valid_chunk: false,
+        }
+    }
+
+    pub fn observe(&mut self, chunk: &Value) -> Vec<SseEvent> {
+        let Some(choice) = chunk
+            .get("choices")
+            .and_then(Value::as_array)
+            .and_then(|choices| choices.first())
+        else {
+            self.accumulator.observe(chunk);
+            return Vec::new();
+        };
+
+        self.saw_valid_chunk = true;
+        let text_delta = choice
+            .pointer("/delta/content")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string);
+        self.accumulator.observe(chunk);
+
+        let mut events = self.start_events();
+        if let Some(text) = text_delta {
+            match self.protocol {
+                InboundProtocol::Responses => {
+                    if !self.text_started {
+                        self.text_started = true;
+                        events.extend(self.responses_text_start_events());
+                    }
+                    events.push(SseEvent::named(
+                        "response.output_text.delta",
+                        json!({
+                            "type": "response.output_text.delta",
+                            "item_id": self.message_id,
+                            "output_index": 0,
+                            "content_index": 0,
+                            "delta": text,
+                        }),
+                    ));
+                }
+                InboundProtocol::AnthropicMessages => {
+                    if !self.text_started {
+                        self.text_started = true;
+                        events.push(SseEvent::named(
+                            "content_block_start",
+                            json!({
+                                "type": "content_block_start",
+                                "index": 0,
+                                "content_block": { "type": "text", "text": "" },
+                            }),
+                        ));
+                    }
+                    events.push(SseEvent::named(
+                        "content_block_delta",
+                        json!({
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": { "type": "text_delta", "text": text },
+                        }),
+                    ));
+                }
+            }
+        }
+        events
+    }
+
+    pub fn finish(&mut self, terminal_seen: bool) -> Result<Vec<SseEvent>, String> {
+        if !self.saw_valid_chunk {
+            return Err("upstream stream ended without a valid Chat event".to_string());
+        }
+        if !terminal_seen && self.accumulator.finish_reason.is_none() {
+            return Err("upstream stream ended before a terminal event".to_string());
+        }
+
+        let mut events = self.start_events();
+        match self.protocol {
+            InboundProtocol::Responses => {
+                if self.text_started {
+                    let text = self.accumulator.text.clone();
+                    events.push(SseEvent::named(
+                        "response.output_text.done",
+                        json!({
+                            "type": "response.output_text.done",
+                            "item_id": self.message_id,
+                            "output_index": 0,
+                            "content_index": 0,
+                            "text": text,
+                        }),
+                    ));
+                    events.push(SseEvent::named(
+                        "response.content_part.done",
+                        json!({
+                            "type": "response.content_part.done",
+                            "item_id": self.message_id,
+                            "output_index": 0,
+                            "content_index": 0,
+                            "part": { "type": "output_text", "text": text },
+                        }),
+                    ));
+                    events.push(SseEvent::named(
+                        "response.output_item.done",
+                        json!({
+                            "type": "response.output_item.done",
+                            "output_index": 0,
+                            "item": {
+                                "id": self.message_id,
+                                "type": "message",
+                                "status": "completed",
+                                "role": "assistant",
+                                "content": [{ "type": "output_text", "text": text }],
+                            },
+                        }),
+                    ));
+                }
+
+                let mut output_index = usize::from(self.text_started);
+                for call in &self.accumulator.tool_calls {
+                    append_function_call_events(&mut events, output_index, call);
+                    output_index += 1;
+                }
+
+                let mut response =
+                    chat_to_responses(&self.accumulator.to_chat_response(), &self.model);
+                response["id"] = Value::String(self.response_id.clone());
+                if let Some(message) = response
+                    .get_mut("output")
+                    .and_then(Value::as_array_mut)
+                    .and_then(|output| output.first_mut())
+                {
+                    if message.get("type").and_then(Value::as_str) == Some("message") {
+                        message["id"] = Value::String(self.message_id.clone());
+                    }
+                }
+                events.push(SseEvent::named(
+                    "response.completed",
+                    json!({ "type": "response.completed", "response": response }),
+                ));
+            }
+            InboundProtocol::AnthropicMessages => {
+                if self.text_started {
+                    events.push(SseEvent::named(
+                        "content_block_stop",
+                        json!({ "type": "content_block_stop", "index": 0 }),
+                    ));
+                }
+                let message = chat_to_anthropic(&self.accumulator.to_chat_response(), &self.model);
+                let mut index = usize::from(self.text_started);
+                if let Some(content) = message.get("content").and_then(Value::as_array) {
+                    for block in content {
+                        if block.get("type").and_then(Value::as_str) == Some("tool_use") {
+                            append_anthropic_block(&mut events, index, block);
+                            index += 1;
+                        }
+                    }
+                }
+                events.push(SseEvent::named(
+                    "message_delta",
+                    json!({
+                        "type": "message_delta",
+                        "delta": {
+                            "stop_reason": message
+                                .get("stop_reason")
+                                .cloned()
+                                .unwrap_or(json!("end_turn")),
+                            "stop_sequence": Value::Null,
+                        },
+                        "usage": {
+                            "output_tokens": self.accumulator.usage.output_tokens,
+                        },
+                    }),
+                ));
+                events.push(SseEvent::named(
+                    "message_stop",
+                    json!({ "type": "message_stop" }),
+                ));
+            }
+        }
+        Ok(events)
+    }
+
+    pub fn failure_events(&mut self, message: &str, request_id: &str) -> Vec<SseEvent> {
+        let mut events = self.start_events();
+        match self.protocol {
+            InboundProtocol::Responses => events.push(SseEvent::named(
+                "response.failed",
+                json!({
+                    "type": "response.failed",
+                    "response": {
+                        "id": self.response_id,
+                        "object": "response",
+                        "status": "failed",
+                        "model": self.model,
+                        "output": [],
+                        "error": {
+                            "message": message,
+                            "type": "upstream_error",
+                            "request_id": request_id,
+                        },
+                    },
+                }),
+            )),
+            InboundProtocol::AnthropicMessages => events.push(SseEvent::named(
+                "error",
+                json!({
+                    "type": "error",
+                    "error": {
+                        "type": "api_error",
+                        "message": message,
+                    },
+                    "request_id": request_id,
+                }),
+            )),
+        }
+        events
+    }
+
+    pub fn usage(&self) -> GatewayTokenUsage {
+        self.accumulator.usage()
+    }
+
+    fn start_events(&mut self) -> Vec<SseEvent> {
+        if self.lifecycle_started {
+            return Vec::new();
+        }
+        self.lifecycle_started = true;
+        match self.protocol {
+            InboundProtocol::Responses => vec![SseEvent::named(
+                "response.created",
+                json!({
+                    "type": "response.created",
+                    "response": {
+                        "id": self.response_id,
+                        "object": "response",
+                        "status": "in_progress",
+                        "model": self.model,
+                        "output": [],
+                    },
+                }),
+            )],
+            InboundProtocol::AnthropicMessages => vec![SseEvent::named(
+                "message_start",
+                json!({
+                    "type": "message_start",
+                    "message": {
+                        "id": self.message_id,
+                        "type": "message",
+                        "role": "assistant",
+                        "model": self.model,
+                        "content": [],
+                        "stop_reason": Value::Null,
+                        "stop_sequence": Value::Null,
+                        "usage": {
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                        },
+                    },
+                }),
+            )],
+        }
+    }
+
+    fn responses_text_start_events(&self) -> Vec<SseEvent> {
+        vec![
+            SseEvent::named(
+                "response.output_item.added",
+                json!({
+                    "type": "response.output_item.added",
+                    "output_index": 0,
+                    "item": {
+                        "id": self.message_id,
+                        "type": "message",
+                        "status": "in_progress",
+                        "role": "assistant",
+                        "content": [],
+                    },
+                }),
+            ),
+            SseEvent::named(
+                "response.content_part.added",
+                json!({
+                    "type": "response.content_part.added",
+                    "item_id": self.message_id,
+                    "output_index": 0,
+                    "content_index": 0,
+                    "part": { "type": "output_text", "text": "" },
+                }),
+            ),
+        ]
     }
 }
 

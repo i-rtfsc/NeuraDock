@@ -10,35 +10,46 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tokio::sync::RwLock;
 
 use axum::{
     body::Body,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
     Router,
 };
 use futures::StreamExt;
+use rand::{rngs::OsRng, RngCore};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::net::TcpListener;
+use uuid::Uuid;
 
 use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
-use super::stream::{
-    anthropic_sse_from_accumulator, responses_sse_from_accumulator, StreamAccumulator,
-};
+use super::stream::StreamBridge;
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
     wants_stream, InboundProtocol,
 };
 
+const MAX_INBOUND_BODY_BYTES: usize = 64 * 1024 * 1024;
+const MAX_NON_STREAM_BODY_BYTES: usize = 64 * 1024 * 1024;
+const MAX_ERROR_BODY_BYTES: usize = 1024 * 1024;
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const RESPONSE_HEADER_TIMEOUT: Duration = Duration::from_secs(120);
+const NON_STREAM_BODY_TIMEOUT: Duration = Duration::from_secs(600);
+const STREAM_FIRST_EVENT_TIMEOUT: Duration = Duration::from_secs(90);
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
 /// A tool the gateway can serve. Requests are routed to a client by URL path
 /// (`/responses` -> Codex, `/v1/messages` -> Claude Code), and each client is
 /// independently bound to its own upstream relay.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GatewayClient {
     /// Codex CLI, speaking the OpenAI Responses protocol.
     Codex,
@@ -108,11 +119,13 @@ struct GatewayState {
     bindings: GatewayBindings,
     client: reqwest::Client,
     runtime: Arc<GatewayRuntime>,
+    local_credential: Arc<str>,
 }
 
 /// A running gateway bound to a localhost port.
 pub struct GatewayHandle {
     addr: SocketAddr,
+    local_credential: Arc<str>,
     shutdown: Option<tokio::sync::oneshot::Sender<()>>,
     join: tokio::task::JoinHandle<()>,
 }
@@ -126,6 +139,11 @@ impl GatewayHandle {
     /// The bound port.
     pub fn port(&self) -> u16 {
         self.addr.port()
+    }
+
+    /// Random credential required for calls to this gateway process.
+    pub fn local_credential(&self) -> &str {
+        &self.local_credential
     }
 
     /// Stop the gateway and wait for the server task to finish.
@@ -151,16 +169,24 @@ pub async fn start_gateway_with_runtime(
     runtime: Arc<GatewayRuntime>,
     port: u16,
 ) -> Result<GatewayHandle, std::io::Error> {
+    let local_credential: Arc<str> = generate_local_credential().into();
     let state = Arc::new(GatewayState {
         bindings,
-        client: reqwest::Client::new(),
+        client: reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .tcp_keepalive(Duration::from_secs(30))
+            .build()
+            .map_err(std::io::Error::other)?,
         runtime,
+        local_credential: local_credential.clone(),
     });
 
     let app = Router::new()
         .route("/responses", post(handle_responses))
         .route("/v1/responses", post(handle_responses))
         .route("/v1/messages", post(handle_anthropic))
+        .layer(DefaultBodyLimit::max(MAX_INBOUND_BODY_BYTES))
         .with_state(state);
 
     let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).await?;
@@ -179,37 +205,117 @@ pub async fn start_gateway_with_runtime(
     log::info!("Provider gateway listening on http://{}", addr);
     Ok(GatewayHandle {
         addr,
+        local_credential,
         shutdown: Some(tx),
         join,
     })
 }
 
+fn generate_local_credential() -> String {
+    let mut random = [0_u8; 32];
+    OsRng.fill_bytes(&mut random);
+    let mut credential = String::with_capacity(68);
+    credential.push_str("ndg_");
+    for byte in random {
+        use std::fmt::Write as _;
+        let _ = write!(credential, "{byte:02x}");
+    }
+    credential
+}
+
 async fn handle_responses(
     State(state): State<Arc<GatewayState>>,
     headers: axum::http::HeaderMap,
-    body: axum::body::Bytes,
+    body: Result<axum::body::Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {
-    handle(state, GatewayClient::Codex, headers, body).await
+    let request_id = Uuid::new_v4().to_string();
+    let body = match body {
+        Ok(body) => body,
+        Err(_) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "request body exceeded the gateway limit",
+                &request_id,
+            )
+        }
+    };
+    handle(state, GatewayClient::Codex, headers, body, request_id).await
 }
 
 async fn handle_anthropic(
     State(state): State<Arc<GatewayState>>,
     headers: axum::http::HeaderMap,
-    body: axum::body::Bytes,
+    body: Result<axum::body::Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {
-    handle(state, GatewayClient::ClaudeCode, headers, body).await
+    let request_id = Uuid::new_v4().to_string();
+    let body = match body {
+        Ok(body) => body,
+        Err(_) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "request body exceeded the gateway limit",
+                &request_id,
+            )
+        }
+    };
+    handle(state, GatewayClient::ClaudeCode, headers, body, request_id).await
 }
 
 struct SentUpstream {
     response: reqwest::Response,
     half_open_permit: bool,
     started_at: Instant,
+    permit_guard: GatewayPermitGuard,
+}
+
+struct GatewayPermitGuard {
+    runtime: Arc<GatewayRuntime>,
+    client: GatewayClient,
+    upstream_id: String,
+    armed: bool,
+}
+
+impl GatewayPermitGuard {
+    fn new(
+        runtime: Arc<GatewayRuntime>,
+        client: GatewayClient,
+        upstream_id: String,
+        armed: bool,
+    ) -> Self {
+        Self {
+            runtime,
+            client,
+            upstream_id,
+            armed,
+        }
+    }
+
+    fn complete(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for GatewayPermitGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let runtime = self.runtime.clone();
+        let client = self.client;
+        let upstream_id = self.upstream_id.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                runtime.release_neutral(client, &upstream_id).await;
+            });
+        }
+    }
 }
 
 async fn send_to_upstream<F>(
     state: &GatewayState,
     client: GatewayClient,
     upstream: &GatewayUpstream,
+    request_id: &str,
     build_request: F,
 ) -> Result<SentUpstream, Response>
 where
@@ -219,18 +325,48 @@ where
         return Err(error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "the configured upstream is temporarily unavailable",
+            request_id,
         ));
     };
 
     let started_at = Instant::now();
-    match build_request(&candidate.upstream).send().await {
-        Ok(response) => Ok(SentUpstream {
+    let send = build_request(&candidate.upstream).send();
+    match tokio::time::timeout(RESPONSE_HEADER_TIMEOUT, send).await {
+        Err(_) => {
+            let message = format!(
+                "upstream response header timed out after {} seconds",
+                RESPONSE_HEADER_TIMEOUT.as_secs()
+            );
+            state
+                .runtime
+                .record_failure(
+                    client,
+                    &candidate.upstream,
+                    candidate.half_open_permit,
+                    started_at.elapsed(),
+                    true,
+                    message.clone(),
+                )
+                .await;
+            Err(error_response(
+                StatusCode::GATEWAY_TIMEOUT,
+                &message,
+                request_id,
+            ))
+        }
+        Ok(Ok(response)) => Ok(SentUpstream {
             response,
             half_open_permit: candidate.half_open_permit,
             started_at,
+            permit_guard: GatewayPermitGuard::new(
+                state.runtime.clone(),
+                client,
+                candidate.upstream.id.clone(),
+                candidate.half_open_permit,
+            ),
         }),
-        Err(error) => {
-            let message = error.to_string();
+        Ok(Err(error)) => {
+            let message = transport_error_message(&error);
             state
                 .runtime
                 .record_failure(
@@ -245,6 +381,7 @@ where
             Err(error_response(
                 StatusCode::BAD_GATEWAY,
                 &format!("upstream error: {message}"),
+                request_id,
             ))
         }
     }
@@ -255,8 +392,22 @@ async fn handle(
     client: GatewayClient,
     headers: axum::http::HeaderMap,
     body: axum::body::Bytes,
+    request_id: String,
 ) -> Response {
     let protocol = client.protocol();
+
+    if !has_valid_local_credential(&headers, &state.local_credential) {
+        log::warn!(
+            "Rejected unauthorized local gateway request for {} (request_id={})",
+            client.display_name(),
+            request_id
+        );
+        return error_response(
+            StatusCode::UNAUTHORIZED,
+            "invalid local gateway credential",
+            &request_id,
+        );
+    }
 
     // Look up this client's upstream binding; each client is bound
     // independently and requests for unbound clients are rejected.
@@ -271,6 +422,7 @@ async fn handle(
                 "no relay key is bound for {}; bind one in NeuraDock first",
                 client.display_name()
             ),
+            &request_id,
         );
     };
     // Passthrough when the upstream already speaks the tool's protocol
@@ -282,8 +434,16 @@ async fn handle(
             | (InboundProtocol::AnthropicMessages, UpstreamKind::Anthropic)
     );
     if passthrough {
-        return forward_passthrough(&state, client, protocol, &upstream_source, &headers, body)
-            .await;
+        return forward_passthrough(
+            &state,
+            client,
+            protocol,
+            &upstream_source,
+            &headers,
+            body,
+            &request_id,
+        )
+        .await;
     }
 
     // Cross-protocol combinations other than "-> chat" are not implemented yet.
@@ -295,6 +455,7 @@ async fn handle(
                 client.display_name(),
                 upstream_source.kind
             ),
+            &request_id,
         );
     }
 
@@ -306,9 +467,16 @@ async fn handle(
                 client.display_name(),
                 e
             );
-            return error_response(StatusCode::BAD_REQUEST, &format!("invalid JSON: {}", e));
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                &format!("invalid JSON: {}", e),
+                &request_id,
+            );
         }
     };
+    if let Err(message) = validate_conversion_request(protocol, &inbound) {
+        return error_response(StatusCode::UNPROCESSABLE_ENTITY, &message, &request_id);
+    }
 
     let stream = wants_stream(&inbound);
     let model = upstream_source
@@ -330,10 +498,11 @@ async fn handle(
     }
 
     let url = build_upstream_url(&upstream_source.base_url, "/chat/completions");
+    let display_url = sanitized_url_for_log(&url);
     log::info!(
         "Gateway {} -> {} (convert, model={}, stream={})",
         client.display_name(),
-        url,
+        display_url,
         model,
         stream
     );
@@ -341,7 +510,7 @@ async fn handle(
     // the relay's client fingerprint check passes, replacing only auth. The
     // body is our translated chat body, so drop the client's content-length.
     let chat_bytes = serde_json::to_vec(&chat_body).unwrap_or_default();
-    let sent = match send_to_upstream(&state, client, &upstream_source, |candidate| {
+    let sent = match send_to_upstream(&state, client, &upstream_source, &request_id, |candidate| {
         let candidate_url = build_upstream_url(&candidate.base_url, "/chat/completions");
         forward_headers(
             state.client.post(candidate_url),
@@ -360,16 +529,23 @@ async fn handle(
     let half_open_permit = sent.half_open_permit;
     let started_at = sent.started_at;
     let upstream = sent.response;
+    let mut permit_guard = sent.permit_guard;
 
     if !upstream.status().is_success() {
         let status =
             StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-        let text = upstream.text().await.unwrap_or_default();
+        let text = read_response_text(upstream, MAX_ERROR_BODY_BYTES, NON_STREAM_BODY_TIMEOUT)
+            .await
+            .unwrap_or_default();
+        let message = redact_sensitive_message(
+            &safe_upstream_message(status, &text),
+            &upstream_source.api_key,
+        );
         log::error!(
-            "Gateway upstream {} returned {}: {}",
-            url,
+            "Gateway upstream {} returned {} ({})",
+            display_url,
             status.as_u16(),
-            text.chars().take(500).collect::<String>()
+            message
         );
         state
             .runtime
@@ -382,12 +558,13 @@ async fn handle(
                 format!("HTTP {}", status.as_u16()),
             )
             .await;
-        return error_response(status, &text);
+        permit_guard.complete();
+        return error_response(status, &message, &request_id);
     }
 
     log::info!(
         "Gateway upstream {} responded OK, translating (stream={})",
-        url,
+        display_url,
         stream
     );
     if stream {
@@ -400,10 +577,29 @@ async fn handle(
             upstream_source,
             half_open_permit,
             started_at,
+            permit_guard,
+            request_id,
         )
     } else {
-        match upstream.json::<Value>().await {
+        match read_response_json(upstream, MAX_NON_STREAM_BODY_BYTES, NON_STREAM_BODY_TIMEOUT).await
+        {
             Ok(chat) => {
+                if let Err(message) = validate_chat_response(&chat) {
+                    let message = redact_sensitive_message(&message, &upstream_source.api_key);
+                    state
+                        .runtime
+                        .record_failure(
+                            client,
+                            &upstream_source,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    permit_guard.complete();
+                    return error_response(StatusCode::BAD_GATEWAY, &message, &request_id);
+                }
                 state
                     .runtime
                     .record_success(
@@ -412,8 +608,10 @@ async fn handle(
                         half_open_permit,
                         usage_from_json(&chat),
                         started_at.elapsed(),
+                        None,
                     )
                     .await;
+                permit_guard.complete();
                 let translated = match protocol {
                     InboundProtocol::Responses => chat_to_responses(&chat, &model),
                     InboundProtocol::AnthropicMessages => chat_to_anthropic(&chat, &model),
@@ -421,7 +619,11 @@ async fn handle(
                 json_response(StatusCode::OK, &translated)
             }
             Err(e) => {
-                log::error!("Gateway got a non-JSON upstream body from {}: {}", url, e);
+                log::error!(
+                    "Gateway got an invalid upstream body from {}: {}",
+                    display_url,
+                    e
+                );
                 state
                     .runtime
                     .record_failure(
@@ -430,16 +632,25 @@ async fn handle(
                         half_open_permit,
                         started_at.elapsed(),
                         true,
-                        "upstream returned malformed JSON".to_string(),
+                        e.clone(),
                     )
                     .await;
-                error_response(
-                    StatusCode::BAD_GATEWAY,
-                    &format!("bad upstream body: {}", e),
-                )
+                permit_guard.complete();
+                error_response(StatusCode::BAD_GATEWAY, &e, &request_id)
             }
         }
     }
+}
+
+fn has_valid_local_credential(headers: &axum::http::HeaderMap, expected: &str) -> bool {
+    let bearer = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "));
+    let api_key = headers
+        .get("x-api-key")
+        .and_then(|value| value.to_str().ok());
+    bearer == Some(expected) || api_key == Some(expected)
 }
 
 /// Forward a request verbatim to a same-protocol upstream: real key injected,
@@ -453,16 +664,18 @@ async fn forward_passthrough(
     upstream_source: &GatewayUpstream,
     inbound_headers: &axum::http::HeaderMap,
     body: axum::body::Bytes,
+    request_id: &str,
 ) -> Response {
     let endpoint = match protocol {
         InboundProtocol::Responses => "/responses",
         InboundProtocol::AnthropicMessages => "/v1/messages",
     };
     let url = build_upstream_url(&upstream_source.base_url, endpoint);
+    let display_url = sanitized_url_for_log(&url);
     log::info!(
         "Gateway {} -> {} (passthrough, model_override={:?})",
         client.display_name(),
-        url,
+        display_url,
         upstream_source.model
     );
 
@@ -505,7 +718,7 @@ async fn forward_passthrough(
     // reject requests that don't look like a real Codex / Claude Code. We keep
     // every header the tool sent except hop-by-hop / CDN / tracing ones, and
     // replace only the auth header inline with the real relay key.
-    let sent = match send_to_upstream(state, client, upstream_source, |candidate| {
+    let sent = match send_to_upstream(state, client, upstream_source, request_id, |candidate| {
         let candidate_url = build_upstream_url(&candidate.base_url, endpoint);
         forward_headers(
             state.client.post(candidate_url),
@@ -526,16 +739,23 @@ async fn forward_passthrough(
     let half_open_permit = sent.half_open_permit;
     let started_at = sent.started_at;
     let upstream_resp = sent.response;
+    let mut permit_guard = sent.permit_guard;
 
     let status =
         StatusCode::from_u16(upstream_resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_success() {
-        let text = upstream_resp.text().await.unwrap_or_default();
+        let text = read_response_text(upstream_resp, MAX_ERROR_BODY_BYTES, NON_STREAM_BODY_TIMEOUT)
+            .await
+            .unwrap_or_default();
+        let message = redact_sensitive_message(
+            &safe_upstream_message(status, &text),
+            &upstream_source.api_key,
+        );
         log::error!(
-            "Gateway passthrough upstream {} returned {}: {}",
-            url,
+            "Gateway passthrough upstream {} returned {} ({})",
+            display_url,
             status.as_u16(),
-            text.chars().take(500).collect::<String>()
+            message
         );
         state
             .runtime
@@ -548,7 +768,8 @@ async fn forward_passthrough(
                 format!("HTTP {}", status.as_u16()),
             )
             .await;
-        return error_response(status, &text);
+        permit_guard.complete();
+        return error_response(status, &message, request_id);
     }
 
     let upstream_content_type = upstream_resp
@@ -566,7 +787,7 @@ async fn forward_passthrough(
 
     log::info!(
         "Gateway passthrough upstream {} responded {}, stream={}, content_type={}, content_encoding={}",
-        url,
+        display_url,
         status.as_u16(),
         stream,
         upstream_content_type,
@@ -574,12 +795,18 @@ async fn forward_passthrough(
     );
 
     if !stream {
-        let bytes = match upstream_resp.bytes().await {
+        let bytes = match read_response_bytes(
+            upstream_resp,
+            MAX_NON_STREAM_BODY_BYTES,
+            NON_STREAM_BODY_TIMEOUT,
+        )
+        .await
+        {
             Ok(bytes) => bytes,
             Err(e) => {
                 log::error!(
                     "Gateway failed reading upstream JSON body from {}: {}",
-                    url,
+                    display_url,
                     e
                 );
                 state
@@ -593,9 +820,11 @@ async fn forward_passthrough(
                         "failed reading upstream body".to_string(),
                     )
                     .await;
+                permit_guard.complete();
                 return error_response(
                     StatusCode::BAD_GATEWAY,
                     &format!("failed reading upstream body: {}", e),
+                    request_id,
                 );
             }
         };
@@ -605,7 +834,7 @@ async fn forward_passthrough(
                 Err(e) => {
                     log::error!(
                         "Gateway failed serializing upstream JSON from {}: {}",
-                        url,
+                        display_url,
                         e
                     );
                     state
@@ -619,16 +848,18 @@ async fn forward_passthrough(
                             "failed normalizing upstream JSON".to_string(),
                         )
                         .await;
+                    permit_guard.complete();
                     return error_response(
                         StatusCode::BAD_GATEWAY,
                         "failed normalizing upstream JSON",
+                        request_id,
                     );
                 }
             },
             Err(e) => {
                 log::error!(
                     "Gateway got malformed JSON from {}: {} ({} bytes)",
-                    url,
+                    display_url,
                     e,
                     bytes.len()
                 );
@@ -643,9 +874,31 @@ async fn forward_passthrough(
                         "upstream returned malformed JSON".to_string(),
                     )
                     .await;
-                return error_response(StatusCode::BAD_GATEWAY, "upstream returned malformed JSON");
+                permit_guard.complete();
+                return error_response(
+                    StatusCode::BAD_GATEWAY,
+                    "upstream returned malformed JSON",
+                    request_id,
+                );
             }
         };
+
+        if let Err(message) = validate_native_response(protocol, &normalized_value) {
+            let message = redact_sensitive_message(&message, &upstream_source.api_key);
+            state
+                .runtime
+                .record_failure(
+                    client,
+                    &upstream_source,
+                    half_open_permit,
+                    started_at.elapsed(),
+                    true,
+                    message.clone(),
+                )
+                .await;
+            permit_guard.complete();
+            return error_response(StatusCode::BAD_GATEWAY, &message, request_id);
+        }
 
         state
             .runtime
@@ -655,8 +908,10 @@ async fn forward_passthrough(
                 half_open_permit,
                 usage_from_json(&normalized_value),
                 started_at.elapsed(),
+                None,
             )
             .await;
+        permit_guard.complete();
 
         return Response::builder()
             .status(status)
@@ -671,14 +926,51 @@ async fn forward_passthrough(
     let mut byte_stream = upstream_resp.bytes_stream();
     let runtime = state.runtime.clone();
     let usage_upstream = upstream_source.clone();
+    let request_id = request_id.to_string();
     let filtered_stream = async_stream::stream! {
+        const MAX_PENDING_SSE_BYTES: usize = 4 * 1024 * 1024;
         let mut buffer = Vec::<u8>::new();
         let mut usage = GatewayTokenUsage::default();
-        while let Some(chunk) = byte_stream.next().await {
-            match chunk {
-                Ok(bytes) => buffer.extend_from_slice(&bytes),
-                Err(error) => {
-                    let message = format!("upstream stream failed: {error}");
+        let mut valid_event_seen = false;
+        let mut terminal_seen = false;
+        let mut first_event_latency = None;
+        let first_event_deadline = tokio::time::Instant::now() + STREAM_FIRST_EVENT_TIMEOUT;
+
+        loop {
+            let wait = if valid_event_seen {
+                STREAM_IDLE_TIMEOUT
+            } else {
+                first_event_deadline.saturating_duration_since(tokio::time::Instant::now())
+            };
+            if wait.is_zero() {
+                let message = format!(
+                    "upstream stream produced no valid event within {} seconds",
+                    STREAM_FIRST_EVENT_TIMEOUT.as_secs()
+                );
+                runtime
+                    .record_failure(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        message.clone(),
+                    )
+                    .await;
+                permit_guard.complete();
+                yield Ok::<_, std::io::Error>(native_stream_error(protocol, &message, &request_id));
+                return;
+            }
+
+            let next = match tokio::time::timeout(wait, byte_stream.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    let seconds = if valid_event_seen {
+                        STREAM_IDLE_TIMEOUT.as_secs()
+                    } else {
+                        STREAM_FIRST_EVENT_TIMEOUT.as_secs()
+                    };
+                    let message = format!("upstream stream timed out after {seconds} seconds");
                     runtime
                         .record_failure(
                             client,
@@ -689,25 +981,110 @@ async fn forward_passthrough(
                             message.clone(),
                         )
                         .await;
-                    yield Err::<Vec<u8>, _>(std::io::Error::other(message));
+                    permit_guard.complete();
+                    yield Ok::<_, std::io::Error>(native_stream_error(protocol, &message, &request_id));
                     return;
                 }
-            }
+            };
 
-            while let Some(end) = buffer.windows(2).position(|window| window == b"\n\n") {
-                let block: Vec<u8> = buffer.drain(..end + 2).collect();
+            let Some(chunk) = next else { break };
+            let bytes = match chunk {
+                Ok(bytes) => bytes,
+                Err(_) => {
+                    let message = "upstream stream transport failed".to_string();
+                    runtime
+                        .record_failure(
+                            client,
+                            &usage_upstream,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    permit_guard.complete();
+                    yield Ok::<_, std::io::Error>(native_stream_error(protocol, &message, &request_id));
+                    return;
+                }
+            };
+            if buffer.len().saturating_add(bytes.len()) > MAX_PENDING_SSE_BYTES {
+                let message = "upstream SSE event exceeded the buffer limit".to_string();
+                runtime
+                    .record_failure(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        message.clone(),
+                    )
+                    .await;
+                permit_guard.complete();
+                yield Ok::<_, std::io::Error>(native_stream_error(protocol, &message, &request_id));
+                return;
+            }
+            buffer.extend_from_slice(&bytes);
+
+            while let Some(block) = take_sse_block(&mut buffer) {
                 usage.merge(usage_from_sse_block(&block));
+                match inspect_native_sse_block(protocol, &block) {
+                    Ok(observation) => {
+                        if observation.valid && !valid_event_seen {
+                            first_event_latency = Some(started_at.elapsed());
+                        }
+                        valid_event_seen |= observation.valid;
+                        terminal_seen |= observation.terminal;
+                    }
+                    Err(message) => {
+                        let message =
+                            redact_sensitive_message(&message, &usage_upstream.api_key);
+                        runtime
+                            .record_failure(
+                                client,
+                                &usage_upstream,
+                                half_open_permit,
+                                started_at.elapsed(),
+                                true,
+                                message.clone(),
+                            )
+                            .await;
+                        permit_guard.complete();
+                        yield Ok::<_, std::io::Error>(native_stream_error(
+                            protocol,
+                            &message,
+                            &request_id,
+                        ));
+                        return;
+                    }
+                }
                 if !is_relay_billing_sse_block(&block) {
                     yield Ok::<_, std::io::Error>(block);
                 }
             }
         }
-        let trailing = if !buffer.is_empty() && !is_relay_billing_sse_block(&buffer) {
-            usage.merge(usage_from_sse_block(&buffer));
-            Some(buffer)
-        } else {
-            None
-        };
+
+        if !valid_event_seen || !terminal_seen {
+            let message = if !valid_event_seen {
+                "upstream stream ended without a valid protocol event"
+            } else {
+                "upstream stream ended before its terminal event"
+            }
+            .to_string();
+            runtime
+                .record_failure(
+                    client,
+                    &usage_upstream,
+                    half_open_permit,
+                    started_at.elapsed(),
+                    true,
+                    message.clone(),
+                )
+                .await;
+            permit_guard.complete();
+            yield Ok::<_, std::io::Error>(native_stream_error(protocol, &message, &request_id));
+            return;
+        }
+
         runtime
             .record_success(
                 client,
@@ -715,11 +1092,10 @@ async fn forward_passthrough(
                 half_open_permit,
                 usage,
                 started_at.elapsed(),
+                first_event_latency,
             )
             .await;
-        if let Some(buffer) = trailing {
-            yield Ok::<_, std::io::Error>(buffer);
-        }
+        permit_guard.complete();
     };
     Response::builder()
         .status(status)
@@ -777,6 +1153,146 @@ fn is_relay_billing_sse_block(block: &[u8]) -> bool {
         || block
             .windows(b"\"type\":\"billing_summary\"".len())
             .any(|window| window == b"\"type\":\"billing_summary\"")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NativeSseObservation {
+    valid: bool,
+    terminal: bool,
+}
+
+fn take_sse_block(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
+    let lf = buffer.windows(2).position(|window| window == b"\n\n");
+    let crlf = buffer.windows(4).position(|window| window == b"\r\n\r\n");
+    let (offset, delimiter_len) = match (lf, crlf) {
+        (Some(lf), Some(crlf)) if lf <= crlf => (lf, 2),
+        (Some(_), Some(crlf)) => (crlf, 4),
+        (Some(lf), None) => (lf, 2),
+        (None, Some(crlf)) => (crlf, 4),
+        (None, None) => return None,
+    };
+    Some(buffer.drain(..offset + delimiter_len).collect())
+}
+
+fn inspect_native_sse_block(
+    protocol: InboundProtocol,
+    block: &[u8],
+) -> Result<NativeSseObservation, String> {
+    if is_relay_billing_sse_block(block) {
+        return Ok(NativeSseObservation {
+            valid: false,
+            terminal: false,
+        });
+    }
+
+    let text = std::str::from_utf8(block)
+        .map_err(|_| "upstream SSE contained invalid UTF-8".to_string())?;
+    let event_name = text.lines().find_map(|line| {
+        line.trim_end_matches('\r')
+            .strip_prefix("event:")
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+    });
+    let data = text
+        .lines()
+        .filter_map(|line| {
+            line.trim_end_matches('\r')
+                .strip_prefix("data:")
+                .map(str::trim_start)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if data.is_empty() {
+        return Ok(NativeSseObservation {
+            valid: false,
+            terminal: false,
+        });
+    }
+    if data == "[DONE]" {
+        return Ok(NativeSseObservation {
+            valid: true,
+            terminal: true,
+        });
+    }
+
+    let value: Value = serde_json::from_str(&data)
+        .map_err(|_| "upstream SSE contained malformed JSON".to_string())?;
+    let payload_type = value.get("type").and_then(Value::as_str);
+    let event_type = event_name.or(payload_type);
+
+    if event_type == Some("error") || value.get("error").is_some() {
+        return Err(value_error_message(&value)
+            .unwrap_or_else(|| "upstream stream returned an error event".to_string()));
+    }
+
+    match protocol {
+        InboundProtocol::AnthropicMessages => {
+            let valid = matches!(
+                event_type,
+                Some(
+                    "message_start"
+                        | "content_block_start"
+                        | "content_block_delta"
+                        | "content_block_stop"
+                        | "message_delta"
+                        | "message_stop"
+                )
+            );
+            Ok(NativeSseObservation {
+                valid,
+                terminal: event_type == Some("message_stop"),
+            })
+        }
+        InboundProtocol::Responses => {
+            let valid = event_type.is_some_and(|name| name.starts_with("response."));
+            let terminal = matches!(
+                event_type,
+                Some("response.completed" | "response.failed" | "response.incomplete")
+            );
+            if event_type == Some("response.failed") {
+                return Err(value_error_message(&value)
+                    .unwrap_or_else(|| "upstream Responses stream failed".to_string()));
+            }
+            Ok(NativeSseObservation { valid, terminal })
+        }
+    }
+}
+
+fn native_stream_error(protocol: InboundProtocol, message: &str, request_id: &str) -> Vec<u8> {
+    let message = sanitize_error_message(message);
+    match protocol {
+        InboundProtocol::AnthropicMessages => format!(
+            "event: error\ndata: {}\n\n",
+            serde_json::json!({
+                "type": "error",
+                "error": {
+                    "type": "api_error",
+                    "message": message,
+                },
+                "request_id": request_id,
+            })
+        )
+        .into_bytes(),
+        InboundProtocol::Responses => format!(
+            "event: response.failed\ndata: {}\n\n",
+            serde_json::json!({
+                "type": "response.failed",
+                "response": {
+                    "id": format!("resp_{}", request_id.replace('-', "")),
+                    "object": "response",
+                    "status": "failed",
+                    "output": [],
+                    "error": {
+                        "type": "upstream_error",
+                        "message": message,
+                        "request_id": request_id,
+                    },
+                },
+            })
+        )
+        .into_bytes(),
+    }
 }
 
 fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
@@ -847,6 +1363,17 @@ fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
         combined = combined.replace("/v1/v1", "/v1");
     }
     combined
+}
+
+fn sanitized_url_for_log(value: &str) -> String {
+    let Ok(mut parsed) = url::Url::parse(value) else {
+        return "<invalid-upstream-url>".to_string();
+    };
+    let _ = parsed.set_username("");
+    let _ = parsed.set_password(None);
+    parsed.set_query(None);
+    parsed.set_fragment(None);
+    parsed.to_string()
 }
 
 /// Whether a header is hop-by-hop, CDN, or tracing metadata that must not be
@@ -1082,18 +1609,57 @@ fn stream_response(
     usage_upstream: GatewayUpstream,
     half_open_permit: bool,
     started_at: Instant,
+    mut permit_guard: GatewayPermitGuard,
+    request_id: String,
 ) -> Response {
     let mut byte_stream = upstream.bytes_stream();
 
     let sse = async_stream::stream! {
-        let mut buffer = String::new();
-        let mut acc = StreamAccumulator::default();
+        const MAX_PENDING_SSE_BYTES: usize = 4 * 1024 * 1024;
+        let mut buffer = Vec::<u8>::new();
+        let mut bridge = StreamBridge::new(protocol, model);
+        let mut terminal_seen = false;
+        let mut semantic_event_seen = false;
+        let mut first_event_latency = None;
+        let first_event_deadline = tokio::time::Instant::now() + STREAM_FIRST_EVENT_TIMEOUT;
 
-        while let Some(chunk) = byte_stream.next().await {
-            let bytes = match chunk {
-                Ok(bytes) => bytes,
-                Err(error) => {
-                    let message = format!("upstream stream failed: {error}");
+        'upstream: loop {
+            let wait = if semantic_event_seen {
+                STREAM_IDLE_TIMEOUT
+            } else {
+                first_event_deadline.saturating_duration_since(tokio::time::Instant::now())
+            };
+            if wait.is_zero() {
+                let message = format!(
+                    "upstream stream produced no valid event within {} seconds",
+                    STREAM_FIRST_EVENT_TIMEOUT.as_secs()
+                );
+                runtime
+                    .record_failure(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        message.clone(),
+                    )
+                    .await;
+                permit_guard.complete();
+                for event in bridge.failure_events(&message, &request_id) {
+                    yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                }
+                return;
+            }
+
+            let next = match tokio::time::timeout(wait, byte_stream.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    let seconds = if semantic_event_seen {
+                        STREAM_IDLE_TIMEOUT.as_secs()
+                    } else {
+                        STREAM_FIRST_EVENT_TIMEOUT.as_secs()
+                    };
+                    let message = format!("upstream stream timed out after {seconds} seconds");
                     runtime
                         .record_failure(
                             client,
@@ -1104,47 +1670,157 @@ fn stream_response(
                             message.clone(),
                         )
                         .await;
-                    yield Err::<Vec<u8>, _>(std::io::Error::other(message));
+                    permit_guard.complete();
+                    for event in bridge.failure_events(&message, &request_id) {
+                        yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                    }
                     return;
                 }
             };
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
 
-            // Process complete SSE lines (`data: {...}` separated by newlines).
-            while let Some(newline) = buffer.find('\n') {
-                let line = buffer[..newline].trim().to_string();
-                buffer.drain(..=newline);
+            let Some(chunk) = next else { break };
+            let bytes = match chunk {
+                Ok(bytes) => bytes,
+                Err(_) => {
+                    let message = "upstream stream transport failed".to_string();
+                    runtime
+                        .record_failure(
+                            client,
+                            &usage_upstream,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    permit_guard.complete();
+                    for event in bridge.failure_events(&message, &request_id) {
+                        yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                    }
+                    return;
+                }
+            };
+            if buffer.len().saturating_add(bytes.len()) > MAX_PENDING_SSE_BYTES {
+                let message = "upstream SSE event exceeded the buffer limit".to_string();
+                runtime
+                    .record_failure(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        message.clone(),
+                    )
+                    .await;
+                permit_guard.complete();
+                for event in bridge.failure_events(&message, &request_id) {
+                    yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                }
+                return;
+            }
+            buffer.extend_from_slice(&bytes);
 
-                let Some(payload) = line.strip_prefix("data:") else { continue };
+            while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
+                let mut line: Vec<u8> = buffer.drain(..=newline).collect();
+                while matches!(line.last(), Some(b'\n' | b'\r')) {
+                    line.pop();
+                }
+                let Ok(line) = std::str::from_utf8(&line) else {
+                    let message = "upstream SSE contained invalid UTF-8".to_string();
+                    runtime
+                        .record_failure(
+                            client,
+                            &usage_upstream,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    permit_guard.complete();
+                    for event in bridge.failure_events(&message, &request_id) {
+                        yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                    }
+                    return;
+                };
+                let Some(payload) = line.trim().strip_prefix("data:") else {
+                    continue;
+                };
                 let payload = payload.trim();
                 if payload.is_empty() {
                     continue;
                 }
                 if payload == "[DONE]" {
-                    break;
+                    terminal_seen = true;
+                    break 'upstream;
                 }
-                let Ok(chat_chunk) = serde_json::from_str::<Value>(payload) else { continue };
-                acc.observe(&chat_chunk);
+                let chat_chunk = match serde_json::from_str::<Value>(payload) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        let message = format!("upstream SSE contained malformed JSON: {error}");
+                        runtime
+                            .record_failure(
+                                client,
+                                &usage_upstream,
+                                half_open_permit,
+                                started_at.elapsed(),
+                                true,
+                                message.clone(),
+                            )
+                            .await;
+                        permit_guard.complete();
+                        for event in bridge.failure_events(&message, &request_id) {
+                            yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                        }
+                        return;
+                    }
+                };
+                let events = bridge.observe(&chat_chunk);
+                if !events.is_empty() {
+                    if !semantic_event_seen {
+                        first_event_latency = Some(started_at.elapsed());
+                    }
+                    semantic_event_seen = true;
+                }
+                for event in events {
+                    yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                }
             }
         }
 
-        let usage = acc.usage();
-        runtime
-            .record_success(
-                client,
-                &usage_upstream,
-                half_open_permit,
-                usage,
-                started_at.elapsed(),
-            )
-            .await;
-
-        let events = match protocol {
-            InboundProtocol::Responses => responses_sse_from_accumulator(&model, &acc),
-            InboundProtocol::AnthropicMessages => anthropic_sse_from_accumulator(&model, &acc),
-        };
-        for event in events {
-            yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+        match bridge.finish(terminal_seen) {
+            Ok(events) => {
+                runtime
+                    .record_success(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        bridge.usage(),
+                        started_at.elapsed(),
+                        first_event_latency,
+                    )
+                    .await;
+                permit_guard.complete();
+                for event in events {
+                    yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                }
+            }
+            Err(message) => {
+                runtime
+                    .record_failure(
+                        client,
+                        &usage_upstream,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        message.clone(),
+                    )
+                    .await;
+                permit_guard.complete();
+                for event in bridge.failure_events(&message, &request_id) {
+                    yield Ok::<_, std::io::Error>(event.to_wire().into_bytes());
+                }
+            }
         }
     };
 
@@ -1156,6 +1832,243 @@ fn stream_response(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
+async fn read_response_bytes(
+    response: reqwest::Response,
+    max_bytes: usize,
+    timeout: Duration,
+) -> Result<Vec<u8>, String> {
+    let read = async move {
+        let mut stream = response.bytes_stream();
+        let mut body = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|_| "upstream body transport failed".to_string())?;
+            if body.len().saturating_add(chunk.len()) > max_bytes {
+                return Err(format!(
+                    "upstream body exceeded the {} byte limit",
+                    max_bytes
+                ));
+            }
+            body.extend_from_slice(&chunk);
+        }
+        Ok(body)
+    };
+
+    tokio::time::timeout(timeout, read).await.map_err(|_| {
+        format!(
+            "upstream body timed out after {} seconds",
+            timeout.as_secs()
+        )
+    })?
+}
+
+async fn read_response_text(
+    response: reqwest::Response,
+    max_bytes: usize,
+    timeout: Duration,
+) -> Result<String, String> {
+    let bytes = read_response_bytes(response, max_bytes, timeout).await?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+async fn read_response_json(
+    response: reqwest::Response,
+    max_bytes: usize,
+    timeout: Duration,
+) -> Result<Value, String> {
+    let bytes = read_response_bytes(response, max_bytes, timeout).await?;
+    serde_json::from_slice(&bytes)
+        .map_err(|error| format!("upstream returned malformed JSON: {error}"))
+}
+
+fn value_error_message(value: &Value) -> Option<String> {
+    value
+        .pointer("/error/message")
+        .or_else(|| value.get("message"))
+        .and_then(Value::as_str)
+        .map(sanitize_error_message)
+}
+
+fn sanitize_error_message(message: &str) -> String {
+    let compact = message.split_whitespace().collect::<Vec<_>>().join(" ");
+    compact.chars().take(500).collect()
+}
+
+fn redact_sensitive_message(message: &str, secret: &str) -> String {
+    let sanitized = sanitize_error_message(message);
+    if secret.is_empty() {
+        sanitized
+    } else {
+        sanitized.replace(secret, "[redacted]")
+    }
+}
+
+fn transport_error_message(error: &reqwest::Error) -> String {
+    if error.is_timeout() {
+        "upstream request timed out".to_string()
+    } else if error.is_connect() {
+        "upstream connection failed".to_string()
+    } else if error.is_request() {
+        "upstream request could not be sent".to_string()
+    } else {
+        "upstream transport failed".to_string()
+    }
+}
+
+fn safe_upstream_message(status: StatusCode, body: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<Value>(body) {
+        if let Some(message) = value_error_message(&value) {
+            if !message.is_empty() {
+                return message;
+            }
+        }
+    }
+    format!("upstream returned HTTP {}", status.as_u16())
+}
+
+fn validate_chat_response(value: &Value) -> Result<(), String> {
+    if value.get("error").is_some() {
+        return Err(value_error_message(value)
+            .unwrap_or_else(|| "upstream returned a Chat error object".to_string()));
+    }
+    let choice = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|choices| choices.first())
+        .ok_or_else(|| "upstream Chat response contains no choices".to_string())?;
+    if !choice.get("message").is_some_and(Value::is_object) {
+        return Err("upstream Chat response contains no message".to_string());
+    }
+    Ok(())
+}
+
+fn validate_conversion_request(protocol: InboundProtocol, value: &Value) -> Result<(), String> {
+    if contains_object_key(value, "cache_control") {
+        return Err(
+            "cache_control cannot be preserved through Chat protocol conversion".to_string(),
+        );
+    }
+
+    if let Some(tools) = value.get("tools").and_then(Value::as_array) {
+        if let Some(tool_type) = tools
+            .iter()
+            .filter_map(|tool| tool.get("type").and_then(Value::as_str))
+            .find(|tool_type| *tool_type != "function" && *tool_type != "custom")
+        {
+            return Err(format!(
+                "tool type {tool_type} is not supported through Chat protocol conversion"
+            ));
+        }
+    }
+
+    let unsupported_content_types: &[&str] = match protocol {
+        InboundProtocol::Responses => &["input_image", "input_file", "computer_screenshot"],
+        InboundProtocol::AnthropicMessages => {
+            &["image", "document", "thinking", "redacted_thinking"]
+        }
+    };
+    if let Some(content_type) = find_content_type(value, unsupported_content_types) {
+        return Err(format!(
+            "content type {content_type} is not supported through Chat protocol conversion"
+        ));
+    }
+
+    if protocol == InboundProtocol::Responses
+        && find_object_by_type(value, "reasoning").is_some_and(|reasoning| {
+            reasoning
+                .get("encrypted_content")
+                .and_then(Value::as_str)
+                .is_some_and(|content| !content.is_empty())
+                && reasoning.get("summary").is_none()
+        })
+    {
+        return Err(
+            "encrypted reasoning without a summary cannot be preserved through Chat protocol conversion"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn contains_object_key(value: &Value, target: &str) -> bool {
+    match value {
+        Value::Object(object) => {
+            object.contains_key(target)
+                || object
+                    .values()
+                    .any(|value| contains_object_key(value, target))
+        }
+        Value::Array(values) => values
+            .iter()
+            .any(|value| contains_object_key(value, target)),
+        _ => false,
+    }
+}
+
+fn find_content_type<'a>(value: &'a Value, targets: &[&str]) -> Option<&'a str> {
+    match value {
+        Value::Object(object) => {
+            if let Some(kind) = object.get("type").and_then(Value::as_str) {
+                if targets.contains(&kind) {
+                    return Some(kind);
+                }
+            }
+            object
+                .values()
+                .find_map(|value| find_content_type(value, targets))
+        }
+        Value::Array(values) => values
+            .iter()
+            .find_map(|value| find_content_type(value, targets)),
+        _ => None,
+    }
+}
+
+fn find_object_by_type<'a>(value: &'a Value, target: &str) -> Option<&'a Value> {
+    match value {
+        Value::Object(object) => {
+            if object.get("type").and_then(Value::as_str) == Some(target) {
+                return Some(value);
+            }
+            object
+                .values()
+                .find_map(|value| find_object_by_type(value, target))
+        }
+        Value::Array(values) => values
+            .iter()
+            .find_map(|value| find_object_by_type(value, target)),
+        _ => None,
+    }
+}
+
+fn validate_native_response(protocol: InboundProtocol, value: &Value) -> Result<(), String> {
+    if value.get("error").is_some() {
+        return Err(value_error_message(value)
+            .unwrap_or_else(|| "upstream returned an error object".to_string()));
+    }
+
+    match protocol {
+        InboundProtocol::AnthropicMessages => {
+            if value.get("type").and_then(Value::as_str) != Some("message")
+                || !value.get("content").is_some_and(Value::is_array)
+            {
+                return Err("upstream returned an invalid Anthropic message".to_string());
+            }
+        }
+        InboundProtocol::Responses => {
+            if value.get("status").and_then(Value::as_str) == Some("failed") {
+                return Err(value_error_message(value)
+                    .unwrap_or_else(|| "upstream Responses request failed".to_string()));
+            }
+            if value.get("object").and_then(Value::as_str) != Some("response")
+                || !value.get("output").is_some_and(Value::is_array)
+            {
+                return Err("upstream returned an invalid Responses object".to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn json_response(status: StatusCode, value: &Value) -> Response {
     (
         status,
@@ -1165,9 +2078,32 @@ fn json_response(status: StatusCode, value: &Value) -> Response {
         .into_response()
 }
 
-fn error_response(status: StatusCode, message: &str) -> Response {
-    let body = serde_json::json!({ "error": { "message": message } });
-    json_response(status, &body)
+fn error_response(status: StatusCode, message: &str, request_id: &str) -> Response {
+    let error_type = match status {
+        StatusCode::BAD_REQUEST => "invalid_request_error",
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => "authentication_error",
+        StatusCode::PAYLOAD_TOO_LARGE => "request_too_large",
+        StatusCode::UNPROCESSABLE_ENTITY | StatusCode::NOT_IMPLEMENTED => "unsupported_request",
+        StatusCode::TOO_MANY_REQUESTS => "rate_limit_error",
+        StatusCode::BAD_GATEWAY => "upstream_error",
+        StatusCode::SERVICE_UNAVAILABLE => "service_unavailable",
+        StatusCode::GATEWAY_TIMEOUT => "timeout_error",
+        _ if status.is_server_error() => "upstream_error",
+        _ => "gateway_error",
+    };
+    let body = serde_json::json!({
+        "error": {
+            "message": sanitize_error_message(message),
+            "type": error_type,
+            "request_id": request_id,
+        }
+    });
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-request-id", request_id)
+        .body(Body::from(body.to_string()))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
 #[cfg(test)]
@@ -1199,6 +2135,24 @@ mod tests {
             build_upstream_url("https://relay.example/openai", "/chat/completions"),
             "https://relay.example/openai/chat/completions"
         );
+    }
+
+    #[test]
+    fn log_url_removes_credentials_query_and_fragment() {
+        let display = sanitized_url_for_log(
+            "https://user:secret@relay.example/v1/responses?token=secret#debug",
+        );
+        assert_eq!(display, "https://relay.example/v1/responses");
+        assert!(!display.contains("secret"));
+    }
+
+    #[test]
+    fn local_gateway_credentials_are_random_and_high_entropy() {
+        let first = generate_local_credential();
+        let second = generate_local_credential();
+        assert!(first.starts_with("ndg_"));
+        assert_eq!(first.len(), 68);
+        assert_ne!(first, second);
     }
 
     #[test]
@@ -1236,6 +2190,77 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         );
         assert_eq!(anthropic.input_tokens, 9);
         assert_eq!(anthropic.cache_read_tokens, 3);
+    }
+
+    #[test]
+    fn splits_lf_and_crlf_sse_blocks_without_losing_bytes() {
+        let mut buffer = b"event: one\r\ndata: {}\r\n\r\nevent: two\ndata: {}\n\nrest".to_vec();
+        assert_eq!(
+            take_sse_block(&mut buffer).unwrap(),
+            b"event: one\r\ndata: {}\r\n\r\n"
+        );
+        assert_eq!(
+            take_sse_block(&mut buffer).unwrap(),
+            b"event: two\ndata: {}\n\n"
+        );
+        assert_eq!(buffer, b"rest");
+    }
+
+    #[test]
+    fn inspects_native_stream_lifecycle_and_rejects_error_events() {
+        let started = inspect_native_sse_block(
+            InboundProtocol::AnthropicMessages,
+            b"event: message_start\ndata: {\"type\":\"message_start\"}\n\n",
+        )
+        .unwrap();
+        assert!(started.valid);
+        assert!(!started.terminal);
+
+        let completed = inspect_native_sse_block(
+            InboundProtocol::Responses,
+            b"event: response.completed\r\ndata: {\"type\":\"response.completed\"}\r\n\r\n",
+        )
+        .unwrap();
+        assert!(completed.valid);
+        assert!(completed.terminal);
+
+        let error = inspect_native_sse_block(
+            InboundProtocol::AnthropicMessages,
+            b"event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"bad upstream\"}}\n\n",
+        )
+        .unwrap_err();
+        assert_eq!(error, "bad upstream");
+    }
+
+    #[test]
+    fn conversion_rejects_fields_that_cannot_be_preserved() {
+        let image = json!({
+            "input": [{
+                "role": "user",
+                "content": [{ "type": "input_image", "image_url": "data:image/png;base64,AA==" }]
+            }]
+        });
+        assert!(
+            validate_conversion_request(InboundProtocol::Responses, &image)
+                .unwrap_err()
+                .contains("input_image")
+        );
+
+        let cache_control = json!({
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": "hello",
+                    "cache_control": { "type": "ephemeral" }
+                }]
+            }]
+        });
+        assert!(
+            validate_conversion_request(InboundProtocol::AnthropicMessages, &cache_control,)
+                .unwrap_err()
+                .contains("cache_control")
+        );
     }
 
     /// Stand up a fake Chat Completions relay that echoes a fixed reply and
@@ -1318,6 +2343,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let resp: Value = client
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "model": "gpt-5", "input": "ping" }))
             .send()
             .await
@@ -1351,6 +2377,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let resp: Value = client
             .post(format!("{}/v1/messages", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({
                 "model": "claude-3",
                 "messages": [{ "role": "user", "content": "ping" }]
@@ -1384,6 +2411,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let resp = client
             .post(format!("{}/v1/messages", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "messages": [] }))
             .send()
             .await
@@ -1395,6 +2423,46 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
             .as_str()
             .unwrap()
             .contains("Claude Code"));
+
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn local_gateway_rejects_missing_and_wrong_credentials() {
+        let (relay_url, _seen) = spawn_fake_relay().await;
+        let gateway = start_gateway(
+            bindings_for(GatewayClient::Codex, relay_url, "relay-model"),
+            0,
+        )
+        .await
+        .unwrap();
+        let client = reqwest::Client::new();
+
+        let missing = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+        let wrong = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth("wrong-local-credential")
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(wrong.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+        let accepted = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .header("x-api-key", gateway.local_credential())
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(accepted.status(), reqwest::StatusCode::OK);
 
         gateway.shutdown().await;
     }
@@ -1414,6 +2482,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         client
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "input": "ping" }))
             .send()
             .await
@@ -1446,6 +2515,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let response = reqwest::Client::new()
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "input": "ping" }))
             .send()
             .await
@@ -1491,6 +2561,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let response = reqwest::Client::new()
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "input": "ping" }))
             .send()
             .await
@@ -1543,6 +2614,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         for _ in 0..FAILURE_LIMIT {
             let response = client
                 .post(format!("{}/responses", gateway.base_url()))
+                .bearer_auth(gateway.local_credential())
                 .json(&json!({ "input": "ping" }))
                 .send()
                 .await
@@ -1555,6 +2627,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let response = client
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "input": "ping" }))
             .send()
             .await
@@ -1605,6 +2678,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let sse = client
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "input": "ping", "stream": true }))
             .send()
             .await
@@ -1619,7 +2693,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         assert!(sse.contains("event: response.created"));
         assert!(sse.contains("event: response.completed"));
         assert!(sse.contains("response.output_text.delta"));
-        assert!(sse.contains("pong"));
+        assert!(sse.contains("pong"), "unexpected stream: {sse}");
 
         gateway.shutdown().await;
     }
@@ -1637,6 +2711,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let sse = client
             .post(format!("{}/v1/messages", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "messages": [{ "role": "user", "content": "ping" }], "stream": true }))
             .send()
             .await
@@ -1647,7 +2722,8 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         assert!(sse.contains("event: message_start"));
         assert!(sse.contains("event: message_stop"));
-        assert!(sse.contains("pong"));
+        assert!(sse.contains("\"text\":\"po\""), "unexpected stream: {sse}");
+        assert!(sse.contains("\"text\":\"ng\""), "unexpected stream: {sse}");
 
         gateway.shutdown().await;
     }
@@ -1665,7 +2741,12 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
                 let seen = seen_clone.clone();
                 async move {
                     *seen.lock().await = Some(body);
-                    Json(json!({ "id": "resp_upstream", "object": "response", "status": "completed" }))
+                    Json(json!({
+                        "id": "resp_upstream",
+                        "object": "response",
+                        "status": "completed",
+                        "output": [],
+                    }))
                 }
             }),
         );
@@ -1693,6 +2774,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
         let client = reqwest::Client::new();
         let resp: Value = client
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .json(&json!({ "model": "gpt-5", "input": "ping", "instructions": "be terse" }))
             .send()
             .await
@@ -1757,6 +2839,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         reqwest::Client::new()
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .header("user-agent", "codex_cli_rs/1.0.0")
             .header("originator", "codex_cli_rs")
             .header("session_id", "abc-123")
@@ -1833,6 +2916,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let response: Value = reqwest::Client::new()
             .post(format!("{}/v1/messages", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .header("authorization", "Bearer local-placeholder")
             // A stale shell-level API key may coexist with AUTH_TOKEN. Bearer
             // must win regardless of HeaderMap iteration order.
@@ -1921,6 +3005,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let response = reqwest::Client::new()
             .post(format!("{}/v1/messages", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .header("authorization", "Bearer placeholder")
             .json(&json!({
                 "model": "claude-opus-4-8",
@@ -1989,6 +3074,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         reqwest::Client::new()
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .header("user-agent", "codex_cli_rs/1.0.0")
             .header("originator", "codex_cli_rs")
             .header("authorization", "Bearer sk-placeholder")
@@ -2048,6 +3134,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         reqwest::Client::new()
             .post(format!("{}/responses", gateway.base_url()))
+            .bearer_auth(gateway.local_credential())
             .header("user-agent", "my-random-script/9.9")
             .header("originator", "not-codex")
             .json(&json!({ "input": "ping" }))

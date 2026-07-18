@@ -11,6 +11,7 @@
 //! network or runtime. Streaming SSE translation lives in [`super::stream`].
 
 use serde_json::{json, Map, Value};
+use uuid::Uuid;
 
 /// Inbound protocol spoken by the tool that points at the gateway.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +67,15 @@ pub fn responses_to_chat(body: &Value, model_override: Option<&str>) -> Value {
             chat.insert("tools".to_string(), Value::Array(mapped));
         }
     }
+    if let Some(tool_choice) = obj.get("tool_choice") {
+        chat.insert(
+            "tool_choice".to_string(),
+            responses_tool_choice_to_chat(tool_choice),
+        );
+    }
+    if let Some(parallel) = obj.get("parallel_tool_calls") {
+        chat.insert("parallel_tool_calls".to_string(), parallel.clone());
+    }
 
     // Passthrough of parameters that share a name and shape.
     for key in ["temperature", "top_p", "stream"] {
@@ -81,6 +91,21 @@ pub fn responses_to_chat(body: &Value, model_override: Option<&str>) -> Value {
     }
 
     Value::Object(chat)
+}
+
+fn responses_tool_choice_to_chat(choice: &Value) -> Value {
+    if choice.is_string() {
+        return choice.clone();
+    }
+    if choice.get("type").and_then(Value::as_str) == Some("function") {
+        return json!({
+            "type": "function",
+            "function": {
+                "name": choice.get("name").and_then(Value::as_str).unwrap_or(""),
+            },
+        });
+    }
+    choice.clone()
 }
 
 fn instruction_text(value: &Value) -> String {
@@ -132,7 +157,22 @@ fn append_responses_item(item: &Value, messages: &mut Vec<Value>) {
             "tool_call_id": item.get("call_id").and_then(Value::as_str).unwrap_or(""),
             "content": responses_output_to_string(item.get("output")),
         })),
-        Some("reasoning") => {} // no portable Chat equivalent
+        Some("reasoning") => {
+            let summary = item
+                .get("summary")
+                .and_then(Value::as_array)
+                .map(|parts| {
+                    parts
+                        .iter()
+                        .filter_map(|part| part.get("text").and_then(Value::as_str))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                })
+                .unwrap_or_default();
+            if !summary.is_empty() {
+                messages.push(json!({ "role": "assistant", "content": summary }));
+            }
+        }
         _ => {
             let role = item
                 .get("role")
@@ -196,6 +236,9 @@ fn responses_tool_to_chat(tool: &Value) -> Value {
 /// Assemble a non-streaming OpenAI Responses response from a Chat Completions
 /// response returned by the upstream relay.
 pub fn chat_to_responses(chat: &Value, model: &str) -> Value {
+    let suffix = Uuid::new_v4().simple().to_string();
+    let response_id = format!("resp_{suffix}");
+    let message_id = format!("msg_{suffix}");
     let choice = chat
         .get("choices")
         .and_then(Value::as_array)
@@ -209,7 +252,7 @@ pub fn chat_to_responses(chat: &Value, model: &str) -> Value {
     let mut output = Vec::new();
     output.push(json!({
         "type": "message",
-        "id": "msg_neuradock_gateway",
+        "id": message_id,
         "role": "assistant",
         "content": [{ "type": "output_text", "text": text }],
     }));
@@ -230,12 +273,20 @@ pub fn chat_to_responses(chat: &Value, model: &str) -> Value {
     }
 
     json!({
-        "id": "resp_neuradock_gateway",
+        "id": response_id,
         "object": "response",
         "model": model,
         "status": "completed",
         "output": output,
-        "usage": chat.get("usage").cloned().unwrap_or(Value::Null),
+        "usage": {
+            "input_tokens": chat.pointer("/usage/prompt_tokens").cloned().unwrap_or(json!(0)),
+            "output_tokens": chat.pointer("/usage/completion_tokens").cloned().unwrap_or(json!(0)),
+            "total_tokens": chat.pointer("/usage/total_tokens").cloned().unwrap_or(json!(0)),
+            "input_tokens_details": {
+                "cached_tokens": chat.pointer("/usage/prompt_tokens_details/cached_tokens")
+                    .cloned().unwrap_or(json!(0)),
+            },
+        },
     })
 }
 
@@ -274,6 +325,13 @@ pub fn anthropic_to_chat(body: &Value, model_override: Option<&str>) -> Value {
             chat.insert("tools".to_string(), Value::Array(mapped));
         }
     }
+    if let Some(choice) = obj.get("tool_choice") {
+        let (tool_choice, parallel) = anthropic_tool_choice_to_chat(choice);
+        chat.insert("tool_choice".to_string(), tool_choice);
+        if let Some(parallel) = parallel {
+            chat.insert("parallel_tool_calls".to_string(), Value::Bool(parallel));
+        }
+    }
 
     for key in ["temperature", "top_p", "stream"] {
         if let Some(v) = obj.get(key) {
@@ -285,6 +343,26 @@ pub fn anthropic_to_chat(body: &Value, model_override: Option<&str>) -> Value {
     }
 
     Value::Object(chat)
+}
+
+fn anthropic_tool_choice_to_chat(choice: &Value) -> (Value, Option<bool>) {
+    let parallel = choice
+        .get("disable_parallel_tool_use")
+        .and_then(Value::as_bool)
+        .map(|disabled| !disabled);
+    let mapped = match choice.get("type").and_then(Value::as_str) {
+        Some("auto") => json!("auto"),
+        Some("any") => json!("required"),
+        Some("none") => json!("none"),
+        Some("tool") => json!({
+            "type": "function",
+            "function": {
+                "name": choice.get("name").and_then(Value::as_str).unwrap_or(""),
+            },
+        }),
+        _ => choice.clone(),
+    };
+    (mapped, parallel)
 }
 
 fn anthropic_system_text(system: &Value) -> String {
@@ -396,6 +474,7 @@ fn anthropic_tool_to_chat(tool: &Value) -> Value {
 /// Assemble a non-streaming Anthropic Messages response from a Chat
 /// Completions response returned by the upstream relay.
 pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
+    let message_id = format!("msg_{}", Uuid::new_v4().simple());
     let choice = chat
         .get("choices")
         .and_then(Value::as_array)
@@ -437,7 +516,7 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
 
     let usage = chat.get("usage");
     json!({
-        "id": "msg_neuradock_gateway",
+        "id": message_id,
         "type": "message",
         "role": "assistant",
         "model": model,
@@ -446,6 +525,10 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
         "usage": {
             "input_tokens": usage.and_then(|u| u.get("prompt_tokens")).and_then(Value::as_i64).unwrap_or(0),
             "output_tokens": usage.and_then(|u| u.get("completion_tokens")).and_then(Value::as_i64).unwrap_or(0),
+            "cache_read_input_tokens": usage
+                .and_then(|u| u.pointer("/prompt_tokens_details/cached_tokens"))
+                .and_then(Value::as_i64)
+                .unwrap_or(0),
         },
     })
 }
@@ -495,6 +578,19 @@ mod tests {
     }
 
     #[test]
+    fn responses_tool_choice_and_parallel_flag_are_preserved() {
+        let body = json!({
+            "input": "hello",
+            "tools": [{ "type": "function", "name": "search", "parameters": {} }],
+            "tool_choice": { "type": "function", "name": "search" },
+            "parallel_tool_calls": false,
+        });
+        let chat = responses_to_chat(&body, None);
+        assert_eq!(chat["tool_choice"]["function"]["name"], "search");
+        assert_eq!(chat["parallel_tool_calls"], false);
+    }
+
+    #[test]
     fn chat_response_becomes_responses_output() {
         let chat = json!({
             "choices": [{ "message": { "content": "hi there" } }],
@@ -541,6 +637,22 @@ mod tests {
         let chat = anthropic_to_chat(&body, None);
         assert_eq!(chat["tools"][0]["function"]["name"], "f");
         assert_eq!(chat["tools"][0]["function"]["parameters"]["type"], "object");
+    }
+
+    #[test]
+    fn anthropic_tool_choice_maps_parallel_policy() {
+        let body = json!({
+            "messages": [{ "role": "user", "content": "hello" }],
+            "tools": [{ "name": "search", "input_schema": { "type": "object" } }],
+            "tool_choice": {
+                "type": "tool",
+                "name": "search",
+                "disable_parallel_tool_use": true
+            }
+        });
+        let chat = anthropic_to_chat(&body, None);
+        assert_eq!(chat["tool_choice"]["function"]["name"], "search");
+        assert_eq!(chat["parallel_tool_calls"], false);
     }
 
     #[test]
