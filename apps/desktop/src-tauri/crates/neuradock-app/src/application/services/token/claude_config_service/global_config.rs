@@ -28,6 +28,76 @@ pub(super) fn configure_global_with_key_impl(
     context_1m: bool,
 ) -> Result<String> {
     let _guard = CLAUDE_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let config_path = get_claude_config_path()?;
+
+    // Ensure directory exists
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    // Read existing config or create empty object
+    let config = build_config(
+        load_config(&config_path)?,
+        api_key,
+        base_url,
+        model,
+        context_1m,
+    )?;
+
+    // Write back config with proper formatting
+    let content = serde_json::to_string_pretty(&config)?;
+    backup_file(&config_path)?;
+    atomic_write(&config_path, &content, true)?;
+
+    log::info!(
+        "Successfully configured Claude Code at: {}",
+        config_path.display()
+    );
+
+    Ok(format!(
+        "Successfully configured Claude Code globally at: {}",
+        config_path.display()
+    ))
+}
+
+pub(super) fn preview_global_with_key_impl(
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<(std::path::PathBuf, String, String)> {
+    let _guard = CLAUDE_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let config_path = get_claude_config_path()?;
+    let current = if config_path.exists() {
+        fs::read_to_string(&config_path).context("Failed to read existing settings.json")?
+    } else {
+        String::new()
+    };
+    let existing = if current.trim().is_empty() {
+        json!({})
+    } else {
+        serde_json::from_str(&current).context("Failed to parse existing settings.json")?
+    };
+    let next = build_config(existing, api_key, base_url, model, context_1m)?;
+
+    Ok((config_path, current, serde_json::to_string_pretty(&next)?))
+}
+
+fn load_config(path: &std::path::Path) -> Result<Value> {
+    if !path.exists() {
+        return Ok(json!({}));
+    }
+    let content = fs::read_to_string(path).context("Failed to read existing settings.json")?;
+    serde_json::from_str(&content).context("Failed to parse existing settings.json")
+}
+
+fn build_config(
+    mut config: Value,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<Value> {
     // The 1M option rides on the model id, so it only applies when a model
     // was selected; the command layer rejects 1M without a model.
     let model_with_context = model.map(|m| {
@@ -38,30 +108,10 @@ pub(super) fn configure_global_with_key_impl(
         }
     });
     let model = model_with_context.as_deref();
-
-    let config_path = get_claude_config_path()?;
-
-    // Ensure directory exists
-    if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    // Read existing config or create empty object
-    let mut config: Value = if config_path.exists() {
-        let content =
-            fs::read_to_string(&config_path).context("Failed to read existing settings.json")?;
-        serde_json::from_str(&content).context("Failed to parse existing settings.json")?
-    } else {
-        json!({})
-    };
-
-    // Ensure config is an object
     let config_obj = config
         .as_object_mut()
         .context("settings.json must be a JSON object")?;
 
-    // Build the managed env keys once, then merge them into the existing
-    // env object so user-defined variables survive untouched.
     let api_key = ensure_sk_prefix(api_key);
     let mut env_updates = serde_json::Map::new();
     env_updates.insert("ANTHROPIC_AUTH_TOKEN".to_string(), json!(api_key));
@@ -81,32 +131,14 @@ pub(super) fn configure_global_with_key_impl(
     }
 
     match config_obj.get_mut("env") {
-        Some(Value::Object(env_obj)) => {
-            env_obj.extend(env_updates);
-        }
-        Some(other) => {
-            // env exists but is not an object, replace it
-            *other = Value::Object(env_updates);
-        }
+        Some(Value::Object(env_obj)) => env_obj.extend(env_updates),
+        Some(other) => *other = Value::Object(env_updates),
         None => {
             config_obj.insert("env".to_string(), Value::Object(env_updates));
         }
     }
 
-    // Write back config with proper formatting
-    let content = serde_json::to_string_pretty(&config)?;
-    backup_file(&config_path)?;
-    atomic_write(&config_path, &content, true)?;
-
-    log::info!(
-        "Successfully configured Claude Code at: {}",
-        config_path.display()
-    );
-
-    Ok(format!(
-        "Successfully configured Claude Code globally at: {}",
-        config_path.display()
-    ))
+    Ok(config)
 }
 
 pub(super) fn clear_global_impl() -> Result<String> {
@@ -153,4 +185,32 @@ pub(super) fn clear_global_impl() -> Result<String> {
     );
 
     Ok("Successfully cleared Claude Code global configuration".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preview_builder_preserves_user_fields_and_adds_context_marker() {
+        let existing = json!({
+            "theme": "dark",
+            "env": { "USER_DEFINED": "kept" }
+        });
+        let next = build_config(
+            existing,
+            "test-key",
+            "https://relay.example",
+            Some("claude-opus-4-8"),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(next["theme"], "dark");
+        assert_eq!(next["env"]["USER_DEFINED"], "kept");
+        assert_eq!(
+            next["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL"],
+            "claude-opus-4-8[1m]"
+        );
+    }
 }

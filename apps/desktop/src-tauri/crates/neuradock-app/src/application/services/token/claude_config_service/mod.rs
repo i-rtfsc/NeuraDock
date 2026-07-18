@@ -37,6 +37,16 @@ impl ClaudeConfigService {
         global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
+    pub fn preview_global_with_key(
+        &self,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<(std::path::PathBuf, String, String)> {
+        global_config::preview_global_with_key_impl(api_key, base_url, model, context_1m)
+    }
+
     /// Path of the settings.json this service manages.
     pub fn managed_path() -> Result<std::path::PathBuf> {
         helpers::get_claude_config_path()

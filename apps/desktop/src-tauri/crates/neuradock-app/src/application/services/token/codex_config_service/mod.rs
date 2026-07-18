@@ -44,6 +44,35 @@ impl CodexConfigService {
         global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
+    pub fn preview_global(
+        &self,
+        token: &ApiToken,
+        provider_id: &str,
+        provider_name: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        global_config::preview_global_impl(
+            token,
+            provider_id,
+            provider_name,
+            base_url,
+            model,
+            context_1m,
+        )
+    }
+
+    pub fn preview_global_with_key(
+        &self,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        global_config::preview_global_with_key_impl(api_key, base_url, model, context_1m)
+    }
+
     /// Clear Codex global configuration
     /// Removes both config.toml and auth.json files
     pub fn clear_global(&self) -> Result<String> {

@@ -12,7 +12,7 @@ use neuradock_infrastructure::gateway::{
     start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream, UpstreamKind,
 };
 
-use crate::application::services::GatewayTakeover;
+use crate::application::services::{GatewayTakeover, GATEWAY_PLACEHOLDER_KEY};
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
@@ -201,6 +201,32 @@ pub struct GatewayStatusDto {
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentConfigPreviewRequestDto {
+    pub client: GatewayClientDto,
+    pub method: AccessMethodDto,
+    pub source: GatewaySourceDto,
+    pub model: Option<String>,
+    #[serde(default, rename = "context1m")]
+    pub context_1m: bool,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct AgentConfigPreviewFileDto {
+    pub path: String,
+    pub format: String,
+    pub current_content: String,
+    pub next_content: String,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct AgentConfigPreviewDto {
+    pub files: Vec<AgentConfigPreviewFileDto>,
+    pub takeover_active: bool,
+    pub gateway_running: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct GatewayBindingConfigDto {
     pub upstream_kind: UpstreamKindDto,
     pub model: Option<String>,
@@ -332,6 +358,273 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
         CommandError::infrastructure(format!("Failed to get app data directory: {}", e))
     })?;
     Ok(GatewayTakeover::new(&app_data_dir))
+}
+
+/// Build a read-only, redacted view of the files managed for an Agent. The
+/// same config builders used by the write commands produce `next_content`, so
+/// preview and save cannot drift apart.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_agent_config_preview(
+    request: AgentConfigPreviewRequestDto,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<AgentConfigPreviewDto, CommandError> {
+    if request.context_1m && request.model.is_none() {
+        return Err(CommandError::validation(
+            "1M context requires selecting a model.",
+        ));
+    }
+
+    let gateway_client: GatewayClient = request.client.into();
+    let takeover = takeover_for(&app)?;
+    let takeover_active = takeover.is_active_for(gateway_client);
+    let gateway_base_url = state
+        .server
+        .lock()
+        .await
+        .as_ref()
+        .map(|handle| handle.base_url());
+    let gateway_running = gateway_base_url.is_some();
+
+    let raw_files = match request.method {
+        AccessMethodDto::Gateway => {
+            let preview_base_url = gateway_base_url
+                .as_deref()
+                .unwrap_or("http://127.0.0.1:<port>");
+            preview_with_key(
+                request.client,
+                GATEWAY_PLACEHOLDER_KEY,
+                preview_base_url,
+                request.model.as_deref(),
+                request.context_1m,
+                &services,
+            )?
+        }
+        AccessMethodDto::Direct => {
+            preview_direct(
+                request.client,
+                &request.source,
+                request.model.as_deref(),
+                request.context_1m,
+                &services,
+                &repositories,
+            )
+            .await?
+        }
+    };
+
+    let files = raw_files
+        .into_iter()
+        .map(|(path, format, current, mut next)| {
+            if request.method == AccessMethodDto::Gateway && !gateway_running {
+                next = current.clone();
+            }
+            AgentConfigPreviewFileDto {
+                path: abbreviate_home(&path),
+                format: format.to_string(),
+                current_content: redact_content(format, &current),
+                next_content: redact_content(format, &next),
+            }
+        })
+        .collect();
+
+    Ok(AgentConfigPreviewDto {
+        files,
+        takeover_active,
+        gateway_running,
+    })
+}
+
+type RawPreviewFile = (std::path::PathBuf, &'static str, String, String);
+
+fn preview_with_key(
+    client: GatewayClientDto,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+    services: &Services,
+) -> Result<Vec<RawPreviewFile>, CommandError> {
+    match client {
+        GatewayClientDto::Codex => services
+            .codex_config
+            .preview_global_with_key(api_key, base_url, model, context_1m)
+            .map_err(CommandError::from),
+        GatewayClientDto::ClaudeCode => services
+            .claude_config
+            .preview_global_with_key(api_key, base_url, model, context_1m)
+            .map(|(path, current, next)| vec![(path, "json", current, next)])
+            .map_err(CommandError::from),
+    }
+}
+
+async fn preview_direct(
+    client: GatewayClientDto,
+    source: &GatewaySourceDto,
+    model: Option<&str>,
+    context_1m: bool,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<Vec<RawPreviewFile>, CommandError> {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => {
+            let account_id = AccountId::from_string(account_id);
+            let token_id = neuradock_domain::token::TokenId::new(*token_id);
+            let account = repositories
+                .account
+                .find_by_id(&account_id)
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Account not found"))?;
+            let tokens = services
+                .token
+                .get_cached_tokens(&account_id)
+                .await
+                .map_err(CommandError::from)?;
+            let token = tokens
+                .iter()
+                .find(|token| token.id() == &token_id)
+                .ok_or_else(|| CommandError::not_found("Token not found"))?;
+            ensure_account_token_usable(&account, token)?;
+
+            let provider_id_obj = ProviderId::from_string(provider_id);
+            if account.provider_id() != &provider_id_obj {
+                return Err(CommandError::validation(
+                    "The selected provider does not belong to this account.",
+                ));
+            }
+            let provider = repositories
+                .provider
+                .find_by_id(&provider_id_obj)
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+            let base_url = base_url.as_deref().unwrap_or_else(|| provider.domain());
+
+            match client {
+                GatewayClientDto::Codex => services
+                    .codex_config
+                    .preview_global(
+                        token,
+                        provider.id().as_str(),
+                        provider.name(),
+                        base_url,
+                        model,
+                        context_1m,
+                    )
+                    .map_err(CommandError::from),
+                GatewayClientDto::ClaudeCode => services
+                    .claude_config
+                    .preview_global_with_key(token.key(), base_url, model, context_1m)
+                    .map(|(path, current, next)| vec![(path, "json", current, next)])
+                    .map_err(CommandError::from),
+            }
+        }
+        GatewaySourceDto::IndependentKey { key_id } => {
+            let key = repositories
+                .independent_key
+                .find_by_id(&IndependentKeyId::new(*key_id))
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Key not found"))?;
+            if !key.is_active() {
+                return Err(CommandError::validation(
+                    "Cannot configure an inactive API key.",
+                ));
+            }
+            preview_with_key(
+                client,
+                key.api_key(),
+                key.base_url(),
+                model,
+                context_1m,
+                services,
+            )
+        }
+    }
+}
+
+fn abbreviate_home(path: &std::path::Path) -> String {
+    if let Some(home) = dirs::home_dir() {
+        if let Ok(relative) = path.strip_prefix(home) {
+            return format!("~/{}", relative.display());
+        }
+    }
+    path.display().to_string()
+}
+
+fn redact_content(format: &str, content: &str) -> String {
+    if content.trim().is_empty() {
+        return content.to_string();
+    }
+    if format == "toml" {
+        return redact_toml_content(content);
+    }
+    if format != "json" {
+        return content.to_string();
+    }
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) else {
+        return content.to_string();
+    };
+    redact_json_value(&mut value);
+    serde_json::to_string_pretty(&value).unwrap_or_else(|_| content.to_string())
+}
+
+fn redact_toml_content(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| {
+            let Some((key, _value)) = line.split_once('=') else {
+                return line.to_string();
+            };
+            let normalized = key.trim().trim_matches(['\'', '"']).to_ascii_uppercase();
+            if normalized.contains("TOKEN")
+                || normalized.contains("API_KEY")
+                || normalized.contains("SECRET")
+                || normalized.contains("PASSWORD")
+            {
+                format!("{}= \"••••••••\"", key)
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn redact_json_value(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, value) in object {
+                let normalized = key.to_ascii_uppercase();
+                if normalized.contains("TOKEN")
+                    || normalized.contains("API_KEY")
+                    || normalized.contains("SECRET")
+                    || normalized.contains("PASSWORD")
+                {
+                    if value.is_string() {
+                        *value = serde_json::Value::String("••••••••".to_string());
+                        continue;
+                    }
+                }
+                redact_json_value(value);
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for value in values {
+                redact_json_value(value);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Bind a client (Codex / Claude Code) to an upstream relay key. If the
@@ -670,5 +963,31 @@ mod tests {
         }"#;
         let binding: PersistedBinding = serde_json::from_str(json).unwrap();
         assert!(!binding.context1m);
+    }
+
+    #[test]
+    fn config_preview_redacts_sensitive_json_values() {
+        let content = r#"{
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "secret",
+                "SAFE_VALUE": "visible"
+            },
+            "OPENAI_API_KEY": "secret-two"
+        }"#;
+        let redacted = redact_content("json", content);
+
+        assert!(!redacted.contains("secret"));
+        assert!(redacted.contains("visible"));
+        assert!(redacted.contains("••••••••"));
+    }
+
+    #[test]
+    fn config_preview_redacts_sensitive_toml_values() {
+        let content = "model = \"gpt-5\"\napi_key = \"secret\"\nenv_key = \"OPENAI_API_KEY\"\n";
+        let redacted = redact_content("toml", content);
+
+        assert!(!redacted.contains("\"secret\""));
+        assert!(redacted.contains("model = \"gpt-5\""));
+        assert!(redacted.contains("env_key = \"OPENAI_API_KEY\""));
     }
 }

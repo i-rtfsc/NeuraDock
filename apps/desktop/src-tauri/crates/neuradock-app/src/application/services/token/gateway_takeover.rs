@@ -16,7 +16,7 @@ use neuradock_infrastructure::gateway::GatewayClient;
 
 /// Placeholder key written into tool configs during takeover; the real key
 /// only lives inside the gateway process.
-const GATEWAY_PLACEHOLDER_KEY: &str = "sk-neuradock-gateway";
+pub(crate) const GATEWAY_PLACEHOLDER_KEY: &str = "sk-neuradock-gateway";
 
 const STATE_FILENAME: &str = "gateway_takeover.json";
 const SNAPSHOT_DIR: &str = "gateway_takeover";
@@ -63,6 +63,12 @@ impl GatewayTakeover {
     /// Whether any client is currently taken over (e.g. after a crash).
     pub fn has_stale_takeover(&self) -> bool {
         self.state_path.exists()
+    }
+
+    /// Whether the selected client's live config is currently owned by the
+    /// running gateway. This is read-only and never changes takeover state.
+    pub fn is_active_for(&self, client: GatewayClient) -> bool {
+        self.client_snapshot(&self.load_state(), client).is_some()
     }
 
     /// Take over `client`'s tool config: snapshot the live files, then write a

@@ -71,29 +71,23 @@ fn configure(
     let config_path = get_codex_config_path()?;
     let auth_path = get_codex_auth_path()?;
 
-    // config.toml: read-modify-write, preserving unrelated keys.
-    let mut doc = load_toml_document(&config_path)?;
-    apply_provider_config(
-        &mut doc,
+    let (doc, auth) = build_documents(
+        load_toml_document(&config_path)?,
+        load_json_object(&auth_path)?,
         provider_slug,
         provider_name,
+        api_key,
         base_url,
         model,
         context_1m,
-    );
+    )?;
+
+    // config.toml: read-modify-write, preserving unrelated keys.
     backup_file(&config_path)?;
     atomic_write(&config_path, &doc.to_string(), false)?;
     log::info!("Codex config.toml updated at: {}", config_path.display());
 
     // auth.json: upsert OPENAI_API_KEY, keep any other fields.
-    let mut auth = load_json_object(&auth_path)?;
-    let auth_obj = auth
-        .as_object_mut()
-        .context("auth.json must be a JSON object")?;
-    auth_obj.insert(
-        "OPENAI_API_KEY".to_string(),
-        json!(ensure_sk_prefix(api_key)),
-    );
     backup_file(&auth_path)?;
     atomic_write(&auth_path, &serde_json::to_string_pretty(&auth)?, true)?;
     log::info!("Codex auth.json updated at: {}", auth_path.display());
@@ -103,6 +97,140 @@ fn configure(
         config_path.display(),
         auth_path.display()
     ))
+}
+
+pub(super) fn preview_global_impl(
+    token: &ApiToken,
+    provider_id: &str,
+    provider_name: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+    let provider_slug = sanitize_provider_slug(provider_id);
+    let display_name = if provider_name.is_empty() {
+        provider_id
+    } else {
+        provider_name
+    };
+    preview(
+        &provider_slug,
+        display_name,
+        token.key(),
+        base_url,
+        model,
+        context_1m,
+    )
+}
+
+pub(super) fn preview_global_with_key_impl(
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+    preview(
+        GENERIC_PROVIDER_SLUG,
+        GENERIC_PROVIDER_NAME,
+        api_key,
+        base_url,
+        model,
+        context_1m,
+    )
+}
+
+fn preview(
+    provider_slug: &str,
+    provider_name: &str,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+    let _guard = CODEX_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let config_path = get_codex_config_path()?;
+    let auth_path = get_codex_auth_path()?;
+    let current_config = read_if_exists(&config_path)?;
+    let current_auth = read_if_exists(&auth_path)?;
+    let (next_config, next_auth) = build_documents(
+        parse_toml_content(&config_path, &current_config)?,
+        parse_json_content(&auth_path, &current_auth)?,
+        provider_slug,
+        provider_name,
+        api_key,
+        base_url,
+        model,
+        context_1m,
+    )?;
+
+    Ok(vec![
+        (config_path, "toml", current_config, next_config.to_string()),
+        (
+            auth_path,
+            "json",
+            current_auth,
+            serde_json::to_string_pretty(&next_auth)?,
+        ),
+    ])
+}
+
+fn build_documents(
+    mut doc: toml_edit::DocumentMut,
+    mut auth: Value,
+    provider_slug: &str,
+    provider_name: &str,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<(toml_edit::DocumentMut, Value)> {
+    apply_provider_config(
+        &mut doc,
+        provider_slug,
+        provider_name,
+        base_url,
+        model,
+        context_1m,
+    );
+    let auth_obj = auth
+        .as_object_mut()
+        .context("auth.json must be a JSON object")?;
+    auth_obj.insert(
+        "OPENAI_API_KEY".to_string(),
+        json!(ensure_sk_prefix(api_key)),
+    );
+    Ok((doc, auth))
+}
+
+fn read_if_exists(path: &Path) -> Result<String> {
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))
+}
+
+fn parse_toml_content(path: &Path, content: &str) -> Result<toml_edit::DocumentMut> {
+    if content.trim().is_empty() {
+        return Ok(toml_edit::DocumentMut::new());
+    }
+    content.parse::<toml_edit::DocumentMut>().with_context(|| {
+        format!(
+            "{} is not valid TOML; fix or remove it manually, then retry",
+            path.display()
+        )
+    })
+}
+
+fn parse_json_content(path: &Path, content: &str) -> Result<Value> {
+    if content.trim().is_empty() {
+        return Ok(json!({}));
+    }
+    serde_json::from_str(content).with_context(|| {
+        format!(
+            "{} is not valid JSON; fix or remove it manually, then retry",
+            path.display()
+        )
+    })
 }
 
 pub(super) fn clear_global_impl() -> Result<String> {
@@ -171,31 +299,39 @@ pub(super) fn clear_global_impl() -> Result<String> {
 /// that exists but fails to parse aborts the operation instead of being
 /// silently overwritten.
 fn load_toml_document(path: &Path) -> Result<toml_edit::DocumentMut> {
-    if !path.exists() {
-        return Ok(toml_edit::DocumentMut::new());
-    }
-    let content =
-        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
-    content.parse::<toml_edit::DocumentMut>().with_context(|| {
-        format!(
-            "{} is not valid TOML; fix or remove it manually, then retry",
-            path.display()
-        )
-    })
+    parse_toml_content(path, &read_if_exists(path)?)
 }
 
 /// Parse an existing JSON file, or start from an empty object. A corrupt
 /// file aborts instead of being clobbered.
 fn load_json_object(path: &Path) -> Result<Value> {
-    if !path.exists() {
-        return Ok(json!({}));
-    }
-    let content =
-        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
-    serde_json::from_str(&content).with_context(|| {
-        format!(
-            "{} is not valid JSON; fix or remove it manually, then retry",
-            path.display()
+    parse_json_content(path, &read_if_exists(path)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preview_builder_preserves_unmanaged_auth_fields() {
+        let mut doc = toml_edit::DocumentMut::new();
+        doc["approval_policy"] = toml_edit::value("on-request");
+        let auth = json!({ "tokens": { "access_token": "kept" } });
+
+        let (doc, auth) = build_documents(
+            doc,
+            auth,
+            "relay",
+            "Relay",
+            "test-key",
+            "https://relay.example/v1",
+            Some("gpt-5"),
+            false,
         )
-    })
+        .unwrap();
+
+        assert_eq!(doc["approval_policy"].as_str(), Some("on-request"));
+        assert_eq!(auth["tokens"]["access_token"], "kept");
+        assert_eq!(auth["OPENAI_API_KEY"], "sk-test-key");
+    }
 }
