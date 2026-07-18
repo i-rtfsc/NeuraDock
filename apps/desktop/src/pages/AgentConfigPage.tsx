@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot } from 'lucide-react';
 
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageContent } from '@/components/layout/PageContent';
@@ -17,12 +16,7 @@ export function AgentConfigPage() {
   return (
     <PageContainer
       className="h-full bg-muted/10 w-full"
-      title={
-        <span className="flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          {t('nav.agentConfig', 'Agent 配置')}
-        </span>
-      }
+      title={t('nav.agentConfig', 'Agent 配置')}
       actions={
         <AgentConfigHeaderControls />
       }
