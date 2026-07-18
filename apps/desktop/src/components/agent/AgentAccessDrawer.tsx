@@ -4,6 +4,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
+  Check,
+  Copy,
+  FileCode2,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -17,7 +20,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -33,6 +35,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import type { ProviderNode } from '@/types/token';
 import type { AgentAccess, AgentAccessSource, AgentDef } from './AgentConfigGateway';
@@ -57,6 +66,29 @@ export interface KeyOption {
 }
 
 type Method = 'direct' | 'gateway';
+type ConfigView = 'form' | 'files';
+type FileVersion = 'current' | 'next';
+
+interface AgentConfigPreviewFile {
+  path: string;
+  format: string;
+  current_content: string;
+  next_content: string;
+}
+
+interface AgentConfigPreview {
+  files: AgentConfigPreviewFile[];
+  takeover_active: boolean;
+  gateway_running: boolean;
+}
+
+interface AgentConfigPreviewRequest {
+  client: AgentDef['id'];
+  method: Method;
+  source: AgentAccessSource;
+  model: string | null;
+  context1m: boolean;
+}
 
 interface Props {
   open: boolean;
@@ -102,7 +134,6 @@ export function AgentAccessDrawer({
   const { t } = useTranslation();
   const initializedRef = useRef<string | null>(null);
   const [sourceId, setSourceId] = useState('');
-  const [accountId, setAccountId] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [method, setMethod] = useState<Method>('gateway');
   const [kind, setKind] = useState<UpstreamKind>(agent.nativeKind);
@@ -111,6 +142,11 @@ export function AgentAccessDrawer({
   const [model, setModel] = useState('');
   const [context1m, setContext1m] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [configView, setConfigView] = useState<ConfigView>('form');
+  const [fileVersion, setFileVersion] = useState<FileVersion>('next');
+  const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<AgentConfigPreviewRequest | null>(null);
 
   const locked = !!presetOptionId;
 
@@ -119,17 +155,18 @@ export function AgentAccessDrawer({
     const independent: KeyOption[] = [];
     for (const option of keyOptions) {
       if (option.sourceGroup === 'relay') {
-        const list = relay.get(option.providerName) ?? [];
+        const accountKey = option.accountId ?? `${option.providerName}:${option.accountName ?? ''}`;
+        const list = relay.get(accountKey) ?? [];
         list.push(option);
-        relay.set(option.providerName, list);
+        relay.set(accountKey, list);
       } else {
         independent.push(option);
       }
     }
 
-    const list: KeySource[] = Array.from(relay, ([provider, keys]) => ({
-      id: `relay:${provider}`,
-      label: provider,
+    const list: KeySource[] = Array.from(relay, ([accountKey, keys]) => ({
+      id: `relay:${accountKey}`,
+      label: [keys[0]?.providerName, keys[0]?.accountName].filter(Boolean).join(' · '),
       group: 'relay' as const,
       keys,
     }));
@@ -177,13 +214,13 @@ export function AgentAccessDrawer({
     if (target) {
       setSelectedId(optionId(target));
       setSourceId(
-        target.sourceGroup === 'relay' ? `relay:${target.providerName}` : INDEPENDENT_SOURCE_ID
+        target.sourceGroup === 'relay'
+          ? `relay:${target.accountId ?? `${target.providerName}:${target.accountName ?? ''}`}`
+          : INDEPENDENT_SOURCE_ID
       );
-      setAccountId(target.accountId ?? '');
     } else {
       setSelectedId('');
       setSourceId(sources[0]?.id ?? '');
-      setAccountId('');
     }
   }, [
     agent.nativeKind,
@@ -198,27 +235,7 @@ export function AgentAccessDrawer({
   ]);
 
   const activeSource = sources.find((source) => source.id === sourceId);
-  const isRelay = activeSource?.group === 'relay';
-
-  const accounts = useMemo(() => {
-    if (!activeSource || activeSource.group !== 'relay') return [];
-    const map = new Map<string, string>();
-    for (const option of activeSource.keys) {
-      if (option.accountId) map.set(option.accountId, option.accountName ?? option.accountId);
-    }
-    return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [activeSource]);
-
-  const activeKeys = useMemo(() => {
-    if (!activeSource) return [];
-    if (activeSource.group !== 'relay') return activeSource.keys;
-    if (!accountId) return [];
-    return activeSource.keys.filter((option) => option.accountId === accountId);
-  }, [activeSource, accountId]);
-
-  useEffect(() => {
-    if (isRelay && accounts.length === 1 && !accountId) setAccountId(accounts[0].id);
-  }, [isRelay, accounts, accountId]);
+  const activeKeys = activeSource?.keys ?? [];
 
   const selected = keyOptions.find((option) => optionId(option) === selectedId);
   const isAccountToken = selected?.source.type === 'account_token';
@@ -241,6 +258,12 @@ export function AgentAccessDrawer({
   }, [isAccountToken, nodes, node]);
 
   const baseUrl = isAccountToken ? node : selected?.baseUrl ?? '';
+  const accessSource = useMemo<AgentAccessSource | null>(() => {
+    if (!selected) return null;
+    return selected.source.type === 'account_token'
+      ? { ...selected.source, base_url: baseUrl || null }
+      : selected.source;
+  }, [baseUrl, selected]);
   const modelOptions = useMemo(() => {
     if (!isAccountToken || !selected) return [];
     if (!selected.modelLimitsEnabled) return providerModels;
@@ -251,21 +274,69 @@ export function AgentAccessDrawer({
     );
   }, [isAccountToken, providerModels, selected]);
 
+  const compatibleModelOptions = useMemo(() => {
+    if (method === 'gateway' && kind === 'openai_chat') return modelOptions;
+    return modelOptions.filter((candidate) => {
+      const normalized = candidate.trim().toLowerCase();
+      if (agent.id === 'claude_code') {
+        return !(
+          normalized.startsWith('gpt-') ||
+          /^o[134](?:-|$)/.test(normalized) ||
+          normalized.includes('codex')
+        );
+      }
+      return !normalized.startsWith('claude-');
+    });
+  }, [agent.id, kind, method, modelOptions]);
+
+  useEffect(() => {
+    if (model && modelOptions.includes(model) && !compatibleModelOptions.includes(model)) {
+      setModel('');
+      setContext1m(false);
+    }
+  }, [compatibleModelOptions, model, modelOptions]);
+
   useEffect(() => {
     if (!model) setContext1m(false);
   }, [model]);
 
+  useEffect(() => {
+    if (
+      !open ||
+      configView !== 'files' ||
+      !accessSource ||
+      (isAccountToken && !baseUrl)
+    ) {
+      setPreviewRequest(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setPreviewRequest({
+        client: agent.id,
+        method,
+        source: accessSource,
+        model: model || null,
+        context1m,
+      });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [accessSource, agent.id, baseUrl, configView, context1m, isAccountToken, method, model, open]);
+
+  const previewQuery = useQuery<AgentConfigPreview>({
+    queryKey: ['agent-config-preview', previewRequest],
+    enabled: !!previewRequest,
+    queryFn: () =>
+      invoke<AgentConfigPreview>('get_agent_config_preview', { request: previewRequest! }),
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    setActiveFileIndex(0);
+    setCopied(false);
+  }, [previewQuery.data]);
+
   const selectSource = (value: string) => {
     setSourceId(value);
-    setAccountId('');
-    setSelectedId('');
-    setNode('');
-    setModel('');
-    setContext1m(false);
-  };
-
-  const selectAccount = (value: string) => {
-    setAccountId(value);
     setSelectedId('');
     setNode('');
     setModel('');
@@ -286,10 +357,7 @@ export function AgentAccessDrawer({
       return;
     }
 
-    const accessSource: AgentAccessSource =
-      selected.source.type === 'account_token'
-        ? { ...selected.source, base_url: baseUrl || null }
-        : selected.source;
+    if (!accessSource) return;
 
     setBusy(true);
     try {
@@ -338,7 +406,7 @@ export function AgentAccessDrawer({
         <DialogHeader className="app-dialog-header">
           <div className="flex flex-wrap items-center gap-2">
             <DialogTitle>
-              {t('agentConfig.drawerTitle', '为 {{name}} 接入 Key', { name: agent.name })}
+              {t('agentConfig.drawerTitle', '{{name}} 配置', { name: agent.name })}
             </DialogTitle>
             {locked && (
               <Badge variant="secondary" className="gap-1 font-normal">
@@ -347,12 +415,6 @@ export function AgentAccessDrawer({
               </Badge>
             )}
           </div>
-          <DialogDescription>
-            {t(
-              'agentConfig.drawerDesc',
-              '选择 Key 和运行参数，再决定直接写入工具配置，还是经本地网关适配。'
-            )}
-          </DialogDescription>
         </DialogHeader>
 
         <div className="app-dialog-body flex-1 p-0">
@@ -366,16 +428,15 @@ export function AgentAccessDrawer({
               {t('agentConfig.noKeys', '没有可用的 Key。先到中转站或 API Key 里添加。')}
             </div>
           ) : (
-            <div className="grid min-h-full md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-              <div className="p-5 md:border-r md:border-border/60">
+            <div className="grid min-h-full md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
+              <div className="space-y-5 p-5">
                 <FormSection
                 number="1"
                 title={t('agentConfig.selectKeyTitle', '选择 Key')}
                 description={t('agentConfig.selectKeyDesc', '只展示启用中的账号和 Key。')}
                 icon={<KeyRound className="h-4 w-4" />}
               >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label={t('agentConfig.fieldSource', '来源')}>
+                <Field label={t('agentConfig.fieldSource', '来源')}>
                     <Select value={sourceId} onValueChange={selectSource} disabled={locked}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('agentConfig.pickSource', '选择来源')} />
@@ -392,54 +453,19 @@ export function AgentAccessDrawer({
                             ))}
                         </SelectGroup>
                         {sources.some((source) => source.group === 'independent') && (
-                          <SelectGroup>
-                            <SelectLabel>
-                              {t('agentConfig.groupIndependent', '独立 API Key')}
-                            </SelectLabel>
-                            {sources
-                              .filter((source) => source.group === 'independent')
-                              .map((source) => (
-                                <SelectItem key={source.id} value={source.id}>
-                                  {source.label}
-                                </SelectItem>
-                              ))}
-                          </SelectGroup>
+                          <SelectItem value={INDEPENDENT_SOURCE_ID}>
+                            {t('agentConfig.groupIndependent', '独立 API Key')}
+                          </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
                   </Field>
 
-                  <Field label={t('agentConfig.fieldAccount', '账号')}>
-                    <Select
-                      value={accountId}
-                      onValueChange={selectAccount}
-                      disabled={locked || !isRelay}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            isRelay
-                              ? t('agentConfig.pickAccount', '选择账号')
-                              : t('agentConfig.notApplicable', '不适用')
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-
                 <Field label={t('agentConfig.fieldKey', 'Key')}>
                   <Select
                     value={selectedId}
                     onValueChange={selectKey}
-                    disabled={locked || !activeSource || (!!isRelay && !accountId)}
+                    disabled={locked || !activeSource}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={t('agentConfig.pickKey', '选择 Key')} />
@@ -459,30 +485,8 @@ export function AgentAccessDrawer({
                   </Select>
                 </Field>
 
-                {selected && (
-                  <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{selected.label}</p>
-                      <p className="mt-1 truncate text-sm text-muted-foreground">
-                        {[selected.providerName, selected.accountName].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                      <code className="rounded-md bg-background px-2 py-1 text-xs text-muted-foreground ring-1 ring-border/60">
-                        {selected.masked}
-                      </code>
-                      {selected.balance && (
-                        <Badge variant="outline">
-                          {t('agentConfig.balance', '余额')} {selected.balance}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
                 </FormSection>
-              </div>
 
-              <div className="space-y-4 p-5">
                 <FormSection
                   number="2"
                   title={t('agentConfig.methodTitle', '接入方式')}
@@ -494,120 +498,171 @@ export function AgentAccessDrawer({
                       active={method === 'direct'}
                       icon={<Server className="h-4 w-4" />}
                       title={t('agentConfig.methodDirect', '直接写入配置')}
-                      hint={t('agentConfig.methodDirectHint', '中转站原生支持时最简单')}
                       onClick={() => setMethod('direct')}
                     />
                     <MethodOption
                       active={method === 'gateway'}
                       icon={<ShieldCheck className="h-4 w-4" />}
                       title={t('agentConfig.methodGateway', '经本地网关')}
-                      hint={t('agentConfig.methodGatewayHint', '需要协议适配 / 伪装时')}
                       onClick={() => setMethod('gateway')}
                     />
                   </div>
                 </FormSection>
+              </div>
 
-                <FormSection
-                  number="3"
-                  title={t('agentConfig.runtimeTitle', '运行参数')}
-                  description={t('agentConfig.runtimeDesc', '设置节点和默认模型；留空模型时沿用 Agent 自身选择。')}
-                  icon={<SlidersHorizontal className="h-4 w-4" />}
+              <div className="min-w-0 p-5">
+                <Tabs
+                  value={configView}
+                  onValueChange={(value) => setConfigView(value as ConfigView)}
+                  className="min-w-0"
                 >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label={t('agentConfig.fieldNode', '节点')}>
-                    {isAccountToken ? (
-                      <Select value={node} onValueChange={setNode} disabled={nodesLoading}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('agentConfig.pickNode', '选择节点')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {nodes.map((providerNode) => (
-                            <SelectItem key={providerNode.base_url} value={providerNode.base_url}>
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span className="truncate">{providerNode.name}</span>
-                                <code className="max-w-72 truncate text-xs text-muted-foreground">
-                                  {providerNode.base_url}
-                                </code>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value={selected?.baseUrl ?? ''} disabled placeholder={t('agentConfig.notApplicable', '不适用')} />
-                    )}
-                  </Field>
+                  <TabsList className="mb-4 grid w-full grid-cols-2">
+                    <TabsTrigger value="form">
+                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                      {t('agentConfig.visualConfig', '可视化配置')}
+                    </TabsTrigger>
+                    <TabsTrigger value="files">
+                      <FileCode2 className="mr-2 h-4 w-4" />
+                      {t('agentConfig.configFiles', '配置文件')}
+                    </TabsTrigger>
+                  </TabsList>
 
-                  <Field label={t('agentConfig.fieldModel', '模型（可选）')}>
-                    {isAccountToken && modelOptions.length > 0 ? (
-                      <Select value={model} onValueChange={setModel} disabled={modelsLoading}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('agentConfig.pickModel', '默认（不指定）')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {modelOptions.map((modelName) => (
-                            <SelectItem key={modelName} value={modelName}>
-                              {modelName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={model}
-                        onChange={(event) => setModel(event.target.value)}
-                        placeholder={t('agentConfig.modelPlaceholder', '默认（留空自动）')}
-                        disabled={!selected || modelsLoading}
-                      />
-                    )}
-                  </Field>
-                </div>
-
-                  {method === 'gateway' && (
-                  <div className="space-y-4">
-                    <Field label={t('agentConfig.upstreamKind', '中转站上游协议')}>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <KindRadio
-                          active={kind === agent.nativeKind}
-                          label={
-                            agent.id === 'codex'
-                              ? t('agentConfig.kindResponses', 'OpenAI Responses（原生透传）')
-                              : t('agentConfig.kindAnthropic', 'Anthropic（原生透传）')
-                          }
-                          onClick={() => setKind(agent.nativeKind)}
-                        />
-                        <KindRadio
-                          active={kind === 'openai_chat'}
-                          label={t('agentConfig.kindChat', 'OpenAI Chat（网关转换）')}
-                          onClick={() => setKind('openai_chat')}
-                        />
-                      </div>
-                    </Field>
-                  </div>
-                  )}
-
-                  <div className={cn('grid gap-3', method === 'gateway' && 'sm:grid-cols-2')}>
-                    <SettingRow
-                      title={t('agentConfig.context1m', '1M 上下文')}
-                      description={
-                        method === 'gateway'
-                          ? t('agentConfig.context1mGatewayHint', '随网关绑定保存，并写入 Agent 接入配置。')
-                          : t('agentConfig.context1mDirectHint', '直接写入 Agent 配置；需要先选择模型。')
-                      }
+                  {configView === 'form' ? (
+                    <FormSection
+                      number="3"
+                      title={t('agentConfig.runtimeTitle', '运行参数')}
+                      description={t('agentConfig.runtimeDesc', '设置节点和默认模型；留空模型时沿用 Agent 自身选择。')}
+                      icon={<SlidersHorizontal className="h-4 w-4" />}
                     >
-                      <Switch checked={context1m} onCheckedChange={setContext1m} disabled={!model} />
-                    </SettingRow>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label={t('agentConfig.fieldNode', '节点')}>
+                          {isAccountToken ? (
+                            <Select value={node} onValueChange={setNode} disabled={nodesLoading}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('agentConfig.pickNode', '选择节点')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {nodes.map((providerNode) => (
+                                  <SelectItem key={providerNode.base_url} value={providerNode.base_url}>
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <span className="truncate">{providerNode.name}</span>
+                                      <code className="max-w-72 truncate text-xs text-muted-foreground">
+                                        {providerNode.base_url}
+                                      </code>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={selected?.baseUrl ?? ''} disabled placeholder={t('agentConfig.notApplicable', '不适用')} />
+                          )}
+                        </Field>
 
-                    {method === 'gateway' && (
+                        <Field label={t('agentConfig.fieldModel', '模型（可选）')}>
+                          {isAccountToken && modelOptions.length > 0 ? (
+                            <Select value={model} onValueChange={setModel} disabled={modelsLoading}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('agentConfig.pickModel', '默认（不指定）')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {compatibleModelOptions.map((modelName) => (
+                                  <SelectItem key={modelName} value={modelName}>
+                                    {modelName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={model}
+                              onChange={(event) => setModel(event.target.value)}
+                              placeholder={t('agentConfig.modelPlaceholder', '默认（留空自动）')}
+                              disabled={!selected || modelsLoading}
+                            />
+                          )}
+                        </Field>
+                      </div>
+
                       <SettingRow
-                        title={t('agentConfig.impersonateLabel', '伪装为 {{name}}', { name: agent.name })}
-                        description={t('agentConfig.impersonateDesc', '让中转站把请求识别为标准客户端。')}
+                        title={t('agentConfig.context1m', '1M 上下文')}
+                        description={
+                          method === 'gateway'
+                            ? t('agentConfig.context1mGatewayHint', '随网关绑定保存，并写入 Agent 接入配置。')
+                            : t('agentConfig.context1mDirectHint', '直接写入 Agent 配置；需要先选择模型。')
+                        }
                       >
-                        <Switch checked={impersonate} onCheckedChange={setImpersonate} />
+                        <Switch checked={context1m} onCheckedChange={setContext1m} disabled={!model} />
                       </SettingRow>
-                    )}
-                  </div>
-                </FormSection>
+
+                      {method === 'gateway' && (
+                        <Accordion type="single" collapsible className="rounded-lg bg-muted/20 px-3">
+                          <AccordionItem value="gateway-advanced" className="border-b-0">
+                            <AccordionTrigger className="py-3 text-sm hover:no-underline">
+                              <span className="text-left">
+                                <span className="block font-medium">
+                                  {t('agentConfig.advancedTitle', '网关高级参数')}
+                                </span>
+                                <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                                  {t('agentConfig.advancedDesc', '协议识别、客户端兼容等扩展设置')}
+                                </span>
+                              </span>
+                            </AccordionTrigger>
+                            <AccordionContent className="space-y-4">
+                              <Field label={t('agentConfig.upstreamKind', '中转站上游协议')}>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <KindRadio
+                                    active={kind === agent.nativeKind}
+                                    label={
+                                      agent.id === 'codex'
+                                        ? t('agentConfig.kindResponses', 'OpenAI Responses（原生透传）')
+                                        : t('agentConfig.kindAnthropic', 'Anthropic（原生透传）')
+                                    }
+                                    onClick={() => setKind(agent.nativeKind)}
+                                  />
+                                  <KindRadio
+                                    active={kind === 'openai_chat'}
+                                    label={t('agentConfig.kindChat', 'OpenAI Chat（网关转换）')}
+                                    onClick={() => setKind('openai_chat')}
+                                  />
+                                </div>
+                              </Field>
+
+                              <SettingRow
+                                title={t('agentConfig.impersonateLabel', '伪装为 {{name}}', { name: agent.name })}
+                                description={t('agentConfig.impersonateDesc', '让中转站把请求识别为标准客户端。')}
+                              >
+                                <Switch checked={impersonate} onCheckedChange={setImpersonate} />
+                              </SettingRow>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
+                    </FormSection>
+                  ) : (
+                    <ConfigPreviewPanel
+                      preview={previewQuery.data}
+                      loading={previewQuery.isLoading || (!!previewRequest && previewQuery.isFetching)}
+                      error={previewQuery.error}
+                      method={method}
+                      fileVersion={fileVersion}
+                      onFileVersionChange={setFileVersion}
+                      activeFileIndex={activeFileIndex}
+                      onActiveFileIndexChange={setActiveFileIndex}
+                      copied={copied}
+                      onCopy={async (content) => {
+                        try {
+                          await navigator.clipboard.writeText(content);
+                          setCopied(true);
+                          toast.success(t('common.copied', '已复制！'));
+                          window.setTimeout(() => setCopied(false), 1500);
+                        } catch {
+                          toast.error(t('token.copyError', '复制失败'));
+                        }
+                      }}
+                    />
+                  )}
+                </Tabs>
               </div>
             </div>
           )}
@@ -627,6 +682,150 @@ export function AgentAccessDrawer({
   );
 }
 
+function ConfigPreviewPanel({
+  preview,
+  loading,
+  error,
+  method,
+  fileVersion,
+  onFileVersionChange,
+  activeFileIndex,
+  onActiveFileIndexChange,
+  copied,
+  onCopy,
+}: {
+  preview?: AgentConfigPreview;
+  loading: boolean;
+  error: Error | null;
+  method: Method;
+  fileVersion: FileVersion;
+  onFileVersionChange: (value: FileVersion) => void;
+  activeFileIndex: number;
+  onActiveFileIndexChange: (value: number) => void;
+  copied: boolean;
+  onCopy: (content: string) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-80 items-center justify-center rounded-xl bg-muted/15 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {t('agentConfig.previewLoading', '正在生成配置预览…')}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl bg-destructive/5 px-5 py-8 text-center text-sm text-destructive">
+        <p className="font-medium">{t('agentConfig.previewFailed', '配置预览生成失败')}</p>
+        <p className="mt-2 break-words text-xs opacity-80">{String(error)}</p>
+      </div>
+    );
+  }
+
+  if (!preview?.files.length) {
+    return (
+      <div className="flex min-h-80 items-center justify-center rounded-xl bg-muted/15 px-6 text-center text-sm text-muted-foreground">
+        {t('agentConfig.previewEmpty', '选择 Key 和节点后即可查看完整配置文件。')}
+      </div>
+    );
+  }
+
+  const activeFile = preview.files[Math.min(activeFileIndex, preview.files.length - 1)];
+  const content = fileVersion === 'current' ? activeFile.current_content : activeFile.next_content;
+  const statusText =
+    method === 'direct'
+      ? t('agentConfig.previewDirectStatus', '确认后会直接写入以下配置')
+      : preview.gateway_running
+        ? preview.takeover_active
+          ? t('agentConfig.previewTakenOver', '网关正在接管此 Agent 配置')
+          : t('agentConfig.previewWillTakeOver', '确认后网关会接管此 Agent 配置')
+        : t('agentConfig.previewGatewayStopped', '网关未启动，保存绑定暂不改写文件')
+  const statusHint =
+    method === 'gateway' && !preview.gateway_running
+      ? t('agentConfig.previewGatewayStoppedHint', '启动网关时会自动写入本地网关地址。')
+      : t('agentConfig.previewRedacted', '敏感 Token 已自动脱敏，预览不会修改磁盘。');
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl bg-muted/20 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={preview.takeover_active ? 'default' : 'secondary'} className="font-normal">
+            {method === 'gateway'
+              ? preview.takeover_active
+                ? t('agentConfig.takeoverActive', '网关接管中')
+                : t('agentConfig.takeoverInactive', '未接管')
+              : t('agentConfig.directPreview', '直接写入')}
+          </Badge>
+          <span className="text-sm font-medium">{statusText}</span>
+        </div>
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{statusHint}</p>
+      </div>
+
+      <div className="rounded-xl bg-muted/15 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {preview.files.map((file, index) => (
+              <Button
+                key={file.path}
+                type="button"
+                size="sm"
+                variant={index === activeFileIndex ? 'secondary' : 'ghost'}
+                className="h-8 max-w-52 font-mono text-xs"
+                onClick={() => onActiveFileIndexChange(index)}
+              >
+                <span className="truncate">{file.path.split('/').pop()}</span>
+              </Button>
+            ))}
+          </div>
+          <div className="flex rounded-lg bg-background/80 p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={fileVersion === 'current' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => onFileVersionChange('current')}
+            >
+              {t('agentConfig.currentConfig', '当前配置')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={fileVersion === 'next' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => onFileVersionChange('next')}
+            >
+              {t('agentConfig.nextConfig', '保存后')}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-3 overflow-hidden rounded-lg bg-slate-950 text-slate-100 shadow-inner dark:bg-black/45">
+          <div className="flex items-center justify-between gap-3 bg-white/5 px-3 py-2">
+            <code className="min-w-0 truncate text-[11px] text-slate-300">{activeFile.path}</code>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0 text-slate-300 hover:bg-white/10 hover:text-white"
+              onClick={() => void onCopy(content)}
+              disabled={!content}
+              aria-label={t('agentConfig.copyConfig', '复制配置')}
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+          <pre className="max-h-[46vh] min-h-64 overflow-auto p-4 font-mono text-xs leading-5">
+            <code>{content || t('agentConfig.fileNotFound', '文件尚不存在')}</code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormSection({
   number,
   title,
@@ -641,7 +840,7 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="app-dialog-section space-y-3">
+    <section className="space-y-3 rounded-xl bg-muted/15 p-4">
       <div className="flex items-start gap-3">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {number}
@@ -692,13 +891,11 @@ function MethodOption({
   active,
   icon,
   title,
-  hint,
   onClick,
 }: {
   active: boolean;
   icon: React.ReactNode;
   title: string;
-  hint: string;
   onClick: () => void;
 }) {
   return (
@@ -706,7 +903,7 @@ function MethodOption({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex min-h-16 w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+        'flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors',
         active
           ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/15'
           : 'border-border/60 bg-background hover:border-primary/30 hover:bg-muted/30'
@@ -721,11 +918,10 @@ function MethodOption({
         {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn('flex items-center gap-2 text-sm font-semibold', active && 'text-primary')}>
+        <span className={cn('flex items-center gap-2 text-sm font-medium', active && 'text-primary')}>
           {icon}
           {title}
         </span>
-        <span className="mt-1 block text-xs leading-4 text-muted-foreground">{hint}</span>
       </span>
     </button>
   );
