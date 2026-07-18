@@ -29,21 +29,10 @@ impl super::TokenService {
             account.provider_id()
         );
 
-        // 2. Check session validity
-        if !account.is_session_valid() {
-            log::error!("Account session expired for {}", account_id);
-            anyhow::bail!("Account session expired, please re-login");
-        }
-
-        let _session_token = account
-            .session_token()
-            .context("No session token available")?;
-
-        log::info!("Session token valid for account {}", account_id);
-
-        // 3. If not forcing refresh, always serve the cache when it exists —
+        // 2. If not forcing refresh, always serve the cache when it exists —
         // opening the account detail must never trigger a destructive network
-        // refresh; stale data is refreshed only via the explicit refresh action.
+        // refresh. Cached API keys remain usable even when the relay account's
+        // management session has expired.
         if !force_refresh {
             log::info!("Checking cache for account {}", account_id);
             let cached_tokens = self.token_repo.find_by_account(account_id).await?;
@@ -54,6 +43,18 @@ impl super::TokenService {
                 return Ok(cached_tokens);
             }
         }
+
+        // 3. A valid management session is required only for a network refresh.
+        if !account.is_session_valid() {
+            log::error!("Account session expired for {}", account_id);
+            anyhow::bail!("Account session expired, please re-login");
+        }
+
+        let _session_token = account
+            .session_token()
+            .context("No session token available")?;
+
+        log::info!("Session token valid for account {}", account_id);
 
         // 4. Fetch from API
         let provider = self.load_provider(account.provider_id()).await?;
