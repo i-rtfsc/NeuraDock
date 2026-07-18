@@ -95,6 +95,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             start_gateway_server,
             stop_gateway_server,
             get_gateway_status,
+            get_agent_configuration_states,
             get_agent_config_preview,
             // Legacy migration commands
             detect_legacy_installation,

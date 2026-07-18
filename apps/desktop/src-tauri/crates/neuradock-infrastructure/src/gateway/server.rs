@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 
 use tokio::sync::RwLock;
 
@@ -25,6 +26,7 @@ use futures::StreamExt;
 use serde_json::Value;
 use tokio::net::TcpListener;
 
+use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
 use super::stream::{
     anthropic_sse_from_accumulator, responses_sse_from_accumulator, StreamAccumulator,
 };
@@ -79,6 +81,10 @@ pub enum UpstreamKind {
 /// database.
 #[derive(Debug, Clone)]
 pub struct GatewayUpstream {
+    /// Stable source reference used for health and usage aggregation.
+    pub id: String,
+    /// Human-readable source label; never contains key material.
+    pub label: String,
     /// Relay base URL, e.g. `https://relay.example` or `https://relay.example/v1`.
     pub base_url: String,
     /// Real relay API key, injected as a bearer token.
@@ -101,6 +107,7 @@ pub type GatewayBindings = Arc<RwLock<HashMap<GatewayClient, GatewayUpstream>>>;
 struct GatewayState {
     bindings: GatewayBindings,
     client: reqwest::Client,
+    runtime: Arc<GatewayRuntime>,
 }
 
 /// A running gateway bound to a localhost port.
@@ -136,9 +143,18 @@ pub async fn start_gateway(
     bindings: GatewayBindings,
     port: u16,
 ) -> Result<GatewayHandle, std::io::Error> {
+    start_gateway_with_runtime(bindings, GatewayRuntime::shared(), port).await
+}
+
+pub async fn start_gateway_with_runtime(
+    bindings: GatewayBindings,
+    runtime: Arc<GatewayRuntime>,
+    port: u16,
+) -> Result<GatewayHandle, std::io::Error> {
     let state = Arc::new(GatewayState {
         bindings,
         client: reqwest::Client::new(),
+        runtime,
     });
 
     let app = Router::new()
@@ -184,6 +200,56 @@ async fn handle_anthropic(
     handle(state, GatewayClient::ClaudeCode, headers, body).await
 }
 
+struct SentUpstream {
+    response: reqwest::Response,
+    half_open_permit: bool,
+    started_at: Instant,
+}
+
+async fn send_to_upstream<F>(
+    state: &GatewayState,
+    client: GatewayClient,
+    upstream: &GatewayUpstream,
+    build_request: F,
+) -> Result<SentUpstream, Response>
+where
+    F: Fn(&GatewayUpstream) -> reqwest::RequestBuilder,
+{
+    let Some(candidate) = state.runtime.candidate(client, upstream).await else {
+        return Err(error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the configured upstream is temporarily unavailable",
+        ));
+    };
+
+    let started_at = Instant::now();
+    match build_request(&candidate.upstream).send().await {
+        Ok(response) => Ok(SentUpstream {
+            response,
+            half_open_permit: candidate.half_open_permit,
+            started_at,
+        }),
+        Err(error) => {
+            let message = error.to_string();
+            state
+                .runtime
+                .record_failure(
+                    client,
+                    &candidate.upstream,
+                    candidate.half_open_permit,
+                    started_at.elapsed(),
+                    true,
+                    message.clone(),
+                )
+                .await;
+            Err(error_response(
+                StatusCode::BAD_GATEWAY,
+                &format!("upstream error: {message}"),
+            ))
+        }
+    }
+}
+
 async fn handle(
     state: Arc<GatewayState>,
     client: GatewayClient,
@@ -194,7 +260,7 @@ async fn handle(
 
     // Look up this client's upstream binding; each client is bound
     // independently and requests for unbound clients are rejected.
-    let Some(upstream) = state.bindings.read().await.get(&client).cloned() else {
+    let Some(upstream_source) = state.bindings.read().await.get(&client).cloned() else {
         log::warn!(
             "Gateway request for {} but no relay key is bound",
             client.display_name()
@@ -207,27 +273,27 @@ async fn handle(
             ),
         );
     };
-
     // Passthrough when the upstream already speaks the tool's protocol
     // using native protocol passthrough: forward with the real key, no
     // translation, streaming bytes proxied as-is.
     let passthrough = matches!(
-        (protocol, upstream.kind),
+        (protocol, upstream_source.kind),
         (InboundProtocol::Responses, UpstreamKind::OpenAiResponses)
             | (InboundProtocol::AnthropicMessages, UpstreamKind::Anthropic)
     );
     if passthrough {
-        return forward_passthrough(&state, client, protocol, &upstream, &headers, body).await;
+        return forward_passthrough(&state, client, protocol, &upstream_source, &headers, body)
+            .await;
     }
 
     // Cross-protocol combinations other than "-> chat" are not implemented yet.
-    if upstream.kind != UpstreamKind::OpenAiChat {
+    if upstream_source.kind != UpstreamKind::OpenAiChat {
         return error_response(
             StatusCode::NOT_IMPLEMENTED,
             &format!(
                 "{} with a {:?} upstream is not supported yet; bind a chat or native upstream",
                 client.display_name(),
-                upstream.kind
+                upstream_source.kind
             ),
         );
     }
@@ -245,14 +311,14 @@ async fn handle(
     };
 
     let stream = wants_stream(&inbound);
-    let model = upstream
+    let model = upstream_source
         .model
         .clone()
         .or_else(|| requested_model(&inbound))
         .unwrap_or_default();
 
     // Translate inbound -> Chat Completions.
-    let model_override = upstream.model.as_deref();
+    let model_override = upstream_source.model.as_deref();
     let mut chat_body = match protocol {
         InboundProtocol::Responses => responses_to_chat(&inbound, model_override),
         InboundProtocol::AnthropicMessages => anthropic_to_chat(&inbound, model_override),
@@ -263,7 +329,7 @@ async fn handle(
         chat_body["stream_options"] = serde_json::json!({ "include_usage": true });
     }
 
-    let url = build_upstream_url(&upstream.base_url, "/chat/completions");
+    let url = build_upstream_url(&upstream_source.base_url, "/chat/completions");
     log::info!(
         "Gateway {} -> {} (convert, model={}, stream={})",
         client.display_name(),
@@ -275,17 +341,25 @@ async fn handle(
     // the relay's client fingerprint check passes, replacing only auth. The
     // body is our translated chat body, so drop the client's content-length.
     let chat_bytes = serde_json::to_vec(&chat_body).unwrap_or_default();
-    let request = forward_headers(state.client.post(&url), &headers, &upstream, protocol)
+    let sent = match send_to_upstream(&state, client, &upstream_source, |candidate| {
+        let candidate_url = build_upstream_url(&candidate.base_url, "/chat/completions");
+        forward_headers(
+            state.client.post(candidate_url),
+            &headers,
+            candidate,
+            protocol,
+        )
         .header(header::CONTENT_TYPE, "application/json")
-        .body(chat_bytes);
-
-    let upstream = match request.send().await {
-        Ok(resp) => resp,
-        Err(e) => {
-            log::error!("Gateway upstream request to {} failed: {}", url, e);
-            return error_response(StatusCode::BAD_GATEWAY, &format!("upstream error: {}", e));
-        }
+        .body(chat_bytes.clone())
+    })
+    .await
+    {
+        Ok(sent) => sent,
+        Err(response) => return response,
     };
+    let half_open_permit = sent.half_open_permit;
+    let started_at = sent.started_at;
+    let upstream = sent.response;
 
     if !upstream.status().is_success() {
         let status =
@@ -297,6 +371,17 @@ async fn handle(
             status.as_u16(),
             text.chars().take(500).collect::<String>()
         );
+        state
+            .runtime
+            .record_failure(
+                client,
+                &upstream_source,
+                half_open_permit,
+                started_at.elapsed(),
+                circuit_failure_status(status),
+                format!("HTTP {}", status.as_u16()),
+            )
+            .await;
         return error_response(status, &text);
     }
 
@@ -306,10 +391,29 @@ async fn handle(
         stream
     );
     if stream {
-        stream_response(protocol, model, upstream)
+        stream_response(
+            protocol,
+            model,
+            upstream,
+            state.runtime.clone(),
+            client,
+            upstream_source,
+            half_open_permit,
+            started_at,
+        )
     } else {
         match upstream.json::<Value>().await {
             Ok(chat) => {
+                state
+                    .runtime
+                    .record_success(
+                        client,
+                        &upstream_source,
+                        half_open_permit,
+                        usage_from_json(&chat),
+                        started_at.elapsed(),
+                    )
+                    .await;
                 let translated = match protocol {
                     InboundProtocol::Responses => chat_to_responses(&chat, &model),
                     InboundProtocol::AnthropicMessages => chat_to_anthropic(&chat, &model),
@@ -318,6 +422,17 @@ async fn handle(
             }
             Err(e) => {
                 log::error!("Gateway got a non-JSON upstream body from {}: {}", url, e);
+                state
+                    .runtime
+                    .record_failure(
+                        client,
+                        &upstream_source,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        "upstream returned malformed JSON".to_string(),
+                    )
+                    .await;
                 error_response(
                     StatusCode::BAD_GATEWAY,
                     &format!("bad upstream body: {}", e),
@@ -335,7 +450,7 @@ async fn forward_passthrough(
     state: &GatewayState,
     client: GatewayClient,
     protocol: InboundProtocol,
-    upstream: &GatewayUpstream,
+    upstream_source: &GatewayUpstream,
     inbound_headers: &axum::http::HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
@@ -343,12 +458,12 @@ async fn forward_passthrough(
         InboundProtocol::Responses => "/responses",
         InboundProtocol::AnthropicMessages => "/v1/messages",
     };
-    let url = build_upstream_url(&upstream.base_url, endpoint);
+    let url = build_upstream_url(&upstream_source.base_url, endpoint);
     log::info!(
         "Gateway {} -> {} (passthrough, model_override={:?})",
         client.display_name(),
         url,
-        upstream.model
+        upstream_source.model
     );
 
     // Parse only enough request metadata to choose the correct downstream
@@ -363,7 +478,7 @@ async fn forward_passthrough(
         .unwrap_or(false);
 
     // Apply the model override without touching anything else in the body.
-    let body_bytes = if let Some(model) = &upstream.model {
+    let body_bytes = if let Some(model) = &upstream_source.model {
         // Claude Code's `[1m]` suffix is a local capability marker. Claude
         // Code turns it into an anthropic-beta value before sending the
         // request; native Anthropic relays expect the real model id without
@@ -390,22 +505,27 @@ async fn forward_passthrough(
     // reject requests that don't look like a real Codex / Claude Code. We keep
     // every header the tool sent except hop-by-hop / CDN / tracing ones, and
     // replace only the auth header inline with the real relay key.
-    let request = forward_headers(state.client.post(&url), inbound_headers, upstream, protocol)
+    let sent = match send_to_upstream(state, client, upstream_source, |candidate| {
+        let candidate_url = build_upstream_url(&candidate.base_url, endpoint);
+        forward_headers(
+            state.client.post(candidate_url),
+            inbound_headers,
+            candidate,
+            protocol,
+        )
         .header(header::CONTENT_TYPE, "application/json")
-        // Keep passthrough bodies inspectable and consistent with the local
-        // response contract. The relay may otherwise honor the client's
-        // `br` preference, while this gateway only guarantees identity bytes
-        // to its downstream parser and SSE client.
         .header(header::ACCEPT_ENCODING, "identity")
-        .body(body_bytes);
-
-    let upstream_resp = match request.send().await {
-        Ok(resp) => resp,
-        Err(e) => {
-            log::error!("Gateway passthrough to {} failed: {}", url, e);
-            return error_response(StatusCode::BAD_GATEWAY, &format!("upstream error: {}", e));
-        }
+        .body(body_bytes.clone())
+    })
+    .await
+    {
+        Ok(sent) => sent,
+        Err(response) => return response,
     };
+    let upstream_source = upstream_source.clone();
+    let half_open_permit = sent.half_open_permit;
+    let started_at = sent.started_at;
+    let upstream_resp = sent.response;
 
     let status =
         StatusCode::from_u16(upstream_resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
@@ -417,6 +537,17 @@ async fn forward_passthrough(
             status.as_u16(),
             text.chars().take(500).collect::<String>()
         );
+        state
+            .runtime
+            .record_failure(
+                client,
+                &upstream_source,
+                half_open_permit,
+                started_at.elapsed(),
+                circuit_failure_status(status),
+                format!("HTTP {}", status.as_u16()),
+            )
+            .await;
         return error_response(status, &text);
     }
 
@@ -451,21 +582,43 @@ async fn forward_passthrough(
                     url,
                     e
                 );
+                state
+                    .runtime
+                    .record_failure(
+                        client,
+                        &upstream_source,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        "failed reading upstream body".to_string(),
+                    )
+                    .await;
                 return error_response(
                     StatusCode::BAD_GATEWAY,
                     &format!("failed reading upstream body: {}", e),
                 );
             }
         };
-        let normalized = match extract_anthropic_message_document(&bytes) {
+        let (normalized_value, normalized) = match extract_anthropic_message_document(&bytes) {
             Ok(value) => match serde_json::to_vec(&value) {
-                Ok(bytes) => bytes,
+                Ok(bytes) => (value, bytes),
                 Err(e) => {
                     log::error!(
                         "Gateway failed serializing upstream JSON from {}: {}",
                         url,
                         e
                     );
+                    state
+                        .runtime
+                        .record_failure(
+                            client,
+                            &upstream_source,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            "failed normalizing upstream JSON".to_string(),
+                        )
+                        .await;
                     return error_response(
                         StatusCode::BAD_GATEWAY,
                         "failed normalizing upstream JSON",
@@ -479,9 +632,31 @@ async fn forward_passthrough(
                     e,
                     bytes.len()
                 );
+                state
+                    .runtime
+                    .record_failure(
+                        client,
+                        &upstream_source,
+                        half_open_permit,
+                        started_at.elapsed(),
+                        true,
+                        "upstream returned malformed JSON".to_string(),
+                    )
+                    .await;
                 return error_response(StatusCode::BAD_GATEWAY, "upstream returned malformed JSON");
             }
         };
+
+        state
+            .runtime
+            .record_success(
+                client,
+                &upstream_source,
+                half_open_permit,
+                usage_from_json(&normalized_value),
+                started_at.elapsed(),
+            )
+            .await;
 
         return Response::builder()
             .status(status)
@@ -494,25 +669,55 @@ async fn forward_passthrough(
     // events that appear after message_stop and are not part of the Anthropic
     // protocol understood by Claude Code.
     let mut byte_stream = upstream_resp.bytes_stream();
+    let runtime = state.runtime.clone();
+    let usage_upstream = upstream_source.clone();
     let filtered_stream = async_stream::stream! {
         let mut buffer = Vec::<u8>::new();
+        let mut usage = GatewayTokenUsage::default();
         while let Some(chunk) = byte_stream.next().await {
             match chunk {
                 Ok(bytes) => buffer.extend_from_slice(&bytes),
                 Err(error) => {
-                    yield Err::<Vec<u8>, _>(std::io::Error::other(error.to_string()));
-                    break;
+                    let message = format!("upstream stream failed: {error}");
+                    runtime
+                        .record_failure(
+                            client,
+                            &usage_upstream,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    yield Err::<Vec<u8>, _>(std::io::Error::other(message));
+                    return;
                 }
             }
 
             while let Some(end) = buffer.windows(2).position(|window| window == b"\n\n") {
                 let block: Vec<u8> = buffer.drain(..end + 2).collect();
+                usage.merge(usage_from_sse_block(&block));
                 if !is_relay_billing_sse_block(&block) {
                     yield Ok::<_, std::io::Error>(block);
                 }
             }
         }
-        if !buffer.is_empty() && !is_relay_billing_sse_block(&buffer) {
+        let trailing = if !buffer.is_empty() && !is_relay_billing_sse_block(&buffer) {
+            usage.merge(usage_from_sse_block(&buffer));
+            Some(buffer)
+        } else {
+            None
+        };
+        runtime
+            .record_success(
+                client,
+                &usage_upstream,
+                half_open_permit,
+                usage,
+                started_at.elapsed(),
+            )
+            .await;
+        if let Some(buffer) = trailing {
             yield Ok::<_, std::io::Error>(buffer);
         }
     };
@@ -572,6 +777,38 @@ fn is_relay_billing_sse_block(block: &[u8]) -> bool {
         || block
             .windows(b"\"type\":\"billing_summary\"".len())
             .any(|window| window == b"\"type\":\"billing_summary\"")
+}
+
+fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
+    let text = String::from_utf8_lossy(block);
+    let mut usage = GatewayTokenUsage::default();
+    for line in text.lines() {
+        let Some(payload) = line.trim().strip_prefix("data:") else {
+            continue;
+        };
+        let Ok(value) = serde_json::from_str::<Value>(payload.trim()) else {
+            continue;
+        };
+        usage.merge(usage_from_json(&value));
+        if let Some(message) = value.get("message") {
+            usage.merge(usage_from_json(message));
+        }
+        if let Some(response) = value.get("response") {
+            usage.merge(usage_from_json(response));
+        }
+    }
+    usage
+}
+
+fn circuit_failure_status(status: StatusCode) -> bool {
+    status.is_server_error()
+        || matches!(
+            status,
+            StatusCode::REQUEST_TIMEOUT
+                | StatusCode::TOO_MANY_REQUESTS
+                | StatusCode::UNAUTHORIZED
+                | StatusCode::FORBIDDEN
+        )
 }
 
 fn strip_one_m_model_marker(model: &str) -> &str {
@@ -840,6 +1077,11 @@ fn stream_response(
     protocol: InboundProtocol,
     model: String,
     upstream: reqwest::Response,
+    runtime: Arc<GatewayRuntime>,
+    client: GatewayClient,
+    usage_upstream: GatewayUpstream,
+    half_open_permit: bool,
+    started_at: Instant,
 ) -> Response {
     let mut byte_stream = upstream.bytes_stream();
 
@@ -848,7 +1090,24 @@ fn stream_response(
         let mut acc = StreamAccumulator::default();
 
         while let Some(chunk) = byte_stream.next().await {
-            let Ok(bytes) = chunk else { break };
+            let bytes = match chunk {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    let message = format!("upstream stream failed: {error}");
+                    runtime
+                        .record_failure(
+                            client,
+                            &usage_upstream,
+                            half_open_permit,
+                            started_at.elapsed(),
+                            true,
+                            message.clone(),
+                        )
+                        .await;
+                    yield Err::<Vec<u8>, _>(std::io::Error::other(message));
+                    return;
+                }
+            };
             buffer.push_str(&String::from_utf8_lossy(&bytes));
 
             // Process complete SSE lines (`data: {...}` separated by newlines).
@@ -868,6 +1127,17 @@ fn stream_response(
                 acc.observe(&chat_chunk);
             }
         }
+
+        let usage = acc.usage();
+        runtime
+            .record_success(
+                client,
+                &usage_upstream,
+                half_open_permit,
+                usage,
+                started_at.elapsed(),
+            )
+            .await;
 
         let events = match protocol {
             InboundProtocol::Responses => responses_sse_from_accumulator(&model, &acc),
@@ -905,6 +1175,7 @@ mod tests {
     use super::*;
     use axum::{routing::post, Json, Router};
     use serde_json::json;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn build_upstream_url_handles_versioned_and_custom_bases() {
@@ -946,6 +1217,27 @@ mod tests {
         );
     }
 
+    #[test]
+    fn parses_usage_from_native_sse_events() {
+        let responses = usage_from_sse_block(
+            br#"event: response.completed
+data: {"response":{"usage":{"input_tokens":12,"output_tokens":5}}}
+
+"#,
+        );
+        assert_eq!(responses.input_tokens, 12);
+        assert_eq!(responses.output_tokens, 5);
+
+        let anthropic = usage_from_sse_block(
+            br#"event: message_start
+data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
+
+"#,
+        );
+        assert_eq!(anthropic.input_tokens, 9);
+        assert_eq!(anthropic.cache_read_tokens, 3);
+    }
+
     /// Stand up a fake Chat Completions relay that echoes a fixed reply and
     /// records the request body it received.
     async fn spawn_fake_relay() -> (String, Arc<tokio::sync::Mutex<Option<Value>>>) {
@@ -981,15 +1273,36 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             client,
-            GatewayUpstream {
-                base_url: relay_url,
-                api_key: "sk-test".to_string(),
-                kind: UpstreamKind::OpenAiChat,
-                model: Some(model.to_string()),
-                impersonate: false,
-            },
+            test_upstream(relay_url, UpstreamKind::OpenAiChat, Some(model), false),
         );
         Arc::new(RwLock::new(map))
+    }
+
+    fn test_upstream(
+        base_url: String,
+        kind: UpstreamKind,
+        model: Option<&str>,
+        impersonate: bool,
+    ) -> GatewayUpstream {
+        test_upstream_with_key(base_url, "sk-test", kind, model, impersonate)
+    }
+
+    fn test_upstream_with_key(
+        base_url: String,
+        api_key: &str,
+        kind: UpstreamKind,
+        model: Option<&str>,
+        impersonate: bool,
+    ) -> GatewayUpstream {
+        GatewayUpstream {
+            id: format!("test:{base_url}"),
+            label: "Test relay".to_string(),
+            base_url,
+            api_key: api_key.to_string(),
+            kind,
+            model: model.map(str::to_string),
+            impersonate,
+        }
     }
 
     #[tokio::test]
@@ -1095,13 +1408,7 @@ mod tests {
         // Rebind Codex to a different model without restarting.
         bindings.write().await.insert(
             GatewayClient::Codex,
-            GatewayUpstream {
-                base_url: relay_url,
-                api_key: "sk-test".to_string(),
-                kind: UpstreamKind::OpenAiChat,
-                model: Some("second".to_string()),
-                impersonate: false,
-            },
+            test_upstream(relay_url, UpstreamKind::OpenAiChat, Some("second"), false),
         );
 
         let client = reqwest::Client::new();
@@ -1115,6 +1422,145 @@ mod tests {
         let upstream_body = seen.lock().await.clone().unwrap();
         assert_eq!(upstream_body["model"], "second");
 
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn connection_failure_returns_without_replaying() {
+        let unavailable_listener =
+            std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let unavailable_addr = unavailable_listener.local_addr().unwrap();
+        drop(unavailable_listener);
+
+        let upstream = test_upstream(
+            format!("http://{unavailable_addr}"),
+            UpstreamKind::OpenAiChat,
+            Some("model"),
+            false,
+        );
+        let bindings = Arc::new(RwLock::new(HashMap::from([(
+            GatewayClient::Codex,
+            upstream,
+        )])));
+        let gateway = start_gateway(bindings, 0).await.unwrap();
+
+        let response = reqwest::Client::new()
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), reqwest::StatusCode::BAD_GATEWAY);
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn http_error_does_not_replay_current_request() {
+        let primary_requests = Arc::new(AtomicUsize::new(0));
+        let primary_requests_clone = primary_requests.clone();
+        let primary_app = Router::new().route(
+            "/v1/chat/completions",
+            post(move || {
+                let primary_requests = primary_requests_clone.clone();
+                async move {
+                    primary_requests.fetch_add(1, Ordering::SeqCst);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "primary failed")
+                }
+            }),
+        );
+        let primary_listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let primary_addr = primary_listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(primary_listener, primary_app).await.unwrap();
+        });
+
+        let upstream = test_upstream(
+            format!("http://{primary_addr}"),
+            UpstreamKind::OpenAiChat,
+            Some("model"),
+            false,
+        );
+        let bindings = Arc::new(RwLock::new(HashMap::from([(
+            GatewayClient::Codex,
+            upstream,
+        )])));
+        let gateway = start_gateway(bindings, 0).await.unwrap();
+
+        let response = reqwest::Client::new()
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(primary_requests.load(Ordering::SeqCst), 1);
+        gateway.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn open_circuit_blocks_later_requests() {
+        let primary_requests = Arc::new(AtomicUsize::new(0));
+        let primary_requests_clone = primary_requests.clone();
+        let primary_app = Router::new().route(
+            "/v1/chat/completions",
+            post(move || {
+                let primary_requests = primary_requests_clone.clone();
+                async move {
+                    primary_requests.fetch_add(1, Ordering::SeqCst);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "primary failed")
+                }
+            }),
+        );
+        let primary_listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let primary_addr = primary_listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(primary_listener, primary_app).await.unwrap();
+        });
+
+        let upstream = test_upstream(
+            format!("http://{primary_addr}"),
+            UpstreamKind::OpenAiChat,
+            Some("model"),
+            false,
+        );
+        let bindings = Arc::new(RwLock::new(HashMap::from([(
+            GatewayClient::Codex,
+            upstream,
+        )])));
+        let gateway = start_gateway(bindings, 0).await.unwrap();
+        let client = reqwest::Client::new();
+
+        const FAILURE_LIMIT: usize = 3;
+        for _ in 0..FAILURE_LIMIT {
+            let response = client
+                .post(format!("{}/responses", gateway.base_url()))
+                .json(&json!({ "input": "ping" }))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR
+            );
+        }
+
+        let response = client
+            .post(format!("{}/responses", gateway.base_url()))
+            .json(&json!({ "input": "ping" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(primary_requests.load(Ordering::SeqCst), FAILURE_LIMIT);
         gateway.shutdown().await;
     }
 
@@ -1235,13 +1681,12 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::Codex,
-            GatewayUpstream {
-                base_url: relay_url,
-                api_key: "sk-test".to_string(),
-                kind: UpstreamKind::OpenAiResponses,
-                model: Some("relay-model".to_string()),
-                impersonate: false,
-            },
+            test_upstream(
+                relay_url,
+                UpstreamKind::OpenAiResponses,
+                Some("relay-model"),
+                false,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 
@@ -1300,13 +1745,13 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::Codex,
-            GatewayUpstream {
-                base_url: format!("http://{}", addr),
-                api_key: "sk-real-relay-key".to_string(),
-                kind: UpstreamKind::OpenAiResponses,
-                model: None,
-                impersonate: false,
-            },
+            test_upstream_with_key(
+                format!("http://{}", addr),
+                "sk-real-relay-key",
+                UpstreamKind::OpenAiResponses,
+                None,
+                false,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 
@@ -1376,13 +1821,13 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::ClaudeCode,
-            GatewayUpstream {
-                base_url: format!("http://{}", addr),
-                api_key: "relay-secret".to_string(),
-                kind: UpstreamKind::Anthropic,
-                model: Some("claude-opus-4-8[1m]".to_string()),
-                impersonate: true,
-            },
+            test_upstream_with_key(
+                format!("http://{}", addr),
+                "relay-secret",
+                UpstreamKind::Anthropic,
+                Some("claude-opus-4-8[1m]"),
+                true,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 
@@ -1465,13 +1910,12 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::ClaudeCode,
-            GatewayUpstream {
-                base_url: format!("http://{}", addr),
-                api_key: "relay-secret".to_string(),
-                kind: UpstreamKind::Anthropic,
-                model: Some("claude-opus-4-8[1m]".to_string()),
-                impersonate: false,
-            },
+            test_upstream(
+                format!("http://{}", addr),
+                UpstreamKind::Anthropic,
+                Some("claude-opus-4-8[1m]"),
+                false,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 
@@ -1533,13 +1977,13 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::Codex,
-            GatewayUpstream {
-                base_url: format!("http://{}", addr),
-                api_key: "sk-real-relay-key".to_string(),
-                kind: UpstreamKind::OpenAiChat, // chat-only relay -> convert path
-                model: None,
-                impersonate: false,
-            },
+            test_upstream_with_key(
+                format!("http://{}", addr),
+                "sk-real-relay-key",
+                UpstreamKind::OpenAiChat,
+                None,
+                false,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 
@@ -1593,13 +2037,12 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(
             GatewayClient::Codex,
-            GatewayUpstream {
-                base_url: format!("http://{}", addr),
-                api_key: "sk-real".to_string(),
-                kind: UpstreamKind::OpenAiResponses,
-                model: None,
-                impersonate: true,
-            },
+            test_upstream(
+                format!("http://{}", addr),
+                UpstreamKind::OpenAiResponses,
+                None,
+                true,
+            ),
         );
         let gateway = start_gateway(Arc::new(RwLock::new(map)), 0).await.unwrap();
 

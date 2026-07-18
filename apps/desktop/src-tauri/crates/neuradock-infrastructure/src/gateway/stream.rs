@@ -11,6 +11,7 @@
 
 use serde_json::{json, Value};
 
+use super::reliability::{usage_from_json, GatewayTokenUsage};
 use super::transform::{chat_to_anthropic, chat_to_responses};
 
 const RESPONSE_ID: &str = "resp_neuradock_gateway";
@@ -56,11 +57,13 @@ pub struct StreamAccumulator {
     text: String,
     tool_calls: Vec<ToolCallAcc>,
     finish_reason: Option<String>,
+    usage: GatewayTokenUsage,
 }
 
 impl StreamAccumulator {
     /// Feed one parsed upstream Chat SSE chunk.
     pub fn observe(&mut self, chunk: &Value) {
+        self.usage.merge(usage_from_json(chunk));
         let Some(choice) = chunk
             .get("choices")
             .and_then(Value::as_array)
@@ -109,6 +112,10 @@ impl StreamAccumulator {
                 }
             }
         }
+    }
+
+    pub fn usage(&self) -> GatewayTokenUsage {
+        self.usage
     }
 
     /// Reassemble the accumulated state into a non-streaming Chat Completions
@@ -255,7 +262,11 @@ fn append_message_events(events: &mut Vec<SseEvent>, output_index: usize, text: 
     ));
 }
 
-fn append_function_call_events(events: &mut Vec<SseEvent>, output_index: usize, call: &ToolCallAcc) {
+fn append_function_call_events(
+    events: &mut Vec<SseEvent>,
+    output_index: usize,
+    call: &ToolCallAcc,
+) {
     let item = json!({
         "id": call.id,
         "type": "function_call",
@@ -419,7 +430,10 @@ mod tests {
         ]);
         let events = responses_sse_from_accumulator("gpt-5", &acc);
 
-        assert_eq!(events.first().unwrap().event.as_deref(), Some("response.created"));
+        assert_eq!(
+            events.first().unwrap().event.as_deref(),
+            Some("response.created")
+        );
         let last = events.last().unwrap();
         assert_eq!(last.event.as_deref(), Some("response.completed"));
         // Completed body carries the full text and a populated response object.
@@ -460,8 +474,14 @@ mod tests {
         ]);
         let events = anthropic_sse_from_accumulator("claude-3", &acc);
 
-        assert_eq!(events.first().unwrap().event.as_deref(), Some("message_start"));
-        assert_eq!(events.last().unwrap().event.as_deref(), Some("message_stop"));
+        assert_eq!(
+            events.first().unwrap().event.as_deref(),
+            Some("message_start")
+        );
+        assert_eq!(
+            events.last().unwrap().event.as_deref(),
+            Some("message_stop")
+        );
         assert!(events
             .iter()
             .any(|e| e.event.as_deref() == Some("content_block_delta") && e.data.contains("hi")));
@@ -469,7 +489,10 @@ mod tests {
 
     #[test]
     fn sse_wire_format_includes_event_name() {
-        let ev = SseEvent::named("response.completed", json!({ "type": "response.completed" }));
+        let ev = SseEvent::named(
+            "response.completed",
+            json!({ "type": "response.completed" }),
+        );
         let wire = ev.to_wire();
         assert!(wire.starts_with("event: response.completed\ndata: "));
         assert!(wire.ends_with("\n\n"));

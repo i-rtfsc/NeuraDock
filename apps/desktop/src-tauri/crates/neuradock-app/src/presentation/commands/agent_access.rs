@@ -120,6 +120,10 @@ impl AgentAccessState {
         self.persist(app);
     }
 
+    pub fn get(&self, agent: AgentIdDto) -> Option<AgentAccessDto> {
+        self.records.lock().unwrap().get(&agent).cloned()
+    }
+
     /// Remove a record.
     pub fn remove(&self, app: &tauri::AppHandle, agent: AgentIdDto) {
         self.records.lock().unwrap().remove(&agent);

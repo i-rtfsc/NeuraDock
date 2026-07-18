@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
 use tokio::sync::{Mutex, RwLock};
@@ -9,10 +11,13 @@ use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
 use neuradock_domain::shared::{AccountId, ProviderId};
 use neuradock_infrastructure::gateway::{
-    start_gateway, GatewayBindings, GatewayClient, GatewayHandle, GatewayUpstream, UpstreamKind,
+    start_gateway_with_runtime, CircuitState, GatewayBindings, GatewayClient, GatewayHandle,
+    GatewayRuntime, GatewayUpstream, UpstreamKind,
 };
 
-use crate::application::services::{GatewayTakeover, GATEWAY_PLACEHOLDER_KEY};
+use crate::application::services::{
+    ClaudeConfigService, CodexConfigService, GatewayTakeover, GATEWAY_PLACEHOLDER_KEY,
+};
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
@@ -24,6 +29,7 @@ pub struct GatewayState {
     bindings: GatewayBindings,
     meta: Mutex<HashMap<GatewayClient, BindingMeta>>,
     server: Mutex<Option<GatewayHandle>>,
+    runtime: Arc<GatewayRuntime>,
 }
 
 impl Default for GatewayState {
@@ -32,6 +38,7 @@ impl Default for GatewayState {
             bindings: Arc::new(RwLock::new(HashMap::new())),
             meta: Mutex::new(HashMap::new()),
             server: Mutex::new(None),
+            runtime: GatewayRuntime::shared(),
         }
     }
 }
@@ -189,6 +196,41 @@ pub struct GatewayBindingDto {
     pub context1m: bool,
     pub upstream_kind: UpstreamKindDto,
     pub impersonate: bool,
+    pub upstream: Option<GatewayUpstreamStatusDto>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum CircuitStateDto {
+    Closed,
+    Open,
+    HalfOpen,
+}
+
+impl From<CircuitState> for CircuitStateDto {
+    fn from(value: CircuitState) -> Self {
+        match value {
+            CircuitState::Closed => Self::Closed,
+            CircuitState::Open => Self::Open,
+            CircuitState::HalfOpen => Self::HalfOpen,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct GatewayUpstreamStatusDto {
+    pub id: String,
+    pub label: String,
+    pub circuit_state: CircuitStateDto,
+    pub consecutive_failures: u32,
+    pub total_requests: u64,
+    pub successful_requests: u64,
+    pub failed_requests: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub average_latency_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -225,6 +267,38 @@ pub struct AgentConfigPreviewDto {
     pub gateway_running: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentConfigurationKindDto {
+    Managed,
+    Manual,
+    Changed,
+    Unconfigured,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentConfigurationStateDto {
+    pub agent: GatewayClientDto,
+    pub state: AgentConfigurationKindDto,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub context1m: bool,
+    pub credential_present: bool,
+    pub config_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct AgentConfigFingerprint {
+    managed_values: BTreeMap<String, String>,
+    endpoint: Option<String>,
+    model: Option<String>,
+    context1m: bool,
+    credential_present: bool,
+    configured: bool,
+    parse_ok: bool,
+    paths: Vec<PathBuf>,
+}
+
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayBindingConfigDto {
@@ -253,6 +327,7 @@ async fn resolve_upstream(
             token_id,
             base_url,
         } => {
+            let upstream_id = format!("account:{account_id}:{token_id}");
             let account_id = AccountId::from_string(account_id);
             let token_id = neuradock_domain::token::TokenId::new(*token_id);
             let account = repositories
@@ -288,10 +363,17 @@ async fn resolve_upstream(
             let base_url = base_url
                 .clone()
                 .unwrap_or_else(|| provider.domain().to_string());
-            let label = format!("{} · {}", provider.name(), token.name());
+            let label = format!(
+                "{} · {} · {}",
+                provider.name(),
+                account.name(),
+                token.name()
+            );
 
             Ok((
                 GatewayUpstream {
+                    id: upstream_id,
+                    label: label.clone(),
                     base_url,
                     api_key: token.key().to_string(),
                     kind,
@@ -318,6 +400,8 @@ async fn resolve_upstream(
             }
             Ok((
                 GatewayUpstream {
+                    id: format!("independent:{key_id}"),
+                    label: key.name().to_string(),
                     base_url: key.base_url().to_string(),
                     api_key: key.api_key().to_string(),
                     kind,
@@ -331,24 +415,51 @@ async fn resolve_upstream(
 }
 
 async fn status_of(state: &GatewayState) -> GatewayStatusDto {
-    let server = state.server.lock().await;
-    let meta = state.meta.lock().await;
-    let mut bindings: Vec<GatewayBindingDto> = meta
-        .iter()
-        .map(|(client, meta)| GatewayBindingDto {
-            client: (*client).into(),
-            label: meta.label.clone(),
-            model: meta.model.clone(),
+    let (running, base_url) = {
+        let server = state.server.lock().await;
+        (
+            server.is_some(),
+            server.as_ref().map(|handle| handle.base_url()),
+        )
+    };
+    let meta = state.meta.lock().await.clone();
+    let upstreams = state.bindings.read().await.clone();
+    let mut bindings = Vec::new();
+    for (client, meta) in meta {
+        let upstream = if let Some(configured) = upstreams.get(&client) {
+            let snapshot = state.runtime.snapshot(client, configured).await;
+            Some(GatewayUpstreamStatusDto {
+                id: snapshot.id,
+                label: snapshot.label,
+                circuit_state: snapshot.state.into(),
+                consecutive_failures: snapshot.consecutive_failures,
+                total_requests: snapshot.total_requests,
+                successful_requests: snapshot.successful_requests,
+                failed_requests: snapshot.failed_requests,
+                input_tokens: snapshot.usage.input_tokens,
+                output_tokens: snapshot.usage.output_tokens,
+                cache_read_tokens: snapshot.usage.cache_read_tokens,
+                cache_creation_tokens: snapshot.usage.cache_creation_tokens,
+                average_latency_ms: snapshot.average_latency_ms,
+            })
+        } else {
+            None
+        };
+        bindings.push(GatewayBindingDto {
+            client: client.into(),
+            label: meta.label,
+            model: meta.model,
             context1m: meta.context1m,
             upstream_kind: meta.kind,
             impersonate: meta.impersonate,
-        })
-        .collect();
+            upstream,
+        });
+    }
     bindings.sort_by_key(|b| b.client == GatewayClientDto::ClaudeCode);
 
     GatewayStatusDto {
-        running: server.is_some(),
-        base_url: server.as_ref().map(|handle| handle.base_url()),
+        running,
+        base_url,
         bindings,
     }
 }
@@ -358,6 +469,408 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
         CommandError::infrastructure(format!("Failed to get app data directory: {}", e))
     })?;
     Ok(GatewayTakeover::new(&app_data_dir))
+}
+
+fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
+    match agent {
+        AgentIdDto::Codex => GatewayClientDto::Codex,
+        AgentIdDto::ClaudeCode => GatewayClientDto::ClaudeCode,
+    }
+}
+
+fn source_from_access(source: &AgentAccessSourceDto) -> GatewaySourceDto {
+    match source {
+        AgentAccessSourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => GatewaySourceDto::AccountToken {
+            account_id: account_id.clone(),
+            provider_id: provider_id.clone(),
+            token_id: *token_id,
+            base_url: base_url.clone(),
+        },
+        AgentAccessSourceDto::IndependentKey { key_id } => {
+            GatewaySourceDto::IndependentKey { key_id: *key_id }
+        }
+    }
+}
+
+fn canonical_url(value: &str) -> String {
+    let trimmed = value.trim().trim_end_matches('/');
+    let Ok(mut parsed) = url::Url::parse(trimmed) else {
+        return trimmed.to_string();
+    };
+    parsed.set_query(None);
+    parsed.set_fragment(None);
+    let _ = parsed.set_username("");
+    let _ = parsed.set_password(None);
+    parsed.to_string().trim_end_matches('/').to_string()
+}
+
+fn display_endpoint(value: &str) -> String {
+    let Ok(parsed) = url::Url::parse(value) else {
+        return value.to_string();
+    };
+    match (parsed.host_str(), parsed.port()) {
+        (Some(host), Some(port)) => format!("{host}:{port}"),
+        (Some(host), None) => host.to_string(),
+        _ => value.to_string(),
+    }
+}
+
+fn model_without_context_marker(value: &str) -> (String, bool) {
+    let trimmed = value.trim();
+    if trimmed.len() >= 4 && trimmed[trimmed.len() - 4..].eq_ignore_ascii_case("[1m]") {
+        (trimmed[..trimmed.len() - 4].trim_end().to_string(), true)
+    } else {
+        (trimmed.to_string(), false)
+    }
+}
+
+fn claude_fingerprint(content: &str, path: PathBuf) -> anyhow::Result<AgentConfigFingerprint> {
+    let mut result = AgentConfigFingerprint {
+        parse_ok: true,
+        paths: vec![path],
+        ..Default::default()
+    };
+    if content.trim().is_empty() {
+        return Ok(result);
+    }
+
+    let root: serde_json::Value = serde_json::from_str(content)?;
+    let Some(env) = root.get("env").and_then(serde_json::Value::as_object) else {
+        return Ok(result);
+    };
+    const KEYS: &[&str] = &[
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    ];
+    for key in KEYS {
+        if let Some(value) = env
+            .get(*key)
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+        {
+            let normalized = if *key == "ANTHROPIC_BASE_URL" {
+                canonical_url(value)
+            } else {
+                value.trim().to_string()
+            };
+            result.managed_values.insert((*key).to_string(), normalized);
+        }
+    }
+
+    result.credential_present = result.managed_values.contains_key("ANTHROPIC_AUTH_TOKEN")
+        || result.managed_values.contains_key("ANTHROPIC_API_KEY");
+    if let Some(base_url) = result.managed_values.get("ANTHROPIC_BASE_URL") {
+        result.endpoint = Some(display_endpoint(base_url));
+    }
+    let model = [
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    ]
+    .into_iter()
+    .find_map(|key| result.managed_values.get(key));
+    if let Some(model) = model {
+        let (model, context1m) = model_without_context_marker(model);
+        result.model = Some(model);
+        result.context1m = context1m;
+    }
+    result.configured =
+        result.credential_present || result.endpoint.is_some() || result.model.is_some();
+    Ok(result)
+}
+
+fn codex_fingerprint(
+    config_content: &str,
+    auth_content: &str,
+    config_path: PathBuf,
+    auth_path: PathBuf,
+) -> anyhow::Result<AgentConfigFingerprint> {
+    let mut result = AgentConfigFingerprint {
+        parse_ok: true,
+        paths: vec![config_path, auth_path],
+        ..Default::default()
+    };
+    let doc = if config_content.trim().is_empty() {
+        toml_edit::DocumentMut::new()
+    } else {
+        config_content.parse::<toml_edit::DocumentMut>()?
+    };
+    for key in [
+        "model",
+        "model_provider",
+        "preferred_auth_method",
+        "model_context_window",
+    ] {
+        if let Some(item) = doc.get(key) {
+            if let Some(value) = item.as_str() {
+                result
+                    .managed_values
+                    .insert(format!("config.{key}"), value.to_string());
+            } else if let Some(value) = item.as_integer() {
+                result
+                    .managed_values
+                    .insert(format!("config.{key}"), value.to_string());
+            }
+        }
+    }
+
+    if let Some(provider_slug) = doc.get("model_provider").and_then(toml_edit::Item::as_str) {
+        if let Some(provider) = doc
+            .get("model_providers")
+            .and_then(toml_edit::Item::as_table)
+            .and_then(|providers| providers.get(provider_slug))
+            .and_then(toml_edit::Item::as_table)
+        {
+            for key in ["name", "base_url", "wire_api"] {
+                if let Some(value) = provider.get(key).and_then(toml_edit::Item::as_str) {
+                    let normalized = if key == "base_url" {
+                        canonical_url(value)
+                    } else {
+                        value.to_string()
+                    };
+                    result
+                        .managed_values
+                        .insert(format!("provider.{key}"), normalized);
+                }
+            }
+        }
+    }
+
+    let auth = if auth_content.trim().is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::from_str::<serde_json::Value>(auth_content)?
+    };
+    if let Some(api_key) = auth
+        .get("OPENAI_API_KEY")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        result.managed_values.insert(
+            "auth.OPENAI_API_KEY".to_string(),
+            api_key.trim().to_string(),
+        );
+        result.credential_present = true;
+    }
+    if auth.get("tokens").is_some_and(|tokens| !tokens.is_null()) {
+        result
+            .managed_values
+            .insert("auth.tokens_present".to_string(), "true".to_string());
+        result.credential_present = true;
+    }
+
+    result.endpoint = result
+        .managed_values
+        .get("provider.base_url")
+        .map(|value| display_endpoint(value));
+    result.model = result.managed_values.get("config.model").cloned();
+    result.context1m = result
+        .managed_values
+        .get("config.model_context_window")
+        .and_then(|value| value.parse::<u64>().ok())
+        .is_some_and(|value| value >= 1_000_000);
+    result.configured = result.credential_present
+        || result.endpoint.is_some()
+        || result.model.is_some()
+        || result.managed_values.contains_key("config.model_provider");
+    Ok(result)
+}
+
+fn read_agent_fingerprint(
+    client: GatewayClientDto,
+) -> Result<AgentConfigFingerprint, CommandError> {
+    match client {
+        GatewayClientDto::ClaudeCode => {
+            let path = ClaudeConfigService::managed_path().map_err(CommandError::from)?;
+            let content = if path.exists() {
+                fs::read_to_string(&path).map_err(|error| {
+                    CommandError::infrastructure(format!(
+                        "Failed to read {}: {error}",
+                        path.display()
+                    ))
+                })?
+            } else {
+                String::new()
+            };
+            let fallback_path = path.clone();
+            Ok(
+                claude_fingerprint(&content, path).unwrap_or_else(|_| AgentConfigFingerprint {
+                    parse_ok: false,
+                    paths: vec![fallback_path],
+                    ..Default::default()
+                }),
+            )
+        }
+        GatewayClientDto::Codex => {
+            let (config_path, auth_path) =
+                CodexConfigService::managed_paths().map_err(CommandError::from)?;
+            let config_content = if config_path.exists() {
+                fs::read_to_string(&config_path).map_err(|error| {
+                    CommandError::infrastructure(format!(
+                        "Failed to read {}: {error}",
+                        config_path.display()
+                    ))
+                })?
+            } else {
+                String::new()
+            };
+            let auth_content = if auth_path.exists() {
+                fs::read_to_string(&auth_path).map_err(|error| {
+                    CommandError::infrastructure(format!(
+                        "Failed to read {}: {error}",
+                        auth_path.display()
+                    ))
+                })?
+            } else {
+                String::new()
+            };
+            let fallback_paths = vec![config_path.clone(), auth_path.clone()];
+            Ok(
+                codex_fingerprint(&config_content, &auth_content, config_path, auth_path)
+                    .unwrap_or_else(|_| AgentConfigFingerprint {
+                        parse_ok: false,
+                        paths: fallback_paths,
+                        ..Default::default()
+                    }),
+            )
+        }
+    }
+}
+
+fn fingerprint_from_preview(
+    client: GatewayClientDto,
+    files: &[RawPreviewFile],
+) -> Result<AgentConfigFingerprint, CommandError> {
+    match client {
+        GatewayClientDto::ClaudeCode => {
+            let (path, _, _, next) = files
+                .first()
+                .ok_or_else(|| CommandError::infrastructure("Claude preview is empty"))?;
+            claude_fingerprint(next, path.clone()).map_err(CommandError::from)
+        }
+        GatewayClientDto::Codex => {
+            let config = files
+                .iter()
+                .find(|(_, format, _, _)| *format == "toml")
+                .ok_or_else(|| CommandError::infrastructure("Codex config preview is missing"))?;
+            let auth = files
+                .iter()
+                .find(|(_, format, _, _)| *format == "json")
+                .ok_or_else(|| CommandError::infrastructure("Codex auth preview is missing"))?;
+            codex_fingerprint(&config.3, &auth.3, config.0.clone(), auth.0.clone())
+                .map_err(CommandError::from)
+        }
+    }
+}
+
+async fn expected_fingerprint(
+    record: &AgentAccessDto,
+    gateway_base_url: Option<&str>,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<Option<AgentConfigFingerprint>, CommandError> {
+    let client = client_for_agent(record.agent);
+    let context1m = record.context1m.unwrap_or(false);
+    let files = match record.method {
+        AccessMethodDto::Gateway => {
+            let Some(base_url) = gateway_base_url else {
+                return Ok(None);
+            };
+            preview_with_key(
+                client,
+                GATEWAY_PLACEHOLDER_KEY,
+                base_url,
+                record.model.as_deref(),
+                context1m,
+                services,
+            )?
+        }
+        AccessMethodDto::Direct => {
+            let source = record
+                .source
+                .as_ref()
+                .ok_or_else(|| CommandError::validation("Access source is missing"))?;
+            preview_direct(
+                client,
+                &source_from_access(source),
+                record.model.as_deref(),
+                context1m,
+                services,
+                repositories,
+            )
+            .await?
+        }
+    };
+    fingerprint_from_preview(client, &files).map(Some)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_agent_configuration_states(
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<Vec<AgentConfigurationStateDto>, CommandError> {
+    let gateway_base_url = state
+        .server
+        .lock()
+        .await
+        .as_ref()
+        .map(|handle| handle.base_url());
+    let mut states = Vec::new();
+
+    for agent in [AgentIdDto::Codex, AgentIdDto::ClaudeCode] {
+        let client = client_for_agent(agent);
+        let actual = read_agent_fingerprint(client)?;
+        let record = access.get(agent);
+        let state_kind = if let Some(record) = record.as_ref() {
+            match expected_fingerprint(
+                record,
+                gateway_base_url.as_deref(),
+                &services,
+                &repositories,
+            )
+            .await
+            {
+                Ok(None) => AgentConfigurationKindDto::Managed,
+                Ok(Some(expected))
+                    if actual.parse_ok && actual.managed_values == expected.managed_values =>
+                {
+                    AgentConfigurationKindDto::Managed
+                }
+                _ => AgentConfigurationKindDto::Changed,
+            }
+        } else if actual.parse_ok && actual.configured {
+            AgentConfigurationKindDto::Manual
+        } else {
+            AgentConfigurationKindDto::Unconfigured
+        };
+
+        states.push(AgentConfigurationStateDto {
+            agent: client,
+            state: state_kind,
+            endpoint: actual.endpoint,
+            model: actual.model,
+            context1m: actual.context1m,
+            credential_present: actual.credential_present,
+            config_paths: actual
+                .paths
+                .iter()
+                .map(|path| abbreviate_home(path))
+                .collect(),
+        });
+    }
+    Ok(states)
 }
 
 /// Build a read-only, redacted view of the files managed for an Agent. The
@@ -668,6 +1181,7 @@ pub async fn set_gateway_binding(
     let gateway_client: GatewayClient = client.into();
     let access_source = access_source_of(&source);
 
+    state.runtime.reset(gateway_client).await;
     state
         .bindings
         .write()
@@ -740,6 +1254,7 @@ pub async fn clear_gateway_binding(
 
     state.bindings.write().await.remove(&gateway_client);
     state.meta.lock().await.remove(&gateway_client);
+    state.runtime.reset(gateway_client).await;
 
     persist_bindings(&app, &state).await;
     access.remove(&app, client.into());
@@ -889,7 +1404,7 @@ pub async fn start_gateway_server(
 
     let mut server = state.server.lock().await;
     if server.is_none() {
-        let handle = start_gateway(state.bindings.clone(), 0)
+        let handle = start_gateway_with_runtime(state.bindings.clone(), state.runtime.clone(), 0)
             .await
             .map_err(|e| CommandError::infrastructure(format!("Failed to start gateway: {}", e)))?;
         *server = Some(handle);
