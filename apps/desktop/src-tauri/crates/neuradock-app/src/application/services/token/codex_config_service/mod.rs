@@ -97,6 +97,7 @@ impl CodexConfigService {
         provider_name: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
         temp_commands::generate_temp_commands_impl(
             token,
@@ -104,6 +105,7 @@ impl CodexConfigService {
             provider_name,
             base_url,
             model,
+            context_1m,
         )
     }
 
@@ -114,8 +116,9 @@ impl CodexConfigService {
         api_key: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        temp_commands::generate_temp_commands_with_key_impl(api_key, base_url, model)
+        temp_commands::generate_temp_commands_with_key_impl(api_key, base_url, model, context_1m)
     }
 }
 

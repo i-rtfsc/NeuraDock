@@ -1,21 +1,23 @@
 use anyhow::Result;
 
-use super::helpers::ensure_sk_prefix;
+use super::helpers::{ensure_sk_prefix, with_1m_suffix};
 use neuradock_domain::token::ApiToken;
 
 pub(super) fn generate_temp_commands_impl(
     token: &ApiToken,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     let api_key = ensure_sk_prefix(token.key());
-    generate_temp_commands_with_key_impl(&api_key, base_url, model)
+    generate_temp_commands_with_key_impl(&api_key, base_url, model, context_1m)
 }
 
 pub(super) fn generate_temp_commands_with_key_impl(
     api_key: &str,
     base_url: &str,
     model: Option<&str>,
+    context_1m: bool,
 ) -> Result<String> {
     let api_key = ensure_sk_prefix(api_key);
     let mut commands = vec![
@@ -27,11 +29,36 @@ pub(super) fn generate_temp_commands_with_key_impl(
         "export CLAUDE_CODE_ATTRIBUTION_HEADER=\"0\"".to_string(),
     ];
 
-    if let Some(m) = model {
+    if let Some(model) = model {
+        let model = if context_1m {
+            with_1m_suffix(model)
+        } else {
+            model.to_string()
+        };
+        let m = model.as_str();
         commands.push(format!("export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"{}\"", m));
         commands.push(format!("export ANTHROPIC_DEFAULT_SONNET_MODEL=\"{}\"", m));
         commands.push(format!("export ANTHROPIC_DEFAULT_OPUS_MODEL=\"{}\"", m));
     }
 
     Ok(commands.join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporary_commands_include_context_marker() {
+        let commands = generate_temp_commands_with_key_impl(
+            "test-key",
+            "https://relay.example",
+            Some("claude-opus"),
+            true,
+        )
+        .unwrap();
+
+        assert!(commands.contains("claude-opus[1m]"));
+        assert!(commands.contains("ANTHROPIC_AUTH_TOKEN=\"sk-test-key\""));
+    }
 }

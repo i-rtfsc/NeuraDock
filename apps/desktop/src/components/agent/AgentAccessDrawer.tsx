@@ -13,6 +13,7 @@ import {
   Server,
   ShieldCheck,
   SlidersHorizontal,
+  Terminal,
 } from 'lucide-react';
 
 import {
@@ -64,7 +65,7 @@ export interface KeyOption {
 }
 
 type Method = 'direct' | 'gateway';
-type ConfigView = 'form' | 'files';
+type ConfigView = 'form' | 'files' | 'temporary';
 type FileVersion = 'current' | 'next';
 
 interface AgentConfigPreviewFile {
@@ -364,6 +365,25 @@ export function AgentAccessDrawer({
     staleTime: 0,
   });
 
+  const temporaryQuery = useQuery<string>({
+    queryKey: [
+      'agent-temporary-commands',
+      agent.id,
+      selectedId,
+      baseUrl,
+      model,
+      context1m,
+    ],
+    enabled:
+      open &&
+      configView === 'temporary' &&
+      !!selected &&
+      (!isAccountToken || !!baseUrl),
+    queryFn: () =>
+      generateTemporaryCommands(agent.id, selected!, baseUrl, model || null, context1m),
+    staleTime: 0,
+  });
+
   useEffect(() => {
     setActiveFileIndex(0);
     setCopied(false);
@@ -581,7 +601,7 @@ export function AgentAccessDrawer({
                   onValueChange={(value) => setConfigView(value as ConfigView)}
                   className="min-w-0"
                 >
-                  <TabsList className="mb-4 grid w-full grid-cols-2">
+                  <TabsList className="mb-4 grid w-full grid-cols-3">
                     <TabsTrigger value="form">
                       <SlidersHorizontal className="mr-2 h-4 w-4" />
                       {t('agentConfig.visualConfig', '可视化配置')}
@@ -589,6 +609,10 @@ export function AgentAccessDrawer({
                     <TabsTrigger value="files">
                       <FileCode2 className="mr-2 h-4 w-4" />
                       {t('agentConfig.configFiles', '配置文件')}
+                    </TabsTrigger>
+                    <TabsTrigger value="temporary">
+                      <Terminal className="mr-2 h-4 w-4" />
+                      {t('agentConfig.temporarySession', '临时会话')}
                     </TabsTrigger>
                   </TabsList>
 
@@ -704,7 +728,7 @@ export function AgentAccessDrawer({
                         </Accordion>
                       )}
                     </FormSection>
-                  ) : (
+                  ) : configView === 'files' ? (
                     <ConfigPreviewPanel
                       preview={previewQuery.data}
                       loading={previewQuery.isLoading || (!!previewRequest && previewQuery.isFetching)}
@@ -714,6 +738,24 @@ export function AgentAccessDrawer({
                       onFileVersionChange={setFileVersion}
                       activeFileIndex={activeFileIndex}
                       onActiveFileIndexChange={setActiveFileIndex}
+                      copied={copied}
+                      onCopy={async (content) => {
+                        try {
+                          await navigator.clipboard.writeText(content);
+                          setCopied(true);
+                          toast.success(t('common.copied', '已复制！'));
+                          window.setTimeout(() => setCopied(false), 1500);
+                        } catch {
+                          toast.error(t('token.copyError', '复制失败'));
+                        }
+                      }}
+                    />
+                  ) : (
+                    <TemporaryCommandsPanel
+                      commands={temporaryQuery.data}
+                      loading={temporaryQuery.isLoading || temporaryQuery.isFetching}
+                      error={temporaryQuery.error}
+                      hasSelection={!!selected && (!isAccountToken || !!baseUrl)}
                       copied={copied}
                       onCopy={async (content) => {
                         try {
@@ -744,6 +786,92 @@ export function AgentAccessDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TemporaryCommandsPanel({
+  commands,
+  loading,
+  error,
+  hasSelection,
+  copied,
+  onCopy,
+}: {
+  commands?: string;
+  loading: boolean;
+  error: Error | null;
+  hasSelection: boolean;
+  copied: boolean;
+  onCopy: (content: string) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+
+  if (!hasSelection) {
+    return (
+      <div className="flex min-h-80 items-center justify-center rounded-xl bg-muted/15 px-6 text-center text-sm text-muted-foreground">
+        {t('agentConfig.temporaryEmpty', '选择 Key 和节点后即可生成临时会话命令。')}
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-80 items-center justify-center rounded-xl bg-muted/15 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {t('agentConfig.temporaryLoading', '正在生成临时会话命令…')}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl bg-destructive/5 px-5 py-8 text-center text-sm text-destructive">
+        <p className="font-medium">
+          {t('agentConfig.temporaryFailed', '临时会话命令生成失败')}
+        </p>
+        <p className="mt-2 break-words text-xs opacity-80">{String(error)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl bg-muted/20 px-4 py-3">
+        <p className="text-sm font-medium">
+          {t('agentConfig.temporaryTitle', '仅用于当前终端')}
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+          {t(
+            'agentConfig.temporaryHint',
+            '复制到终端执行，不修改现有全局配置；关闭终端后临时配置失效。'
+          )}
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-lg bg-slate-950 text-slate-100 shadow-inner dark:bg-black/45">
+        <div className="flex items-center justify-between gap-3 bg-white/5 px-3 py-2">
+          <code className="text-[11px] text-slate-300">
+            {t('agentConfig.temporaryShell', 'Shell 命令')}
+          </code>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 px-2 text-slate-300 hover:bg-white/10 hover:text-white"
+            onClick={() => void onCopy(commands ?? '')}
+            disabled={!commands}
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied
+              ? t('agentConfig.temporaryCopied', '已复制')
+              : t('agentConfig.temporaryCopy', '复制命令')}
+          </Button>
+        </div>
+        <pre className="max-h-[52vh] min-h-64 overflow-auto p-4 font-mono text-xs leading-5">
+          <code>{commands}</code>
+        </pre>
+      </div>
+    </div>
   );
 }
 
@@ -1047,4 +1175,43 @@ async function directConfigure(
       context1m,
     });
   }
+}
+
+async function generateTemporaryCommands(
+  agent: AgentDef['id'],
+  option: KeyOption,
+  baseUrl: string,
+  model: string | null,
+  context1m: boolean
+): Promise<string> {
+  if (option.source.type === 'independent_key') {
+    const command =
+      agent === 'claude_code'
+        ? 'generate_independent_key_claude_temp'
+        : 'generate_independent_key_codex_temp';
+    return invoke<string>(command, {
+      keyId: option.source.key_id,
+      model,
+      context1m,
+    });
+  }
+
+  if (agent === 'claude_code') {
+    return invoke<string>('generate_claude_temp_commands', {
+      tokenId: option.source.token_id,
+      accountId: option.source.account_id,
+      baseUrl,
+      model,
+      context1m,
+    });
+  }
+
+  return invoke<string>('generate_codex_temp_commands', {
+    tokenId: option.source.token_id,
+    accountId: option.source.account_id,
+    providerId: option.source.provider_id,
+    baseUrl,
+    model,
+    context1m,
+  });
 }

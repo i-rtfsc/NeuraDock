@@ -49,6 +49,7 @@ pub async fn configure_independent_key_codex(
 pub async fn generate_independent_key_codex_temp(
     key_id: i64,
     model: Option<String>,
+    context1m: Option<bool>,
     repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
     let id = IndependentKeyId::new(key_id);
@@ -64,6 +65,11 @@ pub async fn generate_independent_key_codex_temp(
     // Generate temp commands
     let service = CodexConfigService::new();
     service
-        .generate_temp_commands_with_key(key.api_key(), key.base_url(), model.as_deref())
+        .generate_temp_commands_with_key(
+            key.api_key(),
+            key.base_url(),
+            model.as_deref(),
+            context1m.unwrap_or(false),
+        )
         .map_err(CommandError::from)
 }

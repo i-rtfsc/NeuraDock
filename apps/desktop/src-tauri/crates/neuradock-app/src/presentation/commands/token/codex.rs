@@ -76,6 +76,7 @@ pub async fn generate_codex_temp_commands(
     provider_id: String,
     base_url: String,
     model: Option<String>,
+    context1m: Option<bool>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
@@ -124,6 +125,7 @@ pub async fn generate_codex_temp_commands(
             provider.name(),
             &base_url,
             model.as_deref(),
+            context1m.unwrap_or(false),
         )
         .map_err(CommandError::from)?;
 

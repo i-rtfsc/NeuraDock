@@ -64,8 +64,9 @@ impl ClaudeConfigService {
         token: &ApiToken,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        temp_commands::generate_temp_commands_impl(token, base_url, model)
+        temp_commands::generate_temp_commands_impl(token, base_url, model, context_1m)
     }
 
     /// Generate temporary export commands with API key string (for independent keys)
@@ -74,8 +75,9 @@ impl ClaudeConfigService {
         api_key: &str,
         base_url: &str,
         model: Option<&str>,
+        context_1m: bool,
     ) -> Result<String> {
-        temp_commands::generate_temp_commands_with_key_impl(api_key, base_url, model)
+        temp_commands::generate_temp_commands_with_key_impl(api_key, base_url, model, context_1m)
     }
 }
 

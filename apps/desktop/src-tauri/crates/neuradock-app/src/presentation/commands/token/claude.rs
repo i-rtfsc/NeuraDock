@@ -61,6 +61,7 @@ pub async fn generate_claude_temp_commands(
     account_id: String,
     base_url: String,
     model: Option<String>,
+    context1m: Option<bool>,
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<String, CommandError> {
@@ -90,7 +91,12 @@ pub async fn generate_claude_temp_commands(
     // Generate temp commands
     let commands = services
         .claude_config
-        .generate_temp_commands(token, &base_url, model.as_deref())
+        .generate_temp_commands(
+            token,
+            &base_url,
+            model.as_deref(),
+            context1m.unwrap_or(false),
+        )
         .map_err(CommandError::from)?;
 
     Ok(commands)
