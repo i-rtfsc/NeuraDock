@@ -25,9 +25,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -119,7 +117,18 @@ interface KeySource {
   keys: KeyOption[];
 }
 
+interface AccountSource {
+  id: string;
+  label: string;
+  keys: KeyOption[];
+}
+
 const INDEPENDENT_SOURCE_ID = 'independent';
+function keySourceId(option: KeyOption): string {
+  return option.sourceGroup === 'relay'
+    ? `relay:${option.providerId ?? option.providerName}`
+    : INDEPENDENT_SOURCE_ID;
+}
 
 export function AgentAccessDrawer({
   open,
@@ -134,6 +143,7 @@ export function AgentAccessDrawer({
   const { t } = useTranslation();
   const initializedRef = useRef<string | null>(null);
   const [sourceId, setSourceId] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [method, setMethod] = useState<Method>('gateway');
   const [kind, setKind] = useState<UpstreamKind>(agent.nativeKind);
@@ -155,18 +165,18 @@ export function AgentAccessDrawer({
     const independent: KeyOption[] = [];
     for (const option of keyOptions) {
       if (option.sourceGroup === 'relay') {
-        const accountKey = option.accountId ?? `${option.providerName}:${option.accountName ?? ''}`;
-        const list = relay.get(accountKey) ?? [];
+        const providerKey = option.providerId ?? option.providerName;
+        const list = relay.get(providerKey) ?? [];
         list.push(option);
-        relay.set(accountKey, list);
+        relay.set(providerKey, list);
       } else {
         independent.push(option);
       }
     }
 
-    const list: KeySource[] = Array.from(relay, ([accountKey, keys]) => ({
-      id: `relay:${accountKey}`,
-      label: [keys[0]?.providerName, keys[0]?.accountName].filter(Boolean).join(' · '),
+    const list: KeySource[] = Array.from(relay, ([providerKey, keys]) => ({
+      id: `relay:${providerKey}`,
+      label: keys[0]?.providerName ?? providerKey,
       group: 'relay' as const,
       keys,
     }));
@@ -213,14 +223,12 @@ export function AgentAccessDrawer({
 
     if (target) {
       setSelectedId(optionId(target));
-      setSourceId(
-        target.sourceGroup === 'relay'
-          ? `relay:${target.accountId ?? `${target.providerName}:${target.accountName ?? ''}`}`
-          : INDEPENDENT_SOURCE_ID
-      );
+      setSourceId(keySourceId(target));
+      setAccountId(target.accountId ?? '');
     } else {
       setSelectedId('');
       setSourceId(sources[0]?.id ?? '');
+      setAccountId('');
     }
   }, [
     agent.nativeKind,
@@ -235,7 +243,33 @@ export function AgentAccessDrawer({
   ]);
 
   const activeSource = sources.find((source) => source.id === sourceId);
-  const activeKeys = activeSource?.keys ?? [];
+  const accounts = useMemo<AccountSource[]>(() => {
+    if (!activeSource || activeSource.group !== 'relay') return [];
+    const accountMap = new Map<string, KeyOption[]>();
+    for (const option of activeSource.keys) {
+      if (!option.accountId) continue;
+      const list = accountMap.get(option.accountId) ?? [];
+      list.push(option);
+      accountMap.set(option.accountId, list);
+    }
+    return Array.from(accountMap, ([id, keys]) => ({
+      id,
+      label: keys[0]?.accountName ?? id,
+      keys,
+    }));
+  }, [activeSource]);
+  const activeAccount = accounts.find((account) => account.id === accountId);
+  const activeKeys =
+    activeSource?.group === 'independent' ? activeSource.keys : activeAccount?.keys ?? [];
+
+  useEffect(() => {
+    if (!activeSource || activeSource.group !== 'relay') {
+      if (accountId) setAccountId('');
+      return;
+    }
+    if (accounts.some((account) => account.id === accountId)) return;
+    setAccountId(accounts.length === 1 ? accounts[0].id : '');
+  }, [accountId, accounts, activeSource]);
 
   const selected = keyOptions.find((option) => optionId(option) === selectedId);
   const isAccountToken = selected?.source.type === 'account_token';
@@ -337,6 +371,15 @@ export function AgentAccessDrawer({
 
   const selectSource = (value: string) => {
     setSourceId(value);
+    setAccountId('');
+    setSelectedId('');
+    setNode('');
+    setModel('');
+    setContext1m(false);
+  };
+
+  const selectAccount = (value: string) => {
+    setAccountId(value);
     setSelectedId('');
     setNode('');
     setModel('');
@@ -425,7 +468,7 @@ export function AgentAccessDrawer({
             </div>
           ) : sources.length === 0 ? (
             <div className="m-6 rounded-xl border border-dashed border-border/70 px-6 py-10 text-center text-sm text-muted-foreground">
-              {t('agentConfig.noKeys', '没有可用的 Key。先到中转站或 API Key 里添加。')}
+              {t('agentConfig.noKeys', '没有可用的 Key。请先添加可用来源或独立 API Key。')}
             </div>
           ) : (
             <div className="grid min-h-full md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
@@ -433,7 +476,7 @@ export function AgentAccessDrawer({
                 <FormSection
                 number="1"
                 title={t('agentConfig.selectKeyTitle', '选择 Key')}
-                description={t('agentConfig.selectKeyDesc', '只展示启用中的账号和 Key。')}
+                description={t('agentConfig.selectKeyDesc', '只展示启用中的来源、账号和 Key。')}
                 icon={<KeyRound className="h-4 w-4" />}
               >
                 <Field label={t('agentConfig.fieldSource', '来源')}>
@@ -442,16 +485,13 @@ export function AgentAccessDrawer({
                         <SelectValue placeholder={t('agentConfig.pickSource', '选择来源')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>{t('agentConfig.groupRelay', '中转站账号')}</SelectLabel>
-                          {sources
-                            .filter((source) => source.group === 'relay')
-                            .map((source) => (
-                              <SelectItem key={source.id} value={source.id}>
-                                {source.label}
-                              </SelectItem>
-                            ))}
-                        </SelectGroup>
+                        {sources
+                          .filter((source) => source.group === 'relay')
+                          .map((source) => (
+                            <SelectItem key={source.id} value={source.id}>
+                              {source.label}
+                            </SelectItem>
+                          ))}
                         {sources.some((source) => source.group === 'independent') && (
                           <SelectItem value={INDEPENDENT_SOURCE_ID}>
                             {t('agentConfig.groupIndependent', '独立 API Key')}
@@ -461,11 +501,36 @@ export function AgentAccessDrawer({
                     </Select>
                   </Field>
 
+                {activeSource?.group === 'relay' && (
+                  <Field label={t('agentConfig.fieldAccount', '账号')}>
+                    <Select
+                      value={accountId}
+                      onValueChange={selectAccount}
+                      disabled={locked || accounts.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('agentConfig.pickAccount', '选择账号')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+
                 <Field label={t('agentConfig.fieldKey', 'Key')}>
                   <Select
                     value={selectedId}
                     onValueChange={selectKey}
-                    disabled={locked || !activeSource}
+                    disabled={
+                      locked ||
+                      !activeSource ||
+                      (activeSource.group === 'relay' && !activeAccount)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={t('agentConfig.pickKey', '选择 Key')} />
@@ -609,7 +674,7 @@ export function AgentAccessDrawer({
                               </span>
                             </AccordionTrigger>
                             <AccordionContent className="space-y-4">
-                              <Field label={t('agentConfig.upstreamKind', '中转站上游协议')}>
+                              <Field label={t('agentConfig.upstreamKind', '上游协议')}>
                                 <div className="grid gap-2 sm:grid-cols-2">
                                   <KindRadio
                                     active={kind === agent.nativeKind}
@@ -630,7 +695,7 @@ export function AgentAccessDrawer({
 
                               <SettingRow
                                 title={t('agentConfig.impersonateLabel', '伪装为 {{name}}', { name: agent.name })}
-                                description={t('agentConfig.impersonateDesc', '让中转站把请求识别为标准客户端。')}
+                                description={t('agentConfig.impersonateDesc', '让接入服务把请求识别为标准客户端。')}
                               >
                                 <Switch checked={impersonate} onCheckedChange={setImpersonate} />
                               </SettingRow>

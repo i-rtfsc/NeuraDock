@@ -112,8 +112,12 @@ export function IndependentKeyConfigDialog({
       invoke<unknown>('set_gateway_binding', {
         client,
         source: { type: 'independent_key', key_id: keyData!.id },
-        upstreamKind,
-        model: selectedModel || null,
+        config: {
+          upstreamKind,
+          model: selectedModel || null,
+          context1m: false,
+          impersonate: true,
+        },
       }),
     onSuccess: () => {
       toast.success(t('gateway.bound', '已绑定，可在侧边栏「本地网关」启动'));
