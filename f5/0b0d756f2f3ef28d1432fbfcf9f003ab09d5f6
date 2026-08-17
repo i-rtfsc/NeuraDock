@@ -1,0 +1,55 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/fs_safe.rs
+  s_8e27dbca82831f::t_97e39bc2789bc9 23,31-58,74-81,104-111
+  s_8e27dbca82831f::t_a53b159d4c5c3f 168-203
+  s_826374b967066e::t_b9c11c949596b8 112
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/gateway_takeover.rs
+  s_8e27dbca82831f::t_901852f00563ca 139-148
+  s_8e27dbca82831f::t_d58834109ccc66 375-383,385-398,403-425
+  s_8e27dbca82831f::t_e9f53019c196fc 514-556,590
+  s_2b18058b9ff24c::t_0a8ebc877b81ae 559-560
+  s_8e27dbca82831f::t_3faa1bbcb1ba6c 171-181,187-196
+  s_8e27dbca82831f::t_34a69a9c0928c0 182-186,384
+  s_8e27dbca82831f::t_91f7af516f7fad 485-493,507-510,557-558,561-589
+  s_8e27dbca82831f::t_fd920d7aa7fa0b 426-427
+  s_8e27dbca82831f::t_a01bb57b5122e8 591
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/claude_config_service/global_config.rs
+  s_8e27dbca82831f::t_7069eea3ecfe55 8
+  s_8e27dbca82831f::t_de92d782cc2b79 182-191
+  s_8e27dbca82831f::t_0bbca7e385abdd 192
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/global_config.rs
+  s_8e27dbca82831f::t_89a6c57e76994e 290-301
+  s_8e27dbca82831f::t_8c5df49b757245 12
+  s_826374b967066e::t_5927694dec00f7 302-303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f50b0d756f2f3ef28d1432fbfcf9f003ab09d5f6",
+  "prompts": {},
+  "sessions": {
+    "s_2b18058b9ff24c": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a00d5b-fd68-7a53-b90f-9528fa1b10c7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_826374b967066e": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "019fcbb3-9a10-79c3-ac2d-83540f017ad7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
