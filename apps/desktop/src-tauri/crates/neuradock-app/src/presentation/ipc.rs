@@ -49,6 +49,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             set_log_level,
             get_proxy_config,
             update_proxy_config,
+            get_reminder_settings,
+            update_reminder_settings,
             // Notification commands
             create_notification_channel,
             update_notification_channel,
@@ -60,6 +62,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             configure_claude_global,
             generate_claude_temp_commands,
             configure_codex_global,
+            configure_codex_isolated,
+            clear_codex_isolated,
             generate_codex_temp_commands,
             check_model_compatibility,
             get_provider_nodes,
@@ -80,6 +84,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             configure_independent_key_claude,
             generate_independent_key_claude_temp,
             configure_independent_key_codex,
+            configure_independent_key_codex_isolated,
             generate_independent_key_codex_temp,
             // System & Logging commands
             get_app_version,

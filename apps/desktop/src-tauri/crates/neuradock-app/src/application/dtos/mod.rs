@@ -45,4 +45,6 @@ pub use independent_key_dto::*;
 
 // Proxy Config DTOs
 mod proxy_config_dto;
+mod reminder_settings_dto;
 pub use proxy_config_dto::*;
+pub use reminder_settings_dto::*;

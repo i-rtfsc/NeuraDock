@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useTheme } from '@/hooks/useTheme';
 import { useProxyConfig } from '@/hooks/useProxyConfig';
+import { useReminderSettings, type ReminderChannel } from '@/hooks/useReminderSettings';
 import { useTranslation } from 'react-i18next';
 import {
   Info, Sun,
@@ -25,7 +26,8 @@ import {
   Globe,
   ShieldCheck,
   FileText,
-  CalendarClock
+  CalendarClock,
+  BellRing
 } from 'lucide-react';
 import { useState, useEffect, ReactNode } from 'react';
 import { LegacyImportDialog } from '@/components/migration/LegacyImportDialog';
@@ -669,6 +671,202 @@ const SystemSettings = () => {
   );
 };
 
+const REMINDER_CHANNEL_KEYS: ReminderChannel[] = ['app', 'feishu'];
+
+const ReminderSettingsPanel = () => {
+  const { t } = useTranslation();
+  const {
+    settings,
+    isLoading,
+    isSaving,
+    loadFailed,
+    updateField,
+    addTime,
+    removeTime,
+    toggleChannel,
+    saveSettings,
+  } = useReminderSettings();
+  const [newTime, setNewTime] = useState('');
+
+  // Saving over settings we never managed to read would silently replace the
+  // user's real configuration with this form's defaults.
+  const blocked = isLoading || loadFailed;
+
+  const handleAddTime = () => {
+    if (!newTime) return;
+    addTime(newTime);
+    setNewTime('');
+  };
+
+  const handleSave = async () => {
+    if (settings.enabled && settings.times.length === 0) {
+      toast.error(t('settings.reminderNeedTime', '请至少添加一个提醒时间'));
+      return;
+    }
+    if (settings.enabled && settings.channels.length === 0) {
+      toast.error(t('settings.reminderNeedChannel', '请至少选择一个提醒方式'));
+      return;
+    }
+    await saveSettings(settings);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between">
+        <div className="flex gap-4">
+          <div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-control-lg)] bg-primary/10 text-primary border border-primary/20 shadow-sm shrink-0">
+            <BellRing className="h-5 w-5" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-base font-medium text-foreground">
+              {t('settings.reminderEnabled', '未签到提醒')}
+            </Label>
+            <p className="text-sm text-muted-foreground leading-snug max-w-[280px] md:max-w-md">
+              {t(
+                'settings.reminderDescription',
+                '在设定时间检查当天是否还有账号未签到，并发送提醒。'
+              )}
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={settings.enabled}
+          onCheckedChange={(checked) => updateField('enabled', checked)}
+          disabled={blocked}
+        />
+      </div>
+
+      {loadFailed && (
+        <p className="text-sm text-destructive pl-14">
+          {t('settings.reminderLoadFailedHint', '设置未能载入，暂时无法修改，请重试。')}
+        </p>
+      )}
+
+      {settings.enabled && !blocked && (
+        <div className="space-y-5 pl-14 pt-2 border-l-2 border-primary/20 animate-in fade-in duration-base">
+          {/* Reminder times */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">
+              {t('settings.reminderTimes', '提醒时间')}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {settings.times.map((time) => (
+                <Badge
+                  key={time}
+                  variant="secondary"
+                  className="h-8 pl-3 pr-1 gap-1 text-sm font-normal"
+                >
+                  {time}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => removeTime(time)}
+                    aria-label={t('settings.reminderRemoveTime', {
+                      time,
+                      defaultValue: `移除 ${time}`,
+                    })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+              {settings.times.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.reminderNoTimes', '尚未设置提醒时间')}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Input
+                type="time"
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+                className="w-36 h-input text-sm border-border/50 bg-background/50"
+                aria-label={t('settings.reminderNewTime', '新增提醒时间')}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddTime}
+                disabled={!newTime}
+              >
+                {t('settings.reminderAddTime', '添加')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'settings.reminderTimesHint',
+                '建议设在自动签到之后，例如下午或晚上。提醒次数即时间点个数。'
+              )}
+            </p>
+          </div>
+
+          {/* Channels */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">
+              {t('settings.reminderChannels', '提醒方式')}
+            </Label>
+            <div className="flex flex-col gap-2">
+              {REMINDER_CHANNEL_KEYS.map((channel) => (
+                <label
+                  key={channel}
+                  className="flex items-center justify-between gap-4 cursor-pointer"
+                >
+                  <span className="text-sm text-foreground">
+                    {channel === 'app'
+                      ? t('settings.reminderChannelApp', '应用内通知')
+                      : t('settings.reminderChannelFeishu', '飞书')}
+                  </span>
+                  <Switch
+                    checked={settings.channels.includes(channel)}
+                    onCheckedChange={() => toggleChannel(channel)}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'settings.reminderChannelsHint',
+                '飞书提醒会复用上方已启用的通知渠道。'
+              )}
+            </p>
+          </div>
+
+          {/* Stop when all done */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">
+                {t('settings.reminderStopWhenDone', '全部签到后停止提醒')}
+              </Label>
+              <p className="text-xs text-muted-foreground max-w-md">
+                {t(
+                  'settings.reminderStopWhenDoneHint',
+                  '当天所有启用的账号都已签到后，跳过剩余时间点。'
+                )}
+              </p>
+            </div>
+            <Switch
+              checked={settings.stop_when_all_done}
+              onCheckedChange={(checked) => updateField('stop_when_all_done', checked)}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={blocked || isSaving} size="sm">
+          {isSaving
+            ? t('settings.reminderSaving', '保存中...')
+            : t('settings.reminderSave', '保存提醒设置')}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const WorkspaceSettings = () => {
   const { t } = useTranslation();
   const { data: notificationChannels = [], refetch: refetchChannels } = useNotificationChannels();
@@ -683,6 +881,10 @@ const WorkspaceSettings = () => {
           channels={notificationChannels}
           onUpdate={refetchChannels}
         />
+      </SettingsGroup>
+
+      <SettingsGroup title={t('settings.reminder', '签到提醒')}>
+        <ReminderSettingsPanel />
       </SettingsGroup>
     </div>
   );

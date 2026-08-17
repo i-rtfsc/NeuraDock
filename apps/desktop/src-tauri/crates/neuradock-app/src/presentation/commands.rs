@@ -12,6 +12,7 @@ pub mod migration;
 pub mod notification;
 pub mod provider;
 pub mod proxy_config;
+pub mod reminder;
 pub mod system;
 pub mod token;
 
@@ -29,5 +30,6 @@ pub use migration::*;
 pub use notification::*;
 pub use provider::*;
 pub use proxy_config::*;
+pub use reminder::*;
 pub use system::*;
 pub use token::*;
