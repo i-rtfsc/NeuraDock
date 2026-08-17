@@ -211,6 +211,9 @@ chromiumoxide = { workspace = true }
 # URL handling
 url = { workspace = true }
 
+# Format-preserving TOML editing (external tool config files)
+toml_edit = { workspace = true }
+
 # Cron scheduling
 tokio-cron-scheduler = { workspace = true }
 

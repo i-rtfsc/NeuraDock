@@ -12,6 +12,20 @@ SQLX ?= sqlx
 
 RUST_LOG ?= info
 
+# The three crates holding all real code.
+#
+# Deliberately not `--workspace`: the root manifest also declares a shadow
+# `neuradock` package, which exists only so the Tauri CLI finds a [package]
+# beside tauri.conf.json. It points [[bin]]/[lib] at neuradock-app's own
+# sources, so building it compiles the same files a second time -- and fails,
+# because `generate_context!("../../tauri.conf.json")` resolves relative to
+# CARGO_MANIFEST_DIR and only lands on the config from neuradock-app.
+#
+# The shadow package is never built for release: `default-members` makes
+# `--bin NeuraDock` resolve to neuradock-app. Naming the crates explicitly
+# keeps the gates on the code that actually ships.
+RUST_CRATES := -p neuradock-domain -p neuradock-infrastructure -p neuradock-app
+
 PNPM_DESKTOP := $(PNPM) -C $(DESKTOP_DIR)
 CARGO_MANIFEST := --manifest-path $(TAURI_DIR)/Cargo.toml
 
@@ -140,8 +154,8 @@ package-all-macos: ## macOS: package Apple Silicon + Intel (two outputs)
 test: test-backend test-frontend ## Run all tests (backend + frontend)
 	@echo "✅ Tests passed"
 
-test-backend: ## Run backend tests (workspace)
-	@$(CARGO) test $(CARGO_MANIFEST) --workspace
+test-backend: ## Run backend tests (all three real crates)
+	@$(CARGO) test $(CARGO_MANIFEST) $(RUST_CRATES)
 
 test-frontend: ## Run frontend tests (vitest run)
 	@$(PNPM_DESKTOP) run test:run
@@ -151,7 +165,7 @@ check: check-backend check-frontend ## Run lint/type checks (backend + frontend)
 
 check-backend: ## cargo fmt --check + clippy -D warnings
 	@cd $(TAURI_DIR) && cargo fmt --all --check
-	@cd $(TAURI_DIR) && cargo clippy --workspace -- -D warnings
+	@cd $(TAURI_DIR) && cargo clippy $(RUST_CRATES) -- -D warnings
 
 check-frontend: ## TypeScript typecheck (tsc --noEmit)
 	@cd $(DESKTOP_DIR) && $(PNPM) exec tsc -p tsconfig.json --noEmit
