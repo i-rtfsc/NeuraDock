@@ -20,11 +20,7 @@ pub fn backup_file(path: &Path) -> Result<Option<PathBuf>> {
         return Ok(None);
     }
 
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .context("Config path has no valid file name")?;
-    let backup_path = path.with_file_name(format!("{file_name}{BACKUP_SUFFIX}"));
+    let backup_path = backup_path_for(path)?;
 
     fs::copy(path, &backup_path)
         .with_context(|| format!("Failed to back up {}", path.display()))?;
@@ -32,9 +28,34 @@ pub fn backup_file(path: &Path) -> Result<Option<PathBuf>> {
     Ok(Some(backup_path))
 }
 
-/// Write `contents` to `path` atomically: write a sibling temp file, flush,
-/// then rename over the target. `private` forces 0o600 (for key material);
-/// otherwise the original file's permissions are preserved.
+/// The sibling backup path this module would use for `path`.
+pub fn backup_path_for(path: &Path) -> Result<PathBuf> {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("Config path has no valid file name")?;
+    Ok(path.with_file_name(format!("{file_name}{BACKUP_SUFFIX}")))
+}
+
+/// Remove the sibling backup for `path`, if one exists.
+///
+/// Backups are taken *before* a write, so after an operation whose purpose is
+/// to remove credentials (e.g. "clear config") the backup still holds a live,
+/// usable token. Nothing else in the codebase deletes these files, so they
+/// would otherwise sit indefinitely in a location the UI never shows.
+pub fn remove_backup(path: &Path) -> Result<()> {
+    let backup_path = backup_path_for(path)?;
+    match fs::remove_file(&backup_path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("Failed to remove {}", backup_path.display())),
+    }
+}
+
+/// Write `contents` to `path` atomically: write a sibling temp file, fsync,
+/// then rename over the target and fsync the parent directory. `private`
+/// forces 0o600 (for key material); otherwise the original file's permissions
+/// are preserved.
 pub fn atomic_write(path: &Path, contents: &str, private: bool) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
@@ -50,7 +71,14 @@ pub fn atomic_write(path: &Path, contents: &str, private: bool) -> Result<()> {
     let mut tmp = fs::File::create(&tmp_path)
         .with_context(|| format!("Failed to create temp file {}", tmp_path.display()))?;
     tmp.write_all(contents.as_bytes())?;
-    tmp.flush()?;
+    // `flush()` is a no-op on std::fs::File (it has no userspace buffer) and
+    // contributes nothing to durability. Without an explicit fsync the data
+    // blocks sit in the page cache while the rename's metadata may already be
+    // durable, so a crash can leave a committed rename pointing at an empty or
+    // partial file -- which is how a snapshot meant to protect the user's
+    // config ended up destroying it.
+    tmp.sync_all()
+        .with_context(|| format!("Failed to flush {} to disk", tmp_path.display()))?;
     drop(tmp);
 
     #[cfg(unix)]
@@ -72,6 +100,15 @@ pub fn atomic_write(path: &Path, contents: &str, private: bool) -> Result<()> {
     }
 
     fs::rename(&tmp_path, path).with_context(|| format!("Failed to replace {}", path.display()))?;
+
+    // Persist the rename itself. Without this the directory entry can still be
+    // lost on power failure even though the file contents are durable.
+    #[cfg(unix)]
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
 
     Ok(())
 }
@@ -127,5 +164,41 @@ mod tests {
 
         assert_eq!(fs::read_to_string(&backup).unwrap(), "original");
         assert!(backup.ends_with("settings.json.neuradock.bak"));
+    }
+
+    #[test]
+    fn remove_backup_deletes_credential_copy_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"ANTHROPIC_AUTH_TOKEN":"sk-live"}"#).unwrap();
+
+        let backup = backup_file(&path).unwrap().unwrap();
+        assert!(backup.exists());
+
+        remove_backup(&path).unwrap();
+        assert!(
+            !backup.exists(),
+            "backup still holds a usable token after clear"
+        );
+
+        // Clearing twice, or clearing a config that was never backed up, must
+        // not surface an error.
+        remove_backup(&path).unwrap();
+    }
+
+    #[test]
+    fn atomic_write_leaves_no_temp_file_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        atomic_write(&path, "a = 1\n", false).unwrap();
+
+        let leftovers: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|name| name.contains(".neuradock.tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "temp files left: {leftovers:?}");
     }
 }

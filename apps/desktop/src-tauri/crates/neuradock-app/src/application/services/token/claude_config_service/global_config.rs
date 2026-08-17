@@ -5,7 +5,7 @@ use std::sync::{LazyLock, Mutex};
 
 use super::helpers::{ensure_sk_prefix, get_claude_config_path, with_1m_suffix, MANAGED_ENV_KEYS};
 use neuradock_domain::token::ApiToken;
-use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
+use neuradock_infrastructure::fs_safe::{atomic_write, backup_file, remove_backup};
 
 /// Serializes read-modify-write access to ~/.claude/settings.json so two
 /// concurrent configure/clear calls cannot interleave.
@@ -178,6 +178,17 @@ pub(super) fn clear_global_impl() -> Result<String> {
     let content = serde_json::to_string_pretty(&config)?;
     backup_file(&config_path)?;
     atomic_write(&config_path, &content, true)?;
+
+    // The backup above was taken from the file that still contained
+    // ANTHROPIC_AUTH_TOKEN. Leaving it would mean "clear configuration" ends
+    // with a live, usable credential sitting in a sibling .neuradock.bak that
+    // the UI never surfaces and nothing else ever deletes.
+    if let Err(e) = remove_backup(&config_path) {
+        log::warn!(
+            "Cleared Claude Code config but failed to remove its credential backup: {}",
+            e
+        );
+    }
 
     log::info!(
         "Successfully cleared Claude Code configuration at: {}",

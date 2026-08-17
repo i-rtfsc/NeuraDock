@@ -9,7 +9,7 @@ use super::helpers::{
     sanitize_provider_slug, GENERIC_PROVIDER_NAME, GENERIC_PROVIDER_SLUG, MANAGED_TOP_LEVEL_KEYS,
 };
 use neuradock_domain::token::ApiToken;
-use neuradock_infrastructure::fs_safe::{atomic_write, backup_file};
+use neuradock_infrastructure::fs_safe::{atomic_write, backup_file, remove_backup};
 
 /// Serializes all read-modify-write access to the Codex config files so two
 /// concurrent "configure"/"clear" calls cannot interleave and clobber each
@@ -285,6 +285,20 @@ pub(super) fn clear_global_impl() -> Result<String> {
 
     if cleared.is_empty() {
         return Ok("No Codex configuration files found".to_string());
+    }
+
+    // Both backups above were taken while the files still held the credential
+    // this operation exists to remove (OPENAI_API_KEY in auth.json, the relay
+    // base URL and key material in config.toml). Keeping them would leave a
+    // working key on disk after the user explicitly cleared it.
+    for path in [&config_path, &auth_path] {
+        if let Err(e) = remove_backup(path) {
+            log::warn!(
+                "Cleared Codex config but failed to remove credential backup for {}: {}",
+                path.display(),
+                e
+            );
+        }
     }
 
     log::info!("Successfully cleared Codex configuration");

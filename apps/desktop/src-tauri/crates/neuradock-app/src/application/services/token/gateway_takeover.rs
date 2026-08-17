@@ -136,6 +136,16 @@ impl GatewayTakeover {
                     Some(name) => {
                         let content = fs::read_to_string(self.snapshot_dir.join(name))
                             .with_context(|| format!("Failed to read snapshot {}", name))?;
+                        // A truncated or empty snapshot must abort, not be
+                        // written back. `read_to_string` happily returns Ok("")
+                        // for a zero-length file, so without this check a
+                        // snapshot that lost its data would be restored over
+                        // the user's real config -- turning a crash window into
+                        // permanent credential loss. Returning Err here routes
+                        // into the rollback below, which puts the live files
+                        // back and leaves the takeover state intact so the
+                        // startup self-heal can retry.
+                        validate_snapshot_content(name, &content)?;
                         atomic_write(&file.live_path, &content, file.private)?;
                     }
                     None => match fs::remove_file(&file.live_path) {
@@ -155,6 +165,32 @@ impl GatewayTakeover {
 
         self.save_state(&state)?;
         log::info!("Gateway takeover restored for {}", client.display_name());
+        Ok(())
+    }
+
+    /// Forget `client`'s takeover record **without** writing the snapshot back.
+    ///
+    /// Used when the live config has deliberately been replaced by something
+    /// the user wants to keep -- switching an agent to direct write, where the
+    /// real key has already been written to the tool config by the time this
+    /// runs. Calling `restore` there would overwrite that fresh config with the
+    /// pre-takeover snapshot; leaving the record in place is just as bad,
+    /// because `restore_all` on exit would then silently revert the user's
+    /// direct config on every shutdown.
+    pub fn discard(&self, client: GatewayClient) -> Result<()> {
+        let mut state = self.load_state();
+        if self
+            .client_snapshot_mut(&mut state, client)
+            .take()
+            .is_none()
+        {
+            return Ok(());
+        }
+        self.save_state(&state)?;
+        log::info!(
+            "Gateway takeover record discarded for {} (config intentionally replaced)",
+            client.display_name()
+        );
         Ok(())
     }
 
@@ -336,8 +372,57 @@ impl GatewayTakeover {
     }
 }
 
+/// Reject a snapshot that cannot be the user's original config.
+///
+/// Restoring is the last line of defence for credentials, so a snapshot that
+/// is empty or structurally invalid is treated as corruption rather than
+/// content. Writing such a file back would overwrite a live config with
+/// nothing, which is unrecoverable; failing instead preserves both the live
+/// files and the takeover record so the operation can be retried.
+fn validate_snapshot_content(name: &str, content: &str) -> Result<()> {
+    if content.trim().is_empty() {
+        anyhow::bail!("Snapshot {name} is empty; refusing to overwrite the live config with it");
+    }
+
+    if name.ends_with(".json") {
+        serde_json::from_str::<serde_json::Value>(content)
+            .with_context(|| format!("Snapshot {name} is not valid JSON"))?;
+    } else if name.ends_with(".toml") {
+        content
+            .parse::<toml_edit::DocumentMut>()
+            .with_context(|| format!("Snapshot {name} is not valid TOML"))?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_snapshot_is_rejected() {
+        assert!(validate_snapshot_content("claude_settings.json", "").is_err());
+        assert!(validate_snapshot_content("claude_settings.json", "   \n").is_err());
+    }
+
+    #[test]
+    fn malformed_snapshot_is_rejected_by_format() {
+        assert!(validate_snapshot_content("codex_auth.json", "{\"a\":").is_err());
+        assert!(validate_snapshot_content("codex_config.toml", "a = [[[").is_err());
+    }
+
+    #[test]
+    fn well_formed_snapshots_pass() {
+        validate_snapshot_content("codex_auth.json", r#"{"OPENAI_API_KEY":"sk-x"}"#).unwrap();
+        validate_snapshot_content("codex_config.toml", "model_provider = \"x\"\n").unwrap();
+        // Unknown extensions only get the emptiness check.
+        validate_snapshot_content("config.snapshot", "anything").unwrap();
+    }
+}
+
+#[cfg(test)]
+mod snapshot_tests {
     use super::*;
 
     // The snapshot/restore mechanics are exercised against temp dirs; the
@@ -397,8 +482,15 @@ mod tests {
         fs::create_dir_all(&takeover.snapshot_dir).unwrap();
 
         let live = dir.path().join("config.toml");
-        fs::write(&live, "taken-over").unwrap();
-        fs::write(takeover.snapshot_dir.join("codex_config.toml"), "original").unwrap();
+        fs::write(&live, "model_provider = \"gateway\"\n").unwrap();
+        // Content must be valid TOML: restore refuses to write back a snapshot
+        // it cannot parse, so a placeholder string would exercise the
+        // corruption guard rather than the round-trip this test covers.
+        fs::write(
+            takeover.snapshot_dir.join("codex_config.toml"),
+            "model_provider = \"original\"\n",
+        )
+        .unwrap();
 
         let mut state = TakeoverState::default();
         state.codex = Some(ClientSnapshot {
@@ -412,8 +504,89 @@ mod tests {
 
         takeover.restore(GatewayClient::Codex).unwrap();
 
-        assert_eq!(fs::read_to_string(&live).unwrap(), "original");
+        assert_eq!(
+            fs::read_to_string(&live).unwrap(),
+            "model_provider = \"original\"\n"
+        );
         assert!(!takeover.has_stale_takeover());
+    }
+
+    /// Switching to direct write must drop the takeover record while leaving
+    /// the freshly written config alone. Restoring instead would clobber the
+    /// user's real key; keeping the record would make exit revert it.
+    #[test]
+    fn discard_clears_state_without_touching_live_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let takeover = GatewayTakeover::new(dir.path());
+        fs::create_dir_all(&takeover.snapshot_dir).unwrap();
+
+        let live = dir.path().join("config.toml");
+        // What directConfigure() just wrote: the user's real relay key.
+        fs::write(&live, "model_provider = \"user-direct\"\n").unwrap();
+        fs::write(
+            takeover.snapshot_dir.join("codex_config.toml"),
+            "model_provider = \"pre-takeover\"\n",
+        )
+        .unwrap();
+
+        let mut state = TakeoverState::default();
+        state.codex = Some(ClientSnapshot {
+            files: vec![SnapshotFile {
+                live_path: live.clone(),
+                snapshot_name: Some("codex_config.toml".to_string()),
+                private: false,
+            }],
+        });
+        takeover.save_state(&state).unwrap();
+
+        takeover.discard(GatewayClient::Codex).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&live).unwrap(),
+            "model_provider = \"user-direct\"\n",
+            "discard must not roll the live config back"
+        );
+        assert!(
+            !takeover.has_stale_takeover(),
+            "record must be gone so exit does not revert the direct config"
+        );
+        // Discarding again is a no-op, not an error.
+        takeover.discard(GatewayClient::Codex).unwrap();
+    }
+
+    /// A snapshot that lost its contents (crash between write and fsync) must
+    /// abort the restore, leave the live file untouched, and keep the takeover
+    /// record so the startup self-heal can retry.
+    #[test]
+    fn empty_snapshot_aborts_restore_and_preserves_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let takeover = GatewayTakeover::new(dir.path());
+        fs::create_dir_all(&takeover.snapshot_dir).unwrap();
+
+        let live = dir.path().join("config.toml");
+        fs::write(&live, "model_provider = \"gateway\"\n").unwrap();
+        fs::write(takeover.snapshot_dir.join("codex_config.toml"), "").unwrap();
+
+        let mut state = TakeoverState::default();
+        state.codex = Some(ClientSnapshot {
+            files: vec![SnapshotFile {
+                live_path: live.clone(),
+                snapshot_name: Some("codex_config.toml".to_string()),
+                private: false,
+            }],
+        });
+        takeover.save_state(&state).unwrap();
+
+        assert!(takeover.restore(GatewayClient::Codex).is_err());
+        assert_eq!(
+            fs::read_to_string(&live).unwrap(),
+            "model_provider = \"gateway\"\n",
+            "live config must not be clobbered by an empty snapshot"
+        );
+        assert!(
+            takeover.has_stale_takeover(),
+            "state must survive so the restore can be retried"
+        );
     }
 
     #[test]
