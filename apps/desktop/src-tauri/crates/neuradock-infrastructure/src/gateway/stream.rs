@@ -43,6 +43,18 @@ impl SseEvent {
     }
 }
 
+/// Upper bound on how many tool calls a single streamed response may
+/// accumulate.
+///
+/// `tool_calls[].index` arrives verbatim from the upstream relay and is used to
+/// size a `Vec`. Without a ceiling, one 40-byte chunk carrying
+/// `{"index": 4000000000}` would drive an allocation of hundreds of gigabytes;
+/// the allocator aborts on failure, which kills the entire desktop process
+/// rather than just the offending request. The 4 MB pending-SSE cap does not
+/// help here because the cost is driven by the value, not the payload size.
+/// No real model emits anywhere near this many parallel tool calls.
+const MAX_STREAMED_TOOL_CALLS: usize = 128;
+
 /// A single reassembled tool call from a streamed response.
 #[derive(Debug, Default, Clone)]
 struct ToolCallAcc {
@@ -59,9 +71,17 @@ pub struct StreamAccumulator {
     tool_calls: Vec<ToolCallAcc>,
     finish_reason: Option<String>,
     usage: GatewayTokenUsage,
+    tool_call_index_overflow: bool,
 }
 
 impl StreamAccumulator {
+    /// True when the upstream sent a `tool_calls[].index` beyond
+    /// [`MAX_STREAMED_TOOL_CALLS`]. The caller should fail the stream rather
+    /// than hand back a silently incomplete tool-call set.
+    pub fn tool_call_index_overflow(&self) -> bool {
+        self.tool_call_index_overflow
+    }
+
     /// Feed one parsed upstream Chat SSE chunk.
     pub fn observe(&mut self, chunk: &Value) {
         self.usage.merge(usage_from_json(chunk));
@@ -92,6 +112,13 @@ impl StreamAccumulator {
         {
             for call in calls {
                 let idx = call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
+                if idx >= MAX_STREAMED_TOOL_CALLS {
+                    // Refuse to size an allocation from an unbounded upstream
+                    // value. Flagged so the stream can be failed explicitly
+                    // instead of returning a partial tool-call set.
+                    self.tool_call_index_overflow = true;
+                    continue;
+                }
                 while self.tool_calls.len() <= idx {
                     self.tool_calls.push(ToolCallAcc::default());
                 }
@@ -245,6 +272,11 @@ impl StreamBridge {
     pub fn finish(&mut self, terminal_seen: bool) -> Result<Vec<SseEvent>, String> {
         if !self.saw_valid_chunk {
             return Err("upstream stream ended without a valid Chat event".to_string());
+        }
+        if self.accumulator.tool_call_index_overflow() {
+            return Err(format!(
+                "upstream sent a tool_calls index beyond the supported maximum of {MAX_STREAMED_TOOL_CALLS}"
+            ));
         }
         if !terminal_seen && self.accumulator.finish_reason.is_none() {
             return Err("upstream stream ended before a terminal event".to_string());
@@ -589,14 +621,12 @@ fn append_function_call_events(
     output_index: usize,
     call: &ToolCallAcc,
 ) {
-    let item = json!({
-        "id": call.id,
-        "type": "function_call",
-        "status": "completed",
-        "call_id": call.id,
-        "name": call.name,
-        "arguments": call.arguments,
-    });
+    let mut item =
+        super::transform::chat_tool_call_to_responses_item(&call.id, &call.name, &call.arguments);
+    if item.get("type").and_then(Value::as_str) == Some("function_call") {
+        item["id"] = json!(call.id);
+        item["status"] = json!("completed");
+    }
     events.push(SseEvent::named(
         "response.output_item.added",
         json!({
@@ -741,6 +771,38 @@ mod tests {
             acc.observe(chunk);
         }
         acc
+    }
+
+    /// A hostile or buggy relay must not be able to size our allocations.
+    /// Before the bound, `index: 4_000_000_000` pushed ~288 GB of accumulators
+    /// and aborted the whole desktop process.
+    #[test]
+    fn absurd_tool_call_index_is_rejected_not_allocated() {
+        let acc = acc_from(&[json!({ "choices": [{ "delta": { "tool_calls": [
+            { "index": 4_000_000_000u64, "id": "x", "function": { "name": "n", "arguments": "{}" } }
+        ] } }] })]);
+
+        assert!(acc.tool_call_index_overflow());
+        assert!(
+            acc.tool_calls.is_empty(),
+            "no accumulator should have been allocated for an out-of-range index"
+        );
+    }
+
+    #[test]
+    fn tool_call_index_at_the_boundary_is_accepted() {
+        let last_ok = MAX_STREAMED_TOOL_CALLS - 1;
+        let acc = acc_from(&[json!({ "choices": [{ "delta": { "tool_calls": [
+            { "index": last_ok, "id": "x", "function": { "name": "n", "arguments": "{}" } }
+        ] } }] })]);
+
+        assert!(!acc.tool_call_index_overflow());
+        assert_eq!(acc.tool_calls.len(), MAX_STREAMED_TOOL_CALLS);
+
+        let over = acc_from(&[json!({ "choices": [{ "delta": { "tool_calls": [
+            { "index": MAX_STREAMED_TOOL_CALLS, "id": "x", "function": { "name": "n", "arguments": "{}" } }
+        ] } }] })]);
+        assert!(over.tool_call_index_overflow());
     }
 
     #[test]

@@ -13,6 +13,13 @@
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
 
+/// Chat-side proxy function name emulating the Responses `tool_search` tool,
+/// which Chat Completions upstreams do not natively support. Mirrors the
+/// approach used by cc-switch: the tool is presented to the upstream as a
+/// plain function, and calls to it are translated back into
+/// `tool_search_call` items for Codex.
+pub(super) const TOOL_SEARCH_PROXY_NAME: &str = "tool_search";
+
 /// Inbound protocol spoken by the tool that points at the gateway.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InboundProtocol {
@@ -61,17 +68,23 @@ pub fn responses_to_chat(body: &Value, model_override: Option<&str>) -> Value {
     }
     chat.insert("messages".to_string(), Value::Array(messages));
 
+    let mut has_tools = false;
     if let Some(tools) = obj.get("tools").and_then(Value::as_array) {
-        let mapped: Vec<Value> = tools.iter().map(responses_tool_to_chat).collect();
+        let mapped: Vec<Value> = tools.iter().filter_map(responses_tool_to_chat).collect();
         if !mapped.is_empty() {
+            has_tools = true;
             chat.insert("tools".to_string(), Value::Array(mapped));
         }
     }
-    if let Some(tool_choice) = obj.get("tool_choice") {
-        chat.insert(
-            "tool_choice".to_string(),
-            responses_tool_choice_to_chat(tool_choice),
-        );
+    // Only forward tool_choice when tools survived the filter; upstreams
+    // reject a tool_choice with no tools.
+    if has_tools {
+        if let Some(mapped) = obj
+            .get("tool_choice")
+            .and_then(responses_tool_choice_to_chat)
+        {
+            chat.insert("tool_choice".to_string(), mapped);
+        }
     }
     if let Some(parallel) = obj.get("parallel_tool_calls") {
         chat.insert("parallel_tool_calls".to_string(), parallel.clone());
@@ -93,19 +106,26 @@ pub fn responses_to_chat(body: &Value, model_override: Option<&str>) -> Value {
     Value::Object(chat)
 }
 
-fn responses_tool_choice_to_chat(choice: &Value) -> Value {
+fn responses_tool_choice_to_chat(choice: &Value) -> Option<Value> {
     if choice.is_string() {
-        return choice.clone();
+        return Some(choice.clone());
     }
-    if choice.get("type").and_then(Value::as_str) == Some("function") {
-        return json!({
+    match choice.get("type").and_then(Value::as_str) {
+        Some("function") => Some(json!({
             "type": "function",
             "function": {
                 "name": choice.get("name").and_then(Value::as_str).unwrap_or(""),
             },
-        });
+        })),
+        Some("tool_search") => Some(json!({
+            "type": "function",
+            "function": { "name": TOOL_SEARCH_PROXY_NAME },
+        })),
+        // A choice forcing a hosted tool that was dropped from the tools list
+        // cannot be honored; drop it rather than fail the request.
+        Some(_) => None,
+        None => Some(choice.clone()),
     }
-    choice.clone()
 }
 
 fn instruction_text(value: &Value) -> String {
@@ -153,6 +173,26 @@ fn append_responses_item(item: &Value, messages: &mut Vec<Value>) {
             }]
         })),
         Some("function_call_output") => messages.push(json!({
+            "role": "tool",
+            "tool_call_id": item.get("call_id").and_then(Value::as_str).unwrap_or(""),
+            "content": responses_output_to_string(item.get("output")),
+        })),
+        // tool_search history round-trips through the Chat proxy function:
+        // the call becomes an assistant tool_call named `tool_search`, its
+        // output a plain tool message.
+        Some("tool_search_call") => messages.push(json!({
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [{
+                "id": item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or(""),
+                "type": "function",
+                "function": {
+                    "name": TOOL_SEARCH_PROXY_NAME,
+                    "arguments": tool_arguments_string(item.get("arguments")),
+                }
+            }]
+        })),
+        Some("tool_search_output") => messages.push(json!({
             "role": "tool",
             "tool_call_id": item.get("call_id").and_then(Value::as_str).unwrap_or(""),
             "content": responses_output_to_string(item.get("output")),
@@ -217,18 +257,100 @@ fn responses_output_to_string(output: Option<&Value>) -> String {
     }
 }
 
-fn responses_tool_to_chat(tool: &Value) -> Value {
+/// Chat tool_call arguments must be a JSON string; Responses tool_search_call
+/// arguments arrive as an object.
+fn tool_arguments_string(arguments: Option<&Value>) -> String {
+    match arguments {
+        Some(Value::String(text)) => text.clone(),
+        Some(other) => other.to_string(),
+        None => "{}".to_string(),
+    }
+}
+
+/// Parse Chat tool_call arguments back into the object form Responses
+/// tool_search_call items carry.
+pub(super) fn tool_arguments_object(arguments: &str) -> Value {
+    serde_json::from_str::<Value>(arguments)
+        .ok()
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}))
+}
+
+/// Build the Responses output item for one Chat tool call: the proxy
+/// `tool_search` function is restored to a `tool_search_call` item, everything
+/// else stays a `function_call`.
+pub(super) fn chat_tool_call_to_responses_item(
+    call_id: &str,
+    name: &str,
+    arguments: &str,
+) -> Value {
+    if name == TOOL_SEARCH_PROXY_NAME {
+        json!({
+            "type": "tool_search_call",
+            "call_id": call_id,
+            "status": "completed",
+            "execution": "client",
+            "arguments": tool_arguments_object(arguments),
+        })
+    } else {
+        json!({
+            "type": "function_call",
+            "call_id": call_id,
+            "name": name,
+            "arguments": arguments,
+        })
+    }
+}
+
+fn responses_tool_to_chat(tool: &Value) -> Option<Value> {
+    match tool.get("type").and_then(Value::as_str) {
+        Some("tool_search") => return Some(tool_search_proxy_tool()),
+        Some("function") | Some("custom") | None => {}
+        // Hosted tools (web_search, file_search, code_interpreter, ...) have
+        // no Chat Completions equivalent and cannot be emulated; drop them so
+        // the rest of the request still goes through.
+        Some(other) => {
+            log::info!("Dropping tool type {other} unsupported by Chat protocol conversion");
+            return None;
+        }
+    }
     // Responses tools are already `{type:"function", name, description, parameters}`
     // at top level; Chat nests those under a `function` object.
     if tool.get("function").is_some() {
-        return tool.clone();
+        return Some(tool.clone());
     }
-    json!({
+    Some(json!({
         "type": "function",
         "function": {
             "name": tool.get("name").and_then(Value::as_str).unwrap_or(""),
             "description": tool.get("description").and_then(Value::as_str).unwrap_or(""),
             "parameters": tool.get("parameters").cloned().unwrap_or_else(|| json!({})),
+        }
+    }))
+}
+
+/// The Chat-side function tool standing in for the Responses `tool_search`
+/// built-in; schema mirrors the arguments Codex sends on tool_search_call.
+fn tool_search_proxy_tool() -> Value {
+    json!({
+        "type": "function",
+        "function": {
+            "name": TOOL_SEARCH_PROXY_NAME,
+            "description": "Search and load Codex tools, plugins, connectors, and MCP namespaces for the current task.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query for tools or connectors to load."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of tool groups to return."
+                    }
+                },
+                "required": ["query"]
+            }
         }
     })
 }
@@ -263,12 +385,17 @@ pub fn chat_to_responses(chat: &Value, model: &str) -> Value {
     {
         for call in calls {
             let function = call.get("function");
-            output.push(json!({
-                "type": "function_call",
-                "call_id": call.get("id").and_then(Value::as_str).unwrap_or(""),
-                "name": function.and_then(|f| f.get("name")).and_then(Value::as_str).unwrap_or(""),
-                "arguments": function.and_then(|f| f.get("arguments")).and_then(Value::as_str).unwrap_or("{}"),
-            }));
+            output.push(chat_tool_call_to_responses_item(
+                call.get("id").and_then(Value::as_str).unwrap_or(""),
+                function
+                    .and_then(|f| f.get("name"))
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+                function
+                    .and_then(|f| f.get("arguments"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("{}"),
+            ));
         }
     }
 
@@ -319,17 +446,23 @@ pub fn anthropic_to_chat(body: &Value, model_override: Option<&str>) -> Value {
     }
     chat.insert("messages".to_string(), Value::Array(messages));
 
+    let mut has_tools = false;
     if let Some(tools) = obj.get("tools").and_then(Value::as_array) {
-        let mapped: Vec<Value> = tools.iter().map(anthropic_tool_to_chat).collect();
+        let mapped: Vec<Value> = tools.iter().filter_map(anthropic_tool_to_chat).collect();
         if !mapped.is_empty() {
+            has_tools = true;
             chat.insert("tools".to_string(), Value::Array(mapped));
         }
     }
-    if let Some(choice) = obj.get("tool_choice") {
-        let (tool_choice, parallel) = anthropic_tool_choice_to_chat(choice);
-        chat.insert("tool_choice".to_string(), tool_choice);
-        if let Some(parallel) = parallel {
-            chat.insert("parallel_tool_calls".to_string(), Value::Bool(parallel));
+    // Only forward tool_choice when tools survived the filter; upstreams
+    // reject a tool_choice with no tools.
+    if has_tools {
+        if let Some(choice) = obj.get("tool_choice") {
+            let (tool_choice, parallel) = anthropic_tool_choice_to_chat(choice);
+            chat.insert("tool_choice".to_string(), tool_choice);
+            if let Some(parallel) = parallel {
+                chat.insert("parallel_tool_calls".to_string(), Value::Bool(parallel));
+            }
         }
     }
 
@@ -460,15 +593,26 @@ fn anthropic_tool_result_text(content: Option<&Value>) -> String {
     }
 }
 
-fn anthropic_tool_to_chat(tool: &Value) -> Value {
-    json!({
+fn anthropic_tool_to_chat(tool: &Value) -> Option<Value> {
+    // Anthropic server tools (web_search_20250305, computer_20250124, ...)
+    // carry a versioned `type`; they run on Anthropic's side and have no Chat
+    // Completions equivalent, so they are dropped rather than failing the
+    // request. Client tools have no `type` or `type: "custom"`.
+    match tool.get("type").and_then(Value::as_str) {
+        None | Some("custom") => {}
+        Some(other) => {
+            log::info!("Dropping tool type {other} unsupported by Chat protocol conversion");
+            return None;
+        }
+    }
+    Some(json!({
         "type": "function",
         "function": {
             "name": tool.get("name").and_then(Value::as_str).unwrap_or(""),
             "description": tool.get("description").and_then(Value::as_str).unwrap_or(""),
             "parameters": tool.get("input_schema").cloned().unwrap_or_else(|| json!({})),
         }
-    })
+    }))
 }
 
 /// Assemble a non-streaming Anthropic Messages response from a Chat
@@ -486,6 +630,7 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
         .unwrap_or("stop");
 
     let mut content = Vec::new();
+    let mut emitted_tool_use = false;
     if let Some(text) = message
         .and_then(|m| m.get("content"))
         .and_then(Value::as_str)
@@ -505,6 +650,7 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
                 .and_then(Value::as_str)
                 .and_then(|s| serde_json::from_str::<Value>(s).ok())
                 .unwrap_or_else(|| json!({}));
+            emitted_tool_use = true;
             content.push(json!({
                 "type": "tool_use",
                 "id": call.get("id").and_then(Value::as_str).unwrap_or(""),
@@ -520,7 +666,7 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
         "type": "message",
         "role": "assistant",
         "model": model,
-        "stop_reason": chat_finish_to_anthropic(finish),
+        "stop_reason": anthropic_stop_reason(finish, emitted_tool_use),
         "content": content,
         "usage": {
             "input_tokens": usage.and_then(|u| u.get("prompt_tokens")).and_then(Value::as_i64).unwrap_or(0),
@@ -531,6 +677,21 @@ pub fn chat_to_anthropic(chat: &Value, model: &str) -> Value {
                 .unwrap_or(0),
         },
     })
+}
+
+/// Pick the Anthropic `stop_reason` for a converted Chat response.
+///
+/// `finish_reason` alone is not trustworthy here: many OpenAI-compatible
+/// relays report `"stop"` on the very chunk that carries `tool_calls`. Claude
+/// Code's agent loop only continues when `stop_reason == "tool_use"`, so
+/// trusting `finish_reason` made it render tool calls without ever executing
+/// them -- every tool call became a dead end. The presence of a `tool_use`
+/// block in the content we just built is the authoritative signal.
+pub(crate) fn anthropic_stop_reason(finish: &str, emitted_tool_use: bool) -> &'static str {
+    if emitted_tool_use {
+        return "tool_use";
+    }
+    chat_finish_to_anthropic(finish)
 }
 
 fn chat_finish_to_anthropic(finish: &str) -> &'static str {
@@ -544,6 +705,62 @@ fn chat_finish_to_anthropic(finish: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A relay that reports `finish_reason: "stop"` alongside tool_calls must
+    /// still yield `stop_reason: "tool_use"`, otherwise Claude Code renders the
+    /// tool call but never executes it.
+    #[test]
+    fn tool_calls_force_tool_use_stop_reason_even_when_finish_reason_is_stop() {
+        let chat = json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": { "name": "read_file", "arguments": "{\"path\":\"a.txt\"}" }
+                    }]
+                }
+            }],
+            "usage": { "prompt_tokens": 1, "completion_tokens": 1 }
+        });
+
+        let out = chat_to_anthropic(&chat, "claude-3-5-sonnet");
+
+        assert_eq!(out["stop_reason"], "tool_use");
+        assert_eq!(out["content"][0]["type"], "tool_use");
+        assert_eq!(out["content"][0]["name"], "read_file");
+    }
+
+    #[test]
+    fn plain_text_replies_keep_their_mapped_stop_reason() {
+        let chat = json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": { "content": "hello" }
+            }]
+        });
+        assert_eq!(chat_to_anthropic(&chat, "m")["stop_reason"], "end_turn");
+
+        let truncated = json!({
+            "choices": [{
+                "finish_reason": "length",
+                "message": { "content": "hel" }
+            }]
+        });
+        assert_eq!(
+            chat_to_anthropic(&truncated, "m")["stop_reason"],
+            "max_tokens"
+        );
+    }
+
+    #[test]
+    fn explicit_tool_calls_finish_reason_still_maps_to_tool_use() {
+        assert_eq!(anthropic_stop_reason("tool_calls", false), "tool_use");
+        assert_eq!(anthropic_stop_reason("stop", true), "tool_use");
+        assert_eq!(anthropic_stop_reason("stop", false), "end_turn");
+    }
 
     #[test]
     fn responses_string_input_becomes_user_message() {
@@ -575,6 +792,105 @@ mod tests {
         assert_eq!(messages[1]["role"], "tool");
         assert_eq!(messages[1]["tool_call_id"], "c1");
         assert_eq!(messages[1]["content"], "12:00");
+    }
+
+    #[test]
+    fn hosted_tools_are_dropped_not_rejected() {
+        let body = json!({
+            "input": "hello",
+            "tools": [
+                { "type": "web_search" },
+                { "type": "function", "name": "get_time", "parameters": {} },
+            ],
+        });
+        let chat = responses_to_chat(&body, None);
+        let tools = chat["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0]["function"]["name"], "get_time");
+    }
+
+    #[test]
+    fn tool_choice_is_dropped_when_no_tools_survive() {
+        let body = json!({
+            "input": "hello",
+            "tools": [{ "type": "web_search" }],
+            "tool_choice": { "type": "web_search" },
+        });
+        let chat = responses_to_chat(&body, None);
+        assert!(chat.get("tools").is_none());
+        assert!(chat.get("tool_choice").is_none());
+    }
+
+    #[test]
+    fn anthropic_server_tools_are_dropped() {
+        let body = json!({
+            "messages": [{ "role": "user", "content": "hi" }],
+            "tools": [
+                { "type": "web_search_20250305", "name": "web_search" },
+                { "name": "get_time", "input_schema": { "type": "object" } },
+            ],
+        });
+        let chat = anthropic_to_chat(&body, None);
+        let tools = chat["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0]["function"]["name"], "get_time");
+    }
+
+    #[test]
+    fn tool_search_tool_becomes_proxy_function() {
+        let body = json!({
+            "input": "hello",
+            "tools": [{ "type": "tool_search" }],
+            "tool_choice": { "type": "tool_search" },
+        });
+        let chat = responses_to_chat(&body, None);
+        assert_eq!(chat["tools"][0]["type"], "function");
+        assert_eq!(chat["tools"][0]["function"]["name"], "tool_search");
+        assert_eq!(chat["tool_choice"]["function"]["name"], "tool_search");
+    }
+
+    #[test]
+    fn tool_search_call_and_output_roundtrip() {
+        let body = json!({
+            "input": [
+                {
+                    "type": "tool_search_call",
+                    "call_id": "ts1",
+                    "arguments": { "query": "gmail", "limit": 5 },
+                },
+                { "type": "tool_search_output", "call_id": "ts1", "output": "found 2 tools" },
+            ]
+        });
+        let chat = responses_to_chat(&body, None);
+        let messages = chat["messages"].as_array().unwrap();
+        let call = &messages[0]["tool_calls"][0];
+        assert_eq!(call["function"]["name"], "tool_search");
+        let arguments: Value =
+            serde_json::from_str(call["function"]["arguments"].as_str().unwrap()).unwrap();
+        assert_eq!(arguments["query"], "gmail");
+        assert_eq!(messages[1]["role"], "tool");
+        assert_eq!(messages[1]["tool_call_id"], "ts1");
+        assert_eq!(messages[1]["content"], "found 2 tools");
+    }
+
+    #[test]
+    fn chat_tool_search_call_restores_responses_item() {
+        let chat = json!({
+            "choices": [{ "message": {
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_ts",
+                    "type": "function",
+                    "function": { "name": "tool_search", "arguments": "{\"query\":\"gmail\"}" },
+                }],
+            }}],
+        });
+        let responses = chat_to_responses(&chat, "gpt-5");
+        let item = &responses["output"][1];
+        assert_eq!(item["type"], "tool_search_call");
+        assert_eq!(item["call_id"], "call_ts");
+        assert_eq!(item["execution"], "client");
+        assert_eq!(item["arguments"]["query"], "gmail");
     }
 
     #[test]

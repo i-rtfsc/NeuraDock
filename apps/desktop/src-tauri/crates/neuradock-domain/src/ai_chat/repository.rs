@@ -23,5 +23,8 @@ pub trait AiChatServiceRepository: Send + Sync {
     async fn exists(&self, id: &AiChatServiceId) -> Result<bool, DomainError>;
 
     /// Batch update sort orders
-    async fn update_sort_orders(&self, orders: &[(AiChatServiceId, i32)]) -> Result<(), DomainError>;
+    async fn update_sort_orders(
+        &self,
+        orders: &[(AiChatServiceId, i32)],
+    ) -> Result<(), DomainError>;
 }

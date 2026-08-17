@@ -214,8 +214,10 @@ pub async fn start_gateway_with_runtime(
 fn generate_local_credential() -> String {
     let mut random = [0_u8; 32];
     OsRng.fill_bytes(&mut random);
-    let mut credential = String::with_capacity(68);
-    credential.push_str("ndg_");
+    // Must start with "sk-" so client config writers (ensure_sk_prefix)
+    // store it verbatim; any rewrite would break the exact-match check.
+    let mut credential = String::with_capacity(71);
+    credential.push_str("sk-ndg-");
     for byte in random {
         use std::fmt::Write as _;
         let _ = write!(credential, "{byte:02x}");
@@ -1316,14 +1318,18 @@ fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
     usage
 }
 
+/// True when `status` should trip the circuit breaker.
+///
+/// 401 and 403 are excluded: they reveal that the configured key is wrong or
+/// revoked, which is user-correctable state rather than upstream instability.
+/// Counting them toward the failure threshold meant that after 3 honest auth
+/// errors the breaker opened and started returning 503 for 60 seconds, so the
+/// user never saw the 401 that would have told them to fix their key.
 fn circuit_failure_status(status: StatusCode) -> bool {
     status.is_server_error()
         || matches!(
             status,
-            StatusCode::REQUEST_TIMEOUT
-                | StatusCode::TOO_MANY_REQUESTS
-                | StatusCode::UNAUTHORIZED
-                | StatusCode::FORBIDDEN
+            StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
         )
 }
 
@@ -1942,23 +1948,17 @@ fn validate_chat_response(value: &Value) -> Result<(), String> {
 }
 
 fn validate_conversion_request(protocol: InboundProtocol, value: &Value) -> Result<(), String> {
-    if contains_object_key(value, "cache_control") {
-        return Err(
-            "cache_control cannot be preserved through Chat protocol conversion".to_string(),
-        );
-    }
+    // cache_control is intentionally NOT rejected. Claude Code attaches it
+    // unconditionally when prompt caching is on, so rejecting it made the
+    // whole Anthropic -> Chat path unusable. It is also not silently lost:
+    // the Chat body is rebuilt field-by-field from an allowlist
+    // (`anthropic_to_chat`), so the key cannot reach the upstream. Dropping a
+    // cache hint only costs money, never correctness -- unlike the content
+    // types below, which change what the model actually sees.
 
-    if let Some(tools) = value.get("tools").and_then(Value::as_array) {
-        if let Some(tool_type) = tools
-            .iter()
-            .filter_map(|tool| tool.get("type").and_then(Value::as_str))
-            .find(|tool_type| *tool_type != "function" && *tool_type != "custom")
-        {
-            return Err(format!(
-                "tool type {tool_type} is not supported through Chat protocol conversion"
-            ));
-        }
-    }
+    // Tool types are not validated here: the conversion layer emulates
+    // tool_search through a proxy function and drops hosted tools it cannot
+    // express in Chat Completions (web_search, file_search, ...).
 
     let unsupported_content_types: &[&str] = match protocol {
         InboundProtocol::Responses => &["input_image", "input_file", "computer_screenshot"],
@@ -1987,21 +1987,6 @@ fn validate_conversion_request(protocol: InboundProtocol, value: &Value) -> Resu
         );
     }
     Ok(())
-}
-
-fn contains_object_key(value: &Value, target: &str) -> bool {
-    match value {
-        Value::Object(object) => {
-            object.contains_key(target)
-                || object
-                    .values()
-                    .any(|value| contains_object_key(value, target))
-        }
-        Value::Array(values) => values
-            .iter()
-            .any(|value| contains_object_key(value, target)),
-        _ => false,
-    }
 }
 
 fn find_content_type<'a>(value: &'a Value, targets: &[&str]) -> Option<&'a str> {
@@ -2150,8 +2135,8 @@ mod tests {
     fn local_gateway_credentials_are_random_and_high_entropy() {
         let first = generate_local_credential();
         let second = generate_local_credential();
-        assert!(first.starts_with("ndg_"));
-        assert_eq!(first.len(), 68);
+        assert!(first.starts_with("sk-ndg-"));
+        assert_eq!(first.len(), 71);
         assert_ne!(first, second);
     }
 
@@ -2256,10 +2241,43 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
                 }]
             }]
         });
+        // cache_control must be ACCEPTED. Claude Code sends it on every request
+        // when prompt caching is enabled, so rejecting it made the flagship
+        // "drive Claude Code through a Chat relay" path fail on the first call.
+        // It is dropped during conversion rather than refused.
         assert!(
-            validate_conversion_request(InboundProtocol::AnthropicMessages, &cache_control,)
-                .unwrap_err()
-                .contains("cache_control")
+            validate_conversion_request(InboundProtocol::AnthropicMessages, &cache_control).is_ok()
+        );
+    }
+
+    #[test]
+    fn cache_control_is_stripped_before_reaching_the_upstream() {
+        // Guards the reason it is safe to accept: the Chat body is rebuilt from
+        // an allowlist, so the key cannot leak upstream even though we no
+        // longer reject it.
+        let anthropic = json!({
+            "model": "claude-3-5-sonnet",
+            "system": [{
+                "type": "text",
+                "text": "be brief",
+                "cache_control": { "type": "ephemeral" }
+            }],
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": "hello",
+                    "cache_control": { "type": "ephemeral" }
+                }]
+            }],
+            "max_tokens": 16
+        });
+
+        let converted = crate::gateway::transform::anthropic_to_chat(&anthropic, None);
+        let rendered = serde_json::to_string(&converted).expect("serialize converted body");
+        assert!(
+            !rendered.contains("cache_control"),
+            "cache_control leaked into the outbound Chat body: {rendered}"
         );
     }
 

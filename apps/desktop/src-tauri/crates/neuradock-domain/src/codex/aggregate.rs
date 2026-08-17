@@ -86,7 +86,11 @@ pub struct CodexRateLimitWindow {
 }
 
 impl CodexRateLimitWindow {
-    pub fn new(used_percent: f64, window_minutes: Option<i64>, resets_at: Option<DateTime<Utc>>) -> Self {
+    pub fn new(
+        used_percent: f64,
+        window_minutes: Option<i64>,
+        resets_at: Option<DateTime<Utc>>,
+    ) -> Self {
         Self {
             used_percent,
             window_minutes,
@@ -94,9 +98,15 @@ impl CodexRateLimitWindow {
         }
     }
 
-    pub fn used_percent(&self) -> f64 { self.used_percent }
-    pub fn window_minutes(&self) -> Option<i64> { self.window_minutes }
-    pub fn resets_at(&self) -> Option<DateTime<Utc>> { self.resets_at }
+    pub fn used_percent(&self) -> f64 {
+        self.used_percent
+    }
+    pub fn window_minutes(&self) -> Option<i64> {
+        self.window_minutes
+    }
+    pub fn resets_at(&self) -> Option<DateTime<Utc>> {
+        self.resets_at
+    }
 }
 
 // ─── Aggregate ────────────────────────────────────────────────────────────────
@@ -138,7 +148,11 @@ pub struct CodexAccount {
 }
 
 impl CodexAccount {
-    pub fn new(email: String, password: Option<String>, source: CodexAccountSource) -> Result<Self, DomainError> {
+    pub fn new(
+        email: String,
+        password: Option<String>,
+        source: CodexAccountSource,
+    ) -> Result<Self, DomainError> {
         if email.trim().is_empty() {
             return Err(DomainError::Validation("Email cannot be empty".to_string()));
         }
@@ -297,33 +311,79 @@ impl CodexAccount {
 
     // ── Getters ────────────────────────────────────────────────────────────
 
-    pub fn id(&self) -> &CodexAccountId { &self.id }
-    pub fn email(&self) -> &str { &self.email }
-    pub fn password(&self) -> Option<&str> { self.password.as_deref() }
-    pub fn access_token(&self) -> Option<&str> { self.access_token.as_deref() }
-    pub fn refresh_token(&self) -> Option<&str> { self.refresh_token.as_deref() }
-    pub fn id_token(&self) -> Option<&str> { self.id_token.as_deref() }
-    pub fn account_id(&self) -> Option<&str> { self.account_id.as_deref() }
-    pub fn web_session_cookie(&self) -> Option<&str> { self.web_session_cookie.as_deref() }
-    pub fn web_session_device_id(&self) -> Option<&str> { self.web_session_device_id.as_deref() }
+    pub fn id(&self) -> &CodexAccountId {
+        &self.id
+    }
+    pub fn email(&self) -> &str {
+        &self.email
+    }
+    pub fn password(&self) -> Option<&str> {
+        self.password.as_deref()
+    }
+    pub fn access_token(&self) -> Option<&str> {
+        self.access_token.as_deref()
+    }
+    pub fn refresh_token(&self) -> Option<&str> {
+        self.refresh_token.as_deref()
+    }
+    pub fn id_token(&self) -> Option<&str> {
+        self.id_token.as_deref()
+    }
+    pub fn account_id(&self) -> Option<&str> {
+        self.account_id.as_deref()
+    }
+    pub fn web_session_cookie(&self) -> Option<&str> {
+        self.web_session_cookie.as_deref()
+    }
+    pub fn web_session_device_id(&self) -> Option<&str> {
+        self.web_session_device_id.as_deref()
+    }
     pub fn has_payment_session(&self) -> bool {
         self.web_session_cookie
             .as_ref()
             .map(|cookie| !cookie.trim().is_empty())
             .unwrap_or(false)
     }
-    pub fn plan_type(&self) -> Option<&str> { self.plan_type.as_deref() }
-    pub fn has_credits(&self) -> Option<bool> { self.has_credits }
-    pub fn is_unlimited(&self) -> Option<bool> { self.is_unlimited }
-    pub fn credit_balance(&self) -> Option<&str> { self.credit_balance.as_deref() }
-    pub fn primary_window(&self) -> Option<&CodexRateLimitWindow> { self.primary_window.as_ref() }
-    pub fn secondary_window(&self) -> Option<&CodexRateLimitWindow> { self.secondary_window.as_ref() }
-    pub fn quota_checked_at(&self) -> Option<DateTime<Utc>> { self.quota_checked_at }
-    pub fn token_expires_at(&self) -> Option<DateTime<Utc>> { self.token_expires_at }
-    pub fn last_refresh_at(&self) -> Option<DateTime<Utc>> { self.last_refresh_at }
-    pub fn tempmail_token(&self) -> Option<&str> { self.tempmail_token.as_deref() }
-    pub fn source(&self) -> &CodexAccountSource { &self.source }
-    pub fn status(&self) -> &CodexAccountStatus { &self.status }
-    pub fn created_at(&self) -> DateTime<Utc> { self.created_at }
-    pub fn updated_at(&self) -> DateTime<Utc> { self.updated_at }
+    pub fn plan_type(&self) -> Option<&str> {
+        self.plan_type.as_deref()
+    }
+    pub fn has_credits(&self) -> Option<bool> {
+        self.has_credits
+    }
+    pub fn is_unlimited(&self) -> Option<bool> {
+        self.is_unlimited
+    }
+    pub fn credit_balance(&self) -> Option<&str> {
+        self.credit_balance.as_deref()
+    }
+    pub fn primary_window(&self) -> Option<&CodexRateLimitWindow> {
+        self.primary_window.as_ref()
+    }
+    pub fn secondary_window(&self) -> Option<&CodexRateLimitWindow> {
+        self.secondary_window.as_ref()
+    }
+    pub fn quota_checked_at(&self) -> Option<DateTime<Utc>> {
+        self.quota_checked_at
+    }
+    pub fn token_expires_at(&self) -> Option<DateTime<Utc>> {
+        self.token_expires_at
+    }
+    pub fn last_refresh_at(&self) -> Option<DateTime<Utc>> {
+        self.last_refresh_at
+    }
+    pub fn tempmail_token(&self) -> Option<&str> {
+        self.tempmail_token.as_deref()
+    }
+    pub fn source(&self) -> &CodexAccountSource {
+        &self.source
+    }
+    pub fn status(&self) -> &CodexAccountStatus {
+        &self.status
+    }
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
+    }
 }
