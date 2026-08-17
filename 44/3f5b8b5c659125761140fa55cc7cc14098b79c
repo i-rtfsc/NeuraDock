@@ -1,0 +1,47 @@
+apps/desktop/src-tauri/crates/neuradock-domain/src/codex/aggregate.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 89-93,101-109,151-155,314-340,347-388
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/stream.rs
+  s_8e27dbca82831f::t_155f8fce95af8f 276-279
+  s_8e27dbca82831f::t_9b455b21a9689b 115-121
+  s_8e27dbca82831f::t_49c22215dc95af 629,776-806
+  s_8e27dbca82831f::t_0b0bf2fd2c7620 46-57,74,78-84
+  s_8e27dbca82831f::t_ad7b9cf7afa83b 280,624-628,807
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/server.rs
+  s_8e27dbca82831f::t_8b4f9ecf00fa51 1951-1957
+  s_8e27dbca82831f::t_5befc6e7a1cd98 2276
+  s_8e27dbca82831f::t_56622dd01f8a5c 2244-2247,2249-2275,2277-2280
+  s_8e27dbca82831f::t_8ac7a2a2621610 1321-1327,1332
+  s_c199242c7b1460::t_123d0c82589ae9 217-220,1958-1961,2138-2139
+apps/desktop/src-tauri/crates/neuradock-domain/src/ai_chat/repository.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 26-29
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/transform.rs
+  s_8e27dbca82831f::t_8ad3fcfa1a7c28 682-694
+  s_8e27dbca82831f::t_9833c8d41bae00 192-193,267,607,709-751,756-764,797,805,810,812,818,822,824,832,837,839,845,850,852,863,874,876,878,887,894
+  s_8e27dbca82831f::t_34a69a9c0928c0 282-316,320,322,329-354,388-397,752-755
+  s_8e27dbca82831f::t_8db51f4c74002d 633,653,669
+  s_8e27dbca82831f::t_0361aa23099a4b 16-22,71,73,75,79-87,109,111,113-114,119-127,180-191,194-199,260-266,268-281,398,449,451,453,457-465,596-606,608,615,695-696,798-804,806-809,811,813-817,819-821,823,825-831,833-836,838,840-844,846-849,851,853-862,864-873,875,877,879-886,888-893,895
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "443f5b8b5c659125761140fa55cc7cc14098b79c",
+  "prompts": {},
+  "sessions": {
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_c199242c7b1460": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "019fd5d2-b051-7060-bca3-1beddf7e9a9e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
