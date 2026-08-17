@@ -68,6 +68,11 @@ pub struct AgentAccessDto {
     pub source: Option<AgentAccessSourceDto>,
     #[serde(default)]
     pub context1m: Option<bool>,
+    /// For Codex direct/gateway bindings written to an isolated file instead of
+    /// the official config.toml/auth.json: the provider slug the file is named
+    /// after (`<slug>.config.toml`). `None` means the official files are used.
+    #[serde(default)]
+    pub isolated_slug: Option<String>,
 }
 
 /// In-memory cache of access records, mirrored to disk.
@@ -156,7 +161,14 @@ pub async fn record_agent_access(
     record: AgentAccessDto,
     app: tauri::AppHandle,
     state: State<'_, AgentAccessState>,
+    gateway: State<'_, super::gateway::GatewayState>,
 ) -> Result<Vec<AgentAccessDto>, CommandError> {
+    // Switching to direct write must retire any saved gateway binding, or a
+    // later gateway start would take the tool config back over.
+    if record.method == AccessMethodDto::Direct {
+        let client = super::gateway::client_for_agent(record.agent);
+        super::gateway::drop_gateway_binding_for_direct(&app, &gateway, client.into()).await?;
+    }
     state.set(&app, record)?;
     Ok(list_records(&state))
 }

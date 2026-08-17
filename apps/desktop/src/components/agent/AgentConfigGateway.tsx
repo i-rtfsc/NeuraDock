@@ -65,6 +65,7 @@ export interface AgentAccess {
   impersonate: boolean | null;
   source?: AgentAccessSource | null;
   context1m?: boolean | null;
+  isolated_slug?: string | null;
 }
 
 export interface GatewayUpstreamStatus {
@@ -97,7 +98,7 @@ export interface GatewayStatus {
   }[];
 }
 
-export type AgentConfigurationKind = 'managed' | 'manual' | 'changed' | 'unconfigured';
+export type AgentConfigurationKind = 'managed' | 'manual' | 'changed' | 'missing' | 'unconfigured';
 
 export interface AgentConfigurationState {
   agent: AgentId;
@@ -107,6 +108,21 @@ export interface AgentConfigurationState {
   context1m: boolean;
   credential_present: boolean;
   config_paths: string[];
+  codex_configs: CodexConfigFile[];
+}
+
+interface CodexConfigFile {
+  kind: 'official' | 'isolated';
+  slug: string | null;
+  path: string;
+  current: boolean;
+  exists: boolean;
+  parse_ok: boolean;
+  configured: boolean;
+  endpoint: string | null;
+  model: string | null;
+  context1m: boolean;
+  credential_present: boolean;
 }
 
 export const GATEWAY_STATUS_QUERY_KEY = ['gateway-status'];
@@ -374,34 +390,48 @@ function AccessStatusCard({
             </div>
           </div>
         </section>
+        {agent.id === 'codex' && (
+          <CodexConfigFilesSection configuration={configuration} />
+        )}
       </div>
     );
   }
 
   if (!access) {
     return (
-      <div className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-          <Plus className="h-5 w-5" />
+      <div className="space-y-4">
+        <div className="flex min-h-64 flex-col items-center justify-center px-6 py-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            <Plus className="h-5 w-5" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold">
+            {t('agentConfig.notBoundTitle', '{{name}} 尚未接入任何 Key', { name: agent.name })}
+          </h3>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+            {t('agentConfig.notBoundHint', '选择一个 Key，可直接写入 {{path}}，或经本地网关适配。', {
+              path: agent.configPath,
+            })}
+          </p>
+          <Button className="mt-5" onClick={onEdit}>
+            <Plus className="h-4 w-4" />
+            {t('agentConfig.access', '接入 Key')}
+          </Button>
         </div>
-        <h3 className="mt-4 text-base font-semibold">
-          {t('agentConfig.notBoundTitle', '{{name}} 尚未接入任何 Key', { name: agent.name })}
-        </h3>
-        <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-          {t('agentConfig.notBoundHint', '选择一个 Key，可直接写入 {{path}}，或经本地网关适配。', {
-            path: agent.configPath,
-          })}
-        </p>
-        <Button className="mt-5" onClick={onEdit}>
-          <Plus className="h-4 w-4" />
-          {t('agentConfig.access', '接入 Key')}
-        </Button>
+        {agent.id === 'codex' && configuration && (
+          <CodexConfigFilesSection configuration={configuration} />
+        )}
       </div>
     );
   }
 
   const viaGateway = access.method === 'gateway';
   const configurationChanged = configuration?.state === 'changed';
+  const configurationMissing = configuration?.state === 'missing';
+  const configurationProblem = configurationChanged || configurationMissing;
+  const configTarget = access.isolated_slug
+    ? t('agentConfig.isolatedConfigShort', '独立配置')
+    : t('agentConfig.officialConfigShort', '官方配置');
+  const configPath = configuration?.config_paths.join(' / ');
   const sourceTitle = sourceOption
     ? sourceOption.sourceGroup === 'relay'
       ? sourceOption.providerName
@@ -466,27 +496,39 @@ function AccessStatusCard({
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Badge
-                  variant={configurationChanged ? 'soft-warning' : 'soft-primary'}
+                  variant={configurationProblem ? 'soft-warning' : 'soft-primary'}
                   className="text-[10px]"
                 >
-                  {configurationChanged
-                    ? t('agentConfig.configurationChanged')
+                  {configurationMissing
+                    ? t('agentConfig.configurationMissing', '配置文件缺失')
+                    : configurationChanged
+                      ? t('agentConfig.configurationChanged')
                     : t('agentConfig.managedConfig')}
                 </Badge>
+                {agent.id === 'codex' && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {configTarget}
+                  </Badge>
+                )}
                 <Badge variant={statusVariant} className="text-[10px]">
                   {statusLabel}
                 </Badge>
               </div>
             </div>
-            {configurationChanged && (
+            {configurationProblem && (
               <div className="mt-2 rounded-md bg-warning/10 px-2 py-1.5 text-[11px] text-warning">
-                {t('agentConfig.configurationChangedHint')}
-                {(configuration.endpoint || configuration.model) && (
-                  <span className="ml-1 font-mono">
-                    {[configuration.endpoint, configuration.model].filter(Boolean).join(' · ')}
-                  </span>
-                )}
+                <span>
+                  {configurationMissing
+                    ? t('agentConfig.configurationMissingHint', '当前接入所指向的配置文件不存在：')
+                    : t('agentConfig.configurationChangedHint', '当前接入配置已被修改：')}
+                </span>
+                {configPath && <span className="ml-1 font-mono">{configPath}</span>}
               </div>
+            )}
+            {!configurationProblem && configPath && (
+              <p className="mt-2 truncate font-mono text-[11px] text-muted-foreground">
+                {configPath}
+              </p>
             )}
             {viaGateway && (
               <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -618,6 +660,10 @@ function AccessStatusCard({
         </div>
       </section>
 
+      {agent.id === 'codex' && configuration && (
+        <CodexConfigFilesSection configuration={configuration} />
+      )}
+
       <section className="card-vivid cursor-default space-y-3 rounded-xl p-4 sm:p-5">
         <h3 className="text-sm font-semibold">{t('agentConfig.runtimeSectionTitle', '运行配置')}</h3>
         <dl className="grid gap-2 text-sm">
@@ -649,6 +695,66 @@ function AccessStatusCard({
         </dl>
       </section>
     </div>
+  );
+}
+
+function CodexConfigFilesSection({ configuration }: { configuration: AgentConfigurationState }) {
+  const { t } = useTranslation();
+
+  return (
+    <section className="card-vivid cursor-default space-y-3 rounded-xl p-4 sm:p-5">
+      <div>
+        <h3 className="text-sm font-semibold">
+          {t('agentConfig.codexConfigFilesTitle', 'Codex 配置文件')}
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(
+            'agentConfig.codexConfigFilesHint',
+            '各配置彼此独立；只有“当前接入”目标参与一致性检查。'
+          )}
+        </p>
+      </div>
+      <div className="space-y-2">
+        {configuration.codex_configs.map((item) => (
+          <div key={item.path} className="rounded-lg bg-muted/20 px-3 py-2.5">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-mono text-xs font-medium">{item.path}</p>
+                <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                  {[item.endpoint, item.model].filter(Boolean).join(' · ') ||
+                    t('agentConfig.configNotDetected', '未检测到有效配置')}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {item.current && (
+                  <Badge variant="soft-primary" className="text-[10px]">
+                    {t('agentConfig.currentAccessTarget', '当前接入')}
+                  </Badge>
+                )}
+                {!item.exists && (
+                  <Badge variant="soft-warning" className="text-[10px]">
+                    {t('agentConfig.configurationMissing', '配置文件缺失')}
+                  </Badge>
+                )}
+                {item.exists && !item.parse_ok && (
+                  <Badge variant="soft-warning" className="text-[10px]">
+                    {t('agentConfig.configParseFailed', '无法解析')}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px]">
+                  {item.kind === 'official'
+                    ? t('agentConfig.officialConfigShort', '官方配置')
+                    : t('agentConfig.isolatedConfigShort', '独立配置')}
+                </Badge>
+                {item.context1m && (
+                  <Badge variant="outline" className="text-[10px]">1M</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -757,8 +863,13 @@ export function AgentConfigGateway({
       if (access?.method === 'gateway') {
         await invoke('clear_gateway_binding', { client: selectedAgent });
       } else {
-        const command = selectedAgent === 'claude_code' ? 'clear_claude_global' : 'clear_codex_global';
-        await invoke<string>(command);
+        if (selectedAgent === 'claude_code') {
+          await invoke<string>('clear_claude_global');
+        } else if (access?.isolated_slug) {
+          await invoke<string>('clear_codex_isolated', { slug: access.isolated_slug });
+        } else {
+          await invoke<string>('clear_codex_global');
+        }
         await invoke('clear_agent_access', { agent: selectedAgent });
       }
       toast.success(t('agentConfig.unbound', '已解除接入并还原配置'));

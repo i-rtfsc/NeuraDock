@@ -65,6 +65,7 @@ export interface KeyOption {
 }
 
 type Method = 'direct' | 'gateway';
+type WriteMode = 'official' | 'isolated';
 type ConfigView = 'form' | 'files' | 'temporary';
 type FileVersion = 'current' | 'next';
 
@@ -87,6 +88,7 @@ interface AgentConfigPreviewRequest {
   source: AgentAccessSource;
   model: string | null;
   context1m: boolean;
+  isolated: boolean;
 }
 
 interface Props {
@@ -131,6 +133,23 @@ function keySourceId(option: KeyOption): string {
     : INDEPENDENT_SOURCE_ID;
 }
 
+function sanitizeProviderSlug(value: string): string {
+  return Array.from(value)
+    .map((character) => (/^[a-z0-9]$/i.test(character) ? character.toLowerCase() : '_'))
+    .join('');
+}
+
+function isolatedSlugForOption(option: KeyOption): string {
+  if (option.source.type === 'account_token') {
+    return sanitizeProviderSlug(option.source.provider_id);
+  }
+  try {
+    return sanitizeProviderSlug(new URL(option.baseUrl ?? '').hostname);
+  } catch {
+    return 'openai_compatible';
+  }
+}
+
 export function AgentAccessDrawer({
   open,
   onOpenChange,
@@ -146,12 +165,13 @@ export function AgentAccessDrawer({
   const [sourceId, setSourceId] = useState('');
   const [accountId, setAccountId] = useState('');
   const [selectedId, setSelectedId] = useState('');
-  const [method, setMethod] = useState<Method>('gateway');
+  const [method, setMethod] = useState<Method>('direct');
+  const [writeMode, setWriteMode] = useState<WriteMode>('isolated');
   const [kind, setKind] = useState<UpstreamKind>(agent.nativeKind);
   const [impersonate, setImpersonate] = useState(true);
   const [node, setNode] = useState('');
   const [model, setModel] = useState('');
-  const [context1m, setContext1m] = useState(false);
+  const [context1m, setContext1m] = useState(true);
   const [busy, setBusy] = useState(false);
   const [configView, setConfigView] = useState<ConfigView>('form');
   const [fileVersion, setFileVersion] = useState<FileVersion>('next');
@@ -207,7 +227,16 @@ export function AgentAccessDrawer({
     const target = keyOptions.find((option) => optionId(option) === targetId);
     const canRestoreExisting = !presetOptionId || !existingOptionId || presetOptionId === existingOptionId;
 
-    setMethod(canRestoreExisting ? existing?.method ?? 'gateway' : 'gateway');
+    setMethod(canRestoreExisting ? existing?.method ?? 'direct' : 'direct');
+    setWriteMode(
+      agent.id === 'codex' && canRestoreExisting && existing
+        ? existing.isolated_slug
+          ? 'isolated'
+          : 'official'
+        : agent.id === 'codex'
+          ? 'isolated'
+          : 'official'
+    );
     setKind(
       canRestoreExisting
         ? (existing?.upstream_kind as UpstreamKind) ?? agent.nativeKind
@@ -215,7 +244,7 @@ export function AgentAccessDrawer({
     );
     setImpersonate(canRestoreExisting ? existing?.impersonate ?? true : true);
     setModel(canRestoreExisting ? existing?.model ?? '' : '');
-    setContext1m(canRestoreExisting ? existing?.context1m ?? false : false);
+    setContext1m(canRestoreExisting ? existing?.context1m ?? true : true);
     setNode(
       canRestoreExisting && existing?.source?.type === 'account_token'
         ? existing.source.base_url ?? ''
@@ -327,13 +356,14 @@ export function AgentAccessDrawer({
   useEffect(() => {
     if (model && modelOptions.includes(model) && !compatibleModelOptions.includes(model)) {
       setModel('');
-      setContext1m(false);
     }
   }, [compatibleModelOptions, model, modelOptions]);
 
   useEffect(() => {
-    if (!model) setContext1m(false);
-  }, [model]);
+    if (context1m && !model && compatibleModelOptions.length > 0) {
+      setModel(compatibleModelOptions[0]);
+    }
+  }, [compatibleModelOptions, context1m, model]);
 
   useEffect(() => {
     if (
@@ -352,10 +382,11 @@ export function AgentAccessDrawer({
         source: accessSource,
         model: model || null,
         context1m,
+        isolated: agent.id === 'codex' && writeMode === 'isolated',
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [accessSource, agent.id, baseUrl, configView, context1m, isAccountToken, method, model, open]);
+  }, [accessSource, agent.id, baseUrl, configView, context1m, isAccountToken, method, model, open, writeMode]);
 
   const previewQuery = useQuery<AgentConfigPreview>({
     queryKey: ['agent-config-preview', previewRequest],
@@ -395,7 +426,7 @@ export function AgentAccessDrawer({
     setSelectedId('');
     setNode('');
     setModel('');
-    setContext1m(false);
+    setContext1m(true);
   };
 
   const selectAccount = (value: string) => {
@@ -403,20 +434,24 @@ export function AgentAccessDrawer({
     setSelectedId('');
     setNode('');
     setModel('');
-    setContext1m(false);
+    setContext1m(true);
   };
 
   const selectKey = (value: string) => {
     setSelectedId(value);
     setNode('');
     setModel('');
-    setContext1m(false);
+    setContext1m(true);
   };
 
   const confirm = async () => {
     if (!selected) return;
     if (isAccountToken && !baseUrl) {
       toast.error(t('agentConfig.needNode', '请先选择一个节点'));
+      return;
+    }
+    if (context1m && !model) {
+      toast.error(t('agentConfig.context1mNeedModel', '启用 1M 上下文时必须选择模型'));
       return;
     }
 
@@ -433,11 +468,12 @@ export function AgentAccessDrawer({
             model: model || null,
             context1m,
             impersonate,
+            isolated: agent.id === 'codex' && writeMode === 'isolated',
           },
         });
         toast.success(t('agentConfig.bound', '已接入（经网关）'));
       } else {
-        await directConfigure(agent.id, selected, baseUrl, model || null, context1m);
+        await directConfigure(agent.id, selected, baseUrl, model || null, context1m, writeMode === 'isolated');
         await invoke('record_agent_access', {
           record: {
             agent: agent.id,
@@ -448,6 +484,10 @@ export function AgentAccessDrawer({
             impersonate: null,
             source: accessSource,
             context1m,
+            isolated_slug:
+              agent.id === 'codex' && writeMode === 'isolated'
+                ? isolatedSlugForOption(selected)
+                : null,
           },
         });
         toast.success(t('agentConfig.directWritten', '已直接写入配置'));
@@ -461,7 +501,12 @@ export function AgentAccessDrawer({
     }
   };
 
-  const confirmDisabled = busy || loading || !selected || (!!isAccountToken && !baseUrl);
+  const confirmDisabled =
+    busy ||
+    loading ||
+    !selected ||
+    (!!isAccountToken && !baseUrl) ||
+    (context1m && !model);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -593,6 +638,30 @@ export function AgentAccessDrawer({
                     />
                   </div>
                 </FormSection>
+
+                {agent.id === 'codex' && (
+                  <FormSection
+                    number="3"
+                    title={t('agentConfig.writeModeTitle', '写入方式')}
+                    description={t('agentConfig.writeModeDesc', '独立文件不影响官方配置，需要用 --config 指定文件启动 Codex。')}
+                    icon={<FileCode2 className="h-4 w-4" />}
+                  >
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <MethodOption
+                        active={writeMode === 'official'}
+                        icon={<Server className="h-4 w-4" />}
+                        title={t('agentConfig.writeModeOfficial', '官方配置文件')}
+                        onClick={() => setWriteMode('official')}
+                      />
+                      <MethodOption
+                        active={writeMode === 'isolated'}
+                        icon={<FileCode2 className="h-4 w-4" />}
+                        title={t('agentConfig.writeModeIsolated', '独立配置文件')}
+                        onClick={() => setWriteMode('isolated')}
+                      />
+                    </div>
+                  </FormSection>
+                )}
               </div>
 
               <div className="min-w-0 p-5">
@@ -618,7 +687,7 @@ export function AgentAccessDrawer({
 
                   {configView === 'form' ? (
                     <FormSection
-                      number="3"
+                      number={agent.id === 'codex' ? '4' : '3'}
                       title={t('agentConfig.runtimeTitle', '运行参数')}
                       description={t('agentConfig.runtimeDesc', '设置节点和默认模型；留空模型时沿用 Agent 自身选择。')}
                       icon={<SlidersHorizontal className="h-4 w-4" />}
@@ -681,7 +750,7 @@ export function AgentAccessDrawer({
                             : t('agentConfig.context1mDirectHint', '直接写入 Agent 配置；需要先选择模型。')
                         }
                       >
-                        <Switch checked={context1m} onCheckedChange={setContext1m} disabled={!model} />
+                        <Switch checked={context1m} onCheckedChange={setContext1m} />
                       </SettingRow>
 
                       {method === 'gateway' && (
@@ -1148,11 +1217,15 @@ async function directConfigure(
   option: KeyOption,
   baseUrl: string,
   model: string | null,
-  context1m: boolean
+  context1m: boolean,
+  isolated: boolean
 ): Promise<void> {
   if (option.source.type === 'independent_key') {
-    const command =
-      agent === 'claude_code' ? 'configure_independent_key_claude' : 'configure_independent_key_codex';
+    const command = agent === 'claude_code'
+      ? 'configure_independent_key_claude'
+      : isolated
+        ? 'configure_independent_key_codex_isolated'
+        : 'configure_independent_key_codex';
     await invoke<string>(command, { keyId: option.source.key_id, model, context1m });
     return;
   }
@@ -1166,7 +1239,7 @@ async function directConfigure(
       context1m,
     });
   } else {
-    await invoke<string>('configure_codex_global', {
+    await invoke<string>(isolated ? 'configure_codex_isolated' : 'configure_codex_global', {
       tokenId: option.source.token_id,
       accountId: option.source.account_id,
       providerId: option.source.provider_id,

@@ -140,3 +140,74 @@ pub async fn clear_codex_global(services: State<'_, Services>) -> Result<String,
         .clear_global()
         .map_err(CommandError::from)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_codex_isolated(
+    slug: String,
+    services: State<'_, Services>,
+) -> Result<String, CommandError> {
+    services
+        .codex_config
+        .clear_isolated(&slug)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_codex_isolated(
+    token_id: i64,
+    account_id: String,
+    provider_id: String,
+    base_url: String,
+    model: Option<String>,
+    context1m: Option<bool>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    let account_id = AccountId::from_string(&account_id);
+    let token_id = neuradock_domain::token::TokenId::new(token_id);
+
+    let tokens = services
+        .token
+        .get_cached_tokens(&account_id)
+        .await
+        .map_err(CommandError::from)?;
+    let token = tokens
+        .iter()
+        .find(|t| t.id() == &token_id)
+        .ok_or_else(|| CommandError::not_found("Token not found"))?;
+
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
+
+    let provider_id_obj = ProviderId::from_string(&provider_id);
+    if account.provider_id() != &provider_id_obj {
+        return Err(CommandError::validation(
+            "The selected provider does not belong to this account.",
+        ));
+    }
+    let provider = repositories
+        .provider
+        .find_by_id(&provider_id_obj)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Provider not found: {}", provider_id)))?;
+
+    services
+        .codex_config
+        .configure_isolated(
+            token,
+            provider.id().as_str(),
+            provider.name(),
+            &base_url,
+            model.as_deref(),
+            context1m.unwrap_or(false),
+        )
+        .map_err(CommandError::from)
+}

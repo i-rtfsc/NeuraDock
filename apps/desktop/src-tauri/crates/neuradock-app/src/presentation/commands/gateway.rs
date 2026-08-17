@@ -66,6 +66,19 @@ struct BindingMeta {
     model: Option<String>,
     context1m: bool,
     impersonate: bool,
+    /// When set, Codex is configured via an isolated file (never the official
+    /// config.toml/auth.json). Carries the file identity so the takeover-free
+    /// write path can name the file after the real relay provider.
+    isolated: Option<IsolatedTarget>,
+}
+
+/// File identity for an isolated-config binding: the provider slug the file is
+/// named after (`<slug>.config.toml`) and a human display name for the TOML
+/// `name` field.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct IsolatedTarget {
+    slug: String,
+    display: String,
 }
 
 /// On-disk shape of a saved binding. Keys are never written; only the reference
@@ -82,6 +95,8 @@ struct PersistedBinding {
     #[serde(default)]
     impersonate: bool,
     label: String,
+    #[serde(default)]
+    isolated: Option<IsolatedTarget>,
 }
 
 /// Which tool a binding applies to.
@@ -266,6 +281,8 @@ pub struct AgentConfigPreviewRequestDto {
     pub model: Option<String>,
     #[serde(default, rename = "context1m")]
     pub context_1m: bool,
+    #[serde(default)]
+    pub isolated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -289,6 +306,7 @@ pub enum AgentConfigurationKindDto {
     Managed,
     Manual,
     Changed,
+    Missing,
     Unconfigured,
 }
 
@@ -301,6 +319,22 @@ pub struct AgentConfigurationStateDto {
     pub context1m: bool,
     pub credential_present: bool,
     pub config_paths: Vec<String>,
+    pub codex_configs: Vec<CodexConfigFileDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct CodexConfigFileDto {
+    pub kind: String,
+    pub slug: Option<String>,
+    pub path: String,
+    pub current: bool,
+    pub exists: bool,
+    pub parse_ok: bool,
+    pub configured: bool,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub context1m: bool,
+    pub credential_present: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -312,6 +346,7 @@ struct AgentConfigFingerprint {
     credential_present: bool,
     configured: bool,
     parse_ok: bool,
+    exists: bool,
     paths: Vec<PathBuf>,
 }
 
@@ -323,6 +358,8 @@ pub struct GatewayBindingConfigDto {
     #[serde(default, rename = "context1m")]
     pub context_1m: bool,
     pub impersonate: Option<bool>,
+    #[serde(default)]
+    pub isolated: bool,
 }
 
 /// Resolve a binding source into the upstream the gateway forwards to. This is
@@ -430,6 +467,55 @@ async fn resolve_upstream(
     }
 }
 
+/// Derive the isolated-file identity (slug + display name) for a binding, so
+/// the isolated Codex config is named after the real relay provider even though
+/// its `base_url` points at the local gateway. Only the label/name is read here;
+/// no key material is touched.
+async fn isolated_target_for(
+    source: &GatewaySourceDto,
+    repositories: &Repositories,
+) -> Result<IsolatedTarget, CommandError> {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id: _,
+            provider_id,
+            token_id: _,
+            base_url: _,
+        } => {
+            let provider = repositories
+                .provider
+                .find_by_id(&ProviderId::from_string(provider_id))
+                .await
+                .map_err(CommandError::from)?;
+            let display = provider
+                .as_ref()
+                .map(|p| p.name().to_string())
+                .unwrap_or_else(|| provider_id.clone());
+            Ok(IsolatedTarget {
+                slug: provider_id.clone(),
+                display,
+            })
+        }
+        GatewaySourceDto::IndependentKey { key_id } => {
+            let key = repositories
+                .independent_key
+                .find_by_id(&IndependentKeyId::new(*key_id))
+                .await
+                .map_err(CommandError::from)?
+                .ok_or_else(|| CommandError::not_found("Key not found"))?;
+            // Slug from the key's base_url host; display from the key name.
+            let slug = url::Url::parse(key.base_url())
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_string()))
+                .unwrap_or_else(|| key.name().to_string());
+            Ok(IsolatedTarget {
+                slug,
+                display: key.name().to_string(),
+            })
+        }
+    }
+}
+
 async fn status_of(state: &GatewayState) -> GatewayStatusDto {
     let (running, base_url) = {
         let server = state.server.lock().await;
@@ -491,7 +577,39 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
     Ok(GatewayTakeover::new(&app_data_dir))
 }
 
-fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
+/// Point a client's tool config at the running gateway. Isolated Codex bindings
+/// write a standalone `<slug>.config.toml` (named after the real relay) whose
+/// `base_url` is the local gateway — no snapshot, no restore, so the file simply
+/// gets rewritten with the current port on every start. All other bindings use
+/// the snapshot/restore takeover of the official config files.
+fn apply_gateway_config(
+    takeover: &GatewayTakeover,
+    client: GatewayClient,
+    base_url: &str,
+    local_credential: &str,
+    model: Option<&str>,
+    context1m: bool,
+    isolated: Option<&IsolatedTarget>,
+) -> Result<(), CommandError> {
+    match isolated {
+        Some(target) if client == GatewayClient::Codex => CodexConfigService::new()
+            .configure_isolated_gateway(
+                &target.slug,
+                &target.display,
+                base_url,
+                local_credential,
+                model,
+                context1m,
+            )
+            .map(|_| ())
+            .map_err(CommandError::from),
+        _ => takeover
+            .take_over(client, base_url, local_credential, model, context1m)
+            .map_err(|e| CommandError::infrastructure(e.to_string())),
+    }
+}
+
+pub(crate) fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
     match agent {
         AgentIdDto::Codex => GatewayClientDto::Codex,
         AgentIdDto::ClaudeCode => GatewayClientDto::ClaudeCode,
@@ -552,6 +670,7 @@ fn model_without_context_marker(value: &str) -> (String, bool) {
 fn claude_fingerprint(content: &str, path: PathBuf) -> anyhow::Result<AgentConfigFingerprint> {
     let mut result = AgentConfigFingerprint {
         parse_ok: true,
+        exists: path.exists(),
         paths: vec![path],
         ..Default::default()
     };
@@ -611,12 +730,12 @@ fn claude_fingerprint(content: &str, path: PathBuf) -> anyhow::Result<AgentConfi
 fn codex_fingerprint(
     config_content: &str,
     auth_content: &str,
-    config_path: PathBuf,
-    auth_path: PathBuf,
+    paths: Vec<PathBuf>,
 ) -> anyhow::Result<AgentConfigFingerprint> {
     let mut result = AgentConfigFingerprint {
         parse_ok: true,
-        paths: vec![config_path, auth_path],
+        exists: paths.iter().any(|path| path.exists()),
+        paths,
         ..Default::default()
     };
     let doc = if config_content.trim().is_empty() {
@@ -650,7 +769,7 @@ fn codex_fingerprint(
             .and_then(|providers| providers.get(provider_slug))
             .and_then(toml_edit::Item::as_table)
         {
-            for key in ["name", "base_url", "wire_api"] {
+            for key in ["name", "base_url", "wire_api", "experimental_bearer_token"] {
                 if let Some(value) = provider.get(key).and_then(toml_edit::Item::as_str) {
                     let normalized = if key == "base_url" {
                         canonical_url(value)
@@ -660,6 +779,9 @@ fn codex_fingerprint(
                     result
                         .managed_values
                         .insert(format!("provider.{key}"), normalized);
+                    if key == "experimental_bearer_token" && !value.trim().is_empty() {
+                        result.credential_present = true;
+                    }
                 }
             }
         }
@@ -705,8 +827,12 @@ fn codex_fingerprint(
     Ok(result)
 }
 
+/// Read the config a tool is actually running with. `isolated_slug` selects the
+/// isolated Codex config (`<slug>.config.toml`) instead of the official
+/// config.toml/auth.json, so a binding is compared against the file it wrote.
 fn read_agent_fingerprint(
     client: GatewayClientDto,
+    isolated_slug: Option<&str>,
 ) -> Result<AgentConfigFingerprint, CommandError> {
     match client {
         GatewayClientDto::ClaudeCode => {
@@ -731,8 +857,16 @@ fn read_agent_fingerprint(
             )
         }
         GatewayClientDto::Codex => {
-            let (config_path, auth_path) =
-                CodexConfigService::managed_paths().map_err(CommandError::from)?;
+            let (config_path, auth_path) = if let Some(slug) = isolated_slug {
+                (
+                    CodexConfigService::isolated_path(slug).map_err(CommandError::from)?,
+                    None,
+                )
+            } else {
+                let (config_path, auth_path) =
+                    CodexConfigService::managed_paths().map_err(CommandError::from)?;
+                (config_path, Some(auth_path))
+            };
             let config_content = if config_path.exists() {
                 fs::read_to_string(&config_path).map_err(|error| {
                     CommandError::infrastructure(format!(
@@ -743,27 +877,93 @@ fn read_agent_fingerprint(
             } else {
                 String::new()
             };
-            let auth_content = if auth_path.exists() {
-                fs::read_to_string(&auth_path).map_err(|error| {
+            let auth_content = match auth_path.as_ref() {
+                Some(path) if path.exists() => fs::read_to_string(path).map_err(|error| {
                     CommandError::infrastructure(format!(
                         "Failed to read {}: {error}",
-                        auth_path.display()
+                        path.display()
                     ))
-                })?
-            } else {
-                String::new()
+                })?,
+                _ => String::new(),
             };
-            let fallback_paths = vec![config_path.clone(), auth_path.clone()];
+            let mut paths = vec![config_path.clone()];
+            if let Some(path) = auth_path {
+                paths.push(path);
+            }
+            let fallback_paths = paths.clone();
             Ok(
-                codex_fingerprint(&config_content, &auth_content, config_path, auth_path)
-                    .unwrap_or_else(|_| AgentConfigFingerprint {
+                codex_fingerprint(&config_content, &auth_content, paths).unwrap_or_else(|_| {
+                    AgentConfigFingerprint {
                         parse_ok: false,
                         paths: fallback_paths,
                         ..Default::default()
-                    }),
+                    }
+                }),
             )
         }
     }
+}
+
+fn list_codex_config_files(
+    has_current_target: bool,
+    current_slug: Option<&str>,
+) -> Result<Vec<CodexConfigFileDto>, CommandError> {
+    let (official_path, _) = CodexConfigService::managed_paths().map_err(CommandError::from)?;
+    let codex_dir = official_path
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| CommandError::infrastructure("Codex config directory is unavailable"))?;
+    let mut targets: Vec<(String, Option<String>, PathBuf)> =
+        vec![("official".to_string(), None, official_path)];
+
+    if codex_dir.exists() {
+        for entry in fs::read_dir(&codex_dir).map_err(|error| {
+            CommandError::infrastructure(format!("Failed to read {}: {error}", codex_dir.display()))
+        })? {
+            let entry = entry.map_err(|error| CommandError::infrastructure(error.to_string()))?;
+            let file_name = entry.file_name().to_string_lossy().into_owned();
+            let Some(slug) = file_name.strip_suffix(".config.toml") else {
+                continue;
+            };
+            if slug.is_empty() || !entry.path().is_file() {
+                continue;
+            }
+            targets.push(("isolated".to_string(), Some(slug.to_string()), entry.path()));
+        }
+    }
+    if let Some(slug) = current_slug {
+        if !targets
+            .iter()
+            .any(|(_, target_slug, _)| target_slug.as_deref() == Some(slug))
+        {
+            targets.push((
+                "isolated".to_string(),
+                Some(slug.to_string()),
+                CodexConfigService::isolated_path(slug).map_err(CommandError::from)?,
+            ));
+        }
+    }
+    targets.sort_by(|left, right| left.2.cmp(&right.2));
+
+    targets
+        .into_iter()
+        .map(|(kind, slug, path)| {
+            let fingerprint = read_agent_fingerprint(GatewayClientDto::Codex, slug.as_deref())?;
+            Ok(CodexConfigFileDto {
+                current: has_current_target && slug.as_deref() == current_slug,
+                kind,
+                slug,
+                path: abbreviate_home(&path),
+                exists: fingerprint.exists,
+                parse_ok: fingerprint.parse_ok,
+                configured: fingerprint.configured,
+                endpoint: fingerprint.endpoint,
+                model: fingerprint.model,
+                context1m: fingerprint.context1m,
+                credential_present: fingerprint.credential_present,
+            })
+        })
+        .collect()
 }
 
 fn fingerprint_from_preview(
@@ -782,12 +982,10 @@ fn fingerprint_from_preview(
                 .iter()
                 .find(|(_, format, _, _)| *format == "toml")
                 .ok_or_else(|| CommandError::infrastructure("Codex config preview is missing"))?;
-            let auth = files
-                .iter()
-                .find(|(_, format, _, _)| *format == "json")
-                .ok_or_else(|| CommandError::infrastructure("Codex auth preview is missing"))?;
-            codex_fingerprint(&config.3, &auth.3, config.0.clone(), auth.0.clone())
-                .map_err(CommandError::from)
+            let auth = files.iter().find(|(_, format, _, _)| *format == "json");
+            let auth_content = auth.map(|file| file.3.as_str()).unwrap_or("");
+            let paths = files.iter().map(|file| file.0.clone()).collect();
+            codex_fingerprint(&config.3, auth_content, paths).map_err(CommandError::from)
         }
     }
 }
@@ -801,19 +999,36 @@ async fn expected_fingerprint(
 ) -> Result<Option<AgentConfigFingerprint>, CommandError> {
     let client = client_for_agent(record.agent);
     let context1m = record.context1m.unwrap_or(false);
+    let isolated_slug = record.isolated_slug.as_deref();
     let files = match record.method {
         AccessMethodDto::Gateway => {
             let (Some(base_url), Some(credential)) = (gateway_base_url, gateway_credential) else {
                 return Ok(None);
             };
-            preview_with_key(
-                client,
-                credential,
-                base_url,
-                record.model.as_deref(),
-                context1m,
-                services,
-            )?
+            match isolated_slug {
+                // Isolated gateway bindings write a file named after the relay
+                // whose base_url is the gateway; rebuild that exact shape.
+                Some(slug) => services
+                    .codex_config
+                    .preview_isolated_gateway(
+                        slug,
+                        &record.label,
+                        base_url,
+                        credential,
+                        record.model.as_deref(),
+                        context1m,
+                    )
+                    .map_err(CommandError::from)?,
+                None => preview_with_key(
+                    client,
+                    credential,
+                    base_url,
+                    record.model.as_deref(),
+                    context1m,
+                    false,
+                    services,
+                )?,
+            }
         }
         AccessMethodDto::Direct => {
             let source = record
@@ -825,6 +1040,7 @@ async fn expected_fingerprint(
                 &source_from_access(source),
                 record.model.as_deref(),
                 context1m,
+                isolated_slug.is_some(),
                 services,
                 repositories,
             )
@@ -837,6 +1053,7 @@ async fn expected_fingerprint(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_agent_configuration_states(
+    app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     access: State<'_, AgentAccessState>,
     services: State<'_, Services>,
@@ -852,30 +1069,95 @@ pub async fn get_agent_configuration_states(
 
     for agent in [AgentIdDto::Codex, AgentIdDto::ClaudeCode] {
         let client = client_for_agent(agent);
-        let actual = read_agent_fingerprint(client)?;
-        let record = access.get(agent);
-        let state_kind = if let Some(record) = record.as_ref() {
-            match expected_fingerprint(
-                record,
-                gateway.as_ref().map(|(base_url, _)| base_url.as_str()),
-                gateway.as_ref().map(|(_, credential)| credential.as_str()),
-                &services,
-                &repositories,
-            )
-            .await
-            {
-                Ok(None) => AgentConfigurationKindDto::Managed,
-                Ok(Some(expected))
-                    if actual.parse_ok && actual.managed_values == expected.managed_values =>
-                {
-                    AgentConfigurationKindDto::Managed
+        let mut record = access.get(agent);
+        let mut actual = read_agent_fingerprint(
+            client,
+            record
+                .as_ref()
+                .and_then(|record| record.isolated_slug.as_deref()),
+        )?;
+        let mut expected = match record.as_ref() {
+            Some(record) => {
+                expected_fingerprint(
+                    record,
+                    gateway.as_ref().map(|(base_url, _)| base_url.as_str()),
+                    gateway.as_ref().map(|(_, credential)| credential.as_str()),
+                    &services,
+                    &repositories,
+                )
+                .await?
+            }
+            None => None,
+        };
+
+        // Older direct-isolated records did not persist isolated_slug. Repair
+        // them only when the official config does not match and the inferred
+        // isolated file matches exactly, avoiding ambiguous migrations.
+        let current_matches = expected.as_ref().is_some_and(|expected| {
+            actual.parse_ok && actual.managed_values == expected.managed_values
+        });
+        if agent == AgentIdDto::Codex && !current_matches {
+            if let Some(current) = record.as_ref().filter(|record| {
+                record.method == AccessMethodDto::Direct
+                    && record.isolated_slug.is_none()
+                    && record.source.is_some()
+            }) {
+                let source = source_from_access(current.source.as_ref().expect("checked above"));
+                let target = isolated_target_for(&source, &repositories).await?;
+                let mut candidate = current.clone();
+                candidate.isolated_slug = Some(target.slug.clone());
+                let candidate_actual = read_agent_fingerprint(client, Some(&target.slug))?;
+                let candidate_expected = expected_fingerprint(
+                    &candidate,
+                    gateway.as_ref().map(|(base_url, _)| base_url.as_str()),
+                    gateway.as_ref().map(|(_, credential)| credential.as_str()),
+                    &services,
+                    &repositories,
+                )
+                .await?;
+                let candidate_matches = candidate_actual.exists
+                    && candidate_expected.as_ref().is_some_and(|expected| {
+                        candidate_actual.parse_ok
+                            && candidate_actual.managed_values == expected.managed_values
+                    });
+                if candidate_matches {
+                    access.set(&app, candidate.clone())?;
+                    record = Some(candidate);
+                    actual = candidate_actual;
+                    expected = candidate_expected;
                 }
-                _ => AgentConfigurationKindDto::Changed,
+            }
+        }
+
+        let state_kind = if record.is_some() {
+            if !actual.exists {
+                AgentConfigurationKindDto::Missing
+            } else {
+                match expected.as_ref() {
+                    None => AgentConfigurationKindDto::Managed,
+                    Some(expected)
+                        if actual.parse_ok && actual.managed_values == expected.managed_values =>
+                    {
+                        AgentConfigurationKindDto::Managed
+                    }
+                    _ => AgentConfigurationKindDto::Changed,
+                }
             }
         } else if actual.parse_ok && actual.configured {
             AgentConfigurationKindDto::Manual
         } else {
             AgentConfigurationKindDto::Unconfigured
+        };
+
+        let codex_configs = if agent == AgentIdDto::Codex {
+            list_codex_config_files(
+                record.is_some(),
+                record
+                    .as_ref()
+                    .and_then(|record| record.isolated_slug.as_deref()),
+            )?
+        } else {
+            Vec::new()
         };
 
         states.push(AgentConfigurationStateDto {
@@ -890,6 +1172,7 @@ pub async fn get_agent_configuration_states(
                 .iter()
                 .map(|path| abbreviate_home(path))
                 .collect(),
+            codex_configs,
         });
     }
     Ok(states)
@@ -933,13 +1216,14 @@ pub async fn get_agent_config_preview(
             let preview_credential = gateway
                 .as_ref()
                 .map(|(_, credential)| credential.as_str())
-                .unwrap_or("ndg_preview_credential");
+                .unwrap_or("sk-ndg-preview-credential");
             preview_with_key(
                 request.client,
                 preview_credential,
                 preview_base_url,
                 request.model.as_deref(),
                 request.context_1m,
+                request.isolated,
                 &services,
             )?
         }
@@ -949,6 +1233,7 @@ pub async fn get_agent_config_preview(
                 &request.source,
                 request.model.as_deref(),
                 request.context_1m,
+                request.isolated,
                 &services,
                 &repositories,
             )
@@ -986,13 +1271,23 @@ fn preview_with_key(
     base_url: &str,
     model: Option<&str>,
     context_1m: bool,
+    isolated: bool,
     services: &Services,
 ) -> Result<Vec<RawPreviewFile>, CommandError> {
     match client {
-        GatewayClientDto::Codex => services
-            .codex_config
-            .preview_global_with_key(api_key, base_url, model, context_1m)
-            .map_err(CommandError::from),
+        GatewayClientDto::Codex => {
+            if isolated {
+                services
+                    .codex_config
+                    .preview_isolated_with_key(api_key, base_url, model, context_1m)
+                    .map_err(CommandError::from)
+            } else {
+                services
+                    .codex_config
+                    .preview_global_with_key(api_key, base_url, model, context_1m)
+                    .map_err(CommandError::from)
+            }
+        }
         GatewayClientDto::ClaudeCode => services
             .claude_config
             .preview_global_with_key(api_key, base_url, model, context_1m)
@@ -1006,6 +1301,7 @@ async fn preview_direct(
     source: &GatewaySourceDto,
     model: Option<&str>,
     context_1m: bool,
+    isolated: bool,
     services: &Services,
     repositories: &Repositories,
 ) -> Result<Vec<RawPreviewFile>, CommandError> {
@@ -1050,17 +1346,33 @@ async fn preview_direct(
             let base_url = base_url.as_deref().unwrap_or_else(|| provider.domain());
 
             match client {
-                GatewayClientDto::Codex => services
-                    .codex_config
-                    .preview_global(
-                        token,
-                        provider.id().as_str(),
-                        provider.name(),
-                        base_url,
-                        model,
-                        context_1m,
-                    )
-                    .map_err(CommandError::from),
+                GatewayClientDto::Codex => {
+                    if isolated {
+                        services
+                            .codex_config
+                            .preview_isolated(
+                                token,
+                                provider.id().as_str(),
+                                provider.name(),
+                                base_url,
+                                model,
+                                context_1m,
+                            )
+                            .map_err(CommandError::from)
+                    } else {
+                        services
+                            .codex_config
+                            .preview_global(
+                                token,
+                                provider.id().as_str(),
+                                provider.name(),
+                                base_url,
+                                model,
+                                context_1m,
+                            )
+                            .map_err(CommandError::from)
+                    }
+                }
                 GatewayClientDto::ClaudeCode => services
                     .claude_config
                     .preview_global_with_key(token.key(), base_url, model, context_1m)
@@ -1086,6 +1398,7 @@ async fn preview_direct(
                 key.base_url(),
                 model,
                 context_1m,
+                isolated,
                 services,
             )
         }
@@ -1247,6 +1560,7 @@ pub async fn set_gateway_binding(
         model,
         context_1m: context1m,
         impersonate,
+        isolated,
     } = config;
     let impersonate = impersonate.unwrap_or(true);
     if context1m && model.is_none() {
@@ -1264,6 +1578,12 @@ pub async fn set_gateway_binding(
         &repositories,
     )
     .await?;
+    // Isolated mode only applies to Codex; other clients ignore the flag.
+    let isolated = if isolated && client == GatewayClientDto::Codex {
+        Some(isolated_target_for(&source, &repositories).await?)
+    } else {
+        None
+    };
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
@@ -1278,6 +1598,7 @@ pub async fn set_gateway_binding(
         model: model.clone(),
         context1m,
         impersonate,
+        isolated: isolated.clone(),
     };
     let new_access = AgentAccessDto {
         agent,
@@ -1288,6 +1609,7 @@ pub async fn set_gateway_binding(
         impersonate: Some(impersonate),
         source: Some(access_source),
         context1m: Some(context1m),
+        isolated_slug: isolated.as_ref().map(|t| t.slug.clone()),
     };
 
     state
@@ -1339,12 +1661,14 @@ pub async fn set_gateway_binding(
                 return Err(error);
             }
         };
-        if let Err(error) = takeover.take_over(
+        if let Err(error) = apply_gateway_config(
+            &takeover,
             gateway_client,
             &handle.base_url(),
             handle.local_credential(),
             model.as_deref(),
             context1m,
+            isolated.as_ref(),
         ) {
             drop(server);
             rollback_binding_change(
@@ -1358,7 +1682,7 @@ pub async fn set_gateway_binding(
                 old_access,
             )
             .await;
-            return Err(CommandError::infrastructure(error.to_string()));
+            return Err(error);
         }
     }
     drop(server);
@@ -1375,6 +1699,7 @@ pub async fn clear_gateway_binding(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
 ) -> Result<GatewayStatusDto, CommandError> {
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
@@ -1405,9 +1730,33 @@ pub async fn clear_gateway_binding(
         return Err(error);
     }
 
-    let takeover = match takeover_for(&app) {
-        Ok(takeover) => takeover,
-        Err(error) => {
+    if let Some(slug) = old_access
+        .as_ref()
+        .and_then(|record| record.isolated_slug.as_deref())
+    {
+        services
+            .codex_config
+            .clear_isolated(slug)
+            .map_err(CommandError::from)?;
+    } else {
+        let takeover = match takeover_for(&app) {
+            Ok(takeover) => takeover,
+            Err(error) => {
+                rollback_binding_change(
+                    &app,
+                    &state,
+                    &access,
+                    gateway_client,
+                    agent,
+                    old_upstream,
+                    old_meta,
+                    old_access,
+                )
+                .await;
+                return Err(error);
+            }
+        };
+        if let Err(error) = takeover.restore(gateway_client) {
             rollback_binding_change(
                 &app,
                 &state,
@@ -1419,26 +1768,57 @@ pub async fn clear_gateway_binding(
                 old_access,
             )
             .await;
-            return Err(error);
+            return Err(CommandError::infrastructure(error.to_string()));
         }
-    };
-    if let Err(error) = takeover.restore(gateway_client) {
-        rollback_binding_change(
-            &app,
-            &state,
-            &access,
-            gateway_client,
-            agent,
-            old_upstream,
-            old_meta,
-            old_access,
-        )
-        .await;
-        return Err(CommandError::infrastructure(error.to_string()));
     }
     state.runtime.reset(gateway_client).await;
 
     Ok(status_of(&state).await)
+}
+
+/// Drop a client's saved gateway binding without touching its access record.
+/// Called when the agent is reconfigured for direct write, so a later gateway
+/// start does not take the client over.
+pub async fn drop_gateway_binding_for_direct(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+    client: GatewayClient,
+) -> Result<(), CommandError> {
+    let _operation = state.operation_lock(client).lock().await;
+    let old_upstream = state.bindings.read().await.get(&client).cloned();
+    let old_meta = state.meta.lock().await.get(&client).cloned();
+    if old_upstream.is_none() && old_meta.is_none() {
+        return Ok(());
+    }
+    state.bindings.write().await.remove(&client);
+    state.meta.lock().await.remove(&client);
+    if let Err(error) = persist_bindings(app, state).await {
+        restore_binding_memory(state, client, old_upstream, old_meta).await;
+        return Err(error);
+    }
+
+    // Retire the takeover record too. The caller has just written the user's
+    // real key directly into the tool config, so we must NOT call
+    // `takeover.restore()` here -- that would overwrite the new config with the
+    // pre-takeover snapshot. But leaving the record is equally broken:
+    // `stop_gateway_server` and the exit handler both walk it and would revert
+    // the user's direct config on every shutdown, silently and with no error.
+    // Discarding drops the snapshot without touching the live files.
+    match takeover_for(app) {
+        Ok(takeover) => {
+            if let Err(error) = takeover.discard(client) {
+                restore_binding_memory(state, client, old_upstream, old_meta).await;
+                return Err(CommandError::infrastructure(error.to_string()));
+            }
+        }
+        Err(error) => {
+            restore_binding_memory(state, client, old_upstream, old_meta).await;
+            return Err(error);
+        }
+    }
+
+    state.runtime.reset(client).await;
+    Ok(())
 }
 
 const BINDINGS_FILENAME: &str = "gateway_bindings.json";
@@ -1464,6 +1844,7 @@ async fn persist_bindings(
             context1m: meta.context1m,
             impersonate: meta.impersonate,
             label: meta.label.clone(),
+            isolated: meta.isolated.clone(),
         })
         .collect();
     drop(meta);
@@ -1506,6 +1887,18 @@ pub async fn restore_gateway_bindings(
     };
 
     for binding in saved {
+        // The user may have switched this agent to direct write since the
+        // binding was saved; their choice wins over the stale binding.
+        if access
+            .get(binding.client.into())
+            .is_some_and(|record| record.method == AccessMethodDto::Direct)
+        {
+            log::info!(
+                "Skipping saved gateway binding for {:?}: agent is set to direct access",
+                binding.client
+            );
+            continue;
+        }
         let effective_model =
             effective_gateway_model(binding.client, binding.model.as_deref(), binding.context1m);
         match resolve_upstream(
@@ -1531,6 +1924,7 @@ pub async fn restore_gateway_bindings(
                         model: binding.model.clone(),
                         context1m: binding.context1m,
                         impersonate: binding.impersonate,
+                        isolated: binding.isolated.clone(),
                     },
                 );
                 if let Err(error) = access.set(
@@ -1544,6 +1938,7 @@ pub async fn restore_gateway_bindings(
                         impersonate: Some(binding.impersonate),
                         source: Some(access_source),
                         context1m: Some(binding.context1m),
+                        isolated_slug: binding.isolated.as_ref().map(|t| t.slug.clone()),
                     },
                 ) {
                     log::warn!(
@@ -1572,22 +1967,37 @@ pub async fn restore_gateway_bindings(
     log::info!("Restored gateway bindings from disk (server left stopped)");
 }
 
-/// Start the gateway server and take over every bound client's tool config.
+/// Start the gateway server and take over every gateway-bound client's tool
+/// config. Clients whose access record says direct write are left untouched.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_gateway_server(
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
 ) -> Result<GatewayStatusDto, CommandError> {
     let _codex_operation = state.codex_operation.lock().await;
     let _claude_operation = state.claude_operation.lock().await;
-    let takeover_configs: Vec<(GatewayClient, Option<String>, bool)> = state
-        .meta
-        .lock()
-        .await
-        .iter()
-        .map(|(client, meta)| (*client, meta.model.clone(), meta.context1m))
-        .collect();
+    let takeover_configs: Vec<(GatewayClient, Option<String>, bool, Option<IsolatedTarget>)> =
+        state
+            .meta
+            .lock()
+            .await
+            .iter()
+            .filter(|(client, _)| {
+                access
+                    .get(GatewayClientDto::from(**client).into())
+                    .is_none_or(|record| record.method == AccessMethodDto::Gateway)
+            })
+            .map(|(client, meta)| {
+                (
+                    *client,
+                    meta.model.clone(),
+                    meta.context1m,
+                    meta.isolated.clone(),
+                )
+            })
+            .collect();
     if takeover_configs.is_empty() {
         return Err(CommandError::validation(
             "No client is bound to a relay key yet. Bind one from an account token or API key first.",
@@ -1609,13 +2019,15 @@ pub async fn start_gateway_server(
     drop(server);
 
     let mut taken_over = Vec::new();
-    for (client, model, context1m) in takeover_configs {
-        if let Err(error) = takeover.take_over(
+    for (client, model, context1m, isolated) in takeover_configs {
+        if let Err(error) = apply_gateway_config(
+            &takeover,
             client,
             &base_url,
             &local_credential,
             model.as_deref(),
             context1m,
+            isolated.as_ref(),
         ) {
             for restored_client in taken_over.into_iter().rev() {
                 if let Err(restore_error) = takeover.restore(restored_client) {
@@ -1653,31 +2065,40 @@ pub async fn stop_gateway_server(
         .await
         .as_ref()
         .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
-    let configs: Vec<(GatewayClient, Option<String>, bool)> = state
+    let configs: Vec<(GatewayClient, Option<String>, bool, Option<IsolatedTarget>)> = state
         .meta
         .lock()
         .await
         .iter()
-        .map(|(client, meta)| (*client, meta.model.clone(), meta.context1m))
+        .map(|(client, meta)| {
+            (
+                *client,
+                meta.model.clone(),
+                meta.context1m,
+                meta.isolated.clone(),
+            )
+        })
         .collect();
     let mut restored = Vec::new();
-    for (client, _, _) in &configs {
+    for (client, _, _, _) in &configs {
         if !takeover.is_active_for(*client) {
             continue;
         }
         if let Err(error) = takeover.restore(*client) {
             if let Some((base_url, local_credential)) = &gateway {
                 for restored_client in restored.into_iter().rev() {
-                    if let Some((_, model, context1m)) = configs
+                    if let Some((_, model, context1m, isolated)) = configs
                         .iter()
-                        .find(|(client, _, _)| *client == restored_client)
+                        .find(|(client, _, _, _)| *client == restored_client)
                     {
-                        if let Err(takeover_error) = takeover.take_over(
+                        if let Err(takeover_error) = apply_gateway_config(
+                            &takeover,
                             restored_client,
                             base_url,
                             local_credential,
                             model.as_deref(),
                             *context1m,
+                            isolated.as_ref(),
                         ) {
                             log::error!(
                                 "Failed to roll back gateway stop for {}: {}",
@@ -1798,11 +2219,38 @@ mod tests {
 
     #[test]
     fn config_preview_redacts_sensitive_toml_values() {
-        let content = "model = \"gpt-5\"\napi_key = \"secret\"\nenv_key = \"OPENAI_API_KEY\"\n";
+        let content = "model = \"gpt-5\"\nexperimental_bearer_token = \"secret\"\nenv_key = \"OPENAI_API_KEY\"\n";
         let redacted = redact_content("toml", content);
 
         assert!(!redacted.contains("\"secret\""));
         assert!(redacted.contains("model = \"gpt-5\""));
         assert!(redacted.contains("env_key = \"OPENAI_API_KEY\""));
+    }
+
+    #[test]
+    fn codex_fingerprint_recognizes_embedded_bearer_token() {
+        let content = r#"model = "deepseek-v4-flash"
+model_provider = "anyrouter"
+preferred_auth_method = "apikey"
+
+[model_providers.anyrouter]
+name = "DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+wire_api = "responses"
+requires_openai_auth = false
+experimental_bearer_token = "sk-secret"
+"#;
+
+        let fingerprint = codex_fingerprint(
+            content,
+            "",
+            vec![PathBuf::from("/home/u/.codex/anyrouter.config.toml")],
+        )
+        .unwrap();
+
+        assert!(fingerprint.credential_present);
+        assert!(fingerprint.configured);
+        assert_eq!(fingerprint.model.as_deref(), Some("deepseek-v4-flash"));
+        assert_eq!(fingerprint.endpoint.as_deref(), Some("api.deepseek.com"));
     }
 }

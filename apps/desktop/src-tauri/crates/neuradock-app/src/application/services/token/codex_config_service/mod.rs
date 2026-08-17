@@ -1,5 +1,6 @@
 mod global_config;
 mod helpers;
+mod isolated_config;
 mod temp_commands;
 
 use anyhow::Result;
@@ -44,6 +45,67 @@ impl CodexConfigService {
         global_config::configure_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
+    /// Configure Codex via a self-contained isolated file that never touches
+    /// config.toml/auth.json: `~/.codex/<slug>.config.toml`.
+    pub fn configure_isolated(
+        &self,
+        token: &ApiToken,
+        provider_id: &str,
+        provider_name: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<String> {
+        isolated_config::configure_isolated_impl(
+            token,
+            provider_id,
+            provider_name,
+            base_url,
+            model,
+            context_1m,
+        )
+    }
+
+    /// Isolated-file configuration from a raw API key (independent keys).
+    pub fn configure_isolated_with_key(
+        &self,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<String> {
+        isolated_config::configure_isolated_with_key_impl(api_key, base_url, model, context_1m)
+    }
+
+    pub fn preview_isolated(
+        &self,
+        token: &ApiToken,
+        provider_id: &str,
+        provider_name: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        isolated_config::preview_isolated_impl(
+            token,
+            provider_id,
+            provider_name,
+            base_url,
+            model,
+            context_1m,
+        )
+    }
+
+    pub fn preview_isolated_with_key(
+        &self,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        isolated_config::preview_isolated_with_key_impl(api_key, base_url, model, context_1m)
+    }
+
     pub fn preview_global(
         &self,
         token: &ApiToken,
@@ -85,6 +147,57 @@ impl CodexConfigService {
             helpers::get_codex_config_path()?,
             helpers::get_codex_auth_path()?,
         ))
+    }
+
+    /// Preview the isolated files a gateway binding would write.
+    pub fn preview_isolated_gateway(
+        &self,
+        slug_hint: &str,
+        display: &str,
+        gateway_base_url: &str,
+        local_credential: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        isolated_config::preview_isolated_gateway_impl(
+            slug_hint,
+            display,
+            gateway_base_url,
+            local_credential,
+            model,
+            context_1m,
+        )
+    }
+
+    /// Path of the isolated config identified by `slug_hint`.
+    pub fn isolated_path(slug_hint: &str) -> Result<std::path::PathBuf> {
+        isolated_config::isolated_config_path_for(slug_hint)
+    }
+
+    pub fn clear_isolated(&self, slug_hint: &str) -> Result<String> {
+        isolated_config::clear_isolated_impl(slug_hint)
+    }
+
+    /// Write the gateway's isolated config: a file named after the real relay
+    /// provider (`slug_hint`/`display`) whose `base_url` points at the local
+    /// gateway. Never snapshots or touches the official config.toml/auth.json.
+    pub fn configure_isolated_gateway(
+        &self,
+        slug_hint: &str,
+        display: &str,
+        gateway_base_url: &str,
+        local_credential: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<String> {
+        isolated_config::configure_isolated_gateway_impl(
+            slug_hint,
+            display,
+            gateway_base_url,
+            local_credential,
+            model,
+            context_1m,
+        )
     }
 
     /// Generate temporary export commands for current shell session
