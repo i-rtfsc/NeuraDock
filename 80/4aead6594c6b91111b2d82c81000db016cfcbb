@@ -1,0 +1,85 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/reminder_settings_dto.rs
+  s_8e27dbca82831f::t_78088b2d14f363 1-167
+apps/desktop/src-tauri/crates/neuradock-domain/src/reminder_settings/settings.rs
+  s_8e27dbca82831f::t_84058ab9a19923 1-68,81-168,173-174
+  s_8e27dbca82831f::t_aaaa25b1c24610 175-183,188-194,199-275
+  s_8e27dbca82831f::t_34a69a9c0928c0 69-80,169-172,184-187,195-198
+apps/desktop/src-tauri/crates/neuradock-domain/src/reminder_settings/mod.rs
+  s_8e27dbca82831f::t_b57d59cb8b8fee 1-5
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands.rs
+  s_8e27dbca82831f::t_a5891345c6f9b3 33
+  s_8e27dbca82831f::t_461f713491a26f 15
+apps/desktop/src-tauri/crates/neuradock-domain/src/reminder_settings/repository.rs
+  s_8e27dbca82831f::t_d7f9d9d9bbe7df 1-13
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/reminder.rs
+  s_8e27dbca82831f::t_d231a0ff8b858c 1-32
+apps/desktop/src-tauri/crates/neuradock-infrastructure/migrations/20260807000001_add_reminder_settings.sql
+  s_8e27dbca82831f::t_615daff5c1141a 11-12
+  s_8e27dbca82831f::t_effbcf9625f104 1-10,13-26
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/reminder_settings_repo.rs
+  s_8e27dbca82831f::t_6c295285126c77 1-68
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/reminder/mod.rs
+  s_8e27dbca82831f::t_f8f1d4cb16d6fd 1-3
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/mod.rs
+  s_8e27dbca82831f::t_6412060a4c96e5 11,26
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/mod.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 13
+  s_8e27dbca82831f::t_4a117abbea33bf 30
+  s_8e27dbca82831f::t_8e578d7f33cfef 29
+  s_8e27dbca82831f::t_02a9aa5275fcc4 12
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/reminder/loop.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 95,193-194,200-203,244
+  s_8e27dbca82831f::t_74574335faeb96 195
+  s_8e27dbca82831f::t_e348e7d65c5d4d 148
+  s_8e27dbca82831f::t_9bebddcbc07d7b 277-286,289-305,307-310
+  s_8e27dbca82831f::t_529cbef81e473d 153
+  s_8e27dbca82831f::t_2823129d231bf6 207-208,212,215,218-224,228
+  s_8e27dbca82831f::t_ad5f867a3b678e 213
+  s_8e27dbca82831f::t_cd276131903987 25-27,37,44
+  s_8e27dbca82831f::t_8e3c8552e59615 63,67-74,77-78,80-84,86-94,97-109,111-128,130-131
+  s_8e27dbca82831f::t_50bfd44c4d4ccc 9
+  s_8e27dbca82831f::t_02a9aa5275fcc4 1
+  s_8e27dbca82831f::t_08e160ac39f00c 2-8,10-24,28-36,38-43,45-62,64-66,75-76,79,85,96,110,129,132-147,149-152,154-192,196-199,204-206,209-211,214,216-217,225-227,229-243,245-276,287-288,306,311-313
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/mod.rs
+  s_8e27dbca82831f::t_ff766da6bbf6a3 48,50
+apps/desktop/src-tauri/crates/neuradock-domain/src/lib.rs
+  s_8e27dbca82831f::t_3f830a262bf5e1 16
+  s_8e27dbca82831f::t_34a69a9c0928c0 9
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/ipc.rs
+  s_8e27dbca82831f::t_137458526bf4e3 52-53
+  s_2b18058b9ff24c::t_503d9ba9cd879e 66
+  s_2b18058b9ff24c::t_cd152ecc604c4f 65
+  s_2b18058b9ff24c::t_6e0c6db3b97815 87
+apps/desktop/src/pages/PreferencesPage.tsx
+  s_8e27dbca82831f::t_03019d97dfc042 674-869,885-887
+  s_8e27dbca82831f::t_93d99a5be95179 11,29-30
+  s_8e27dbca82831f::t_48b1763d9df1f3 888
+apps/desktop/src/hooks/useReminderSettings.ts
+  s_8e27dbca82831f::t_a336560f874ea5 1-124
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/reminder_settings_service.rs
+  s_8e27dbca82831f::t_6ca6878905d22f 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "804aead6594c6b91111b2d82c81000db016cfcbb",
+  "prompts": {},
+  "sessions": {
+    "s_2b18058b9ff24c": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a00d5b-fd68-7a53-b90f-9528fa1b10c7",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
