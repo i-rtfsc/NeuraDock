@@ -1,0 +1,174 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/mod.rs
+  s_2b18058b9ff24c::t_503d9ba9cd879e 67,78,97,107,177-180,201
+  s_9bea73b9605481::t_f6ecf28fe7761c 175-176
+  s_2b18058b9ff24c::t_aff37b568700c1 48-49
+  s_9bea73b9605481::t_dc9a8a9f6168fb 64-66,94-96,181-183,186-189,193-200
+  s_2b18058b9ff24c::t_5760fc52dd625b 172-174
+  s_9bea73b9605481::t_d5411dd54f8f7d 88,105,152-171
+  s_9bea73b9605481::t_e3fb46b67ec481 51,56-58,71,74-76,81,86-87,100,103-104,184-185,190-192
+  s_9bea73b9605481::t_2f434fc6294a72 52-55
+  s_9bea73b9605481::t_d4d45dde0aeb63 59-63
+  s_9bea73b9605481::t_68a0e68653eb32 72-73
+  s_9bea73b9605481::t_00dfeec8cef514 82-85
+  s_9bea73b9605481::t_fb09e96cb94714 89-93
+  s_9bea73b9605481::t_a8663dfaa7431f 101-102
+  s_2b18058b9ff24c::t_20bb99142a1d5e 108
+  s_2b18058b9ff24c::t_3a9482d1f80f25 202
+  s_2b18058b9ff24c::t_3ab0355d9f9574 3,50,68-70,77,79-80,98-99,106
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/token/codex.rs
+  s_2b18058b9ff24c::t_503d9ba9cd879e 144-157,165,167,202-203,212-213
+  s_2b18058b9ff24c::t_52f95e236d75a1 143
+  s_2b18058b9ff24c::t_7b3881dbc987ae 158-160,162-164
+  s_2b18058b9ff24c::t_896cf8f686788d 166
+  s_2b18058b9ff24c::t_3ef0d8b2fbc087 168-170,199-201
+  s_2b18058b9ff24c::t_c5ee5d3021fe91 204-206,209-211
+  s_2b18058b9ff24c::t_532fc143cffb1c 161,171-198,207-208
+apps/desktop/src/i18n/locales/en-US.json
+  s_2b18058b9ff24c::t_44496bdbf4ab48 87-90
+  s_2b18058b9ff24c::t_59dce1105786a7 91
+  s_8e27dbca82831f::t_d424b744afe503 375,410,545-553,689-712
+  s_2b18058b9ff24c::t_d5b507dfbdbefc 82-86,92
+apps/desktop/src/components/agent/AgentAccessDrawer.tsx
+  s_9bea73b9605481::t_3dcbfe144f4000 389
+  s_9bea73b9605481::t_82a26e234b8d39 385
+  s_9bea73b9605481::t_bae22fd40ef3ce 91
+  s_9bea73b9605481::t_53543bdb6d5daf 1220-1221,1224-1228,1242
+  s_9bea73b9605481::t_6055531ed1c4e0 641-664
+  s_2b18058b9ff24c::t_ba76e9c1a6fad1 168-169,174,230-239,247,363-366,429,437,444,453-454,456,487-490,504-509
+  s_9bea73b9605481::t_d87424e43189c4 68
+  s_9bea73b9605481::t_c5fd38242a3900 476
+  s_2b18058b9ff24c::t_17716c467daf6d 136-146,148-152,690,753
+  s_9bea73b9605481::t_bdbb21c8cba419 471
+  s_2b18058b9ff24c::t_4c45aa5a9d2eab 147
+  s_5f30dac179bcb2::t_28ec8b6fb44e11 455
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/agent_access.rs
+  s_9bea73b9605481::t_92a58953716e41 71-75
+  s_9a683ecfc29edf::t_a34a617d715b63 164,166-171
+apps/desktop/src/components/agent/AgentConfigGateway.tsx
+  s_2b18058b9ff24c::t_c453d3c191d5c9 434
+  s_2b18058b9ff24c::t_d5b507dfbdbefc 101,429-433,499,502-505,508-512,518,520-525,528-531
+  s_2b18058b9ff24c::t_f9e0ed5c8701be 866-872
+  s_2b18058b9ff24c::t_f3eba893a6097a 393-395,402-418,420-422,664,701-757
+  s_2b18058b9ff24c::t_17716c467daf6d 68
+  s_2b18058b9ff24c::t_1d14cce4413e28 111-118,120-125,663,665
+  s_2b18058b9ff24c::t_59dce1105786a7 119
+  s_5f30dac179bcb2::t_799cc789b4230e 532,666,758-760
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/isolated_config.rs
+  s_9bea73b9605481::t_1de8b12312b829 159-163,165-168,172-176
+  s_2b18058b9ff24c::t_e9343e9dc5cd43 82-85
+  s_9bea73b9605481::t_14c0f1642b0112 119-120
+  s_9bea73b9605481::t_6609b51c953ba1 31-35,37-38
+  s_2b18058b9ff24c::t_aff37b568700c1 17-20,95,107-110,121-122,146,195,201,209,218-233,255,301,319,321-322,330,337,342,345,348,355-359
+  s_9bea73b9605481::t_f451120000b75d 93-94,133-134,148-149,197-198,242-244,257-259,267-282,296-297,303-305
+  s_2b18058b9ff24c::t_0a8ebc877b81ae 6,8-10,49-61,64-65,67-75,211-213
+  s_9bea73b9605481::t_d609bd53c1fdd8 15,27,123,126,143,157,235,252,265,323-329,331-336,338-341,343-344,346-347,349,354,360-361
+  s_8e27dbca82831f::t_34a69a9c0928c0 98-105,137-141,177-189,203-208,210,246-250,283-295,310,312-318,320,350-353
+  s_2b18058b9ff24c::t_503d9ba9cd879e 39-48,62-63,66,76-81,86-88
+  s_2b18058b9ff24c::t_3ad2a7ee543d52 214-216
+  s_9bea73b9605481::t_73fb1970b2ef27 96,135,150,164,169-171,190-191,199
+  s_2b18058b9ff24c::t_5760fc52dd625b 29-30,36
+  s_5f30dac179bcb2::t_1d2acabc4e346d 1-5,7,11-14,16,21-26,28,89-92,97,106,111-118,124-125,127-132,136,142,144-145,147,151-156,158,192-194,196,200,202,217,234,236-241,245,251,253-254,256,260-264,266,298-300,302,306-309,311
+apps/desktop/src/i18n/locales/zh-CN.json
+  s_2b18058b9ff24c::t_59dce1105786a7 91
+  s_2b18058b9ff24c::t_d5b507dfbdbefc 82-86,92
+  s_8e27dbca82831f::t_d424b744afe503 375,410,545-553,689-712
+  s_2b18058b9ff24c::t_44496bdbf4ab48 87-90
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_9bea73b9605481::t_ce221cab433d59 2023-2024,2030
+  s_9bea73b9605481::t_ce3376af799fb5 830,835
+  s_2b18058b9ff24c::t_1bf08ab5a81cfe 2254
+  s_9bea73b9605481::t_753b0a886aca26 1847
+  s_9bea73b9605481::t_9ebd2045f5dddc 98
+  s_2b18058b9ff24c::t_784680dec822bd 309,349,673,733,737-738,860-868,880-881,884,886-887,889-893,986-987
+  s_2b18058b9ff24c::t_5b829e924d88a8 916-917,921,935-938,1155-1157,1895
+  s_9bea73b9605481::t_b0daed3ef00d5a 2022
+  s_2b18058b9ff24c::t_59dce1105786a7 331,934,939-943,957
+  s_2b18058b9ff24c::t_59b222f4e84665 1132
+  s_9bea73b9605481::t_b395efaa21d85b 1927
+  s_2b18058b9ff24c::t_506e9b11add851 1074-1078
+  s_2b18058b9ff24c::t_49168fe0a9c5d4 1080-1089,1139-1140
+  s_2b18058b9ff24c::t_c29bf3a2132711 912-915,920
+  s_9bea73b9605481::t_b2d8d932607d65 1941
+  s_9bea73b9605481::t_43ec1ef5302159 1664-1665,1671,1685
+  s_2b18058b9ff24c::t_d64cb9deb03c5e 772
+  s_9bea73b9605481::t_d0365e4f2c30c8 1581-1586
+  s_9bea73b9605481::t_210b24bbfac0e5 1304,1349-1375,1401
+  s_9bea73b9605481::t_cc3fd35075e304 1563
+  s_9bea73b9605481::t_5b818ca07f2e11 1274,1278-1290
+  s_9bea73b9605481::t_fc507b580c6b00 1002,1008-1031,1043
+  s_2b18058b9ff24c::t_f9860bbb498a40 907-910,953,1153-1154,1158
+  s_9bea73b9605481::t_118ab6c347b78a 2083,2090,2092
+  s_9bea73b9605481::t_b8c570755ce56e 470-514
+  s_2b18058b9ff24c::t_e9343e9dc5cd43 895-896,900-901,988,1112-1116,1141-1143
+  s_8e27dbca82831f::t_34a69a9c0928c0 595-605,1981-2000,2073-2080
+  s_2b18058b9ff24c::t_aff37b568700c1 782-784,831-832,985
+  s_9bea73b9605481::t_4cde19cc1b3d71 1226,1236
+  s_9bea73b9605481::t_49b3541e15674d 2068,2094-2095,2101
+  s_2b18058b9ff24c::t_60251cb5548e30 322-330,332-337,911,918-919,922-931,946-952,954-956,958-966,1152,1159-1162,1175
+  s_9bea73b9605481::t_ec352e3ef38a1e 69-81,99
+  s_9bea73b9605481::t_fb4fb60208733b 517,580-594,606-611,967,1785-1786,1822
+  s_9bea73b9605481::t_4a6c4b5c310ec2 1601
+  s_9bea73b9605481::t_790b5a13f3d876 361-362
+  s_8e27dbca82831f::t_d9ed478a8eb838 515-516,932-933,944-945,1792,1798-1819,1901,2255
+  s_9bea73b9605481::t_7260e2e03fa92e 1612
+  s_2b18058b9ff24c::t_3f8d1a0d4d3874 1702,1733-1741
+  s_2b18058b9ff24c::t_5017d4da183a6b 1742-1759,1771
+  s_2b18058b9ff24c::t_5cc8c62f1a14e0 1056,1072-1073,1079,1090-1111,1117-1131,1133-1138
+  s_2b18058b9ff24c::t_4323ddd3c2ec52 2247
+  s_9bea73b9605481::t_0fec9a8abe0480 869
+  s_9bea73b9605481::t_5dd072e28f9d16 284-285
+  s_2b18058b9ff24c::t_75783f2bfbacf1 2222,2229-2246,2248-2253
+  s_2b18058b9ff24c::t_2102416de475dd 518,612,968,1219,1779-1784,1787-1791,1793-1797,1820-1821,1823,1890-1894,1896-1900,1970-1971,1977
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/independent_key/codex_config.rs
+  s_9bea73b9605481::t_e20ba972b72704 29,39-69,86
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/independent_key/mod.rs
+  s_9bea73b9605481::t_79b814f44ebb57 7-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "862f25e6dd595695e5f76ec00dc64724a4b857ce",
+  "prompts": {},
+  "sessions": {
+    "s_2b18058b9ff24c": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a00d5b-fd68-7a53-b90f-9528fa1b10c7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_5f30dac179bcb2": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "019ffe38-b3cd-77e3-8987-f48bc62a086c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_9a683ecfc29edf": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "019fa803-934c-7253-9405-e43b2f90537b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_9bea73b9605481": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "48a6247c-3cab-4733-b20b-28511ce55f99",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
