@@ -1,0 +1,33 @@
+Makefile
+  s_8e27dbca82831f::t_dc6b599f832ac3 15-28
+  s_8e27dbca82831f::t_17550c1e269752 157-158
+  s_8e27dbca82831f::t_a326acb2601545 168
+apps/desktop/src-tauri/Cargo.toml
+  s_9bea73b9605481::t_b9216348f38208 214-216
+apps/desktop/src-tauri/Cargo.lock
+  s_9bea73b9605481::t_a95bd3c9882480 3382
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8d95d35106d988fdd5eb80ab21305f7306f3aade",
+  "prompts": {},
+  "sessions": {
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_9bea73b9605481": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "48a6247c-3cab-4733-b20b-28511ce55f99",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
