@@ -57,6 +57,34 @@ mod tests {
     }
 
     #[test]
+    fn test_build_card_message_includes_time_line() {
+        let sender = FeishuWebhookSender::new("test_key".to_string());
+        let content = [
+            "⏰ 时间: 2026-08-07 09:00:00",
+            "账户: test@example.com",
+            "服务商: AnyRouter",
+            "📅 今天余额",
+            "   当前余额: $4.97",
+            "   历史消耗: $0.03",
+            "   总额度: $5.00",
+        ]
+        .join("\n");
+        let message = NotificationMessage::new("✅ 签到成功", content);
+        let payload = sender.build_rich_message(&message);
+
+        assert_eq!(payload["msg_type"], "interactive");
+        let rendered = serde_json::to_string(&payload).unwrap();
+        assert!(
+            rendered.contains("2026-08-07"),
+            "date line must appear in the card: {rendered}"
+        );
+        assert!(
+            rendered.contains("test@example.com"),
+            "account line must appear: {rendered}"
+        );
+    }
+
+    #[test]
     fn test_build_text_message() {
         let sender = FeishuWebhookSender::new("test_key".to_string());
         let message = NotificationMessage::new("标题", "内容");

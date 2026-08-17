@@ -36,7 +36,10 @@ pub struct UserInfo {
     pub current_balance: f64,
     /// Historical consumption reported by the provider API (maps from `used_quota` field)
     pub total_consumed: f64,
-    /// Total quota (current + consumed). Upstream labels this as `total_income`.
+    /// Lifetime total quota, derived from the raw `quota + used_quota` unit sum
+    /// (NOT from adding the two rounded dollar values above, which would compound
+    /// their rounding errors). Upstream labels this as `total_income`.
+    /// May differ from `current_balance + total_consumed` by up to 0.01.
     pub total_quota: f64,
 }
 
@@ -79,7 +82,11 @@ pub(super) fn extract_set_cookies(response: &Response) -> SetCookieResult {
     let url = response.url().to_string();
     let mut result = SetCookieResult::default();
 
-    for value in response.headers().get_all(reqwest::header::SET_COOKIE).iter() {
+    for value in response
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+    {
         let cookie_str = match value.to_str() {
             Ok(s) => s,
             Err(_) => continue,
@@ -109,7 +116,12 @@ pub(super) fn extract_set_cookies(response: &Response) -> SetCookieResult {
             "[Set-Cookie] {} → {} cookie(s): [{}], session_expires_at: {:?}",
             url,
             result.cookies.len(),
-            result.cookies.keys().cloned().collect::<Vec<_>>().join(", "),
+            result
+                .cookies
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", "),
             result.session_expires_at,
         );
     } else {
@@ -124,7 +136,10 @@ fn parse_cookie_expiration(attrs: &str) -> Option<DateTime<Utc>> {
     for attr in attrs.split(';') {
         let attr = attr.trim();
 
-        if let Some(val) = attr.strip_prefix("Expires=").or_else(|| attr.strip_prefix("expires=")) {
+        if let Some(val) = attr
+            .strip_prefix("Expires=")
+            .or_else(|| attr.strip_prefix("expires="))
+        {
             // RFC 2822 / RFC 1123 format: "Thu, 01 Jan 2026 00:00:00 GMT"
             if let Ok(dt) = DateTime::parse_from_rfc2822(val.trim()) {
                 return Some(dt.with_timezone(&Utc));
@@ -137,8 +152,9 @@ fn parse_cookie_expiration(attrs: &str) -> Option<DateTime<Utc>> {
             }
         }
 
-        if let Some(val) =
-            attr.strip_prefix("Max-Age=").or_else(|| attr.strip_prefix("max-age="))
+        if let Some(val) = attr
+            .strip_prefix("Max-Age=")
+            .or_else(|| attr.strip_prefix("max-age="))
         {
             if let Ok(seconds) = val.trim().parse::<i64>() {
                 return Some(Utc::now() + Duration::seconds(seconds));

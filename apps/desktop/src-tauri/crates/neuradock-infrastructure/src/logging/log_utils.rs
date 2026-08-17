@@ -26,25 +26,46 @@ pub fn mask_sensitive(value: &str) -> String {
         return String::new();
     }
 
-    let len = value.len();
+    // Count characters, not bytes: a non-ASCII secret (or any multi-byte text
+    // that reaches this function) would otherwise be sliced mid-codepoint and
+    // panic.
+    let len = value.chars().count();
 
     // For very short strings (< 6 chars), show nothing
     if len < 6 {
         return "***".to_string();
     }
 
-    // For short strings (6-10 chars), show first 3 and last 2
-    if len <= 10 {
-        return format!("{}***{}", &value[..3], &value[len - 2..]);
-    }
+    let (head, tail) = if len <= 10 {
+        (3, 2)
+    } else if len <= 20 {
+        (4, 3)
+    } else {
+        (5, 4)
+    };
 
-    // For medium strings (11-20 chars), show first 4 and last 3
-    if len <= 20 {
-        return format!("{}***{}", &value[..4], &value[len - 3..]);
-    }
+    let prefix: String = value.chars().take(head).collect();
+    let suffix: String = value
+        .chars()
+        .skip(len.saturating_sub(tail))
+        .collect::<String>();
+    format!("{prefix}***{suffix}")
+}
 
-    // For long strings (> 20 chars), show first 5 and last 4
-    format!("{}***{}", &value[..5], &value[len - 4..])
+/// Truncate `value` to at most `max_chars` characters for inclusion in a log
+/// line or error message.
+///
+/// Response bodies were previously cut with `&body[..body.len().min(N)]`, which
+/// indexes by **bytes**. Any provider returning a non-ASCII body -- a Chinese
+/// error page, for instance -- lands mid-codepoint and panics. Because these
+/// sites sit inside Tauri command futures, the panic never surfaces as an
+/// error: the IPC promise simply never resolves and the UI hangs until the app
+/// is restarted.
+pub fn truncate_for_log(value: &str, max_chars: usize) -> &str {
+    match value.char_indices().nth(max_chars) {
+        Some((byte_idx, _)) => &value[..byte_idx],
+        None => value,
+    }
 }
 
 /// Masks sensitive cookie values for logging
@@ -83,19 +104,26 @@ pub fn mask_api_key(api_key: &str) -> String {
         return String::new();
     }
 
+    // Keep the last 4 *characters*. Byte indexing would panic if a key ever
+    // contains non-ASCII (a mistyped or pasted value reaching a log line).
+    let last4 = |value: &str| -> String {
+        let len = value.chars().count();
+        value.chars().skip(len.saturating_sub(4)).collect()
+    };
+
     // Handle OpenAI format: sk-proj-xxxxx
     if api_key.starts_with("sk-proj-") {
-        return format!("sk-proj-***{}", &api_key[api_key.len().saturating_sub(4)..]);
+        return format!("sk-proj-***{}", last4(api_key));
     }
 
     // Handle Anthropic format: sk-ant-api03-xxxxx
     if api_key.starts_with("sk-ant-") {
-        return format!("sk-ant-***{}", &api_key[api_key.len().saturating_sub(4)..]);
+        return format!("sk-ant-***{}", last4(api_key));
     }
 
     // Handle generic sk- format
     if api_key.starts_with("sk-") {
-        return format!("sk-***{}", &api_key[api_key.len().saturating_sub(4)..]);
+        return format!("sk-***{}", last4(api_key));
     }
 
     // Fall back to generic masking
@@ -113,6 +141,41 @@ pub fn count_only<T>(items: &[T], item_type: &str) -> String {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    /// The exact shape that used to panic: a Chinese error page truncated at a
+    /// byte offset that lands inside a multi-byte character.
+    #[test]
+    fn truncate_for_log_does_not_split_multibyte_characters() {
+        let body = "系统繁忙，请稍后再试。当前请求已被风控拦截。";
+
+        for n in 0..=body.chars().count() + 5 {
+            let out = truncate_for_log(body, n);
+            assert!(body.starts_with(out), "truncation must be a prefix (n={n})");
+            assert!(out.chars().count() <= n.min(body.chars().count()));
+        }
+    }
+
+    #[test]
+    fn truncate_for_log_returns_whole_string_when_shorter() {
+        assert_eq!(truncate_for_log("short", 100), "short");
+        assert_eq!(truncate_for_log("", 10), "");
+    }
+
+    #[test]
+    fn truncate_for_log_cuts_at_character_count() {
+        assert_eq!(truncate_for_log("abcdef", 3), "abc");
+        // 3 characters, not 3 bytes.
+        assert_eq!(truncate_for_log("中文字符", 3), "中文字");
+    }
+
+    #[test]
+    fn mask_sensitive_handles_non_ascii_without_panicking() {
+        // Previously sliced by byte index and panicked mid-codepoint.
+        let masked = mask_sensitive("密钥密钥密钥密钥密钥密钥");
+        assert!(masked.contains("***"));
+        let short = mask_sensitive("密钥密");
+        assert_eq!(short, "***");
+    }
 
     #[test]
     fn test_mask_sensitive_short() {

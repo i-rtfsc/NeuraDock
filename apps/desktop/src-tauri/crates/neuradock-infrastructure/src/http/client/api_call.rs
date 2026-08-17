@@ -68,7 +68,7 @@ impl super::HttpClient {
             log::warn!("WAF challenge detected in API endpoint response");
             anyhow::bail!(
                 "WAF_CHALLENGE: {}",
-                &response_text[..response_text.len().min(500)]
+                crate::logging::log_utils::truncate_for_log(&response_text, 500)
             );
         }
 
@@ -76,7 +76,7 @@ impl super::HttpClient {
             log::warn!(
                 "API endpoint returned non-success status {}: {}",
                 status,
-                &response_text[..response_text.len().min(200)]
+                crate::logging::log_utils::truncate_for_log(&response_text, 200)
             );
             // Don't fail, just log warning
         }

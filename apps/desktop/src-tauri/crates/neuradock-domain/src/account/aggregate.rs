@@ -25,6 +25,14 @@ pub struct Account {
     current_balance: Option<f64>,
     total_consumed: Option<f64>,
     total_quota: Option<f64>,
+    /// Correction applied to the derived `total_quota`.
+    ///
+    /// `total_quota` is derived as current + consumed, so any amount the
+    /// provider loses from its own books (debited from the balance but never
+    /// recorded as consumption) is missing from the derived total, and every
+    /// later snapshot inherits it. This offsets that drift at the point of
+    /// derivation so historical and future readings agree.
+    quota_adjustment: f64,
 }
 
 impl Account {
@@ -49,6 +57,7 @@ impl Account {
         }
 
         Ok(Self {
+            quota_adjustment: 0.0,
             id: AccountId::new(),
             name: name.trim().to_string(),
             provider_id,
@@ -78,6 +87,7 @@ impl Account {
         credentials: Credentials,
     ) -> AccountBuilder {
         AccountBuilder {
+            quota_adjustment: 0.0,
             id,
             name,
             provider_id,
@@ -235,6 +245,22 @@ impl Account {
         self.total_quota
     }
 
+    pub fn quota_adjustment(&self) -> f64 {
+        self.quota_adjustment
+    }
+
+    pub fn set_quota_adjustment(&mut self, adjustment: f64) {
+        self.quota_adjustment = adjustment;
+    }
+
+    /// Apply this account's correction to a freshly derived lifetime total.
+    ///
+    /// Rounded to cents so repeated application can't accumulate binary
+    /// floating-point residue into a visible discrepancy.
+    pub fn adjusted_total_quota(&self, derived_total_quota: f64) -> f64 {
+        ((derived_total_quota + self.quota_adjustment) * 100.0).round() / 100.0
+    }
+
     pub fn update_session(&mut self, token: String, expires_at: DateTime<Utc>) {
         self.session_token = Some(token);
         self.session_expires_at = Some(expires_at);
@@ -298,6 +324,7 @@ pub struct AccountBuilder {
     current_balance: Option<f64>,
     total_consumed: Option<f64>,
     total_quota: Option<f64>,
+    quota_adjustment: f64,
 }
 
 impl AccountBuilder {
@@ -366,6 +393,11 @@ impl AccountBuilder {
         self
     }
 
+    pub fn quota_adjustment(mut self, adjustment: f64) -> Self {
+        self.quota_adjustment = adjustment;
+        self
+    }
+
     pub fn total_quota(mut self, income: Option<f64>) -> Self {
         self.total_quota = income;
         self
@@ -373,6 +405,7 @@ impl AccountBuilder {
 
     pub fn build(self) -> Account {
         Account {
+            quota_adjustment: self.quota_adjustment,
             id: self.id,
             name: self.name,
             provider_id: self.provider_id,

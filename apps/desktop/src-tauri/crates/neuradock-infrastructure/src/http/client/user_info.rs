@@ -98,7 +98,7 @@ impl super::HttpClient {
             log::error!(
                 "User info request failed with status {}: {}",
                 status,
-                &error_text[..error_text.len().min(500)]
+                crate::logging::log_utils::truncate_for_log(&error_text, 500)
             );
 
             // Try to extract message from JSON response
@@ -113,7 +113,7 @@ impl super::HttpClient {
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
                 anyhow::bail!(
                     "WAF_CHALLENGE: {}",
-                    &error_text[..error_text.len().min(500)]
+                    crate::logging::log_utils::truncate_for_log(&error_text, 500)
                 );
             }
             anyhow::bail!("{}", error_message);
@@ -134,24 +134,25 @@ impl super::HttpClient {
         {
             log::warn!(
                 "Received WAF challenge page instead of JSON: {}",
-                &response_text[..response_text.len().min(200)]
+                crate::logging::log_utils::truncate_for_log(&response_text, 200)
             );
             anyhow::bail!(
                 "WAF_CHALLENGE: Received HTML instead of JSON - {}",
-                &response_text[..response_text.len().min(500)]
+                crate::logging::log_utils::truncate_for_log(&response_text, 500)
             );
         }
 
         let data: serde_json::Value = serde_json::from_str(&response_text).context(format!(
             "Failed to parse user info response: {}",
-            &response_text[..response_text.len().min(200)]
+            crate::logging::log_utils::truncate_for_log(&response_text, 200)
         ))?;
 
-        // Debug: Log the full response to understand structure
-        log::info!(
-            "User info API response: {}",
-            serde_json::to_string_pretty(&data)
-                .unwrap_or_else(|_| "failed to serialize".to_string())
+        // Body is not logged: `/api/user/self` returns the account's email,
+        // username and access_token alongside the quota fields. This ran at
+        // info! level, so it landed in the log file on every refresh.
+        log::debug!(
+            "User info API response received ({} top-level keys)",
+            data.as_object().map(|o| o.len()).unwrap_or(0)
         );
 
         // Check if response has expected structure
@@ -159,7 +160,7 @@ impl super::HttpClient {
             anyhow::bail!("API response missing 'data' field: {}", data);
         }
 
-        // Parse quota and used_quota (convert from bytes to dollars, 500000 bytes = $1)
+        // Parse quota and used_quota (convert raw quota units to dollars, 500000 units = $1)
         let quota_bytes = data["data"]["quota"]
             .as_f64()
             .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'quota' field in API response"))?;
@@ -167,17 +168,136 @@ impl super::HttpClient {
             anyhow::anyhow!("Missing or invalid 'used_quota' field in API response")
         })?;
 
-        let current_balance = (quota_bytes / 500000.0 * 100.0).round() / 100.0;
-        let total_consumed = (used_quota_bytes / 500000.0 * 100.0).round() / 100.0;
-        let total_quota = current_balance + total_consumed;
-
+        let (current_balance, total_consumed, total_quota) =
+            normalize_quota(quota_bytes, used_quota_bytes);
         // NOTE: Upstream's HTTP payload still calls `quota`, `used_quota`, and `total_income`.
         // We normalize semantics right here so the rest of the app only deals with
         // `current_balance`, `total_consumed`, and `total_quota` to avoid confusion.
-        Ok((UserInfo {
-            current_balance,
-            total_consumed,
-            total_quota,
-        }, set_cookie_result))
+        Ok((
+            UserInfo {
+                current_balance,
+                total_consumed,
+                total_quota,
+            },
+            set_cookie_result,
+        ))
+    }
+}
+
+/// Raw quota units per dollar, as used by new-api / one-api style providers.
+const QUOTA_UNITS_PER_DOLLAR: f64 = 500000.0;
+
+fn round_cents(dollars: f64) -> f64 {
+    (dollars * 100.0).round() / 100.0
+}
+
+/// Convert raw provider quota units into `(current_balance, total_consumed, total_quota)` dollars.
+///
+/// `total_quota` is derived from the RAW unit sum rather than by adding the two
+/// already-rounded dollar values, so sub-cent remainders that would otherwise be
+/// discarded twice are preserved. This bounds the derivation error at one cent.
+///
+/// Note this only addresses rounding performed *here*. If the provider's own
+/// quota accounting loses value (as happened for one AnyRouter account on
+/// 2026-07-11, where a check-in credited 24.98 instead of 25.00), no local
+/// derivation can recover it — the shortfall arrives already baked into the
+/// raw units. Such drift is persisted and inherited by every later snapshot,
+/// so it must be corrected in the stored history.
+fn normalize_quota(quota_units: f64, used_quota_units: f64) -> (f64, f64, f64) {
+    let current_balance = round_cents(quota_units / QUOTA_UNITS_PER_DOLLAR);
+    let total_consumed = round_cents(used_quota_units / QUOTA_UNITS_PER_DOLLAR);
+    let total_quota = round_cents((quota_units + used_quota_units) / QUOTA_UNITS_PER_DOLLAR);
+    (current_balance, total_consumed, total_quota)
+}
+
+#[cfg(test)]
+mod quota_tests {
+    use super::normalize_quota;
+
+    const D: f64 = 500000.0;
+
+    #[test]
+    fn total_quota_differs_from_naive_sum_when_sub_cent_remainders_accumulate() {
+        // Both operands carry a sub-cent remainder that individually rounds DOWN,
+        // but together exceeds half a cent. The naive `current + consumed`
+        // derivation loses that cent; deriving from the raw unit sum keeps it.
+        let quota = 1000.004 * D;
+        let used = 2000.004 * D;
+
+        let (current, consumed, total) = normalize_quota(quota, used);
+
+        assert!((current - 1000.0).abs() < 1e-9);
+        assert!((consumed - 2000.0).abs() < 1e-9);
+        assert!(
+            (current + consumed - 3000.00).abs() < 1e-9,
+            "naive sum: {}",
+            current + consumed
+        );
+        assert!((total - 3000.01).abs() < 1e-9, "total_quota: {}", total);
+    }
+
+    #[test]
+    fn a_two_cent_upstream_discrepancy_is_not_recoverable_by_rounding() {
+        // Documents the limit of this fix, so it is not mistaken for a cure for
+        // the AnyRouter 2026-07-11 incident. That day the persisted snapshot was
+        // current=4522.10 / consumed=4347.88 and total_quota came out 0.02 below
+        // the expected whole-dollar step (24.98 instead of 25.00).
+        //
+        // Two independent cent-roundings can only ever shift the sum by <=0.01,
+        // so no derivation over these operands can reach 8870.00. The missing
+        // 0.02 was lost in the provider's own unit accounting, not here.
+        for (q, u) in [
+            (4522.095, 4347.875),
+            (4522.100, 4347.880),
+            (4522.1049, 4347.8849),
+        ] {
+            let (current, consumed, total) = normalize_quota(q * D, u * D);
+            assert!((current - 4522.10).abs() < 1e-9, "current: {}", current);
+            assert!((consumed - 4347.88).abs() < 1e-9, "consumed: {}", consumed);
+            assert!(
+                total < 8870.0,
+                "rounding must not be credited with recovering the lost 0.02: {}",
+                total
+            );
+        }
+    }
+
+    #[test]
+    fn exact_values_are_preserved() {
+        let (current, consumed, total) = normalize_quota(4497.22 * D, 4347.78 * D);
+        assert!((current - 4497.22).abs() < 1e-9);
+        assert!((consumed - 4347.78).abs() < 1e-9);
+        assert!((total - 8845.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn zero_quota_yields_zeros() {
+        assert_eq!(normalize_quota(0.0, 0.0), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn total_quota_never_deviates_from_naive_sum_by_more_than_a_cent() {
+        // Sweep sub-cent offsets on both operands; the two derivations must
+        // agree to within one cent, and total_quota must always be cent-exact.
+        for i in 0..100 {
+            for j in 0..100 {
+                let quota = (1000.0 + i as f64 * 0.001) * D;
+                let used = (2000.0 + j as f64 * 0.001) * D;
+                let (current, consumed, total) = normalize_quota(quota, used);
+                assert!(
+                    (total - (current + consumed)).abs() <= 0.01 + 1e-9,
+                    "i={} j={} total={} naive={}",
+                    i,
+                    j,
+                    total,
+                    current + consumed
+                );
+                assert!(
+                    (total * 100.0 - (total * 100.0).round()).abs() < 1e-6,
+                    "total_quota not cent-exact: {}",
+                    total
+                );
+            }
+        }
     }
 }

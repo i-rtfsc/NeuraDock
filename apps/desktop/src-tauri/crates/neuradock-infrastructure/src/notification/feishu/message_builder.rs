@@ -51,9 +51,17 @@ impl super::FeishuWebhookSender {
         // Build card elements
         let mut elements = vec![];
 
-        // Add header with account and provider info
+        // Add header with account, provider, and time info.
+        // Lines that start with a known emoji prefix are identification,
+        // not balance data.
         for line in lines.iter() {
-            if line.starts_with("账户:") || line.starts_with("服务商:") {
+            let trimmed = line.trim();
+            if trimmed.starts_with("⏰")
+                || trimmed.starts_with("账户")
+                || trimmed.starts_with("Account")
+                || trimmed.starts_with("服务商")
+                || trimmed.starts_with("Provider")
+            {
                 elements.push(json!({
                     "tag": "div",
                     "text": {
@@ -74,7 +82,14 @@ impl super::FeishuWebhookSender {
         for line in lines.iter() {
             let trimmed = line.trim();
 
-            if trimmed.starts_with("📅") {
+            if trimmed.starts_with("⏰") {
+                // Already emitted by the header loop above. Skipping here is
+                // what makes the time line appear at all: it matches none of
+                // the section branches, so it used to fall through to the
+                // catch-all and get swallowed into whichever balance section
+                // happened to be open -- or dropped entirely when none was.
+                continue;
+            } else if trimmed.starts_with("📅") {
                 // Start new section
                 if !current_section.is_empty() {
                     elements.push(json!({

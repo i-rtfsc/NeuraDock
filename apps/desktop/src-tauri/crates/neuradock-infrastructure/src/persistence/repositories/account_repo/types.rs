@@ -28,6 +28,7 @@ pub(super) struct AccountRow {
     pub current_balance: Option<f64>,
     pub total_consumed: Option<f64>,
     pub total_quota: Option<f64>,
+    pub quota_adjustment: f64,
 }
 
 impl AccountRow {
@@ -77,6 +78,7 @@ impl AccountRow {
         .current_balance(self.current_balance)
         .total_consumed(self.total_consumed)
         .total_quota(self.total_quota)
+        .quota_adjustment(self.quota_adjustment)
         .build())
     }
 }

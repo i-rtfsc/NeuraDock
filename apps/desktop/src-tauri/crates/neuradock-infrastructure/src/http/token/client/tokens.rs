@@ -49,7 +49,10 @@ impl super::TokenClient {
 
         // Read response text first for debugging
         let response_text = response.text().await?;
-        log::debug!("Response body: {}", response_text);
+        // NEVER log this body: every item carries `TokenData.key`, the live
+        // provider API key. Length alone is enough to spot a truncated or
+        // empty response.
+        log::debug!("Response body: {} bytes", response_text.len());
 
         // Check if response is WAF challenge page
         if response_text.contains("<html>") && response_text.contains("acw_sc__v2") {
@@ -59,8 +62,16 @@ impl super::TokenClient {
 
         // Parse JSON
         let token_response: TokenResponse = serde_json::from_str(&response_text).map_err(|e| {
-            log::error!("Failed to parse JSON: {}", e);
-            log::error!("Response text was: {}", response_text);
+            // The serde error already carries line/column, which is what
+            // actually diagnoses a schema change. Echoing the body here used to
+            // dump every account's API key into the log at error! level --
+            // enabled by default, and routinely pasted into bug reports.
+            log::error!(
+                "Failed to parse token list JSON at line {} column {} ({} bytes received)",
+                e.line(),
+                e.column(),
+                response_text.len()
+            );
             anyhow::anyhow!("Failed to parse response: {}", e)
         })?;
 

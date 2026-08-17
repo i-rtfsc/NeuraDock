@@ -1,0 +1,17 @@
+-- Per-account correction for upstream quota accounting drift.
+--
+-- `total_quota` (lifetime granted) is derived as current + consumed. When a
+-- provider's own books don't balance -- e.g. AnyRouter on 2026-07-11 debited
+-- 0.12 from the balance but only recorded 0.10 as consumed -- the missing
+-- amount is neither in the balance nor in consumption, so the derived total
+-- lands below the true lifetime grant. Every later snapshot inherits it,
+-- because each one is derived the same way.
+--
+-- Patching stored history cannot fix this: balances and the current day's
+-- balance_history row are recomputed from raw upstream values on every
+-- refresh, so a patched row is overwritten and a permanent discontinuity
+-- appears at the boundary between patched and unpatched rows.
+--
+-- This column corrects the value where it is derived, so past and future
+-- readings agree.
+ALTER TABLE accounts ADD COLUMN quota_adjustment REAL NOT NULL DEFAULT 0;

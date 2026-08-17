@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::shared::{DomainError, ProviderId};
+    use crate::shared::{AccountId, DomainError, ProviderId};
     use chrono::Utc;
     use std::collections::HashMap;
 
@@ -387,5 +387,78 @@ mod tests {
         let result = account.update_credentials(invalid_credentials);
 
         assert!(result.is_err());
+    }
+
+    /// Regression for the AnyRouter drift: the provider debited 0.12 from the
+    /// balance but recorded only 0.10 as consumed, so the derived lifetime
+    /// total came out 0.02 short and every later snapshot inherited it.
+    #[test]
+    fn quota_adjustment_offsets_provider_side_drift() {
+        let account = Account::builder(
+            AccountId::new(),
+            "drifted".to_string(),
+            ProviderId::new(),
+            create_test_credentials(),
+        )
+        .quota_adjustment(0.02)
+        .build();
+
+        assert_eq!(account.quota_adjustment(), 0.02);
+        // 9569.98 is what deriving current + consumed yields; the true
+        // lifetime grant is a whole 9570.00.
+        assert!((account.adjusted_total_quota(9569.98) - 9570.00).abs() < 1e-9);
+    }
+
+    /// Applying the correction repeatedly must not accumulate binary
+    /// floating-point residue into a visible discrepancy.
+    #[test]
+    fn quota_adjustment_stays_cent_exact_across_many_applications() {
+        let account = Account::builder(
+            AccountId::new(),
+            "drifted".to_string(),
+            ProviderId::new(),
+            create_test_credentials(),
+        )
+        .quota_adjustment(0.02)
+        .build();
+
+        let mut total = 9570.00;
+        for _ in 0..500 {
+            total = account.adjusted_total_quota(total + 25.0) - 0.02;
+        }
+        assert!(
+            (total * 100.0 - (total * 100.0).round()).abs() < 1e-6,
+            "value drifted off cent precision: {total}"
+        );
+    }
+
+    /// The overwhelming majority of accounts have no drift, and must be
+    /// completely unaffected.
+    #[test]
+    fn accounts_without_drift_are_untouched() {
+        let account = Account::builder(
+            AccountId::new(),
+            "clean".to_string(),
+            ProviderId::new(),
+            create_test_credentials(),
+        )
+        .build();
+
+        assert_eq!(account.quota_adjustment(), 0.0);
+        assert!((account.adjusted_total_quota(1234.56) - 1234.56).abs() < 1e-9);
+    }
+
+    #[test]
+    fn quota_adjustment_can_be_negative() {
+        let mut account = Account::builder(
+            AccountId::new(),
+            "over".to_string(),
+            ProviderId::new(),
+            create_test_credentials(),
+        )
+        .build();
+
+        account.set_quota_adjustment(-0.05);
+        assert!((account.adjusted_total_quota(100.00) - 99.95).abs() < 1e-9);
     }
 }

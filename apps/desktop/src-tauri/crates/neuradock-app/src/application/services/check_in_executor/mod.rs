@@ -7,6 +7,7 @@ use neuradock_domain::waf_cookies::WafCookiesRepository;
 use neuradock_domain::{account::AccountRepository, check_in::Provider, shared::AccountId};
 use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult, UserInfo};
 
+use crate::application::services::balance_history_service::BalanceHistoryService;
 use crate::application::services::user_info_service::UserInfoService;
 use crate::application::services::waf_cookie_manager::WafCookieManager;
 
@@ -23,13 +24,25 @@ pub struct CheckInExecutor {
     http_client: HttpClient,
     waf_manager: WafCookieManager,
     account_repo: Arc<dyn AccountRepository>,
+    /// Records the check-in event itself.
+    ///
+    /// Recording used to live only in `ExecuteCheckInCommandHandler`, so the
+    /// scheduler -- which drives this executor directly -- never wrote
+    /// `last_check_in` or a `balance_history` row. Since streaks, the calendar
+    /// and the trend chart are all derived from `balance_history`, a user who
+    /// relied purely on automation saw an app that looked like it had never
+    /// run. Owning it here means every caller records, not just the one that
+    /// remembered to.
+    balance_history_service: Option<Arc<BalanceHistoryService>>,
 }
 
 impl CheckInExecutor {
-    pub fn new(account_repo: Arc<dyn AccountRepository>, headless_browser: bool) -> Result<Self> {
-        Self::with_proxy(account_repo, headless_browser, None)
-    }
-
+    /// Build an executor.
+    ///
+    /// `proxy_url` is mandatory (pass `None` only when the user genuinely has
+    /// no proxy configured). There was previously a `new()` shorthand that
+    /// defaulted to no proxy, and the scheduler's use of it is what silently
+    /// exempted every unattended check-in from the user's proxy settings.
     pub fn with_proxy(
         account_repo: Arc<dyn AccountRepository>,
         headless_browser: bool,
@@ -42,12 +55,19 @@ impl CheckInExecutor {
             http_client,
             waf_manager,
             account_repo,
+            balance_history_service: None,
         })
     }
 
     /// Set WAF cookies repository for caching
     pub fn with_waf_cookies_repo(mut self, repo: Arc<dyn WafCookiesRepository>) -> Self {
         self.waf_manager = self.waf_manager.with_cookies_repo(repo);
+        self
+    }
+
+    /// Persist check-in history for every check-in this executor performs.
+    pub fn with_balance_history(mut self, service: Arc<BalanceHistoryService>) -> Self {
+        self.balance_history_service = Some(service);
         self
     }
 
@@ -98,17 +118,16 @@ impl CheckInExecutor {
 
         // 5. Fetch updated balance after successful check-in
         let user_info_service = self.create_user_info_service();
-        let (final_user_info, balance_set_cookies) =
-            balance::fetch_updated_balance_after_check_in(
-                &user_info_service,
-                &account,
-                provider,
-                &account_name,
-                &cookies,
-                &check_in_result,
-                user_info,
-            )
-            .await;
+        let (final_user_info, balance_set_cookies) = balance::fetch_updated_balance_after_check_in(
+            &user_info_service,
+            &account,
+            provider,
+            &account_name,
+            &cookies,
+            &check_in_result,
+            user_info,
+        )
+        .await;
         all_set_cookies.cookies.extend(balance_set_cookies.cookies);
         if balance_set_cookies.session_expires_at.is_some() {
             all_set_cookies.session_expires_at = balance_set_cookies.session_expires_at;
@@ -120,12 +139,56 @@ impl CheckInExecutor {
                 .await;
         }
 
+        // 7. Record the check-in itself. Done here rather than in the command
+        //    handler so the scheduler -- which calls this executor directly --
+        //    also gets recorded. Without this, automated check-ins left
+        //    `last_check_in` unset, which both hid them from the UI and
+        //    permanently disabled the interval guard (it reads that field), so
+        //    the same account could be checked in repeatedly.
+        if check_in_result.success {
+            self.record_check_in(&mut account, &account_name, final_user_info.as_ref())
+                .await;
+        }
+
         Ok(AccountCheckInResult {
             account_name,
             success: check_in_result.success,
             message: check_in_result.message,
             user_info: final_user_info,
         })
+    }
+
+    /// Stamp the check-in on the account and append a history row.
+    ///
+    /// Best-effort: a bookkeeping failure must not turn a check-in that the
+    /// provider already accepted into a reported failure, so errors are logged
+    /// rather than propagated.
+    async fn record_check_in(
+        &self,
+        account: &mut neuradock_domain::account::Account,
+        account_name: &str,
+        user_info: Option<&UserInfo>,
+    ) {
+        account.record_check_in();
+        if let Err(e) = self.account_repo.save(account).await {
+            log::error!("[{}] Failed to record check-in time: {}", account_name, e);
+        }
+
+        let (Some(service), Some(user_info)) = (&self.balance_history_service, user_info) else {
+            return;
+        };
+
+        let balance = crate::application::dtos::BalanceDto {
+            current_balance: user_info.current_balance,
+            total_consumed: user_info.total_consumed,
+            total_quota: user_info.total_quota,
+        };
+        if let Err(e) = service
+            .save_balance_history(account.id().as_str(), &balance)
+            .await
+        {
+            log::error!("[{}] Failed to save balance history: {}", account_name, e);
+        }
     }
 
     /// Fetch balance only (without triggering check-in)
@@ -184,7 +247,11 @@ impl CheckInExecutor {
         account: &neuradock_domain::account::Account,
         provider: &Provider,
         account_name: &str,
-    ) -> Result<(std::collections::HashMap<String, String>, Option<UserInfo>, SetCookieResult)> {
+    ) -> Result<(
+        std::collections::HashMap<String, String>,
+        Option<UserInfo>,
+        SetCookieResult,
+    )> {
         let user_info_service = self.create_user_info_service();
         let api_user = account.credentials().api_user();
 
@@ -322,13 +389,7 @@ impl CheckInExecutor {
                 .cookies
                 .get("session")
                 .cloned()
-                .or_else(|| {
-                    account
-                        .credentials()
-                        .cookies()
-                        .get("session")
-                        .cloned()
-                })
+                .or_else(|| account.credentials().cookies().get("session").cloned())
                 .unwrap_or_default();
             account.update_session(session_token, expires_at);
             log::info!(

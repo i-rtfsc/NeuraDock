@@ -7,7 +7,6 @@
 ///
 /// Uses rquest with Chrome124 emulation to obtain the `oai-client-auth-session`
 /// cookie that encodes the workspace_id — this requires Chrome TLS fingerprinting.
-
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -96,7 +95,10 @@ fn random_user_info() -> (String, String) {
     let year = rand::thread_rng().gen_range(1979u32..2002);
     let month = rand::thread_rng().gen_range(1u32..=12);
     let day = rand::thread_rng().gen_range(1u32..=28);
-    (name.to_string(), format!("{}-{:02}-{:02}", year, month, day))
+    (
+        name.to_string(),
+        format!("{}-{:02}-{:02}", year, month, day),
+    )
 }
 
 // ─── JWT helpers ──────────────────────────────────────────────────────────────
@@ -129,7 +131,14 @@ fn extract_account_id(claims: &Value) -> String {
 /// rquest does not reuse the application's higher-level proxy handling here,
 /// so we detect and pass the proxy explicitly.
 fn detect_env_proxy() -> Option<String> {
-    for key in &["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for key in &[
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         if let Ok(v) = std::env::var(key) {
             let v = v.trim().to_string();
             if !v.is_empty() {
@@ -144,9 +153,7 @@ fn build_clients(proxy_url: Option<&str>) -> Result<(rquest::Client, rquest::Cli
     let jar = Arc::new(Jar::default());
 
     // Resolve effective proxy: explicit > env var auto-detect
-    let effective_proxy = proxy_url
-        .map(|s| s.to_string())
-        .or_else(detect_env_proxy);
+    let effective_proxy = proxy_url.map(|s| s.to_string()).or_else(detect_env_proxy);
 
     let mut follow_b = rquest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(15))
@@ -223,7 +230,7 @@ fn extract_code_from_url(callback_url: &str) -> Result<String> {
     }
     bail!(
         "callback URL 中未找到 code 参数: {}",
-        &callback_url[..callback_url.len().min(200)]
+        crate::logging::log_utils::truncate_for_log(&callback_url, 200)
     )
 }
 
@@ -297,7 +304,11 @@ async fn get_sentinel(follow: &rquest::Client, device_id: &str) -> String {
 }
 
 fn merge_cookie_headers(jar: &Arc<Jar>) -> Option<String> {
-    let bases = [AUTH_OPENAI_BASE, "https://openai.com/", "https://chatgpt.com/"];
+    let bases = [
+        AUTH_OPENAI_BASE,
+        "https://openai.com/",
+        "https://chatgpt.com/",
+    ];
     let mut seen = HashSet::new();
     let mut pairs = Vec::new();
 
@@ -360,7 +371,11 @@ async fn validate_otp(follow: &rquest::Client, otp_code: &str) -> Result<Option<
     if !resp.status().is_success() {
         let st = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        bail!("OTP 验证失败 HTTP {} — {}", st, &body[..body.len().min(400)]);
+        bail!(
+            "OTP 验证失败 HTTP {} — {}",
+            st,
+            crate::logging::log_utils::truncate_for_log(&body, 400)
+        );
     }
 
     let j: Value = resp.json().await.unwrap_or_default();
@@ -398,7 +413,7 @@ async fn select_workspace(
         bail!(
             "Workspace 选择失败 HTTP {} — {}",
             st,
-            &body_txt[..body_txt.len().min(400)]
+            crate::logging::log_utils::truncate_for_log(&body_txt, 400)
         );
     }
 
@@ -496,7 +511,10 @@ fn extract_workspace_id_from_url(url: &str) -> Option<String> {
     for param in query.split('&') {
         let mut kv = param.splitn(2, '=');
         let key = kv.next().unwrap_or("");
-        if matches!(key, "workspace_id" | "workspaceId" | "default_workspace_id" | "active_workspace_id") {
+        if matches!(
+            key,
+            "workspace_id" | "workspaceId" | "default_workspace_id" | "active_workspace_id"
+        ) {
             if let Some(val) = kv.next() {
                 let decoded = urlencoding::decode(val)
                     .map(|s| s.into_owned())
@@ -626,9 +644,12 @@ fn extract_workspace_id_from_json(v: &Value, depth: u8) -> Option<String> {
             }
             // Direct keys
             for key in &[
-                "workspace_id", "workspaceId",
-                "default_workspace_id", "defaultWorkspaceId",
-                "active_workspace_id", "activeWorkspaceId",
+                "workspace_id",
+                "workspaceId",
+                "default_workspace_id",
+                "defaultWorkspaceId",
+                "active_workspace_id",
+                "activeWorkspaceId",
             ] {
                 if let Some(id) = map.get(*key).and_then(|i| i.as_str()) {
                     let id = id.trim().to_string();
@@ -638,7 +659,13 @@ fn extract_workspace_id_from_json(v: &Value, depth: u8) -> Option<String> {
                 }
             }
             // Nested workspace objects
-            for key in &["workspace", "default_workspace", "active_workspace", "defaultWorkspace", "activeWorkspace"] {
+            for key in &[
+                "workspace",
+                "default_workspace",
+                "active_workspace",
+                "defaultWorkspace",
+                "activeWorkspace",
+            ] {
                 if let Some(obj) = map.get(*key) {
                     if let Some(id) = obj.get("id").and_then(|i| i.as_str()) {
                         let id = id.trim().to_string();
@@ -836,16 +863,21 @@ where
     let consent_html = consent_resp.text().await.unwrap_or_default();
 
     // Extract workspace_id — mirror codex-manager: HTML/URL first, then cookie retries.
-    let workspace_id =
-        resolve_workspace_id_with_cookie_retry(&consent_html, &consent_final_url, None, jar, progress)
-            .await
-            .map_err(|_| {
-                anyhow!(
-                    "未能从 consent 页面提取 workspace_id (URL={}, html_len={})",
-                    &consent_final_url[..consent_final_url.len().min(120)],
-                    consent_html.len()
-                )
-            })?;
+    let workspace_id = resolve_workspace_id_with_cookie_retry(
+        &consent_html,
+        &consent_final_url,
+        None,
+        jar,
+        progress,
+    )
+    .await
+    .map_err(|_| {
+        anyhow!(
+            "未能从 consent 页面提取 workspace_id (URL={}, html_len={})",
+            crate::logging::log_utils::truncate_for_log(&consent_final_url, 120),
+            consent_html.len()
+        )
+    })?;
 
     progress("  ✅ 已识别工作空间");
 
@@ -917,7 +949,11 @@ where
     if !signup_resp.status().is_success() {
         let st = signup_resp.status();
         let body = signup_resp.text().await.unwrap_or_default();
-        bail!("注册表单失败 HTTP {} — {}", st, &body[..body.len().min(400)]);
+        bail!(
+            "注册表单失败 HTTP {} — {}",
+            st,
+            crate::logging::log_utils::truncate_for_log(&body, 400)
+        );
     }
     let _signup_json: Value = signup_resp.json().await.unwrap_or_default();
 
@@ -937,7 +973,11 @@ where
     if !reg_resp.status().is_success() {
         let st = reg_resp.status();
         let body = reg_resp.text().await.unwrap_or_default();
-        bail!("密码注册失败 HTTP {} — {}", st, &body[..body.len().min(400)]);
+        bail!(
+            "密码注册失败 HTTP {} — {}",
+            st,
+            crate::logging::log_utils::truncate_for_log(&body, 400)
+        );
     }
 
     // 6. Trigger OTP send
@@ -978,7 +1018,7 @@ where
         bail!(
             "create_account 失败 HTTP {} — {}",
             st,
-            &txt[..txt.len().min(400)]
+            crate::logging::log_utils::truncate_for_log(&txt, 400)
         );
     }
     let _ = create_resp.text().await;
@@ -1027,7 +1067,11 @@ where
     if !token_resp.status().is_success() {
         let st = token_resp.status();
         let body = token_resp.text().await.unwrap_or_default();
-        bail!("Token 交换失败 HTTP {} — {}", st, &body[..body.len().min(400)]);
+        bail!(
+            "Token 交换失败 HTTP {} — {}",
+            st,
+            crate::logging::log_utils::truncate_for_log(&body, 400)
+        );
     }
 
     let tok: Value = token_resp
@@ -1081,8 +1125,7 @@ mod tests {
                 { "id": "ws-cookie" }
             ]
         });
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
         let cookie = format!("{}.signature.more", encoded);
 
         assert_eq!(
@@ -1098,8 +1141,7 @@ mod tests {
                 { "id": "ws-encoded" }
             ]
         });
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
         let cookie = format!("{}%2Esignature%2Emore", encoded);
 
         assert_eq!(
@@ -1115,8 +1157,7 @@ mod tests {
                 { "id": "ws-double-encoded" }
             ]
         });
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string());
         let cookie = format!("{}%252Esignature%252Emore", encoded);
 
         assert_eq!(

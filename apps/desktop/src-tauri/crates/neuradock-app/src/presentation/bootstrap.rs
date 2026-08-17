@@ -12,7 +12,7 @@ use crate::application::services::{
     AutoCheckInScheduler, BalanceHistoryService, BalanceService, ClaudeConfigService,
     CodexConfigService, ConfigService, LegacyMigrationService, NotificationService,
     OrphanAccountRepairService, ProviderModelsQueryService, ProviderModelsService,
-    ProxyConfigService, TokenService,
+    ProxyConfigService, ReminderSettingsService, SchedulerDeps, TokenService,
 };
 use crate::presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use neuradock_domain::account::AccountRepository;
@@ -155,8 +155,8 @@ pub async fn build_app_state(
         as Arc<dyn BalanceHistoryRepository>;
     let ai_chat_service_repo = Arc::new(SqliteAiChatServiceRepository::new(pool.clone()))
         as Arc<dyn AiChatServiceRepository>;
-    let codex_account_repo =
-        Arc::new(SqliteCodexAccountRepository::new(pool.clone())) as Arc<dyn CodexAccountRepository>;
+    let codex_account_repo = Arc::new(SqliteCodexAccountRepository::new(pool.clone()))
+        as Arc<dyn CodexAccountRepository>;
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();
@@ -238,7 +238,8 @@ pub async fn build_app_state(
         waf_cookies_repo.clone(),
         proxy_config_repo.clone(),
     ));
-    let balance_history_service = Arc::new(BalanceHistoryService::new(balance_history_repo));
+    let balance_history_service =
+        Arc::new(BalanceHistoryService::new(balance_history_repo.clone()));
     let balance_service = Arc::new(BalanceService::new(
         account_repo.clone(),
         provider_repo.clone(),
@@ -254,7 +255,14 @@ pub async fn build_app_state(
 
     info!("📊 Initializing scheduler...");
     let started_at = Instant::now();
-    let scheduler = Arc::new(AutoCheckInScheduler::new().await?);
+    let scheduler = Arc::new(
+        AutoCheckInScheduler::new(SchedulerDeps {
+            balance_history: balance_history_service.clone(),
+            proxy_config: proxy_config_repo.clone(),
+            waf_cookies: waf_cookies_repo.clone(),
+        })
+        .await?,
+    );
     info!(
         "✓ Scheduler initialized ({}ms)",
         started_at.elapsed().as_millis()
@@ -265,6 +273,27 @@ pub async fn build_app_state(
     scheduler.start().await?;
     info!(
         "✓ Scheduler started ({}ms)",
+        started_at.elapsed().as_millis()
+    );
+
+    // Reminder loop: independent from the check-in scheduler. Runs on its
+    // own timer; inspects whether each enabled account checked in today and
+    // alerts (app notification + Feishu) at the user-configured times.
+    info!("🔔 Initializing reminder loop...");
+    let started_at = Instant::now();
+    let reminder_settings_repo = Arc::new(
+        neuradock_infrastructure::persistence::repositories::reminder_settings_repo::SqliteReminderSettingsRepository::new(pool.clone()),
+    );
+    let reminder = crate::application::services::reminder::ReminderLoop::new(
+        account_repo.clone(),
+        balance_history_repo.clone(),
+        reminder_settings_repo.clone(),
+        notification_channel_repo.clone(),
+        app_handle.clone(),
+    );
+    reminder.start().await;
+    info!(
+        "✓ Reminder loop started ({}ms)",
         started_at.elapsed().as_millis()
     );
 
@@ -417,6 +446,9 @@ pub async fn build_app_state(
             config: config_service,
             balance: balance_service,
             proxy_config: Arc::new(ProxyConfigService::new(proxy_config_repo.clone())),
+            reminder_settings: Arc::new(ReminderSettingsService::new(
+                reminder_settings_repo.clone(),
+            )),
             provider_models_query,
         },
         queries: Queries {

@@ -378,7 +378,9 @@ mod tests {
         assert!(LegacyMigrationService::detect_legacy_installation(&new_dir));
 
         LegacyMigrationService::dismiss_prompt(&new_dir).unwrap();
-        assert!(!LegacyMigrationService::detect_legacy_installation(&new_dir));
+        assert!(!LegacyMigrationService::detect_legacy_installation(
+            &new_dir
+        ));
 
         // Wiping the app data directory resets the prompt.
         std::fs::remove_dir_all(&new_dir).unwrap();

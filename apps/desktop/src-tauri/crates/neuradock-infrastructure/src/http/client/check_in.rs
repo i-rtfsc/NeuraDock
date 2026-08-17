@@ -121,7 +121,7 @@ impl super::HttpClient {
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
                 anyhow::bail!(
                     "WAF_CHALLENGE: {}",
-                    &error_text[..error_text.len().min(500)]
+                    crate::logging::log_utils::truncate_for_log(&error_text, 500)
                 );
             }
             log::error!(
@@ -146,24 +146,20 @@ impl super::HttpClient {
         {
             log::warn!(
                 "Received WAF challenge page instead of JSON in check-in: {}",
-                &text[..text.len().min(200)]
+                crate::logging::log_utils::truncate_for_log(&text, 200)
             );
             anyhow::bail!(
                 "WAF_CHALLENGE: Received HTML instead of JSON - {}",
-                &text[..text.len().min(500)]
+                crate::logging::log_utils::truncate_for_log(&text, 500)
             );
         }
 
-        // Log full response for debugging
-        log::info!("Check-in response body: {}", text);
+        // Body is not logged: check-in responses echo account-identifying
+        // fields, and this ran at info! level (on by default).
+        log::debug!("Check-in response body: {} bytes", text.len());
 
         // Try to parse as JSON
         if let Ok(data) = serde_json::from_str::<serde_json::Value>(&text) {
-            log::info!(
-                "Parsed JSON response: {}",
-                serde_json::to_string_pretty(&data).unwrap_or_default()
-            );
-
             // Check for success indicators with more detailed logging
             let ret_value = data["ret"].as_i64();
             let code_value = data["code"].as_i64();
@@ -210,11 +206,7 @@ impl super::HttpClient {
             } else {
                 format!(
                     "Check-in failed: Invalid response format. Response: {}",
-                    if text.len() > 100 {
-                        &text[..100]
-                    } else {
-                        &text
-                    }
+                    crate::logging::log_utils::truncate_for_log(&text, 100)
                 )
             };
 

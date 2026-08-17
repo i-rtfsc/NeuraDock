@@ -70,7 +70,14 @@ struct CheckoutResponse {
 }
 
 fn detect_env_proxy() -> Option<String> {
-    for key in &["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for key in &[
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         if let Ok(v) = std::env::var(key) {
             let v = v.trim().to_string();
             if !v.is_empty() {
@@ -82,9 +89,7 @@ fn detect_env_proxy() -> Option<String> {
 }
 
 fn build_client(proxy_url: Option<&str>) -> Result<rquest::Client> {
-    let effective_proxy = proxy_url
-        .map(|s| s.to_string())
-        .or_else(detect_env_proxy);
+    let effective_proxy = proxy_url.map(|s| s.to_string()).or_else(detect_env_proxy);
 
     let mut builder = rquest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(15))
@@ -120,7 +125,10 @@ fn extract_oai_did(cookie_header: &str) -> Option<String> {
     cookie_header
         .split(';')
         .map(|part| part.trim())
-        .find_map(|part| part.strip_prefix("oai-did=").map(|value| value.trim().to_string()))
+        .find_map(|part| {
+            part.strip_prefix("oai-did=")
+                .map(|value| value.trim().to_string())
+        })
 }
 
 fn normalize_request(request: &PaymentLinkRequest) -> Result<(String, String)> {
@@ -149,7 +157,11 @@ fn normalize_request(request: &PaymentLinkRequest) -> Result<(String, String)> {
     Ok((country, currency))
 }
 
-fn build_payload(request: &PaymentLinkRequest, country: &str, currency: &str) -> Result<serde_json::Value> {
+fn build_payload(
+    request: &PaymentLinkRequest,
+    country: &str,
+    currency: &str,
+) -> Result<serde_json::Value> {
     let promo_campaign = json!({
         "promo_campaign_id": request.plan.promo_campaign_id(),
         "is_coupon_from_query_param": matches!(request.plan, PaymentPlan::Team),
@@ -216,11 +228,17 @@ pub async fn generate_payment_link(
         .header("content-type", "application/json")
         .header("oai-language", "zh-CN");
 
-    if let Some(account_id) = account.account_id().filter(|value| !value.trim().is_empty()) {
+    if let Some(account_id) = account
+        .account_id()
+        .filter(|value| !value.trim().is_empty())
+    {
         req = req.header("chatgpt-account-id", account_id);
     }
 
-    if let Some(cookie_header) = account.web_session_cookie().filter(|value| !value.trim().is_empty()) {
+    if let Some(cookie_header) = account
+        .web_session_cookie()
+        .filter(|value| !value.trim().is_empty())
+    {
         req = req.header("cookie", cookie_header);
         if let Some(device_id) = account
             .web_session_device_id()
@@ -244,17 +262,26 @@ pub async fn generate_payment_link(
         bail!(
             "支付接口返回 {}：{}",
             status,
-            &preview[..preview.len().min(240)]
+            crate::logging::log_utils::truncate_for_log(&preview, 240)
         );
     }
 
-    let data: CheckoutResponse = serde_json::from_str(&body)
-        .map_err(|e| anyhow!("解析支付响应失败: {} (body={})", e, &body[..body.len().min(240)]))?;
+    let data: CheckoutResponse = serde_json::from_str(&body).map_err(|e| {
+        anyhow!(
+            "解析支付响应失败: {} (body={})",
+            e,
+            crate::logging::log_utils::truncate_for_log(&body, 240)
+        )
+    })?;
 
     let session_id = data
         .checkout_session_id
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| anyhow!(data.detail.unwrap_or_else(|| "API 未返回 checkout_session_id".to_string())))?;
+        .ok_or_else(|| {
+            anyhow!(data
+                .detail
+                .unwrap_or_else(|| "API 未返回 checkout_session_id".to_string()))
+        })?;
 
     Ok(PaymentLink {
         url: format!("{}{}", CHECKOUT_BASE_URL, session_id),
@@ -266,7 +293,9 @@ pub async fn generate_payment_link(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_payload, normalize_request, PaymentInterval, PaymentLinkRequest, PaymentPlan};
+    use super::{
+        build_payload, normalize_request, PaymentInterval, PaymentLinkRequest, PaymentPlan,
+    };
 
     #[test]
     fn normalizes_country_and_currency() {
@@ -299,9 +328,15 @@ mod tests {
         assert_eq!(payload["plan_name"], "chatgptteamplan");
         assert_eq!(payload["billing_details"]["country"], "JP");
         assert_eq!(payload["billing_details"]["currency"], "JPY");
-        assert_eq!(payload["team_plan_data"]["workspace_name"], "NeuraDock Team");
+        assert_eq!(
+            payload["team_plan_data"]["workspace_name"],
+            "NeuraDock Team"
+        );
         assert_eq!(payload["team_plan_data"]["seat_quantity"], 7);
         assert_eq!(payload["team_plan_data"]["price_interval"], "year");
-        assert_eq!(payload["promo_campaign"]["promo_campaign_id"], "team-1-month-free");
+        assert_eq!(
+            payload["promo_campaign"]["promo_campaign_id"],
+            "team-1-month-free"
+        );
     }
 }

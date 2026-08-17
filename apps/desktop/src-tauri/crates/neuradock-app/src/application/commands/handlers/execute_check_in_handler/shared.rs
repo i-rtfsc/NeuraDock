@@ -21,10 +21,15 @@ pub async fn update_and_save_balance(
     mut account: Account,
     user_info: &UserInfo,
 ) -> Result<BalanceDto, DomainError> {
+    // Compensate for quota the provider lost from its own books before the
+    // value is stored, so the correction lands in both the account row and the
+    // history row rather than only in one of them.
+    let adjusted_total_quota = account.adjusted_total_quota(user_info.total_quota);
+
     account.update_balance(
         user_info.current_balance,
         user_info.total_consumed,
-        user_info.total_quota,
+        adjusted_total_quota,
     );
 
     // Record successful check-in time
@@ -36,7 +41,7 @@ pub async fn update_and_save_balance(
     } else {
         info!(
             "Account {} balance updated in database: current=${:.2}, consumed=${:.2}, total_quota=${:.2}",
-            account_id, user_info.current_balance, user_info.total_consumed, user_info.total_quota
+            account_id, user_info.current_balance, user_info.total_consumed, adjusted_total_quota
         );
     }
 
@@ -44,7 +49,7 @@ pub async fn update_and_save_balance(
     let balance = BalanceDto {
         current_balance: user_info.current_balance,
         total_consumed: user_info.total_consumed,
-        total_quota: user_info.total_quota,
+        total_quota: adjusted_total_quota,
     };
 
     // Save to balance_history table

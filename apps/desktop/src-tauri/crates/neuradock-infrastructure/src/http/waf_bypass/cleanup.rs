@@ -15,13 +15,31 @@ pub(super) async fn cleanup_browser(
 ) {
     let config = TimeoutConfig::global();
 
-    // Abort the handler task first
-    handler_task.abort();
+    // Remember the OS pid before we consume the browser, so a forced cleanup
+    // can target exactly this Chrome rather than every Chrome on the machine.
+    let browser_pid = browser.get_mut_child().map(|child| child.inner.id());
 
-    // Try to close browser with timeout
+    // Order matters. `Browser::close()` does not talk to Chrome directly: it
+    // sends CloseBrowser over an mpsc channel whose receiver lives inside the
+    // Handler, then awaits a oneshot reply. Aborting the handler first (as this
+    // did) drops that receiver, so close() could never succeed and Chrome was
+    // only ever killed by kill_on_drop's SIGKILL. That left the profile lock
+    // held, which made remove_dir_all fail, which is what dragged every run
+    // into force_kill_chrome_processes below.
+    //
+    // close -> wait -> abort keeps the Handler alive long enough to drive the
+    // CDP shutdown to completion.
     match tokio::time::timeout(config.browser_close, browser.close()).await {
         Ok(Ok(_)) => {
             info!("[{}] Browser closed successfully", account_name);
+            // Reap the child so the profile lock is actually released before
+            // we try to remove the directory.
+            if let Err(e) = tokio::time::timeout(config.browser_close, browser.wait()).await {
+                warn!(
+                    "[{}] Browser did not exit within timeout after close: {}",
+                    account_name, e
+                );
+            }
         }
         Ok(Err(e)) => {
             warn!(
@@ -37,6 +55,9 @@ pub(super) async fn cleanup_browser(
         }
     }
 
+    // Only now is it safe to tear down the connection driver.
+    handler_task.abort();
+
     // Give Chrome a moment to fully exit
     tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -50,7 +71,7 @@ pub(super) async fn cleanup_browser(
         );
 
         // If cleanup failed, Chrome might still be running - try to force kill it
-        force_kill_chrome_processes(&temp_dir, account_name).await;
+        force_kill_chrome_processes(&temp_dir, browser_pid, account_name).await;
 
         // Wait a bit more and retry cleanup
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -71,11 +92,22 @@ pub(super) async fn cleanup_browser(
     }
 }
 
-/// Force kill Chrome processes that might be using the temp directory
-async fn force_kill_chrome_processes(temp_dir: &Path, account_name: &str) {
+/// Force kill the Chrome process that might still be holding the temp profile.
+///
+/// `browser_pid` is the pid of the browser this call launched. It is used to
+/// scope the kill; when it is unknown we do nothing rather than guess.
+async fn force_kill_chrome_processes(
+    temp_dir: &Path,
+    browser_pid: Option<u32>,
+    account_name: &str,
+) {
     #[cfg(unix)]
     {
         use std::process::Command;
+
+        // On unix the profile path is the scoping mechanism: lsof tells us
+        // exactly which processes hold this directory, so the pid is unused.
+        let _ = browser_pid;
 
         // Get the temp directory path as a string for matching
         let temp_dir_str = temp_dir.to_string_lossy();
@@ -110,17 +142,35 @@ async fn force_kill_chrome_processes(temp_dir: &Path, account_name: &str) {
     {
         use std::process::Command;
 
-        let _temp_dir_str = temp_dir.to_string_lossy();
+        let _ = temp_dir;
 
-        // Use tasklist and findstr to find Chrome processes
-        // Note: This is a best-effort approach on Windows
-        let _ = Command::new("taskkill")
-            .args(&["/F", "/IM", "chrome.exe"])
-            .output();
+        // Kill ONLY the browser we launched, plus its renderer/GPU children
+        // (/T). This used to be `taskkill /F /IM chrome.exe`, which force-killed
+        // every Chrome on the machine -- including the user's foreground
+        // browser, all tabs and unsaved work -- during a background check-in.
+        match browser_pid {
+            Some(pid) => {
+                warn!(
+                    "[{}] Force killing Chrome process tree with PID: {}",
+                    account_name, pid
+                );
+                let _ = Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &pid.to_string()])
+                    .output();
+            }
+            None => {
+                // Never fall back to a machine-wide kill. The stray profile
+                // directory is collected by the startup sweep instead.
+                warn!(
+                    "[{}] Chrome pid unknown; leaving temp profile for startup cleanup",
+                    account_name
+                );
+            }
+        }
+    }
 
-        warn!(
-            "[{}] Attempted to kill Chrome processes (Windows)",
-            account_name
-        );
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (temp_dir, browser_pid, account_name);
     }
 }

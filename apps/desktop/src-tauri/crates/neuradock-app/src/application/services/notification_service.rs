@@ -132,7 +132,8 @@ impl NotificationService {
                 {
                     info!(
                         "Using fallback balance from summary for account {} from {}",
-                        account_id, record.check_in_date()
+                        account_id,
+                        record.check_in_date()
                     );
                     return Some((
                         record.daily_balance(),
@@ -140,7 +141,7 @@ impl NotificationService {
                         record.daily_total_quota(),
                     ));
                 }
-                
+
                 info!(
                     "No historical balance summaries available for account {} before today",
                     account_id

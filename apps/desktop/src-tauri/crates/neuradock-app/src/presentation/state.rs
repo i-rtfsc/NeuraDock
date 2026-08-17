@@ -6,7 +6,7 @@ use crate::application::queries::{
 };
 use crate::application::services::{
     BalanceService, ClaudeConfigService, CodexConfigService, ConfigService,
-    ProviderModelsQueryService, ProxyConfigService, TokenService,
+    ProviderModelsQueryService, ProxyConfigService, ReminderSettingsService, TokenService,
 };
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::ai_chat::AiChatServiceRepository;
@@ -55,6 +55,7 @@ pub struct Services {
     pub config: Arc<ConfigService>,
     pub balance: Arc<BalanceService>,
     pub proxy_config: Arc<ProxyConfigService>,
+    pub reminder_settings: Arc<ReminderSettingsService>,
     pub provider_models_query: Arc<ProviderModelsQueryService>,
 }
 

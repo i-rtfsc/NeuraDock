@@ -93,7 +93,15 @@ impl BalanceService {
         let balance_dto = BalanceDto {
             current_balance,
             total_consumed,
-            total_quota: current_balance + total_consumed,
+            // Use the value the HTTP layer derived from raw quota units. Do NOT
+            // recompute as `current_balance + total_consumed` — that sums two
+            // already-rounded operands and reintroduces compounded rounding drift.
+            //
+            // The per-account adjustment is applied here rather than in the
+            // HTTP layer, which has no notion of an account. It compensates for
+            // amounts the provider lost from its own books, which are otherwise
+            // inherited by every later snapshot.
+            total_quota: account.adjusted_total_quota(user_info.total_quota),
         };
 
         account.update_balance(

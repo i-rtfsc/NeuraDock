@@ -28,6 +28,7 @@ impl super::AutoCheckInScheduler {
 
         // Clone task metadata for updating within the task
         let task_metadata = Arc::clone(&self.task_metadata);
+        let deps = self.deps.clone();
 
         // Initialize metadata
         {
@@ -107,8 +108,33 @@ impl super::AutoCheckInScheduler {
                 }
 
                 use crate::application::services::CheckInExecutor;
-                match CheckInExecutor::new(account_repo.clone(), true) {
+                // Resolve the proxy per run rather than at spawn time, so a
+                // settings change takes effect without restarting the app.
+                // `proxy_url()` already yields None when the user's toggle is
+                // off, so honouring the setting is just a matter of asking.
+                // This path previously called `CheckInExecutor::new`, which
+                // hardcoded no proxy and so ignored the toggle entirely.
+                //
+                // A read failure here means the setting is unknown, not off.
+                // Skip the run, matching the manual paths, which propagate the
+                // same error rather than falling back to a direct connection.
+                let proxy_url = match deps.proxy_config.get().await {
+                    Ok(config) => config.proxy_url(),
+                    Err(e) => {
+                        warn!(
+                            "[AUTO CHECK-IN] Could not read proxy settings for '{}': {}. \
+                             Skipping this run; will retry on the next tick.",
+                            account_name, e
+                        );
+                        continue;
+                    }
+                };
+
+                match CheckInExecutor::with_proxy(account_repo.clone(), true, proxy_url) {
                     Ok(executor) => {
+                        let executor = executor
+                            .with_balance_history(deps.balance_history.clone())
+                            .with_waf_cookies_repo(deps.waf_cookies.clone());
                         match executor
                             .execute_check_in(account_id.as_str(), &provider)
                             .await
