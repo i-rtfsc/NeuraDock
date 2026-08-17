@@ -1,0 +1,120 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/notification/feishu/mod.rs
+  s_8e27dbca82831f::t_7f56d65dc1d971 60-86
+  s_c199242c7b1460::t_2e2e2bfe532670 59
+apps/desktop/src-tauri/crates/neuradock-domain/src/account/aggregate.rs
+  s_8e27dbca82831f::t_bd916cdba4790a 28-35,248-262
+  s_8e27dbca82831f::t_7d858137d8fcd6 60,396-400,408
+  s_8e27dbca82831f::t_586156d62e74b6 327
+  s_8e27dbca82831f::t_407bd14cbe774e 90
+  s_8e27dbca82831f::t_d24916f90ab770 263
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/account_repo/mod.rs
+  s_8e27dbca82831f::t_991a594ab6aa92 30-31
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/handlers/execute_check_in_handler/shared.rs
+  s_8e27dbca82831f::t_ea54e8b196cd52 24-28,32,44,52
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/client/user_info.rs
+  s_8e27dbca82831f::t_b605aa128faea5 220-225,229-262
+  s_8e27dbca82831f::t_018d3fabc52179 150-155
+  s_8e27dbca82831f::t_34a69a9c0928c0 176-183,290-293
+  s_8e27dbca82831f::t_3788e4f63054be 197-205
+  s_8e27dbca82831f::t_41ac4f319ab3ad 163,171-172,184-196,206-219,226-228,263-289,294-301
+  s_8e27dbca82831f::t_4adc3c0f031d6a 101,116,137,141,147
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/waf_bypass/cleanup.rs
+  s_8e27dbca82831f::t_60782dc2671e29 20
+  s_8e27dbca82831f::t_c34f21473c26e4 108-111
+  s_8e27dbca82831f::t_b23da1ea2cbc3c 18-19,21-31,35-42,58-60,74,95-103,145-170,172-174
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/client/check_in.rs
+  s_8e27dbca82831f::t_4adc3c0f031d6a 124,149,153
+  s_8e27dbca82831f::t_6b71369ae5d657 209
+  s_8e27dbca82831f::t_5c345cde935eae 157-159
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/client/api_call.rs
+  s_8e27dbca82831f::t_4adc3c0f031d6a 71,79
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/bootstrap.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 15,158-159,241-242
+  s_8e27dbca82831f::t_ab63de1c91cd7a 291
+  s_8e27dbca82831f::t_95642f6101e5c9 279-290,292-296,298
+  s_8e27dbca82831f::t_fd13fe35eca7e9 258-265
+  s_8e27dbca82831f::t_28cd1a762c6cad 449-451
+  s_8e27dbca82831f::t_10aa004c64ffa5 297,299
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/state.rs
+  s_8e27dbca82831f::t_b3f625b0f9a4dc 9
+  s_8e27dbca82831f::t_6f61f461475ae3 58
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/balance_service.rs
+  s_8e27dbca82831f::t_7ac005e04e701c 99-104
+  s_8e27dbca82831f::t_1c2ee26e2511a9 96-98
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/task_spawner.rs
+  s_8e27dbca82831f::t_19093164c861f4 111,121-124,127-133,135-137
+  s_8e27dbca82831f::t_b02cbcf54f3367 112-120,125-126
+  s_8e27dbca82831f::t_c24e2ad5e557a1 31
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/token/client/tokens.rs
+  s_8e27dbca82831f::t_0ca0af25dac893 52-55,65-74
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/notification_service.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 135-136,144
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/mod.rs
+  s_8e27dbca82831f::t_41435961d1defc 8,15,18-29,38-39,43,48
+  s_8e27dbca82831f::t_e37b0ded2aca0a 6
+apps/desktop/src-tauri/crates/neuradock-domain/src/account/aggregate_test.rs
+  s_8e27dbca82831f::t_f4526c0e677812 4
+  s_8e27dbca82831f::t_42192fe305338a 391-463
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/notification/feishu/message_builder.rs
+  s_8e27dbca82831f::t_451813342b5bbc 54-56,58-64
+  s_8e27dbca82831f::t_3db54a09bf4bf2 85,92
+  s_8e27dbca82831f::t_3bf16de1bdc514 86-91
+apps/desktop/src-tauri/crates/neuradock-infrastructure/migrations/20260809000001_add_quota_adjustment.sql
+  s_8e27dbca82831f::t_2fffb73d6319d9 1-17
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/client/types.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 85-89,119-124,139-142,155-157
+  s_8e27dbca82831f::t_0c9929f8786af6 39-42
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/logging/log_utils.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 153
+  s_8e27dbca82831f::t_1624a32531700e 145-152,154-178
+  s_8e27dbca82831f::t_19916c6f411ce4 29-32,39-53,55-67
+  s_8e27dbca82831f::t_9e4af6b33f475c 107-113,116,121,126
+  s_8e27dbca82831f::t_e23d86e17d5595 179
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/migration_service.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 381-383
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/account_repo/types.rs
+  s_8e27dbca82831f::t_991a594ab6aa92 31,81
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/value_objects.rs
+  s_8e27dbca82831f::t_a64e32d15b5db8 24-29,33-37,42-52
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/openai/payment.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 73-80,92,128-131,160-164,231-234,238-241,269-275,280-284,296-298,331-334,337-340
+  s_8e27dbca82831f::t_4adc3c0f031d6a 265
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/check_in_executor/mod.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 121-130,250-254,392
+  s_8e27dbca82831f::t_b4bb2e07c18712 40-45
+  s_8e27dbca82831f::t_1a0387c90ede04 27-36,58,68-70
+  s_8e27dbca82831f::t_bf92f86ac3c190 10
+  s_8e27dbca82831f::t_fbc44ecf37291e 142-152,161-191
+  s_8e27dbca82831f::t_a5c07303348a5b 71-73,192-193
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/openai/registrar.rs
+  s_8e27dbca82831f::t_34a69a9c0928c0 98-101,134-141,156,307-311,374-378,514-517,647-652,662-668,866-880,952-956,976-980,1070-1074,1128,1144,1160
+  s_8e27dbca82831f::t_4adc3c0f031d6a 233,416,1021
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/domain_service.rs
+  s_8e27dbca82831f::t_52bde427f594bb 212-273
+  s_8e27dbca82831f::t_6708cf0bb173b6 9-20,38,40-42
+  s_8e27dbca82831f::t_f99e5c68ef42fd 274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2de0a75a1a9d5ef561d32055e4f29499a84bdee6",
+  "prompts": {},
+  "sessions": {
+    "s_8e27dbca82831f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "101e05bb-0283-4336-bb56-28a88859e9e0",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_c199242c7b1460": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "019fd5d2-b051-7060-bca3-1beddf7e9a9e",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
