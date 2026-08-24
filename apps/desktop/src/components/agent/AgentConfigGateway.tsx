@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
@@ -748,7 +749,7 @@ function AgentProfilesSection({
               <td className="px-4 py-3 align-middle"><span className="text-sm font-medium">{profile.account_label ?? '—'}</span></td>
               <td className="px-4 py-3 align-middle"><span className="font-mono text-xs">{profile.model ?? '—'}</span>{profile.context1m && <Badge variant="outline" className="ml-2 text-[10px]">1M</Badge>}</td>
               <td className="px-4 py-3 text-center align-middle"><Badge variant={profile.method === 'gateway' ? 'soft-primary' : 'outline'} className="text-[10px]">{profile.method === 'gateway' ? t('agentConfig.methodGatewayShort', '经本地网关') : t('agentConfig.directBadge', '直连')}</Badge></td>
-              <td className="px-4 py-3 text-center align-middle">{profile.method === 'gateway' ? <Switch checked={profile.gateway_enabled} onCheckedChange={(enabled) => invoke('set_gateway_profile_enabled', { client: agent.id, profile: profile.slug ?? 'default', enabled }).then(onChanged).catch((error) => toast.error(String(error)))} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
+              <td className="px-4 py-3 text-center align-middle">{profile.method === 'gateway' ? <Switch checked={profile.gateway_enabled} onCheckedChange={(enabled) => commands.setGatewayProfileEnabled(agent.id, profile.slug ?? 'default', enabled).then(onChanged).catch((error) => toast.error(String(error)))} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
               <td className="py-3 pl-4 pr-6 align-middle"><div className="flex items-center justify-center gap-2"><Button variant="outline" size="icon-sm" title={t('agentConfig.copyProfileCommand', '复制命令')} onClick={() => navigator.clipboard.writeText(command)}><Copy className="h-3.5 w-3.5" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="h-8 w-8 hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEdit(profile)}>{t('agentConfig.edit', '修改')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></td>
             </tr>;
           })}
