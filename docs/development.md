@@ -54,7 +54,7 @@ Makefile 只保留少量常用 target，具体以 `make help` 输出为准。
 | `make build` | 构建前端 + 后端（Release，不打包） |
 | `make package` | 构建并打包（生成安装包） |
 | `make test` | 运行前后端测试 |
-| `make check` | 后端 clippy + 前端 typecheck |
+| `make check` | Rust 格式、workspace check、Clippy + 前端 typecheck |
 | `make clean` | 清理构建产物（保留依赖） |
 | `make purge` | 深度清理（构建产物 + 依赖 + db） |
 
@@ -208,7 +208,7 @@ cargo --version
 ```bash
 # 解决方案 1: 运行单个测试
 cd apps/desktop/src-tauri
-cargo test <test_name> -- --nocapture
+cargo test --workspace <test_name> -- --nocapture
 
 # 解决方案 2: 清理测试缓存
 make clean
@@ -216,7 +216,7 @@ make test-backend
 
 # 解决方案 3: 查看详细输出
 cd apps/desktop/src-tauri
-RUST_LOG=debug cargo test -- --nocapture
+RUST_LOG=debug cargo test --workspace -- --nocapture
 ```
 
 ### 问题：权限错误
