@@ -1,0 +1,31 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/server.rs
+  s_e9dd769d815b63::t_fad82228d37b36 1210,1244
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/token_repository.rs
+  s_e9dd769d815b63::t_fad82228d37b36 207,291
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_e9dd769d815b63::t_fad82228d37b36 1853,1856-1857
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/isolated_config.rs
+  s_e9dd769d815b63::t_fad82228d37b36 245,355
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/notification_service.rs
+  s_e9dd769d815b63::t_fad82228d37b36 129
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/claude_config_service/global_config.rs
+  s_e9dd769d815b63::t_fad82228d37b36 78,87-88
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/openai/registrar.rs
+  s_e9dd769d815b63::t_fad82228d37b36 107,233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "85a70fd4eebc958a479972acc9f6c80be26ff805",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
