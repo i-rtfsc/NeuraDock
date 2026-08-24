@@ -1,0 +1,22 @@
+apps/desktop/src/hooks/codex/useCodexAuth.ts
+  s_e9dd769d815b63::t_98f60ca5669db4 3-4,18,58,73,96,111
+apps/desktop/src/hooks/codex/useCodexAccounts.ts
+  s_e9dd769d815b63::t_98f60ca5669db4 2-3,16,23,32,47,62
+  s_e9dd769d815b63::t_17ce97a515e8c6 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "16b7aa548b8367116c7ce9b4a1ab466b51216c62",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
