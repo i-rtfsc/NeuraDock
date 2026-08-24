@@ -12,6 +12,7 @@ use thiserror::Error;
 /// - Salt is NOT a secret, but ensures unique keys per installation
 pub struct KeyManager {
     salt_path: PathBuf,
+    master_key_path: PathBuf,
 }
 
 impl KeyManager {
@@ -21,7 +22,25 @@ impl KeyManager {
     /// * `app_data_dir` - Application data directory path
     pub fn new(app_data_dir: PathBuf) -> Self {
         let salt_path = app_data_dir.join(".encryption_salt");
-        Self { salt_path }
+        let master_key_path = app_data_dir.join(".encryption_key");
+        Self {
+            salt_path,
+            master_key_path,
+        }
+    }
+
+    /// Load or generate a random 256-bit master key for new installations.
+    /// Existing installations without this file remain on the legacy key path
+    /// until their encrypted records are re-encrypted by an explicit migration.
+    pub fn initialize_master_key(&self) -> Result<Option<[u8; 32]>, KeyManagerError> {
+        if self.master_key_path.exists() {
+            return self.load_master_key().map(Some);
+        }
+        if self.salt_path.exists() {
+            return Ok(None);
+        }
+        let key = self.generate_and_save_master_key()?;
+        Ok(Some(key))
     }
 
     /// Initialize encryption salt (load or generate)
@@ -77,10 +96,51 @@ impl KeyManager {
         Ok(salt)
     }
 
+    fn load_master_key(&self) -> Result<[u8; 32], KeyManagerError> {
+        let bytes = fs::read(&self.master_key_path)
+            .map_err(|e| KeyManagerError::IoError(format!("Failed to read master key: {}", e)))?;
+        if bytes.len() != 32 {
+            return Err(KeyManagerError::InvalidMasterKey(format!(
+                "Expected 32 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&bytes);
+        Ok(key)
+    }
+
+    fn generate_and_save_master_key(&self) -> Result<[u8; 32], KeyManagerError> {
+        let mut key = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut key);
+        if let Some(parent) = self.master_key_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                KeyManagerError::IoError(format!("Failed to create directory: {}", e))
+            })?;
+        }
+        fs::write(&self.master_key_path, key)
+            .map_err(|e| KeyManagerError::IoError(format!("Failed to write master key: {}", e)))?;
+        set_private_permissions(&self.master_key_path)?;
+        Ok(key)
+    }
+
     /// Get salt file path (for testing/debugging)
     pub fn salt_path(&self) -> &PathBuf {
         &self.salt_path
     }
+}
+
+#[cfg(unix)]
+fn set_private_permissions(path: &std::path::Path) -> Result<(), KeyManagerError> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|e| {
+        KeyManagerError::IoError(format!("Failed to protect master key permissions: {}", e))
+    })
+}
+
+#[cfg(not(unix))]
+fn set_private_permissions(_path: &std::path::Path) -> Result<(), KeyManagerError> {
+    Ok(())
 }
 
 /// Key manager errors
@@ -91,6 +151,9 @@ pub enum KeyManagerError {
 
     #[error("Invalid salt: {0}")]
     InvalidSalt(String),
+
+    #[error("Invalid master key: {0}")]
+    InvalidMasterKey(String),
 }
 
 #[cfg(test)]
@@ -118,6 +181,21 @@ mod tests {
 
         // Salt file should exist now
         assert!(manager.salt_path().exists());
+    }
+
+    #[test]
+    fn new_installation_generates_random_master_key() {
+        let (manager, _temp_dir) = create_test_manager();
+        let key = manager.initialize_master_key().unwrap().unwrap();
+        assert!(key.iter().any(|&byte| byte != 0));
+        assert_eq!(manager.initialize_master_key().unwrap(), Some(key));
+    }
+
+    #[test]
+    fn legacy_installation_is_not_changed_implicitly() {
+        let (manager, _temp_dir) = create_test_manager();
+        manager.initialize().unwrap();
+        assert_eq!(manager.initialize_master_key().unwrap(), None);
     }
 
     #[test]

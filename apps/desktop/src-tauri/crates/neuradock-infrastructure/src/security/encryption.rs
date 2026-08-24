@@ -19,6 +19,12 @@ pub struct EncryptionService {
 }
 
 impl EncryptionService {
+    pub fn from_key(key: &[u8; 32]) -> Result<Self, EncryptionError> {
+        let cipher = Aes256Gcm::new_from_slice(key)
+            .map_err(|e| EncryptionError::InvalidKey(e.to_string()))?;
+        Ok(Self { cipher })
+    }
+
     /// Create encryption service from a master password and salt
     ///
     /// Uses Argon2id for key derivation which is:
@@ -35,10 +41,7 @@ impl EncryptionService {
             .hash_password_into(password.as_bytes(), salt, &mut key)
             .map_err(|e| EncryptionError::KeyDerivation(e.to_string()))?;
 
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| EncryptionError::InvalidKey(e.to_string()))?;
-
-        Ok(Self { cipher })
+        Self::from_key(&key)
     }
 
     /// Encrypt plaintext

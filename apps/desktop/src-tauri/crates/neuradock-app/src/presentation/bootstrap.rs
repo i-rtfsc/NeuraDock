@@ -101,10 +101,16 @@ pub async fn build_app_state(
 
     // TODO: In production, get password from secure input
     // For now, use a default password (should be configurable)
-    let encryption_password = "neuradock_default_password_2024";
     let encryption_service = Arc::new(
-        EncryptionService::from_password(encryption_password, &salt)
-            .map_err(|e| format!("Failed to create encryption service: {}", e))?,
+        match key_manager.initialize_master_key()? {
+            Some(master_key) => EncryptionService::from_key(&master_key),
+            None => {
+                // Existing installations are kept readable until an explicit
+                // record-by-record re-encryption migration is completed.
+                EncryptionService::from_password("neuradock_default_password_2024", &salt)
+            }
+        }
+        .map_err(|e| format!("Failed to create encryption service: {}", e))?,
     );
     info!(
         "✓ Encryption initialized ({}ms)",
