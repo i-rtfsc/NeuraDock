@@ -1,6 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+
+const unwrap = <T,>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+};
 import { IndependentKeyDialog } from '@/components/token/IndependentKeyDialog';
 import { IndependentKeyConfigDialog } from '@/components/token/IndependentKeyConfigDialog';
 import { Button } from '@/components/ui/button';
@@ -106,8 +111,7 @@ export function TokensPage() {
   const { data: independentKeys = [], refetch } = useQuery<IndependentKeyDto[]>({
     queryKey: ['independent-keys'],
     queryFn: async () => {
-      const result = await invoke<IndependentKeyDto[]>('get_all_independent_keys');
-      return result;
+      return commands.getAllIndependentKeys().then(unwrap);
     },
     staleTime: 0,
     gcTime: 0,
@@ -148,10 +152,7 @@ export function TokensPage() {
 
   const toggleMutation = useMutation({
     mutationFn: (key: IndependentKeyDto) =>
-      invoke('toggle_independent_key', {
-        keyId: key.id,
-        isActive: !key.is_active,
-      }),
+      commands.toggleIndependentKey(key.id, !key.is_active).then(unwrap),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
       toast.success(t('independentKey.toggleSuccess', 'API Key status updated'));
@@ -162,7 +163,7 @@ export function TokensPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (keyId: number) => invoke('delete_independent_key', { keyId }),
+    mutationFn: (keyId: number) => commands.deleteIndependentKey(keyId).then(unwrap),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
       toast.success(t('independentKey.deleted', 'API Key deleted successfully'));

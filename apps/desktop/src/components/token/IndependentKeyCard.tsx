@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+
+const unwrap = <T,>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+};
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,10 +45,7 @@ export function IndependentKeyCard({ keyData, onEdit, onConfigure }: Independent
 
   const toggleMutation = useMutation({
     mutationFn: () =>
-      invoke('toggle_independent_key', {
-        keyId: keyData.id,
-        isActive: !keyData.is_active,
-      }),
+      commands.toggleIndependentKey(keyData.id, !keyData.is_active).then(unwrap),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
       toast.success(
@@ -58,7 +60,7 @@ export function IndependentKeyCard({ keyData, onEdit, onConfigure }: Independent
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => invoke('delete_independent_key', { keyId: keyData.id }),
+    mutationFn: () => commands.deleteIndependentKey(keyData.id).then(unwrap),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
       toast.success(t('independentKey.deleted', 'API Key deleted successfully'));

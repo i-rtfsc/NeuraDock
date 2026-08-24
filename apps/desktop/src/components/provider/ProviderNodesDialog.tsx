@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
 import { toast } from 'sonner';
 import { Globe, Plus, Trash2 } from 'lucide-react';
 
@@ -53,7 +53,11 @@ export function ProviderNodesDialog({
 
   const { data: nodes = [], isFetching } = useQuery<ProviderNode[]>({
     queryKey: ['provider-nodes', providerId],
-    queryFn: () => invoke('get_provider_nodes', { providerId }),
+    queryFn: async () => {
+      const result = await commands.getProviderNodes(providerId);
+      if (result.status === 'error') throw new Error(result.error.message);
+      return result.data;
+    },
     enabled: open && Boolean(providerId),
   });
 
@@ -73,11 +77,9 @@ export function ProviderNodesDialog({
       if (!isHttpUrl(trimmedUrl)) {
         throw new Error(t('providerDialog.fields.domain.invalidFormat', 'Invalid URL format'));
       }
-      return await invoke<string>('add_custom_node', {
-        providerId,
-        name: trimmedName,
-        baseUrl: trimmedUrl,
-      });
+      const result = await commands.addCustomNode(providerId, trimmedName, trimmedUrl);
+      if (result.status === 'error') throw new Error(result.error.message);
+      return result.data;
     },
     onSuccess: (message) => {
       toast.success(message || t('common.success', 'Success'));
@@ -96,7 +98,9 @@ export function ProviderNodesDialog({
       if (numericId == null) {
         throw new Error(t('common.error', 'Error'));
       }
-      return await invoke<string>('delete_custom_node', { nodeId: numericId });
+      const result = await commands.deleteCustomNode(numericId);
+      if (result.status === 'error') throw new Error(result.error.message);
+      return result.data;
     },
     onSuccess: (message) => {
       toast.success(message || t('common.success', 'Success'));
