@@ -60,8 +60,8 @@ export function useRefreshActiveCodexAuthQuota() {
       qc.setQueryData(KEYS.active, data);
       toast.success(t('codex.toast.activeAuthRefreshed'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.activeAuthRefreshFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.activeAuthRefreshFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
@@ -75,8 +75,8 @@ export function useSwitchCodexAuth() {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.authSwitched'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.authSwitchFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.authSwitchFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
@@ -98,8 +98,8 @@ export function useSetCodexApiKey() {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.apiKeySaved'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.apiKeySaveFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.apiKeySaveFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
@@ -113,8 +113,8 @@ export function useLogoutCodexAuth() {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.loggedOut'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.logoutFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.logoutFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }

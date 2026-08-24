@@ -34,8 +34,8 @@ export function useDeleteCodexAccount() {
       qc.invalidateQueries({ queryKey: codexAccountKeys.all });
       toast.success(t('codex.toast.accountDeleted'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.accountDeleteFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.accountDeleteFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
@@ -50,8 +50,8 @@ export function useRefreshCodexAccountQuota() {
       qc.setQueryData(codexAccountKeys.detail(data.id), data);
       toast.success(t('codex.toast.quotaRefreshed'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.quotaRefreshFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.quotaRefreshFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
@@ -60,8 +60,8 @@ export function useCodexAccountInboxCode() {
   const { t } = useTranslation();
   return useMutation({
     mutationFn: (id: string) => commands.getCodexAccountInboxCode(id).then(unwrap),
-    onError: (e: any) => {
-      toast.error(t('codex.toast.inboxCodeFetchFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.inboxCodeFetchFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }

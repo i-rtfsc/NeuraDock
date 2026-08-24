@@ -34,8 +34,8 @@ export function useGenerateCodexPaymentLink() {
     onSuccess: () => {
       toast.success(t('codex.toast.paymentLinkGenerated'));
     },
-    onError: (e: any) => {
-      toast.error(t('codex.toast.paymentLinkGenerateFailed', { message: e?.message ?? e }));
+    onError: (e: unknown) => {
+      toast.error(t('codex.toast.paymentLinkGenerateFailed', { message: e instanceof Error ? e.message : String(e) }));
     },
   });
 }
