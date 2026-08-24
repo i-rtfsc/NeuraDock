@@ -1,0 +1,22 @@
+apps/desktop/src/components/agent/AgentConfigGateway.tsx
+  s_e9dd769d815b63::t_193cf12580da6e 186
+  s_e9dd769d815b63::t_01d412997794be 28-32,171,179,195,199,213,287,290
+  s_e9dd769d815b63::t_403bd0112b442b 837
+  s_e9dd769d815b63::t_d7d499a99b5445 23-24,169,177,184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "aa2c757e9e3c21b59e32021955725338537fa529",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
