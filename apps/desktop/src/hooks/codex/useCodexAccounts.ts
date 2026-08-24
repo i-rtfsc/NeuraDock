@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import type { CodexAccountDto, CodexInboxCodeDto } from '@/lib/tauri';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
+import type { CodexAccountDto } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -12,14 +13,14 @@ export const codexAccountKeys = {
 export function useCodexAccounts() {
   return useQuery({
     queryKey: codexAccountKeys.all,
-    queryFn: (): Promise<CodexAccountDto[]> => invoke('list_codex_accounts'),
+    queryFn: () => commands.listCodexAccounts().then(unwrap),
   });
 }
 
 export function useCodexAccount(id: string) {
   return useQuery({
     queryKey: codexAccountKeys.detail(id),
-    queryFn: (): Promise<CodexAccountDto | null> => invoke('get_codex_account', { id }),
+    queryFn: () => commands.getCodexAccount(id).then(unwrap),
     enabled: !!id,
   });
 }
@@ -28,7 +29,7 @@ export function useDeleteCodexAccount() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (id: string) => invoke('delete_codex_account', { id }),
+    mutationFn: (id: string) => commands.deleteCodexAccount(id).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: codexAccountKeys.all });
       toast.success(t('codex.toast.accountDeleted'));
@@ -43,8 +44,7 @@ export function useRefreshCodexAccountQuota() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (id: string): Promise<CodexAccountDto> =>
-      invoke('refresh_codex_account_quota', { id }),
+    mutationFn: (id: string) => commands.refreshCodexAccountQuota(id).then(unwrap),
     onSuccess: (data: CodexAccountDto) => {
       qc.invalidateQueries({ queryKey: codexAccountKeys.all });
       qc.setQueryData(codexAccountKeys.detail(data.id), data);
@@ -59,8 +59,7 @@ export function useRefreshCodexAccountQuota() {
 export function useCodexAccountInboxCode() {
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (id: string): Promise<CodexInboxCodeDto> =>
-      invoke('get_codex_account_inbox_code', { id }),
+    mutationFn: (id: string) => commands.getCodexAccountInboxCode(id).then(unwrap),
     onError: (e: any) => {
       toast.error(t('codex.toast.inboxCodeFetchFailed', { message: e?.message ?? e }));
     },

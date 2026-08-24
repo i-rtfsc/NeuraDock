@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import type { CodexAccountDto, CodexAuthInfoDto } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,7 +15,7 @@ export function useActiveCodexAuth() {
   const qc = useQueryClient();
   const query = useQuery({
     queryKey: KEYS.active,
-    queryFn: (): Promise<CodexAuthInfoDto | null> => invoke('get_active_codex_auth'),
+    queryFn: () => commands.getActiveCodexAuth().then(unwrap),
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
@@ -54,7 +55,7 @@ export function useRefreshActiveCodexAuthQuota() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (): Promise<CodexAuthInfoDto | null> => invoke('refresh_active_codex_auth_quota'),
+    mutationFn: () => commands.refreshActiveCodexAuthQuota().then(unwrap),
     onSuccess: (data) => {
       qc.setQueryData(KEYS.active, data);
       toast.success(t('codex.toast.activeAuthRefreshed'));
@@ -69,7 +70,7 @@ export function useSwitchCodexAuth() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (accountId: string) => invoke('switch_codex_auth', { accountId }),
+    mutationFn: (accountId: string) => commands.switchCodexAuth(accountId).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.authSwitched'));
@@ -92,7 +93,7 @@ export function useSetCodexApiKey() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: (key: string) => invoke('set_codex_api_key', { key }),
+    mutationFn: (key: string) => commands.setCodexApiKey(key).then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.apiKeySaved'));
@@ -107,7 +108,7 @@ export function useLogoutCodexAuth() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
-    mutationFn: () => invoke('logout_codex_auth'),
+    mutationFn: () => commands.logoutCodexAuth().then(unwrap),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.active });
       toast.success(t('codex.toast.loggedOut'));
