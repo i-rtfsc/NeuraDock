@@ -66,7 +66,6 @@ Makefile 只保留少量常用 target，具体以 `make help` 输出为准。
 
 ### macOS 打包
 
-- `make package-universal`
 - `make package-arch ARCH=x86_64-apple-darwin`
 - `make package-all-macos`
 

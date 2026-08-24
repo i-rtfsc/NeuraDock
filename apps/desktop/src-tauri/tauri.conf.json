@@ -37,7 +37,7 @@
             "notification:default",
             "store:default",
             "shell:allow-open",
-    "process:allow-restart",
+            "process:allow-restart",
             "os:default",
             "opener:default"
           ]
