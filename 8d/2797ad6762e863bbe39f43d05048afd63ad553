@@ -1,0 +1,19 @@
+.github/workflows/ci.yml
+  s_e9dd769d815b63::t_a056f6c9e6f75b 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8d2797ad6762e863bbe39f43d05048afd63ad553",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
