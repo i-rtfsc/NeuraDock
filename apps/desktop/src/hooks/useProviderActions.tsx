@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
 import { toast } from 'sonner';
 import { ProviderDto } from './useProviders';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
+
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 
 export function useProviderActions() {
   const { t } = useTranslation();
@@ -26,16 +28,25 @@ export function useProviderActions() {
       models_path?: string;
       api_user_key?: string;
     }) => {
-      return await invoke<string>('create_provider', { input: input });
+      return unwrap(await commands.createProvider({
+        ...input,
+        supports_check_in: input.supports_check_in ?? null,
+        check_in_bugged: input.check_in_bugged ?? null,
+        login_path: input.login_path ?? null,
+        sign_in_path: input.sign_in_path ?? null,
+        user_info_path: input.user_info_path ?? null,
+        token_api_path: input.token_api_path ?? null,
+        models_path: input.models_path ?? null,
+        api_user_key: input.api_user_key ?? null,
+      }));
     },
     onSuccess: () => {
       cacheInvalidators.invalidateProvider(queryClient);
       toast.success(t('providers.toast.createSuccess'));
     },
-    onError: (error: any) => {
-      console.error('Failed to create provider:', error);
+    onError: (error: unknown) => {
       toast.error(t('providers.toast.createError', {
-        error: error.message || t('providers.toast.unknownError')
+        error: error instanceof Error ? error.message : String(error)
       }));
     },
   });
@@ -55,34 +66,43 @@ export function useProviderActions() {
       models_path?: string;
       api_user_key?: string;
     }) => {
-      return await invoke<boolean>('update_provider', { input: input });
+      return unwrap(await commands.updateProvider({
+        ...input,
+        name: input.name ?? null,
+        domain: input.domain ?? null,
+        needs_waf_bypass: input.needs_waf_bypass ?? null,
+        supports_check_in: input.supports_check_in ?? null,
+        check_in_bugged: input.check_in_bugged ?? null,
+        login_path: input.login_path ?? null,
+        sign_in_path: input.sign_in_path ?? null,
+        user_info_path: input.user_info_path ?? null,
+        token_api_path: input.token_api_path ?? null,
+        models_path: input.models_path ?? null,
+        api_user_key: input.api_user_key ?? null,
+      }));
     },
     onSuccess: (_, variables) => {
       cacheInvalidators.invalidateProvider(queryClient, variables.provider_id);
       toast.success(t('providers.toast.updateSuccess'));
     },
-    onError: (error: any) => {
-      console.error('Failed to update provider:', error);
+    onError: (error: unknown) => {
       toast.error(t('providers.toast.updateError', {
-        error: error.message || t('providers.toast.unknownError')
+        error: error instanceof Error ? error.message : String(error)
       }));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (providerId: string) => {
-      return await invoke<boolean>('delete_provider', {
-        input: { provider_id: providerId }
-      });
+      return unwrap(await commands.deleteProvider({ provider_id: providerId }));
     },
     onSuccess: (_, providerId) => {
       cacheInvalidators.invalidateProvider(queryClient, providerId);
       toast.success(t('providers.toast.deleteSuccess'));
     },
-    onError: (error: any) => {
-      console.error('Failed to delete provider:', error);
+    onError: (error: unknown) => {
       toast.error(t('providers.toast.deleteError', {
-        error: error.message || t('providers.toast.unknownError')
+        error: error instanceof Error ? error.message : String(error)
       }));
     },
   });
