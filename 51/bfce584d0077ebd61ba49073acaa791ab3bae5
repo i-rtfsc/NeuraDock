@@ -1,0 +1,19 @@
+apps/desktop/src/components/agent/AgentAccessDrawer.tsx
+  s_e9dd769d815b63::t_1fb1ee812625b8 47-52,1240,1242-1243,1245-1247,1252-1254,1256-1258,1277-1279,1283,1286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "51bfce584d0077ebd61ba49073acaa791ab3bae5",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
