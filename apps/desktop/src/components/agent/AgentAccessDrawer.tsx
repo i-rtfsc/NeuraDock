@@ -44,6 +44,12 @@ import {
 import { cn } from '@/lib/utils';
 import type { ProviderNode } from '@/types/token';
 import type { AgentAccess, AgentAccessSource, AgentDef } from './AgentConfigGateway';
+import { commands } from '@/lib/tauri';
+
+function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+}
 
 type UpstreamKind = 'openai_chat' | 'openai_responses' | 'anthropic';
 
@@ -1231,35 +1237,25 @@ async function directConfigure(
   isolated: boolean
 ): Promise<void> {
   if (option.source.type === 'independent_key') {
-    const command = agent === 'claude_code'
+    const result = agent === 'claude_code'
       ? isolated
-        ? 'configure_independent_key_claude_isolated'
-        : 'configure_independent_key_claude'
+        ? await commands.configureIndependentKeyClaudeIsolated(option.source.key_id, model, context1m)
+        : await commands.configureIndependentKeyClaude(option.source.key_id, model, context1m)
       : isolated
-        ? 'configure_independent_key_codex_isolated'
-        : 'configure_independent_key_codex';
-    await invoke<string>(command, { keyId: option.source.key_id, model, context1m });
+        ? await commands.configureIndependentKeyCodexIsolated(option.source.key_id, model, context1m)
+        : await commands.configureIndependentKeyCodex(option.source.key_id, model, context1m);
+    unwrap(result);
     return;
   }
 
   if (agent === 'claude_code') {
-    await invoke<string>(isolated ? 'configure_claude_isolated' : 'configure_claude_global', {
-      tokenId: option.source.token_id,
-      accountId: option.source.account_id,
-      providerId: option.source.provider_id,
-      baseUrl,
-      model,
-      context1m,
-    });
+    unwrap(isolated
+      ? await commands.configureClaudeIsolated(option.source.token_id, option.source.account_id, option.source.provider_id, baseUrl, model, context1m)
+      : await commands.configureClaudeGlobal(option.source.token_id, option.source.account_id, baseUrl, model, context1m));
   } else {
-    await invoke<string>(isolated ? 'configure_codex_isolated' : 'configure_codex_global', {
-      tokenId: option.source.token_id,
-      accountId: option.source.account_id,
-      providerId: option.source.provider_id,
-      baseUrl,
-      model,
-      context1m,
-    });
+    unwrap(isolated
+      ? await commands.configureCodexIsolated(option.source.token_id, option.source.account_id, option.source.provider_id, baseUrl, model, context1m)
+      : await commands.configureCodexGlobal(option.source.token_id, option.source.account_id, option.source.provider_id, baseUrl, model, context1m));
   }
 }
 
@@ -1278,33 +1274,14 @@ async function generateTemporaryCommands(
       : `codex -p ${slug}`;
   }
   if (option.source.type === 'independent_key') {
-    const command =
-      agent === 'claude_code'
-        ? 'generate_independent_key_claude_temp'
-        : 'generate_independent_key_codex_temp';
-    return invoke<string>(command, {
-      keyId: option.source.key_id,
-      model,
-      context1m,
-    });
+    return unwrap(agent === 'claude_code'
+      ? await commands.generateIndependentKeyClaudeTemp(option.source.key_id, model, context1m)
+      : await commands.generateIndependentKeyCodexTemp(option.source.key_id, model, context1m));
   }
 
   if (agent === 'claude_code') {
-    return invoke<string>('generate_claude_temp_commands', {
-      tokenId: option.source.token_id,
-      accountId: option.source.account_id,
-      baseUrl,
-      model,
-      context1m,
-    });
+    return unwrap(await commands.generateClaudeTempCommands(option.source.token_id, option.source.account_id, baseUrl, model, context1m));
   }
 
-  return invoke<string>('generate_codex_temp_commands', {
-    tokenId: option.source.token_id,
-    accountId: option.source.account_id,
-    providerId: option.source.provider_id,
-    baseUrl,
-    model,
-    context1m,
-  });
+  return unwrap(await commands.generateCodexTempCommands(option.source.token_id, option.source.account_id, option.source.provider_id, baseUrl, model, context1m));
 }
