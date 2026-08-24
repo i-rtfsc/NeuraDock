@@ -1,0 +1,32 @@
+apps/desktop/src/i18n/locales/zh-CN.json
+  s_e9dd769d815b63::t_5b8795f2e2a951 1334
+apps/desktop/src/components/codex/accounts/AccountsTab.tsx
+  s_e9dd769d815b63::t_a6ebb8b0dce1c8 812-814
+apps/desktop/src-tauri/crates/neuradock-app/Cargo.toml
+  s_e9dd769d815b63::t_3a41586350fd0e 9-12
+apps/desktop/src-tauri/Cargo.toml
+  s_e9dd769d815b63::t_3a41586350fd0e 132-135
+apps/desktop/src-tauri/crates/neuradock-app/src/main.rs
+  s_e9dd769d815b63::t_3a41586350fd0e 58,237-243
+Makefile
+  s_e9dd769d815b63::t_3a41586350fd0e 15-16
+  s_e9dd769d815b63::t_0463acd601d855 145-146,156-157
+apps/desktop/src/i18n/locales/en-US.json
+  s_e9dd769d815b63::t_5b8795f2e2a951 1334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e41e5b9801af2ae7327970496c9f527dd228443e",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
