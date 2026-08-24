@@ -1,0 +1,28 @@
+apps/desktop/src/components/account/AccountForm.tsx
+  s_e9dd769d815b63::t_066336cb30872e 19
+  s_e9dd769d815b63::t_6b707d5d1a1d62 23
+apps/desktop/src/pages/ProvidersPage.tsx
+  s_e9dd769d815b63::t_6b707d5d1a1d62 59
+apps/desktop/src/components/token/IndependentKeyDialog.tsx
+  s_e9dd769d815b63::t_066336cb30872e 164
+  s_e9dd769d815b63::t_6b707d5d1a1d62 161
+apps/desktop/src/hooks/useCheckIn.ts
+  s_e9dd769d815b63::t_6b707d5d1a1d62 46,75,121
+  s_e9dd769d815b63::t_066336cb30872e 80,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2250e74249586a06ed81fabbd5ab762d7a4a84fa",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
