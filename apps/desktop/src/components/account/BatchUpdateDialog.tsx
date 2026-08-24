@@ -37,6 +37,12 @@ interface BatchUpdateDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps) {
   const { t } = useTranslation();
   const [jsonInput, setJsonInput] = useState('');
@@ -115,11 +121,15 @@ export function BatchUpdateDialog({ open, onOpenChange }: BatchUpdateDialogProps
         return;
       }
 
-      const accounts = parsed.map((account: any, index: number) => ({
-        name: account.name || `Account ${index + 1}`,
-        provider: account.provider || account.provider_id || providerPlaceholder,
-        hasCookies: !!account.cookies && typeof account.cookies === 'object' && Object.keys(account.cookies).length > 0,
-      }));
+      const accounts = parsed.map((account: unknown, index: number) => {
+        const record = isJsonRecord(account) ? account : {};
+        const cookies = record.cookies;
+        return {
+        name: typeof record.name === 'string' && record.name ? record.name : `Account ${index + 1}`,
+        provider: typeof record.provider === 'string' ? record.provider : typeof record.provider_id === 'string' ? record.provider_id : providerPlaceholder,
+        hasCookies: isJsonRecord(cookies) && Object.keys(cookies).length > 0,
+        };
+      });
 
       const allHaveCookies = accounts.every((a) => a.hasCookies);
 

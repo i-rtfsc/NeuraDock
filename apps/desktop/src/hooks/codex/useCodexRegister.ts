@@ -97,8 +97,8 @@ export function useCodexRegister() {
         } else {
           addLog({ message: '❌ 注册任务异常中断：未到达终态', status: 'failed' });
         }
-      } catch (e: any) {
-        addLog({ message: `❌ 注册失败: ${e?.message ?? e}`, status: 'failed' });
+      } catch (e: unknown) {
+        addLog({ message: `❌ 注册失败: ${e instanceof Error ? e.message : String(e)}`, status: 'failed' });
       } finally {
         unlistenRef.current?.();
         unlistenRef.current = null;
@@ -119,10 +119,10 @@ export function useCodexRegister() {
     try {
       const result = await commands.cancelCodexRegistration();
       if (result.status === 'error') throw new Error(result.error.message);
-    } catch (e: any) {
+    } catch (e: unknown) {
       cancelRequestedRef.current = false;
       setIsCancelling(false);
-      addLog({ message: `❌ 取消失败: ${e?.message ?? e}`, status: 'failed' });
+      addLog({ message: `❌ 取消失败: ${e instanceof Error ? e.message : String(e)}`, status: 'failed' });
     }
   }, [addLog, isCancelling, isRunning]);
 
