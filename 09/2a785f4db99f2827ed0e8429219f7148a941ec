@@ -1,0 +1,21 @@
+apps/desktop/src/pages/DeveloperToolPage.tsx
+  s_e9dd769d815b63::t_9ce26c969317d3 204,209
+  s_e9dd769d815b63::t_5b9fc52069c3ba 113-116
+  s_e9dd769d815b63::t_d42510b49c2137 18,22-32,42,44,56,58,67,69-72,96,105-106,125,132,138,145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "092a785f4db99f2827ed0e8429219f7148a941ec",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
