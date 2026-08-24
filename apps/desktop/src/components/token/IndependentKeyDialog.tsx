@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +22,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { IndependentKeyDto, CreateIndependentKeyInput } from '@/types/independentKey';
+import type { UpdateIndependentKeyInput } from '@/lib/tauri';
+import { commands } from '@/lib/tauri';
+
+function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+}
 
 interface IndependentKeyDialogProps {
   open: boolean;
@@ -83,7 +89,13 @@ export function IndependentKeyDialog({ open, onOpenChange, keyToEdit }: Independ
   };
 
   const createMutation = useMutation({
-    mutationFn: (input: CreateIndependentKeyInput) => invoke('create_independent_key', { input }),
+    mutationFn: (input: CreateIndependentKeyInput) => commands.createIndependentKey({
+      ...input,
+      base_url: input.base_url ?? null,
+      custom_provider_name: input.custom_provider_name ?? null,
+      organization_id: input.organization_id ?? null,
+      description: input.description ?? null,
+    }).then(unwrap),
     onSuccess: async () => {
       console.log('[IndependentKeyDialog] Create success, invalidating queries...');
       toast.success(t('independentKey.created', 'API Key created successfully'));
@@ -104,7 +116,7 @@ export function IndependentKeyDialog({ open, onOpenChange, keyToEdit }: Independ
   });
 
   const updateMutation = useMutation({
-    mutationFn: (input: any) => invoke('update_independent_key', { input }),
+    mutationFn: (input: UpdateIndependentKeyInput) => commands.updateIndependentKey(input).then(unwrap),
     onSuccess: async () => {
       toast.success(t('independentKey.updated', 'API Key updated successfully'));
 
