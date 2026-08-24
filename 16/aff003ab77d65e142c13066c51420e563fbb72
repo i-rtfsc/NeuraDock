@@ -1,0 +1,25 @@
+apps/desktop/src/pages/AccountOverviewPage.tsx
+  s_e9dd769d815b63::t_1c663c0cbb8dc1 4-5,141,153
+  s_e9dd769d815b63::t_cc936f8f833cef 72,84,94
+apps/desktop/src/components/account/AccountDrawer.tsx
+  s_e9dd769d815b63::t_1c663c0cbb8dc1 4-5,61,69,82
+apps/desktop/src/pages/PreferencesPage.tsx
+  s_e9dd769d815b63::t_1c663c0cbb8dc1 13,413,423
+  s_e9dd769d815b63::t_cc936f8f833cef 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "16aff003ab77d65e142c13066c51420e563fbb72",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
