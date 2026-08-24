@@ -1,0 +1,25 @@
+apps/desktop/src/lib/logger.ts
+  s_e9dd769d815b63::t_6f0abe21494cfb 7,29
+apps/desktop/src/hooks/useCheckIn.ts
+  s_e9dd769d815b63::t_62f2df7afa7c3e 20
+  s_e9dd769d815b63::t_f633060652d3a5 32-33,37-38
+  s_e9dd769d815b63::t_6f0abe21494cfb 5-7
+apps/desktop/src/hooks/useConfigDialogState.ts
+  s_e9dd769d815b63::t_6f0abe21494cfb 3,30-33,43-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f5e9e5e743689759f8cc1b893681e5a0a80e5199",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
