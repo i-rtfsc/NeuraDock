@@ -1,0 +1,20 @@
+apps/desktop/src/hooks/useAccounts.ts
+  s_e9dd769d815b63::t_ddd0108183001c 37-38,61-62,85-86,114,116,129,140,173-174,201-202
+  s_e9dd769d815b63::t_b072440e41541b 122-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "614bd77bfb24e01bcc11fc65a86dc1e957ba9073",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
