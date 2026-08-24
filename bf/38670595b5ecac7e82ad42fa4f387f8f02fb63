@@ -1,0 +1,25 @@
+apps/desktop/src/pages/TokensPage.tsx
+  s_e9dd769d815b63::t_d79f8b8adf4d69 114
+  s_e9dd769d815b63::t_ad9ec887d3a989 3-8,155,166
+apps/desktop/src/components/provider/ProviderNodesDialog.tsx
+  s_e9dd769d815b63::t_ad9ec887d3a989 4,56-60
+  s_e9dd769d815b63::t_d79f8b8adf4d69 80-82,101-103
+apps/desktop/src/components/token/IndependentKeyCard.tsx
+  s_e9dd769d815b63::t_ad9ec887d3a989 3-8,48,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "bf38670595b5ecac7e82ad42fa4f387f8f02fb63",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
