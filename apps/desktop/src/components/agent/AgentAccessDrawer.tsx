@@ -135,13 +135,16 @@ function keySourceId(option: KeyOption): string {
 
 function sanitizeProviderSlug(value: string): string {
   return Array.from(value)
-    .map((character) => (/^[a-z0-9]$/i.test(character) ? character.toLowerCase() : '_'))
-    .join('');
+    .map((character) => (/^[\p{L}\p{N}._-]$/u.test(character) ? character : '-'))
+    .join('')
+    .replace(/^-+|-+$/g, '') || 'profile';
 }
 
-function isolatedSlugForOption(option: KeyOption): string {
+function isolatedSlugForOption(option: KeyOption, agent: AgentDef['id']): string {
   if (option.source.type === 'account_token') {
-    return sanitizeProviderSlug(option.source.provider_id);
+    return sanitizeProviderSlug(
+      agent === 'claude_code' ? option.providerName : option.source.provider_id
+    );
   }
   try {
     return sanitizeProviderSlug(new URL(option.baseUrl ?? '').hostname);
@@ -229,13 +232,11 @@ export function AgentAccessDrawer({
 
     setMethod(canRestoreExisting ? existing?.method ?? 'direct' : 'direct');
     setWriteMode(
-      agent.id === 'codex' && canRestoreExisting && existing
+      canRestoreExisting && existing
         ? existing.isolated_slug
           ? 'isolated'
           : 'official'
-        : agent.id === 'codex'
-          ? 'isolated'
-          : 'official'
+        : 'isolated'
     );
     setKind(
       canRestoreExisting
@@ -382,7 +383,7 @@ export function AgentAccessDrawer({
         source: accessSource,
         model: model || null,
         context1m,
-        isolated: agent.id === 'codex' && writeMode === 'isolated',
+        isolated: writeMode === 'isolated',
       });
     }, 250);
     return () => window.clearTimeout(timer);
@@ -404,6 +405,7 @@ export function AgentAccessDrawer({
       baseUrl,
       model,
       context1m,
+      writeMode,
     ],
     enabled:
       open &&
@@ -411,7 +413,14 @@ export function AgentAccessDrawer({
       !!selected &&
       (!isAccountToken || !!baseUrl),
     queryFn: () =>
-      generateTemporaryCommands(agent.id, selected!, baseUrl, model || null, context1m),
+      generateTemporaryCommands(
+        agent.id,
+        selected!,
+        baseUrl,
+        model || null,
+        context1m,
+        writeMode === 'isolated'
+      ),
     staleTime: 0,
   });
 
@@ -468,7 +477,7 @@ export function AgentAccessDrawer({
             model: model || null,
             context1m,
             impersonate,
-            isolated: agent.id === 'codex' && writeMode === 'isolated',
+            isolated: writeMode === 'isolated',
           },
         });
         toast.success(t('agentConfig.bound', '已接入（经网关）'));
@@ -479,14 +488,15 @@ export function AgentAccessDrawer({
             agent: agent.id,
             method: 'direct',
             label: `${selected.providerName} · ${selected.label}`,
+            account_label: selected.accountName,
             model: model || null,
             upstream_kind: null,
             impersonate: null,
             source: accessSource,
             context1m,
             isolated_slug:
-              agent.id === 'codex' && writeMode === 'isolated'
-                ? isolatedSlugForOption(selected)
+              writeMode === 'isolated'
+                ? isolatedSlugForOption(selected, agent.id)
                 : null,
           },
         });
@@ -545,7 +555,7 @@ export function AgentAccessDrawer({
                 icon={<KeyRound className="h-4 w-4" />}
               >
                 <Field label={t('agentConfig.fieldSource', '来源')}>
-                    <Select value={sourceId} onValueChange={selectSource} disabled={locked}>
+                    <Select value={sourceId} onValueChange={selectSource} disabled={locked || !!existing}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('agentConfig.pickSource', '选择来源')} />
                       </SelectTrigger>
@@ -639,11 +649,12 @@ export function AgentAccessDrawer({
                   </div>
                 </FormSection>
 
-                {agent.id === 'codex' && (
-                  <FormSection
+                <FormSection
                     number="3"
                     title={t('agentConfig.writeModeTitle', '写入方式')}
-                    description={t('agentConfig.writeModeDesc', '独立文件不影响官方配置，需要用 --config 指定文件启动 Codex。')}
+                    description={agent.id === 'codex'
+                      ? t('agentConfig.writeModeDesc', '独立文件不影响官方配置，需要用 -p <名称> 指定 Profile 启动 Codex。')
+                      : t('agentConfig.claudeWriteModeDesc', '独立文件不影响官方配置，需要用 --settings 指定文件启动 Claude Code。')}
                     icon={<FileCode2 className="h-4 w-4" />}
                   >
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -660,8 +671,7 @@ export function AgentAccessDrawer({
                         onClick={() => setWriteMode('isolated')}
                       />
                     </div>
-                  </FormSection>
-                )}
+                </FormSection>
               </div>
 
               <div className="min-w-0 p-5">
@@ -1222,7 +1232,9 @@ async function directConfigure(
 ): Promise<void> {
   if (option.source.type === 'independent_key') {
     const command = agent === 'claude_code'
-      ? 'configure_independent_key_claude'
+      ? isolated
+        ? 'configure_independent_key_claude_isolated'
+        : 'configure_independent_key_claude'
       : isolated
         ? 'configure_independent_key_codex_isolated'
         : 'configure_independent_key_codex';
@@ -1231,9 +1243,10 @@ async function directConfigure(
   }
 
   if (agent === 'claude_code') {
-    await invoke<string>('configure_claude_global', {
+    await invoke<string>(isolated ? 'configure_claude_isolated' : 'configure_claude_global', {
       tokenId: option.source.token_id,
       accountId: option.source.account_id,
+      providerId: option.source.provider_id,
       baseUrl,
       model,
       context1m,
@@ -1255,8 +1268,15 @@ async function generateTemporaryCommands(
   option: KeyOption,
   baseUrl: string,
   model: string | null,
-  context1m: boolean
+  context1m: boolean,
+  isolated = false
 ): Promise<string> {
+  if (isolated) {
+    const slug = isolatedSlugForOption(option, agent);
+    return agent === 'claude_code'
+      ? `claude --settings ~/.claude/profiles.d/settings-${slug}.json`
+      : `codex -p ${slug}`;
+  }
   if (option.source.type === 'independent_key') {
     const command =
       agent === 'claude_code'

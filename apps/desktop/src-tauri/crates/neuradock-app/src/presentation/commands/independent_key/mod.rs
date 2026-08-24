@@ -3,7 +3,10 @@ mod codex_config;
 mod crud;
 
 // Re-export all commands for backward compatibility
-pub use claude_config::{configure_independent_key_claude, generate_independent_key_claude_temp};
+pub use claude_config::{
+    configure_independent_key_claude, configure_independent_key_claude_isolated,
+    generate_independent_key_claude_temp,
+};
 pub use codex_config::{
     configure_independent_key_codex, configure_independent_key_codex_isolated,
     generate_independent_key_codex_temp,

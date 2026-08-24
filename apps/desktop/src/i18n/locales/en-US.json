@@ -17,6 +17,8 @@
     "settings": "Settings",
     "aiChat": "AI Chat",
     "calendar": "Calendar",
+    "jira": "Jira",
+    "gerrit": "Gerrit",
     "group": {
       "checkin": "Check-in",
       "tools": "Tools"
@@ -84,6 +86,19 @@
     "configurationMissingHint": "The configuration file for the current access target is missing:",
     "officialConfigShort": "Official config",
     "isolatedConfigShort": "Isolated config",
+    "claudeWriteModeDesc": "The isolated file leaves the official config untouched; start Claude Code with --settings to use it.",
+    "profileSummary": "Configuration profile",
+    "gatewayProfileSummary": "This profile runs through the local gateway. Request statistics are available in gateway details.",
+    "directProfileSummary": "This profile connects directly to the upstream service without the local gateway.",
+    "copyProfileCommand": "Copy launch command",
+    "configProfiles": "Configuration profiles",
+    "configProfilesHint": "The default and named profiles are independent; choose one with its launch command.",
+    "addProfile": "Add profile",
+    "noProfiles": "No available profiles",
+    "defaultProfile": "Default",
+    "namedProfile": "Named",
+    "launch": "Launch",
+    "gatewayRoute": "Gateway",
     "codexConfigFilesTitle": "Codex config files",
     "codexConfigFilesHint": "Each config is independent; only the current access target is checked for changes.",
     "currentAccessTarget": "Current target",
@@ -1466,6 +1481,23 @@
       "paymentLinkGenerated": "Payment link generated",
       "paymentLinkGenerateFailed": "Generation failed: {{message}}"
     }
+  },
+  "devTools": {
+    "selectConnection": "Select connection",
+    "addConnection": "Add connection",
+    "connection": "Connection",
+    "configureFirst": "Add a connection to start querying.",
+    "deployment": "Deployment",
+    "authMethod": "Authentication",
+    "username": "Username",
+    "secret": "Credential",
+    "secretKeep": "Credential (leave blank to keep current)",
+    "metadata": "Fields and statuses",
+    "run": "Run query",
+    "saveQuery": "Save query",
+    "queryName": "Query name",
+    "testConnection": "Test connection",
+    "saveBeforeTest": "Save the connection before testing it."
   },
   "gateway": {
     "title": "Local Adaptation Gateway",

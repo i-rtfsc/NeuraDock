@@ -19,6 +19,30 @@ pub(super) fn get_claude_config_path() -> Result<PathBuf> {
     Ok(home.join(".claude").join("settings.json"))
 }
 
+pub(super) fn get_claude_isolated_config_path(slug_hint: &str) -> Result<PathBuf> {
+    let home = dirs::home_dir().context("Cannot find home directory")?;
+    let slug = sanitize_config_slug(slug_hint);
+    Ok(home.join(".claude").join("profiles.d").join(format!(
+        "settings-{}.json",
+        if slug.is_empty() { "profile" } else { &slug }
+    )))
+}
+
+fn sanitize_config_slug(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_alphanumeric() || matches!(character, '-' | '_' | '.') {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
 /// Ensure API key has sk- prefix
 pub(super) fn ensure_sk_prefix(key: &str) -> String {
     if key.starts_with("sk-") {
@@ -34,5 +58,19 @@ pub(super) fn with_1m_suffix(model: &str) -> String {
         model.to_string()
     } else {
         format!("{}[1m]", model)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn isolated_filename_preserves_readable_provider_names() {
+        let path = get_claude_isolated_config_path("中转站 A/B").unwrap();
+        assert_eq!(
+            path.file_name().and_then(|name| name.to_str()),
+            Some("settings-中转站-A-B.json")
+        );
     }
 }

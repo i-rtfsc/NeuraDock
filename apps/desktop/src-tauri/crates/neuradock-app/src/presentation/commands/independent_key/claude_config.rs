@@ -45,6 +45,41 @@ pub async fn configure_independent_key_claude(
         .map_err(CommandError::from)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_independent_key_claude_isolated(
+    key_id: i64,
+    model: Option<String>,
+    context1m: Option<bool>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    let id = IndependentKeyId::new(key_id);
+    let key = repositories
+        .independent_key
+        .find_by_id(&id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
+    if !key.is_active() {
+        return Err(CommandError::validation(
+            "Cannot configure inactive API key. Please enable it first.",
+        ));
+    }
+    let slug = url::Url::parse(key.base_url())
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_string))
+        .unwrap_or_else(|| format!("key-{key_id}"));
+    ClaudeConfigService::new()
+        .configure_isolated_with_key(
+            &slug,
+            key.api_key(),
+            key.base_url(),
+            model.as_deref(),
+            context1m.unwrap_or(false),
+        )
+        .map_err(CommandError::from)
+}
+
 /// Generate temporary Claude Code commands for independent API key
 #[tauri::command]
 #[specta::specta]

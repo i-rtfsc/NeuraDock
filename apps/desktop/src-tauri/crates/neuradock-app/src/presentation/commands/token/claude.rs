@@ -2,6 +2,7 @@ use crate::presentation::commands::token::ensure_account_token_usable;
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::shared::AccountId;
+use neuradock_domain::shared::ProviderId;
 use tauri::State;
 
 #[tauri::command]
@@ -52,6 +53,72 @@ pub async fn configure_claude_global(
         .map_err(CommandError::from)?;
 
     Ok(result)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_claude_isolated(
+    token_id: i64,
+    account_id: String,
+    provider_id: String,
+    base_url: String,
+    model: Option<String>,
+    context1m: Option<bool>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    let account_id = AccountId::from_string(&account_id);
+    let token_id = neuradock_domain::token::TokenId::new(token_id);
+    let tokens = services
+        .token
+        .get_cached_tokens(&account_id)
+        .await
+        .map_err(CommandError::from)?;
+    let token = tokens
+        .iter()
+        .find(|token| token.id() == &token_id)
+        .ok_or_else(|| CommandError::not_found("Token not found"))?;
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    ensure_account_token_usable(&account, token)?;
+    let provider_id = ProviderId::from_string(&provider_id);
+    if account.provider_id() != &provider_id {
+        return Err(CommandError::validation(
+            "The selected provider does not belong to this account.",
+        ));
+    }
+    let provider = repositories
+        .provider
+        .find_by_id(&provider_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+    services
+        .claude_config
+        .configure_isolated_with_key(
+            provider.name(),
+            token.key(),
+            &base_url,
+            model.as_deref(),
+            context1m.unwrap_or(false),
+        )
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_claude_isolated(
+    slug: String,
+    services: State<'_, Services>,
+) -> Result<String, CommandError> {
+    services
+        .claude_config
+        .clear_isolated(&slug)
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]

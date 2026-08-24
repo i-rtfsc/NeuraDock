@@ -16,7 +16,7 @@ use tokio::sync::RwLock;
 
 use axum::{
     body::Body,
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
@@ -55,6 +55,21 @@ pub enum GatewayClient {
     Codex,
     /// Claude Code, speaking the Anthropic Messages protocol.
     ClaudeCode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct GatewayRoute {
+    pub client: GatewayClient,
+    pub profile: String,
+}
+
+impl GatewayRoute {
+    pub fn default(client: GatewayClient) -> Self {
+        Self {
+            client,
+            profile: "default".to_string(),
+        }
+    }
 }
 
 impl GatewayClient {
@@ -113,7 +128,7 @@ pub struct GatewayUpstream {
 
 /// Live client -> upstream binding table, shared between the running server
 /// and the app layer so bindings can change without restarting the server.
-pub type GatewayBindings = Arc<RwLock<HashMap<GatewayClient, GatewayUpstream>>>;
+pub type GatewayBindings = Arc<RwLock<HashMap<GatewayRoute, GatewayUpstream>>>;
 
 struct GatewayState {
     bindings: GatewayBindings,
@@ -186,6 +201,14 @@ pub async fn start_gateway_with_runtime(
         .route("/responses", post(handle_responses))
         .route("/v1/responses", post(handle_responses))
         .route("/v1/messages", post(handle_anthropic))
+        .route(
+            "/profiles/:profile/v1/responses",
+            post(handle_profile_responses),
+        )
+        .route(
+            "/profiles/:profile/v1/messages",
+            post(handle_profile_anthropic),
+        )
         .layer(DefaultBodyLimit::max(MAX_INBOUND_BODY_BYTES))
         .with_state(state);
 
@@ -241,7 +264,43 @@ async fn handle_responses(
             )
         }
     };
-    handle(state, GatewayClient::Codex, headers, body, request_id).await
+    handle(
+        state,
+        GatewayRoute::default(GatewayClient::Codex),
+        headers,
+        body,
+        request_id,
+    )
+    .await
+}
+
+async fn handle_profile_responses(
+    Path(profile): Path<String>,
+    State(state): State<Arc<GatewayState>>,
+    headers: axum::http::HeaderMap,
+    body: Result<axum::body::Bytes, axum::extract::rejection::BytesRejection>,
+) -> Response {
+    let request_id = Uuid::new_v4().to_string();
+    match body {
+        Ok(body) => {
+            handle(
+                state,
+                GatewayRoute {
+                    client: GatewayClient::Codex,
+                    profile,
+                },
+                headers,
+                body,
+                request_id,
+            )
+            .await
+        }
+        Err(_) => error_response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "request body exceeded the gateway limit",
+            &request_id,
+        ),
+    }
 }
 
 async fn handle_anthropic(
@@ -260,7 +319,43 @@ async fn handle_anthropic(
             )
         }
     };
-    handle(state, GatewayClient::ClaudeCode, headers, body, request_id).await
+    handle(
+        state,
+        GatewayRoute::default(GatewayClient::ClaudeCode),
+        headers,
+        body,
+        request_id,
+    )
+    .await
+}
+
+async fn handle_profile_anthropic(
+    Path(profile): Path<String>,
+    State(state): State<Arc<GatewayState>>,
+    headers: axum::http::HeaderMap,
+    body: Result<axum::body::Bytes, axum::extract::rejection::BytesRejection>,
+) -> Response {
+    let request_id = Uuid::new_v4().to_string();
+    match body {
+        Ok(body) => {
+            handle(
+                state,
+                GatewayRoute {
+                    client: GatewayClient::ClaudeCode,
+                    profile,
+                },
+                headers,
+                body,
+                request_id,
+            )
+            .await
+        }
+        Err(_) => error_response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "request body exceeded the gateway limit",
+            &request_id,
+        ),
+    }
 }
 
 struct SentUpstream {
@@ -391,11 +486,12 @@ where
 
 async fn handle(
     state: Arc<GatewayState>,
-    client: GatewayClient,
+    route: GatewayRoute,
     headers: axum::http::HeaderMap,
     body: axum::body::Bytes,
     request_id: String,
 ) -> Response {
+    let client = route.client;
     let protocol = client.protocol();
 
     if !has_valid_local_credential(&headers, &state.local_credential) {
@@ -413,7 +509,8 @@ async fn handle(
 
     // Look up this client's upstream binding; each client is bound
     // independently and requests for unbound clients are rejected.
-    let Some(upstream_source) = state.bindings.read().await.get(&client).cloned() else {
+    let bindings = state.bindings.read().await;
+    let Some(upstream_source) = bindings.get(&route).cloned() else {
         log::warn!(
             "Gateway request for {} but no relay key is bound",
             client.display_name()
@@ -427,6 +524,7 @@ async fn handle(
             &request_id,
         );
     };
+    drop(bindings);
     // Passthrough when the upstream already speaks the tool's protocol
     // using native protocol passthrough: forward with the real key, no
     // translation, streaming bytes proxied as-is.
@@ -2315,7 +2413,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
     fn bindings_for(client: GatewayClient, relay_url: String, model: &str) -> GatewayBindings {
         let mut map = HashMap::new();
         map.insert(
-            client,
+            GatewayRoute::default(client),
             test_upstream(relay_url, UpstreamKind::OpenAiChat, Some(model), false),
         );
         Arc::new(RwLock::new(map))
@@ -2493,7 +2591,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         // Rebind Codex to a different model without restarting.
         bindings.write().await.insert(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             test_upstream(relay_url, UpstreamKind::OpenAiChat, Some("second"), false),
         );
 
@@ -2526,7 +2624,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
             false,
         );
         let bindings = Arc::new(RwLock::new(HashMap::from([(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             upstream,
         )])));
         let gateway = start_gateway(bindings, 0).await.unwrap();
@@ -2572,7 +2670,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
             false,
         );
         let bindings = Arc::new(RwLock::new(HashMap::from([(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             upstream,
         )])));
         let gateway = start_gateway(bindings, 0).await.unwrap();
@@ -2622,7 +2720,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
             false,
         );
         let bindings = Arc::new(RwLock::new(HashMap::from([(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             upstream,
         )])));
         let gateway = start_gateway(bindings, 0).await.unwrap();
@@ -2779,7 +2877,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             test_upstream(
                 relay_url,
                 UpstreamKind::OpenAiResponses,
@@ -2844,7 +2942,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             test_upstream_with_key(
                 format!("http://{}", addr),
                 "sk-real-relay-key",
@@ -2921,7 +3019,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::ClaudeCode,
+            GatewayRoute::default(GatewayClient::ClaudeCode),
             test_upstream_with_key(
                 format!("http://{}", addr),
                 "relay-secret",
@@ -3011,7 +3109,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::ClaudeCode,
+            GatewayRoute::default(GatewayClient::ClaudeCode),
             test_upstream(
                 format!("http://{}", addr),
                 UpstreamKind::Anthropic,
@@ -3079,7 +3177,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             test_upstream_with_key(
                 format!("http://{}", addr),
                 "sk-real-relay-key",
@@ -3140,7 +3238,7 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         let mut map = HashMap::new();
         map.insert(
-            GatewayClient::Codex,
+            GatewayRoute::default(GatewayClient::Codex),
             test_upstream(
                 format!("http://{}", addr),
                 UpstreamKind::OpenAiResponses,

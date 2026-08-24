@@ -47,6 +47,40 @@ impl ClaudeConfigService {
         global_config::preview_global_with_key_impl(api_key, base_url, model, context_1m)
     }
 
+    pub fn configure_isolated_with_key(
+        &self,
+        slug_hint: &str,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<String> {
+        global_config::configure_isolated_with_key_impl(
+            slug_hint, api_key, base_url, model, context_1m,
+        )
+    }
+
+    pub fn preview_isolated_with_key(
+        &self,
+        slug_hint: &str,
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        context_1m: bool,
+    ) -> Result<(std::path::PathBuf, String, String)> {
+        global_config::preview_isolated_with_key_impl(
+            slug_hint, api_key, base_url, model, context_1m,
+        )
+    }
+
+    pub fn isolated_path(&self, slug_hint: &str) -> Result<std::path::PathBuf> {
+        helpers::get_claude_isolated_config_path(slug_hint)
+    }
+
+    pub fn clear_isolated(&self, slug_hint: &str) -> Result<String> {
+        global_config::clear_isolated_impl(slug_hint)
+    }
+
     /// Path of the settings.json this service manages.
     pub fn managed_path() -> Result<std::path::PathBuf> {
         helpers::get_claude_config_path()

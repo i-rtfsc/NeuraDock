@@ -37,7 +37,8 @@ export function Sidebar() {
   const devToolboxRouteActive =
     location.pathname.startsWith('/tokens') ||
     location.pathname.startsWith('/codex') ||
-    location.pathname.startsWith('/calendar');
+    location.pathname.startsWith('/calendar') ||
+    location.pathname.startsWith('/dev-tools');
   const [devToolboxOpen, setDevToolboxOpen] = useState(devToolboxRouteActive);
 
   useEffect(() => {

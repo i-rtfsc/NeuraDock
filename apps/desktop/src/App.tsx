@@ -24,6 +24,12 @@ const TransitHubPage = lazy(() =>
 const DevToolboxPage = lazy(() =>
   import('./pages/DevToolboxPage').then((m) => ({ default: m.DevToolboxPage }))
 );
+const JiraToolPage = lazy(() =>
+  import('./pages/DeveloperToolPage').then((m) => ({ default: m.JiraToolPage }))
+);
+const GerritToolPage = lazy(() =>
+  import('./pages/DeveloperToolPage').then((m) => ({ default: m.GerritToolPage }))
+);
 const AgentConfigPage = lazy(() =>
   import('./pages/AgentConfigPage').then((m) => ({ default: m.AgentConfigPage }))
 );
@@ -80,6 +86,8 @@ function App() {
                   <Route path="/tokens" element={<TokensPage />} />
                   <Route path="/agent-config" element={<AgentConfigPage />} />
                   <Route path="/dev-tools" element={<DevToolboxPage />} />
+                  <Route path="/dev-tools/jira" element={<JiraToolPage />} />
+                  <Route path="/dev-tools/gerrit" element={<GerritToolPage />} />
                   <Route path="/daily-tools" element={<Navigate to="/calendar" replace />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/ai-chat" element={<AiChatPage />} />

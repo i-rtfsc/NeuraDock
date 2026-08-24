@@ -17,6 +17,8 @@
     "settings": "设置",
     "aiChat": "AI 对话",
     "calendar": "日历",
+    "jira": "Jira",
+    "gerrit": "Gerrit",
     "group": {
       "checkin": "签到管理",
       "tools": "工具箱"
@@ -84,6 +86,19 @@
     "configurationMissingHint": "当前接入所指向的配置文件不存在：",
     "officialConfigShort": "官方配置",
     "isolatedConfigShort": "独立配置",
+    "claudeWriteModeDesc": "独立文件不影响官方配置，需要用 --settings 指定文件启动 Claude Code。",
+    "profileSummary": "配置 Profile",
+    "gatewayProfileSummary": "该配置通过本地网关运行，请在网关详情中查看请求统计。",
+    "directProfileSummary": "该配置直接连接上游，不经过本地网关。",
+    "copyProfileCommand": "复制启动命令",
+    "configProfiles": "配置 Profiles",
+    "configProfilesHint": "默认配置和命名配置彼此独立，使用对应的启动命令选择配置。",
+    "addProfile": "添加配置",
+    "noProfiles": "还没有可用配置",
+    "defaultProfile": "默认配置",
+    "namedProfile": "命名配置",
+    "launch": "启动",
+    "gatewayRoute": "网关",
     "codexConfigFilesTitle": "Codex 配置文件",
     "codexConfigFilesHint": "各配置彼此独立；只有“当前接入”目标参与一致性检查。",
     "currentAccessTarget": "当前接入",
@@ -1466,6 +1481,23 @@
       "paymentLinkGenerated": "支付链接已生成",
       "paymentLinkGenerateFailed": "生成失败：{{message}}"
     }
+  },
+  "devTools": {
+    "selectConnection": "选择连接",
+    "addConnection": "添加连接",
+    "connection": "连接",
+    "configureFirst": "添加连接后即可开始查询。",
+    "deployment": "部署类型",
+    "authMethod": "认证方式",
+    "username": "用户名",
+    "secret": "凭证",
+    "secretKeep": "凭证（留空保持不变）",
+    "metadata": "字段与状态",
+    "run": "查询",
+    "saveQuery": "保存查询",
+    "queryName": "查询名称",
+    "testConnection": "测试连接",
+    "saveBeforeTest": "请先保存连接"
   },
   "gateway": {
     "title": "本地适配网关",

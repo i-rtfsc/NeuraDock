@@ -10,9 +10,10 @@ use crate::application::queries::BalanceStatisticsQueryService;
 use crate::application::queries::{AccountQueryService, CheckInStreakQueries};
 use crate::application::services::{
     AutoCheckInScheduler, BalanceHistoryService, BalanceService, ClaudeConfigService,
-    CodexConfigService, ConfigService, LegacyMigrationService, NotificationService,
-    OrphanAccountRepairService, ProviderModelsQueryService, ProviderModelsService,
-    ProxyConfigService, ReminderSettingsService, SchedulerDeps, TokenService,
+    CodexConfigService, ConfigService, DeveloperToolsService, LegacyMigrationService,
+    NotificationService, OrphanAccountRepairService, ProviderModelsQueryService,
+    ProviderModelsService, ProxyConfigService, ReminderSettingsService, SchedulerDeps,
+    TokenService,
 };
 use crate::presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use neuradock_domain::account::AccountRepository;
@@ -238,6 +239,11 @@ pub async fn build_app_state(
         waf_cookies_repo.clone(),
         proxy_config_repo.clone(),
     ));
+    let developer_tools = Arc::new(DeveloperToolsService::new(
+        pool.clone(),
+        encryption_service.clone(),
+        app_data_dir.clone(),
+    )?);
     let balance_history_service =
         Arc::new(BalanceHistoryService::new(balance_history_repo.clone()));
     let balance_service = Arc::new(BalanceService::new(
@@ -450,6 +456,7 @@ pub async fn build_app_state(
                 reminder_settings_repo.clone(),
             )),
             provider_models_query,
+            developer_tools,
         },
         queries: Queries {
             account: account_queries,

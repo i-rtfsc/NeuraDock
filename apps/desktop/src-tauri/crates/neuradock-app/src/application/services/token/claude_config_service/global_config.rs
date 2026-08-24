@@ -3,7 +3,10 @@ use serde_json::{json, Value};
 use std::fs;
 use std::sync::{LazyLock, Mutex};
 
-use super::helpers::{ensure_sk_prefix, get_claude_config_path, with_1m_suffix, MANAGED_ENV_KEYS};
+use super::helpers::{
+    ensure_sk_prefix, get_claude_config_path, get_claude_isolated_config_path, with_1m_suffix,
+    MANAGED_ENV_KEYS,
+};
 use neuradock_domain::token::ApiToken;
 use neuradock_infrastructure::fs_safe::{atomic_write, backup_file, remove_backup};
 
@@ -27,8 +30,43 @@ pub(super) fn configure_global_with_key_impl(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<String> {
+    configure_at_path(
+        &get_claude_config_path()?,
+        api_key,
+        base_url,
+        model,
+        context_1m,
+        "globally",
+    )
+}
+
+pub(super) fn configure_isolated_with_key_impl(
+    slug_hint: &str,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<String> {
+    let path = get_claude_isolated_config_path(slug_hint)?;
+    configure_at_path(
+        &path,
+        api_key,
+        base_url,
+        model,
+        context_1m,
+        "in an isolated file",
+    )
+}
+
+fn configure_at_path(
+    config_path: &std::path::Path,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+    scope: &str,
+) -> Result<String> {
     let _guard = CLAUDE_CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let config_path = get_claude_config_path()?;
 
     // Ensure directory exists
     if let Some(parent) = config_path.parent() {
@@ -50,12 +88,14 @@ pub(super) fn configure_global_with_key_impl(
     atomic_write(&config_path, &content, true)?;
 
     log::info!(
-        "Successfully configured Claude Code at: {}",
+        "Successfully configured Claude Code {} at: {}",
+        scope,
         config_path.display()
     );
 
     Ok(format!(
-        "Successfully configured Claude Code globally at: {}",
+        "Successfully configured Claude Code {} at: {}",
+        scope,
         config_path.display()
     ))
 }
@@ -81,6 +121,44 @@ pub(super) fn preview_global_with_key_impl(
     let next = build_config(existing, api_key, base_url, model, context_1m)?;
 
     Ok((config_path, current, serde_json::to_string_pretty(&next)?))
+}
+
+pub(super) fn preview_isolated_with_key_impl(
+    slug_hint: &str,
+    api_key: &str,
+    base_url: &str,
+    model: Option<&str>,
+    context_1m: bool,
+) -> Result<(std::path::PathBuf, String, String)> {
+    let config_path = get_claude_isolated_config_path(slug_hint)?;
+    let current = if config_path.exists() {
+        fs::read_to_string(&config_path)
+            .context("Failed to read existing Claude isolated settings")?
+    } else {
+        String::new()
+    };
+    let existing = if current.trim().is_empty() {
+        json!({})
+    } else {
+        serde_json::from_str(&current)
+            .context("Failed to parse existing Claude isolated settings")?
+    };
+    let next = build_config(existing, api_key, base_url, model, context_1m)?;
+    Ok((config_path, current, serde_json::to_string_pretty(&next)?))
+}
+
+pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
+    let path = get_claude_isolated_config_path(slug_hint)?;
+    if !path.exists() {
+        return Ok(format!(
+            "No isolated Claude Code config found for {slug_hint}"
+        ));
+    }
+    fs::remove_file(&path).with_context(|| format!("Failed to remove {}", path.display()))?;
+    Ok(format!(
+        "Removed isolated Claude Code config: {}",
+        path.display()
+    ))
 }
 
 fn load_config(path: &std::path::Path) -> Result<Value> {

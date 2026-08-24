@@ -14,7 +14,7 @@ pub use reliability::{
     usage_from_json, CircuitState, GatewayRuntime, GatewayTokenUsage, GatewayUpstreamSnapshot,
 };
 pub use server::{
-    start_gateway, start_gateway_with_runtime, GatewayBindings, GatewayClient, GatewayHandle,
+    start_gateway, start_gateway_with_runtime, GatewayBindings, GatewayClient, GatewayHandle, GatewayRoute,
     GatewayUpstream, UpstreamKind,
 };
 pub use transform::InboundProtocol;

@@ -9,9 +9,94 @@ use neuradock_infrastructure::fs_safe::{
     atomic_write, backup_file, backup_path_for, remove_backup,
 };
 
-/// `~/.codex/<slug>.config.toml`
+/// Canonical managed file: `~/.codex/profiles.d/<slug>.config.toml`.
 pub(super) fn isolated_config_path(provider_slug: &str) -> Result<PathBuf> {
+    Ok(get_codex_dir()?
+        .join("profiles.d")
+        .join(format!("{}.config.toml", provider_slug)))
+}
+
+/// Codex `-p <slug>` only discovers `$CODEX_HOME/<slug>.config.toml`.
+fn isolated_alias_path(provider_slug: &str) -> Result<PathBuf> {
     Ok(get_codex_dir()?.join(format!("{}.config.toml", provider_slug)))
+}
+
+fn create_profile_symlink(target: &std::path::Path, alias: &std::path::Path) -> Result<()> {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, alias)?;
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(target, alias)?;
+    Ok(())
+}
+
+fn prepare_isolated_paths(provider_slug: &str) -> Result<(PathBuf, PathBuf)> {
+    let config_path = isolated_config_path(provider_slug)?;
+    let alias_path = isolated_alias_path(provider_slug)?;
+    let profiles_dir = config_path
+        .parent()
+        .context("Codex profiles directory missing")?;
+    std::fs::create_dir_all(profiles_dir)?;
+
+    if let Ok(metadata) = std::fs::symlink_metadata(&alias_path) {
+        if metadata.file_type().is_symlink() {
+            let expected = PathBuf::from("profiles.d").join(format!("{provider_slug}.config.toml"));
+            let actual = std::fs::read_link(&alias_path)?;
+            if actual != expected && actual != config_path {
+                anyhow::bail!(
+                    "Codex profile alias {} points to an unmanaged target",
+                    alias_path.display()
+                );
+            }
+        } else if config_path.exists() {
+            anyhow::bail!(
+                "Cannot migrate Codex profile because both {} and {} exist",
+                alias_path.display(),
+                config_path.display()
+            );
+        } else {
+            std::fs::rename(&alias_path, &config_path).with_context(|| {
+                format!(
+                    "Failed to migrate {} to {}",
+                    alias_path.display(),
+                    config_path.display()
+                )
+            })?;
+            let old_backup = backup_path_for(&alias_path)?;
+            let new_backup = backup_path_for(&config_path)?;
+            if old_backup.exists() && !new_backup.exists() {
+                std::fs::rename(old_backup, new_backup)?;
+            }
+        }
+    }
+
+    if std::fs::symlink_metadata(&alias_path).is_err() {
+        let relative_target =
+            PathBuf::from("profiles.d").join(format!("{provider_slug}.config.toml"));
+        create_profile_symlink(&relative_target, &alias_path).with_context(|| {
+            format!(
+                "Failed to create Codex profile alias {}",
+                alias_path.display()
+            )
+        })?;
+    }
+    Ok((config_path, alias_path))
+}
+
+fn remove_managed_alias(provider_slug: &str) -> Result<Option<PathBuf>> {
+    let alias = isolated_alias_path(provider_slug)?;
+    let Ok(metadata) = std::fs::symlink_metadata(&alias) else {
+        return Ok(None);
+    };
+    if !metadata.file_type().is_symlink() {
+        return Ok(None);
+    }
+    let expected = PathBuf::from("profiles.d").join(format!("{provider_slug}.config.toml"));
+    let target = std::fs::read_link(&alias)?;
+    if target != expected && target != isolated_config_path(provider_slug)? {
+        return Ok(None);
+    }
+    std::fs::remove_file(&alias)?;
+    Ok(Some(alias))
 }
 
 /// Legacy key path used by the previous jq-based isolated configuration.
@@ -42,7 +127,7 @@ pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
     } else {
         sanitize_provider_slug(slug_hint)
     };
-    let config_path = isolated_config_path(&slug)?;
+    let (config_path, _) = prepare_isolated_paths(&slug)?;
     let legacy_key_path = isolated_key_path(&slug)?;
     let mut removed = Vec::new();
 
@@ -73,6 +158,12 @@ pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
         Err(error) => {
             return Err(error)
                 .with_context(|| format!("Failed to remove {}", legacy_key_path.display()))
+        }
+    }
+
+    if !config_path.exists() {
+        if let Some(alias) = remove_managed_alias(&slug)? {
+            removed.push(alias.display().to_string());
         }
     }
 
@@ -197,7 +288,7 @@ fn configure_isolated(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<String> {
-    let config_path = isolated_config_path(provider_slug)?;
+    let (config_path, alias_path) = prepare_isolated_paths(provider_slug)?;
     let legacy_key_path = isolated_key_path(provider_slug)?;
 
     let config_content = build_isolated_config(
@@ -229,8 +320,10 @@ fn configure_isolated(
 
     log::info!("Isolated Codex config written: {}", config_path.display());
     Ok(format!(
-        "Isolated config written:\n  - {}",
-        config_path.display()
+        "Isolated config written:\n  - {}\nProfile command: codex -p {}\nAlias: {}",
+        config_path.display(),
+        provider_slug,
+        alias_path.display()
     ))
 }
 
@@ -305,8 +398,14 @@ fn preview_isolated(
 ) -> Result<Vec<(PathBuf, &'static str, String, String)>> {
     let config_path = isolated_config_path(provider_slug)?;
 
-    let current_config = if config_path.exists() {
-        std::fs::read_to_string(&config_path)?
+    let alias_path = isolated_alias_path(provider_slug)?;
+    let current_path = if config_path.exists() {
+        &config_path
+    } else {
+        &alias_path
+    };
+    let current_config = if current_path.exists() {
+        std::fs::read_to_string(current_path)?
     } else {
         String::new()
     };
@@ -357,5 +456,11 @@ mod tests {
             Some("sk-secret-key")
         );
         assert!(provider.get("auth").is_none());
+    }
+
+    #[test]
+    fn isolated_config_uses_profiles_directory() {
+        let path = isolated_config_path("agentrouter").unwrap();
+        assert!(path.ends_with(".codex/profiles.d/agentrouter.config.toml"));
     }
 }

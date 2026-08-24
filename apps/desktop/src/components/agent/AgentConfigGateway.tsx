@@ -9,14 +9,15 @@ import {
   Power,
   Plus,
   Pencil,
-  Unplug,
-  RotateCcw,
-  Trash2,
+  MoreVertical,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 import { AgentAccessDrawer, type KeyOption } from './AgentAccessDrawer';
 import type { IndependentKeyDto } from '@/types/independentKey';
 import type { AccountDto, TokenDto } from '@/types/token';
@@ -60,6 +61,7 @@ export interface AgentAccess {
   agent: AgentId;
   method: AccessMethod;
   label: string;
+  account_label?: string | null;
   model: string | null;
   upstream_kind: string | null;
   impersonate: boolean | null;
@@ -107,8 +109,36 @@ export interface AgentConfigurationState {
   model: string | null;
   context1m: boolean;
   credential_present: boolean;
+  managed: boolean;
+  account_label: string | null;
+  gateway_enabled: boolean;
+  method: AccessMethod | null;
   config_paths: string[];
   codex_configs: CodexConfigFile[];
+  profiles: AgentProfile[];
+}
+
+interface AgentProfile {
+  kind: 'official' | 'isolated';
+  slug: string | null;
+  path: string;
+  exists: boolean;
+  parse_ok: boolean;
+  configured: boolean;
+  endpoint: string | null;
+  model: string | null;
+  context1m: boolean;
+  credential_present: boolean;
+  managed: boolean;
+  account_label: string | null;
+  gateway_enabled: boolean;
+  method: AccessMethod | null;
+}
+
+function profileDisplayName(profile: AgentProfile): string {
+  if (!profile.slug) return '默认配置';
+  const known: Record<string, string> = { agentrouter: 'AgentRouter', anyrouter: 'AnyRouter', deepseek: 'DeepSeek' };
+  return known[profile.slug.toLowerCase()] ?? profile.slug.replace(/(^|[-_])(\w)/g, (_, prefix, letter) => `${prefix ? ' ' : ''}${letter.toUpperCase()}`);
 }
 
 interface CodexConfigFile {
@@ -312,7 +342,7 @@ function kindLabel(kind: string | null, t: ReturnType<typeof useTranslation>['t'
   }
 }
 
-function AccessStatusCard({
+export function AccessStatusCard({
   agent,
   access,
   configuration,
@@ -320,10 +350,7 @@ function AccessStatusCard({
   upstream,
   running,
   onEdit,
-  onRemove,
   onStartGateway,
-  onRecoverRequests,
-  onClearStatistics,
 }: {
   agent: AgentDef;
   access?: AgentAccess;
@@ -332,10 +359,7 @@ function AccessStatusCard({
   upstream?: GatewayUpstreamStatus | null;
   running: boolean;
   onEdit: () => void;
-  onRemove: () => void;
   onStartGateway: () => void;
-  onRecoverRequests: () => void;
-  onClearStatistics: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -474,15 +498,6 @@ function AccessStatusCard({
               <Pencil className="h-3.5 w-3.5" />
               {t('agentConfig.edit', '编辑')}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={onRemove}
-            >
-              <Unplug className="h-3.5 w-3.5" />
-              {t('agentConfig.remove', '解除')}
-            </Button>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
@@ -519,8 +534,8 @@ function AccessStatusCard({
               <div className="mt-2 rounded-md bg-warning/10 px-2 py-1.5 text-[11px] text-warning">
                 <span>
                   {configurationMissing
-                    ? t('agentConfig.configurationMissingHint', '当前接入所指向的配置文件不存在：')
-                    : t('agentConfig.configurationChangedHint', '当前接入配置已被修改：')}
+                    ? t('agentConfig.configurationMissingHint', '此配置所指向的文件不存在：')
+                    : t('agentConfig.configurationChangedHint', '此配置文件已被外部修改：')}
                 </span>
                 {configPath && <span className="ml-1 font-mono">{configPath}</span>}
               </div>
@@ -558,104 +573,15 @@ function AccessStatusCard({
           </div>
 
           <div className="rounded-lg bg-muted/20 p-2.5">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-medium">{t('agentConfig.reliabilityTitle')}</p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">
-                  {viaGateway
-                    ? t('agentConfig.reliabilityHint')
-                    : t('agentConfig.directStatsUnavailable')}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {viaGateway && upstream?.circuit_state !== 'closed' && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-[11px]"
-                    onClick={onRecoverRequests}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    {t('agentConfig.recoverRequests')}
-                  </Button>
-                )}
-                {viaGateway && hasRequestData && (
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    title={t('agentConfig.clearStatistics')}
-                    onClick={onClearStatistics}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-                {!hasRequestData && (
-                  <Badge variant="outline" className="px-1.5 text-[9px] font-medium">
-                    {viaGateway
-                      ? t('agentConfig.noRequestData')
-                      : t('agentConfig.notApplicable', '不适用')}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <dl className="grid grid-cols-2 gap-1.5 text-xs">
-              <ReliabilityMetric
-                label={t('agentConfig.requestCount')}
-                value={viaGateway ? (upstream?.total_requests ?? 0).toLocaleString() : '—'}
-              />
-              <ReliabilityMetric
-                label={t('agentConfig.successRate')}
-                value={
-                  hasRequestData && upstream
-                    ? String(Math.round((upstream.successful_requests / upstream.total_requests) * 100)) + '%'
-                    : '—'
-                }
-              />
-              <ReliabilityMetric
-                label={t('agentConfig.tokenCount')}
-                value={
-                  hasRequestData && upstream
-                    ? (upstream.input_tokens + upstream.output_tokens).toLocaleString()
-                    : '—'
-                }
-              />
-              <ReliabilityMetric
-                label={t('agentConfig.averageLatency')}
-                value={
-                  hasRequestData && upstream
-                    ? String(upstream.average_latency_ms) + ' ms'
-                    : '—'
-                }
-              />
-              <ReliabilityMetric
-                label={t('agentConfig.firstTokenLatency')}
-                value={
-                  upstream?.average_first_event_latency_ms
-                    ? String(upstream.average_first_event_latency_ms) + ' ms'
-                    : '—'
-                }
-              />
-            </dl>
-            {viaGateway && upstream?.last_error && (
-              <div className="mt-2 rounded-md bg-destructive/5 px-2 py-1.5 text-[10px] text-muted-foreground">
-                <span className="font-medium text-destructive">
-                  {t('agentConfig.lastError')}：
-                </span>
-                <span className="ml-1">{upstream.last_error}</span>
-                {upstream.last_error_at_ms && (
-                  <span className="ml-1 opacity-70">
-                    · {new Date(upstream.last_error_at_ms).toLocaleString()}
-                  </span>
-                )}
-                {upstream.recovery_at_ms && (
-                  <span className="ml-1 opacity-70">
-                    · {t('agentConfig.recoveryAt', {
-                      time: new Date(upstream.recovery_at_ms).toLocaleTimeString(),
-                    })}
-                  </span>
-                )}
-              </div>
-            )}
+            <p className="text-xs font-medium">{t('agentConfig.profileSummary', '配置 Profile')}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {viaGateway
+                ? t('agentConfig.gatewayProfileSummary', '该配置通过本地网关运行。请求统计可在网关详情中查看。')
+                : t('agentConfig.directProfileSummary', '该配置直接连接上游，不经过本地网关。')}
+            </p>
+            <Badge variant="outline" className="mt-2 text-[10px]">
+              {viaGateway ? t('agentConfig.methodGatewayShort') : t('agentConfig.directBadge', '直连')}
+            </Badge>
           </div>
         </div>
       </section>
@@ -710,7 +636,7 @@ function CodexConfigFilesSection({ configuration }: { configuration: AgentConfig
         <p className="mt-1 text-xs text-muted-foreground">
           {t(
             'agentConfig.codexConfigFilesHint',
-            '各配置彼此独立；只有“当前接入”目标参与一致性检查。'
+            '每个配置彼此独立；选择对应的启动命令即可使用。'
           )}
         </p>
       </div>
@@ -726,11 +652,6 @@ function CodexConfigFilesSection({ configuration }: { configuration: AgentConfig
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {item.current && (
-                  <Badge variant="soft-primary" className="text-[10px]">
-                    {t('agentConfig.currentAccessTarget', '当前接入')}
-                  </Badge>
-                )}
                 {!item.exists && (
                   <Badge variant="soft-warning" className="text-[10px]">
                     {t('agentConfig.configurationMissing', '配置文件缺失')}
@@ -749,11 +670,92 @@ function CodexConfigFilesSection({ configuration }: { configuration: AgentConfig
                 {item.context1m && (
                   <Badge variant="outline" className="text-[10px]">1M</Badge>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={t('agentConfig.copyProfileCommand', '复制启动命令')}
+                  onClick={() => navigator.clipboard.writeText(item.kind === 'official' ? 'codex' : `codex -p ${item.slug ?? ''}`)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function AgentProfilesSection({
+  agent,
+  configuration,
+  onAdd,
+  onEdit,
+  onChanged,
+}: {
+  agent: AgentDef;
+  configuration?: AgentConfigurationState;
+  onAdd: () => void;
+  onEdit: (profile: AgentProfile) => void;
+  onChanged: () => void;
+}) {
+  const { t } = useTranslation();
+  const profiles = [...(configuration?.profiles ?? [])].sort((a, b) => {
+    if (a.kind === b.kind) return a.path.localeCompare(b.path);
+    return a.kind === 'official' ? -1 : 1;
+  });
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{t('agentConfig.configProfiles', '配置 Profiles')}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('agentConfig.configProfilesHint', '默认配置和命名配置彼此独立，按启动命令选择使用。')}
+          </p>
+        </div>
+        <Button onClick={onAdd}><Plus className="h-4 w-4" />{t('agentConfig.addProfile', '添加配置')}</Button>
+      </div>
+      {profiles.length === 0 ? (
+        <div className="flex min-h-52 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+          {t('agentConfig.noProfiles', '还没有可用配置')}
+        </div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden rounded-lg border border-border/50 bg-card/50 shadow-sm backdrop-blur-sm">
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-muted/50 shadow-sm backdrop-blur-md">
+              <tr className="h-10 border-b text-left text-muted-foreground">
+                <th className="bg-muted/50 py-2 pl-6 pr-4 font-semibold">{t('agentConfig.profileName', '配置')}</th>
+                <th className="bg-muted/50 px-4 py-2 font-semibold">{t('agentConfig.account', '账号')}</th>
+                <th className="bg-muted/50 px-4 py-2 font-semibold">{t('agentConfig.rowModel', '模型')}</th>
+                <th className="bg-muted/50 px-4 py-2 text-center font-semibold">{t('agentConfig.rowMethod', '接入方式')}</th>
+                <th className="bg-muted/50 px-4 py-2 text-center font-semibold">{t('agentConfig.gatewayRoute', '网关')}</th>
+                <th className="w-28 bg-muted/50 py-2 pl-4 pr-6 text-center font-semibold">{t('management.actions', '操作')}</th>
+              </tr>
+            </thead>
+            <tbody className="bg-transparent [&_tr:last-child]:border-0">
+          {profiles.map((profile) => {
+            const command = agent.id === 'codex'
+              ? profile.kind === 'official' ? 'codex' : `codex -p ${profile.slug ?? ''}`
+              : profile.kind === 'official' ? 'claude' : `claude --settings ${profile.path}`;
+            return <tr key={profile.path} className="group relative cursor-default border-b transition-all duration-base ease-smooth hover:z-10 hover:-translate-y-[2px] hover:bg-primary/[0.03] hover:shadow-md">
+              <td className="py-3 pl-6 pr-4 align-middle">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold">{profileDisplayName(profile)}</span>
+                  <div className="flex items-center gap-1.5"><Badge variant="outline" className="w-fit text-xs font-normal">{profile.kind === 'official' ? t('agentConfig.defaultProfile', '默认配置') : t('agentConfig.namedProfile', '命名配置')}</Badge>{!profile.parse_ok && profile.exists && <Badge variant="soft-warning" className="text-[10px]">{t('agentConfig.configParseFailed', '无法解析')}</Badge>}</div>
+                </div>
+              </td>
+              <td className="px-4 py-3 align-middle"><span className="text-sm font-medium">{profile.account_label ?? '—'}</span></td>
+              <td className="px-4 py-3 align-middle"><span className="font-mono text-xs">{profile.model ?? '—'}</span>{profile.context1m && <Badge variant="outline" className="ml-2 text-[10px]">1M</Badge>}</td>
+              <td className="px-4 py-3 text-center align-middle"><Badge variant={profile.method === 'gateway' ? 'soft-primary' : 'outline'} className="text-[10px]">{profile.method === 'gateway' ? t('agentConfig.methodGatewayShort', '经本地网关') : t('agentConfig.directBadge', '直连')}</Badge></td>
+              <td className="px-4 py-3 text-center align-middle">{profile.method === 'gateway' ? <Switch checked={profile.gateway_enabled} onCheckedChange={(enabled) => invoke('set_gateway_profile_enabled', { client: agent.id, profile: profile.slug ?? 'default', enabled }).then(onChanged).catch((error) => toast.error(String(error)))} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
+              <td className="py-3 pl-4 pr-6 align-middle"><div className="flex items-center justify-center gap-2"><Button variant="outline" size="icon-sm" title={t('agentConfig.copyProfileCommand', '复制命令')} onClick={() => navigator.clipboard.writeText(command)}><Copy className="h-3.5 w-3.5" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="h-8 w-8 hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEdit(profile)}>{t('agentConfig.edit', '修改')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></td>
+            </tr>;
+          })}
+            </tbody>
+          </table>
+        </motion.div>
+      )}
     </section>
   );
 }
@@ -816,41 +818,20 @@ export function AgentConfigGateway({
 }: {
   selectedAgent: AgentId;
 }) {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data: status } = useGatewayStatus();
+  useGatewayStatus();
   const { data: accessList } = useAgentAccess();
   const { data: configurationStates } = useAgentConfigurationStates();
   const { options: keyOptions, isLoading: keyOptionsLoading } = useKeyOptions();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingSlug, setEditingSlug] = useState<string | null | undefined>(undefined);
 
   const agent = AGENTS.find((a) => a.id === selectedAgent)!;
-  const accessByAgent = useMemo(() => {
-    const map = new Map<AgentId, AgentAccess>();
-    accessList?.forEach((a) => map.set(a.agent, a));
-    return map;
-  }, [accessList]);
-  const access = accessByAgent.get(selectedAgent);
+  const access = editingSlug === undefined
+    ? undefined
+    : (accessList ?? []).find((item) => item.agent === selectedAgent && (item.isolated_slug ?? null) === editingSlug);
   const configuration = configurationStates?.find((item) => item.agent === selectedAgent);
-  const gatewayBinding = status?.bindings.find((binding) => binding.client === selectedAgent);
-  const sourceOption = useMemo(() => {
-    if (!access?.source) return undefined;
-    return keyOptions.find((option) => {
-      if (access.source?.type !== option.source.type) return false;
-      if (access.source.type === 'account_token' && option.source.type === 'account_token') {
-        return (
-          access.source.account_id === option.source.account_id &&
-          access.source.token_id === option.source.token_id
-        );
-      }
-      return (
-        access.source.type === 'independent_key' &&
-        option.source.type === 'independent_key' &&
-        access.source.key_id === option.source.key_id
-      );
-    });
-  }, [access, keyOptions]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: GATEWAY_STATUS_QUERY_KEY });
@@ -858,72 +839,9 @@ export function AgentConfigGateway({
     queryClient.invalidateQueries({ queryKey: AGENT_CONFIGURATION_QUERY_KEY });
   };
 
-  const remove = async () => {
-    try {
-      if (access?.method === 'gateway') {
-        await invoke('clear_gateway_binding', { client: selectedAgent });
-      } else {
-        if (selectedAgent === 'claude_code') {
-          await invoke<string>('clear_claude_global');
-        } else if (access?.isolated_slug) {
-          await invoke<string>('clear_codex_isolated', { slug: access.isolated_slug });
-        } else {
-          await invoke<string>('clear_codex_global');
-        }
-        await invoke('clear_agent_access', { agent: selectedAgent });
-      }
-      toast.success(t('agentConfig.unbound', '已解除接入并还原配置'));
-      refresh();
-    } catch (e) {
-      toast.error(String(e));
-    }
-  };
-
-  const startGateway = async () => {
-    try {
-      await invoke('start_gateway_server');
-      toast.success(t('agentConfig.gatewayStarted', '网关已启动'));
-      refresh();
-    } catch (e) {
-      toast.error(String(e));
-    }
-  };
-
-  const recoverRequests = async () => {
-    try {
-      await invoke('recover_gateway_requests', { client: selectedAgent });
-      toast.success(t('agentConfig.requestsRecovered'));
-      refresh();
-    } catch (e) {
-      toast.error(String(e));
-    }
-  };
-
-  const clearStatistics = async () => {
-    try {
-      await invoke('clear_gateway_statistics', { client: selectedAgent });
-      toast.success(t('agentConfig.statisticsCleared'));
-      refresh();
-    } catch (e) {
-      toast.error(String(e));
-    }
-  };
-
   return (
     <div className="space-y-4">
-      <AccessStatusCard
-        agent={agent}
-        access={access}
-        configuration={configuration}
-        sourceOption={sourceOption}
-        upstream={gatewayBinding?.upstream}
-        running={status?.running ?? false}
-        onEdit={() => setDrawerOpen(true)}
-        onRemove={remove}
-        onStartGateway={startGateway}
-        onRecoverRequests={recoverRequests}
-        onClearStatistics={clearStatistics}
-      />
+      <AgentProfilesSection agent={agent} configuration={configuration} onAdd={() => { setEditingSlug(undefined); setDrawerOpen(true); }} onEdit={(profile) => { setEditingSlug(profile.slug); setDrawerOpen(true); }} onChanged={refresh} />
 
       <AgentAccessDrawer
         open={drawerOpen}

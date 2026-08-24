@@ -13,7 +13,7 @@ use neuradock_domain::shared::{AccountId, ProviderId};
 use neuradock_infrastructure::fs_safe::atomic_write;
 use neuradock_infrastructure::gateway::{
     start_gateway_with_runtime, CircuitState, GatewayBindings, GatewayClient, GatewayHandle,
-    GatewayRuntime, GatewayUpstream, UpstreamKind,
+    GatewayRoute, GatewayRuntime, GatewayUpstream, UpstreamKind,
 };
 
 use crate::application::services::{ClaudeConfigService, CodexConfigService, GatewayTakeover};
@@ -26,7 +26,7 @@ use crate::presentation::commands::token::ensure_account_token_usable;
 /// path-routed clients, each independently bound to an upstream relay key.
 pub struct GatewayState {
     bindings: GatewayBindings,
-    meta: Mutex<HashMap<GatewayClient, BindingMeta>>,
+    meta: Mutex<HashMap<GatewayRoute, BindingMeta>>,
     server: Mutex<Option<GatewayHandle>>,
     runtime: Arc<GatewayRuntime>,
     codex_operation: Mutex<()>,
@@ -70,6 +70,7 @@ struct BindingMeta {
     /// config.toml/auth.json). Carries the file identity so the takeover-free
     /// write path can name the file after the real relay provider.
     isolated: Option<IsolatedTarget>,
+    enabled: bool,
 }
 
 /// File identity for an isolated-config binding: the provider slug the file is
@@ -97,6 +98,12 @@ struct PersistedBinding {
     label: String,
     #[serde(default)]
     isolated: Option<IsolatedTarget>,
+    #[serde(default = "default_true")]
+    enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Which tool a binding applies to.
@@ -217,6 +224,7 @@ fn access_source_of(source: &GatewaySourceDto) -> AgentAccessSourceDto {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct GatewayBindingDto {
     pub client: GatewayClientDto,
+    pub profile: String,
     /// Human-readable description of the bound key (name, never the key).
     pub label: String,
     pub model: Option<String>,
@@ -320,6 +328,25 @@ pub struct AgentConfigurationStateDto {
     pub credential_present: bool,
     pub config_paths: Vec<String>,
     pub codex_configs: Vec<CodexConfigFileDto>,
+    pub profiles: Vec<AgentProfileDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentProfileDto {
+    pub kind: String,
+    pub slug: Option<String>,
+    pub path: String,
+    pub exists: bool,
+    pub parse_ok: bool,
+    pub configured: bool,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub context1m: bool,
+    pub credential_present: bool,
+    pub managed: bool,
+    pub account_label: Option<String>,
+    pub gateway_enabled: bool,
+    pub method: Option<AccessMethodDto>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -360,6 +387,78 @@ pub struct GatewayBindingConfigDto {
     pub impersonate: Option<bool>,
     #[serde(default)]
     pub isolated: bool,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_gateway_profile_enabled(
+    client: GatewayClientDto,
+    profile: String,
+    enabled: bool,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<GatewayStatusDto, CommandError> {
+    let route = GatewayRoute {
+        client: client.into(),
+        profile,
+    };
+    if !enabled {
+        state.bindings.write().await.remove(&route);
+        if let Some(meta) = state.meta.lock().await.get_mut(&route) {
+            meta.enabled = false;
+        }
+        persist_bindings(&app, &state).await?;
+    } else {
+        let meta = state
+            .meta
+            .lock()
+            .await
+            .get(&route)
+            .cloned()
+            .ok_or_else(|| {
+                CommandError::validation(
+                    "This Profile has no saved Gateway binding; edit and save it first.",
+                )
+            })?;
+        let effective_model =
+            effective_gateway_model(client, meta.model.as_deref(), meta.context1m);
+        let (upstream, _) = resolve_upstream(
+            &meta.source,
+            meta.kind.into(),
+            effective_model.as_deref(),
+            meta.impersonate,
+            &services,
+            &repositories,
+        )
+        .await?;
+        state.bindings.write().await.insert(route.clone(), upstream);
+        if let Some(saved) = state.meta.lock().await.get_mut(&route) {
+            saved.enabled = true;
+        }
+        persist_bindings(&app, &state).await?;
+        if state.server.lock().await.is_none() {
+            start_gateway_server(app.clone(), state.clone(), access.clone()).await?;
+        } else {
+            let server = state.server.lock().await;
+            let handle = server
+                .as_ref()
+                .ok_or_else(|| CommandError::infrastructure("Gateway stopped unexpectedly"))?;
+            let profile_base = format!("{}/profiles/{}", handle.base_url(), route.profile);
+            apply_gateway_config(
+                &takeover_for(&app)?,
+                route.client,
+                &profile_base,
+                handle.local_credential(),
+                meta.model.as_deref(),
+                meta.context1m,
+                meta.isolated.as_ref(),
+            )?;
+        }
+    }
+    Ok(status_of(&state).await)
 }
 
 /// Resolve a binding source into the upstream the gateway forwards to. This is
@@ -472,6 +571,7 @@ async fn resolve_upstream(
 /// its `base_url` points at the local gateway. Only the label/name is read here;
 /// no key material is touched.
 async fn isolated_target_for(
+    client: GatewayClientDto,
     source: &GatewaySourceDto,
     repositories: &Repositories,
 ) -> Result<IsolatedTarget, CommandError> {
@@ -492,7 +592,11 @@ async fn isolated_target_for(
                 .map(|p| p.name().to_string())
                 .unwrap_or_else(|| provider_id.clone());
             Ok(IsolatedTarget {
-                slug: provider_id.clone(),
+                slug: if client == GatewayClientDto::ClaudeCode {
+                    display.clone()
+                } else {
+                    provider_id.clone()
+                },
                 display,
             })
         }
@@ -527,8 +631,9 @@ async fn status_of(state: &GatewayState) -> GatewayStatusDto {
     let meta = state.meta.lock().await.clone();
     let upstreams = state.bindings.read().await.clone();
     let mut bindings = Vec::new();
-    for (client, meta) in meta {
-        let upstream = if let Some(configured) = upstreams.get(&client) {
+    for (route, meta) in meta {
+        let client = route.client;
+        let upstream = if let Some(configured) = upstreams.get(&route) {
             let snapshot = state.runtime.snapshot(client, configured).await;
             Some(GatewayUpstreamStatusDto {
                 id: snapshot.id,
@@ -553,6 +658,7 @@ async fn status_of(state: &GatewayState) -> GatewayStatusDto {
         };
         bindings.push(GatewayBindingDto {
             client: client.into(),
+            profile: route.profile,
             label: meta.label,
             model: meta.model,
             context1m: meta.context1m,
@@ -577,8 +683,8 @@ fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError>
     Ok(GatewayTakeover::new(&app_data_dir))
 }
 
-/// Point a client's tool config at the running gateway. Isolated Codex bindings
-/// write a standalone `<slug>.config.toml` (named after the real relay) whose
+/// Point a client's tool config at the running gateway. Isolated bindings
+/// write a standalone config (named after the real relay) whose
 /// `base_url` is the local gateway — no snapshot, no restore, so the file simply
 /// gets rewritten with the current port on every start. All other bindings use
 /// the snapshot/restore takeover of the official config files.
@@ -601,6 +707,10 @@ fn apply_gateway_config(
                 model,
                 context1m,
             )
+            .map(|_| ())
+            .map_err(CommandError::from),
+        Some(target) if client == GatewayClient::ClaudeCode => ClaudeConfigService::new()
+            .configure_isolated_with_key(&target.slug, local_credential, base_url, model, context1m)
             .map(|_| ())
             .map_err(CommandError::from),
         _ => takeover
@@ -836,7 +946,12 @@ fn read_agent_fingerprint(
 ) -> Result<AgentConfigFingerprint, CommandError> {
     match client {
         GatewayClientDto::ClaudeCode => {
-            let path = ClaudeConfigService::managed_path().map_err(CommandError::from)?;
+            let service = ClaudeConfigService::new();
+            let path = if let Some(slug) = isolated_slug {
+                service.isolated_path(slug).map_err(CommandError::from)?
+            } else {
+                ClaudeConfigService::managed_path().map_err(CommandError::from)?
+            };
             let content = if path.exists() {
                 fs::read_to_string(&path).map_err(|error| {
                     CommandError::infrastructure(format!(
@@ -913,12 +1028,16 @@ fn list_codex_config_files(
         .parent()
         .map(PathBuf::from)
         .ok_or_else(|| CommandError::infrastructure("Codex config directory is unavailable"))?;
+    let profiles_dir = codex_dir.join("profiles.d");
     let mut targets: Vec<(String, Option<String>, PathBuf)> =
         vec![("official".to_string(), None, official_path)];
 
-    if codex_dir.exists() {
-        for entry in fs::read_dir(&codex_dir).map_err(|error| {
-            CommandError::infrastructure(format!("Failed to read {}: {error}", codex_dir.display()))
+    if profiles_dir.exists() {
+        for entry in fs::read_dir(&profiles_dir).map_err(|error| {
+            CommandError::infrastructure(format!(
+                "Failed to read {}: {error}",
+                profiles_dir.display()
+            ))
         })? {
             let entry = entry.map_err(|error| CommandError::infrastructure(error.to_string()))?;
             let file_name = entry.file_name().to_string_lossy().into_owned();
@@ -966,6 +1085,134 @@ fn list_codex_config_files(
         .collect()
 }
 
+fn list_claude_profiles() -> Result<Vec<AgentProfileDto>, CommandError> {
+    let service = ClaudeConfigService::new();
+    let official = ClaudeConfigService::managed_path().map_err(CommandError::from)?;
+    let mut paths = vec![("official".to_string(), None, official)];
+    let profiles_dir = service
+        .isolated_path("profile")
+        .map_err(CommandError::from)?
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| CommandError::infrastructure("Claude profiles directory is unavailable"))?;
+    if profiles_dir.exists() {
+        for entry in fs::read_dir(&profiles_dir).map_err(|error| {
+            CommandError::infrastructure(format!(
+                "Failed to read {}: {error}",
+                profiles_dir.display()
+            ))
+        })? {
+            let entry = entry.map_err(|error| CommandError::infrastructure(error.to_string()))?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(slug) = name
+                .strip_prefix("settings-")
+                .and_then(|v| v.strip_suffix(".json"))
+            {
+                if !slug.is_empty() && entry.path().is_file() {
+                    paths.push(("isolated".to_string(), Some(slug.to_string()), entry.path()));
+                }
+            }
+        }
+    }
+    paths.sort_by(|left, right| left.2.cmp(&right.2));
+    paths
+        .into_iter()
+        .map(|(kind, slug, path)| {
+            let content = if path.exists() {
+                fs::read_to_string(&path).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            let fingerprint = claude_fingerprint(&content, path.clone()).unwrap_or_default();
+            Ok(AgentProfileDto {
+                kind,
+                slug,
+                path: abbreviate_home(&path),
+                exists: fingerprint.exists,
+                parse_ok: fingerprint.parse_ok,
+                configured: fingerprint.configured,
+                endpoint: fingerprint.endpoint,
+                model: fingerprint.model,
+                context1m: fingerprint.context1m,
+                credential_present: fingerprint.credential_present,
+                managed: false,
+                account_label: None,
+                gateway_enabled: false,
+                method: None,
+            })
+        })
+        .collect()
+}
+
+fn expand_home_path(path: &str) -> PathBuf {
+    if let Some(relative) = path.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(relative);
+        }
+    }
+    PathBuf::from(path)
+}
+
+fn profile_credential(client: GatewayClientDto, path: &str) -> Option<String> {
+    let content = fs::read_to_string(expand_home_path(path)).ok()?;
+    match client {
+        GatewayClientDto::Codex => {
+            let document = content.parse::<toml_edit::DocumentMut>().ok()?;
+            let credential = document
+                .get("model_providers")?
+                .as_table()?
+                .iter()
+                .find_map(|(_, provider)| {
+                    provider
+                        .as_table()?
+                        .get("experimental_bearer_token")?
+                        .as_str()
+                        .map(str::to_string)
+                });
+            credential
+        }
+        GatewayClientDto::ClaudeCode => {
+            let document = serde_json::from_str::<serde_json::Value>(&content).ok()?;
+            document
+                .pointer("/env/ANTHROPIC_AUTH_TOKEN")
+                .or_else(|| document.pointer("/env/ANTHROPIC_API_KEY"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        }
+    }
+}
+
+async fn match_profile_account(
+    client: GatewayClientDto,
+    profile: &AgentProfileDto,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<Option<String>, CommandError> {
+    let Some(credential) = profile_credential(client, &profile.path) else {
+        return Ok(None);
+    };
+    let normalized = credential.trim().trim_start_matches("sk-");
+    for account in repositories
+        .account
+        .find_all()
+        .await
+        .map_err(CommandError::from)?
+    {
+        let tokens = services
+            .token
+            .get_cached_tokens(account.id())
+            .await
+            .map_err(CommandError::from)?;
+        if tokens
+            .iter()
+            .any(|token| token.key().trim().trim_start_matches("sk-") == normalized)
+        {
+            return Ok(Some(account.name().to_string()));
+        }
+    }
+    Ok(None)
+}
+
 fn fingerprint_from_preview(
     client: GatewayClientDto,
     files: &[RawPreviewFile],
@@ -1008,17 +1255,30 @@ async fn expected_fingerprint(
             match isolated_slug {
                 // Isolated gateway bindings write a file named after the relay
                 // whose base_url is the gateway; rebuild that exact shape.
-                Some(slug) => services
-                    .codex_config
-                    .preview_isolated_gateway(
-                        slug,
-                        &record.label,
-                        base_url,
-                        credential,
-                        record.model.as_deref(),
-                        context1m,
-                    )
-                    .map_err(CommandError::from)?,
+                Some(slug) => match client {
+                    GatewayClientDto::Codex => services
+                        .codex_config
+                        .preview_isolated_gateway(
+                            slug,
+                            &record.label,
+                            base_url,
+                            credential,
+                            record.model.as_deref(),
+                            context1m,
+                        )
+                        .map_err(CommandError::from)?,
+                    GatewayClientDto::ClaudeCode => services
+                        .claude_config
+                        .preview_isolated_with_key(
+                            slug,
+                            credential,
+                            base_url,
+                            record.model.as_deref(),
+                            context1m,
+                        )
+                        .map(|(path, current, next)| vec![(path, "json", current, next)])
+                        .map_err(CommandError::from)?,
+                },
                 None => preview_with_key(
                     client,
                     credential,
@@ -1069,6 +1329,21 @@ pub async fn get_agent_configuration_states(
 
     for agent in [AgentIdDto::Codex, AgentIdDto::ClaudeCode] {
         let client = client_for_agent(agent);
+        let mut profile_records = access.list(agent);
+        for profile_record in &mut profile_records {
+            if profile_record.account_label.is_none() {
+                if let Some(AgentAccessSourceDto::AccountToken { account_id, .. }) =
+                    &profile_record.source
+                {
+                    profile_record.account_label = repositories
+                        .account
+                        .find_by_id(&AccountId::from_string(account_id))
+                        .await
+                        .map_err(CommandError::from)?
+                        .map(|account| account.name().to_string());
+                }
+            }
+        }
         let mut record = access.get(agent);
         let mut actual = read_agent_fingerprint(
             client,
@@ -1103,7 +1378,7 @@ pub async fn get_agent_configuration_states(
                     && record.source.is_some()
             }) {
                 let source = source_from_access(current.source.as_ref().expect("checked above"));
-                let target = isolated_target_for(&source, &repositories).await?;
+                let target = isolated_target_for(client, &source, &repositories).await?;
                 let mut candidate = current.clone();
                 candidate.isolated_slug = Some(target.slug.clone());
                 let candidate_actual = read_agent_fingerprint(client, Some(&target.slug))?;
@@ -1159,6 +1434,93 @@ pub async fn get_agent_configuration_states(
         } else {
             Vec::new()
         };
+        let profiles = if agent == AgentIdDto::Codex {
+            codex_configs
+                .iter()
+                .map(|item| AgentProfileDto {
+                    kind: item.kind.clone(),
+                    slug: item.slug.clone(),
+                    path: item.path.clone(),
+                    exists: item.exists,
+                    parse_ok: item.parse_ok,
+                    configured: item.configured,
+                    endpoint: item.endpoint.clone(),
+                    model: item.model.clone(),
+                    context1m: item.context1m,
+                    credential_present: item.credential_present,
+                    managed: true,
+                    account_label: profile_records
+                        .iter()
+                        .find(|record| {
+                            if item.kind == "official" {
+                                record.isolated_slug.is_none()
+                            } else {
+                                item.slug.as_deref() == record.isolated_slug.as_deref()
+                            }
+                        })
+                        .and_then(|record| record.account_label.clone()),
+                    gateway_enabled: profile_records.iter().any(|record| {
+                        record.method == AccessMethodDto::Gateway
+                            && if item.kind == "official" {
+                                record.isolated_slug.is_none()
+                            } else {
+                                item.slug.as_deref() == record.isolated_slug.as_deref()
+                            }
+                    }),
+                    method: profile_records
+                        .iter()
+                        .find(|record| {
+                            if item.kind == "official" {
+                                record.isolated_slug.is_none()
+                            } else {
+                                item.slug.as_deref() == record.isolated_slug.as_deref()
+                            }
+                        })
+                        .map(|record| record.method),
+                })
+                .collect()
+        } else {
+            let mut profiles = list_claude_profiles()?;
+            for profile in &mut profiles {
+                profile.managed = true;
+                profile.account_label = profile_records
+                    .iter()
+                    .find(|record| {
+                        if profile.kind == "official" {
+                            record.isolated_slug.is_none()
+                        } else {
+                            profile.slug.as_deref() == record.isolated_slug.as_deref()
+                        }
+                    })
+                    .and_then(|record| record.account_label.clone());
+                profile.gateway_enabled = profile_records.iter().any(|record| {
+                    record.method == AccessMethodDto::Gateway
+                        && if profile.kind == "official" {
+                            record.isolated_slug.is_none()
+                        } else {
+                            profile.slug.as_deref() == record.isolated_slug.as_deref()
+                        }
+                });
+                profile.method = profile_records
+                    .iter()
+                    .find(|record| {
+                        if profile.kind == "official" {
+                            record.isolated_slug.is_none()
+                        } else {
+                            profile.slug.as_deref() == record.isolated_slug.as_deref()
+                        }
+                    })
+                    .map(|record| record.method);
+            }
+            profiles
+        };
+        let mut profiles = profiles;
+        for profile in &mut profiles {
+            if profile.account_label.is_none() && profile.exists && profile.parse_ok {
+                profile.account_label =
+                    match_profile_account(client, profile, &services, &repositories).await?;
+            }
+        }
 
         states.push(AgentConfigurationStateDto {
             agent: client,
@@ -1173,6 +1535,7 @@ pub async fn get_agent_configuration_states(
                 .map(|path| abbreviate_home(path))
                 .collect(),
             codex_configs,
+            profiles,
         });
     }
     Ok(states)
@@ -1288,11 +1651,24 @@ fn preview_with_key(
                     .map_err(CommandError::from)
             }
         }
-        GatewayClientDto::ClaudeCode => services
-            .claude_config
-            .preview_global_with_key(api_key, base_url, model, context_1m)
-            .map(|(path, current, next)| vec![(path, "json", current, next)])
-            .map_err(CommandError::from),
+        GatewayClientDto::ClaudeCode => {
+            let preview = if isolated {
+                let slug = url::Url::parse(base_url)
+                    .ok()
+                    .and_then(|url| url.host_str().map(str::to_string))
+                    .unwrap_or_else(|| "profile".to_string());
+                services
+                    .claude_config
+                    .preview_isolated_with_key(&slug, api_key, base_url, model, context_1m)
+            } else {
+                services
+                    .claude_config
+                    .preview_global_with_key(api_key, base_url, model, context_1m)
+            };
+            preview
+                .map(|(path, current, next)| vec![(path, "json", current, next)])
+                .map_err(CommandError::from)
+        }
     }
 }
 
@@ -1373,11 +1749,27 @@ async fn preview_direct(
                             .map_err(CommandError::from)
                     }
                 }
-                GatewayClientDto::ClaudeCode => services
-                    .claude_config
-                    .preview_global_with_key(token.key(), base_url, model, context_1m)
-                    .map(|(path, current, next)| vec![(path, "json", current, next)])
-                    .map_err(CommandError::from),
+                GatewayClientDto::ClaudeCode => {
+                    let preview = if isolated {
+                        services.claude_config.preview_isolated_with_key(
+                            provider.name(),
+                            token.key(),
+                            base_url,
+                            model,
+                            context_1m,
+                        )
+                    } else {
+                        services.claude_config.preview_global_with_key(
+                            token.key(),
+                            base_url,
+                            model,
+                            context_1m,
+                        )
+                    };
+                    preview
+                        .map(|(path, current, next)| vec![(path, "json", current, next)])
+                        .map_err(CommandError::from)
+                }
             }
         }
         GatewaySourceDto::IndependentKey { key_id } => {
@@ -1482,17 +1874,17 @@ fn redact_json_value(value: &mut serde_json::Value) {
 
 async fn restore_binding_memory(
     state: &GatewayState,
-    client: GatewayClient,
+    route: GatewayRoute,
     upstream: Option<GatewayUpstream>,
     meta: Option<BindingMeta>,
 ) {
     let mut bindings = state.bindings.write().await;
     match upstream {
         Some(upstream) => {
-            bindings.insert(client, upstream);
+            bindings.insert(route.clone(), upstream);
         }
         None => {
-            bindings.remove(&client);
+            bindings.remove(&route);
         }
     }
     drop(bindings);
@@ -1500,10 +1892,10 @@ async fn restore_binding_memory(
     let mut metadata = state.meta.lock().await;
     match meta {
         Some(meta) => {
-            metadata.insert(client, meta);
+            metadata.insert(route.clone(), meta);
         }
         None => {
-            metadata.remove(&client);
+            metadata.remove(&route);
         }
     }
 }
@@ -1530,7 +1922,7 @@ async fn rollback_binding_change(
     old_meta: Option<BindingMeta>,
     old_access: Option<AgentAccessDto>,
 ) {
-    restore_binding_memory(state, client, old_upstream, old_meta).await;
+    restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
     if let Err(error) = persist_bindings(app, state).await {
         log::error!("Failed to roll back gateway bindings: {}", error);
     }
@@ -1578,9 +1970,8 @@ pub async fn set_gateway_binding(
         &repositories,
     )
     .await?;
-    // Isolated mode only applies to Codex; other clients ignore the flag.
-    let isolated = if isolated && client == GatewayClientDto::Codex {
-        Some(isolated_target_for(&source, &repositories).await?)
+    let isolated = if isolated {
+        Some(isolated_target_for(client, &source, &repositories).await?)
     } else {
         None
     };
@@ -1588,8 +1979,24 @@ pub async fn set_gateway_binding(
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
     let access_source = access_source_of(&source);
-    let old_upstream = state.bindings.read().await.get(&gateway_client).cloned();
-    let old_meta = state.meta.lock().await.get(&gateway_client).cloned();
+    let account_label = match &access_source {
+        AgentAccessSourceDto::AccountToken { account_id, .. } => repositories
+            .account
+            .find_by_id(&AccountId::from_string(account_id))
+            .await
+            .map_err(CommandError::from)?
+            .map(|account| account.name().to_string()),
+        AgentAccessSourceDto::IndependentKey { .. } => None,
+    };
+    let route = GatewayRoute {
+        client: gateway_client,
+        profile: isolated
+            .as_ref()
+            .map(|target| target.slug.clone())
+            .unwrap_or_else(|| "default".to_string()),
+    };
+    let old_upstream = state.bindings.read().await.get(&route).cloned();
+    let old_meta = state.meta.lock().await.get(&route).cloned();
     let old_access = access.get(agent);
     let new_meta = BindingMeta {
         label: label.clone(),
@@ -1599,11 +2006,13 @@ pub async fn set_gateway_binding(
         context1m,
         impersonate,
         isolated: isolated.clone(),
+        enabled: true,
     };
     let new_access = AgentAccessDto {
         agent,
         method: AccessMethodDto::Gateway,
         label,
+        account_label,
         model: model.clone(),
         upstream_kind: Some(upstream_kind_str(upstream_kind)),
         impersonate: Some(impersonate),
@@ -1612,15 +2021,11 @@ pub async fn set_gateway_binding(
         isolated_slug: isolated.as_ref().map(|t| t.slug.clone()),
     };
 
-    state
-        .bindings
-        .write()
-        .await
-        .insert(gateway_client, upstream);
-    state.meta.lock().await.insert(gateway_client, new_meta);
+    state.bindings.write().await.insert(route.clone(), upstream);
+    state.meta.lock().await.insert(route.clone(), new_meta);
 
     if let Err(error) = persist_bindings(&app, &state).await {
-        restore_binding_memory(&state, gateway_client, old_upstream, old_meta).await;
+        restore_binding_memory(&state, route.clone(), old_upstream, old_meta).await;
         return Err(error);
     }
 
@@ -1664,7 +2069,7 @@ pub async fn set_gateway_binding(
         if let Err(error) = apply_gateway_config(
             &takeover,
             gateway_client,
-            &handle.base_url(),
+            &format!("{}/profiles/{}", handle.base_url(), route.profile),
             handle.local_credential(),
             model.as_deref(),
             context1m,
@@ -1704,15 +2109,39 @@ pub async fn clear_gateway_binding(
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
-    let old_upstream = state.bindings.read().await.get(&gateway_client).cloned();
-    let old_meta = state.meta.lock().await.get(&gateway_client).cloned();
+    let old_upstream = state
+        .bindings
+        .read()
+        .await
+        .get(&GatewayRoute::default(gateway_client))
+        .cloned();
+    let old_meta = state
+        .meta
+        .lock()
+        .await
+        .get(&GatewayRoute::default(gateway_client))
+        .cloned();
     let old_access = access.get(agent);
 
-    state.bindings.write().await.remove(&gateway_client);
-    state.meta.lock().await.remove(&gateway_client);
+    state
+        .bindings
+        .write()
+        .await
+        .remove(&GatewayRoute::default(gateway_client));
+    state
+        .meta
+        .lock()
+        .await
+        .remove(&GatewayRoute::default(gateway_client));
 
     if let Err(error) = persist_bindings(&app, &state).await {
-        restore_binding_memory(&state, gateway_client, old_upstream, old_meta).await;
+        restore_binding_memory(
+            &state,
+            GatewayRoute::default(gateway_client),
+            old_upstream,
+            old_meta,
+        )
+        .await;
         return Err(error);
     }
     if let Err(error) = access.remove(&app, agent) {
@@ -1734,10 +2163,11 @@ pub async fn clear_gateway_binding(
         .as_ref()
         .and_then(|record| record.isolated_slug.as_deref())
     {
-        services
-            .codex_config
-            .clear_isolated(slug)
-            .map_err(CommandError::from)?;
+        match gateway_client {
+            GatewayClient::Codex => services.codex_config.clear_isolated(slug),
+            GatewayClient::ClaudeCode => services.claude_config.clear_isolated(slug),
+        }
+        .map_err(CommandError::from)?;
     } else {
         let takeover = match takeover_for(&app) {
             Ok(takeover) => takeover,
@@ -1785,15 +2215,33 @@ pub async fn drop_gateway_binding_for_direct(
     client: GatewayClient,
 ) -> Result<(), CommandError> {
     let _operation = state.operation_lock(client).lock().await;
-    let old_upstream = state.bindings.read().await.get(&client).cloned();
-    let old_meta = state.meta.lock().await.get(&client).cloned();
+    let old_upstream = state
+        .bindings
+        .read()
+        .await
+        .get(&GatewayRoute::default(client))
+        .cloned();
+    let old_meta = state
+        .meta
+        .lock()
+        .await
+        .get(&GatewayRoute::default(client))
+        .cloned();
     if old_upstream.is_none() && old_meta.is_none() {
         return Ok(());
     }
-    state.bindings.write().await.remove(&client);
-    state.meta.lock().await.remove(&client);
+    state
+        .bindings
+        .write()
+        .await
+        .remove(&GatewayRoute::default(client));
+    state
+        .meta
+        .lock()
+        .await
+        .remove(&GatewayRoute::default(client));
     if let Err(error) = persist_bindings(app, state).await {
-        restore_binding_memory(state, client, old_upstream, old_meta).await;
+        restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
         return Err(error);
     }
 
@@ -1807,12 +2255,19 @@ pub async fn drop_gateway_binding_for_direct(
     match takeover_for(app) {
         Ok(takeover) => {
             if let Err(error) = takeover.discard(client) {
-                restore_binding_memory(state, client, old_upstream, old_meta).await;
+                restore_binding_memory(
+                    state,
+                    GatewayRoute::default(client),
+                    old_upstream,
+                    old_meta,
+                )
+                .await;
                 return Err(CommandError::infrastructure(error.to_string()));
             }
         }
         Err(error) => {
-            restore_binding_memory(state, client, old_upstream, old_meta).await;
+            restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta)
+                .await;
             return Err(error);
         }
     }
@@ -1837,7 +2292,7 @@ async fn persist_bindings(
     let bindings: Vec<PersistedBinding> = meta
         .iter()
         .map(|(client, meta)| PersistedBinding {
-            client: (*client).into(),
+            client: client.client.into(),
             source: meta.source.clone(),
             kind: meta.kind,
             model: meta.model.clone(),
@@ -1845,6 +2300,7 @@ async fn persist_bindings(
             impersonate: meta.impersonate,
             label: meta.label.clone(),
             isolated: meta.isolated.clone(),
+            enabled: meta.enabled,
         })
         .collect();
     drop(meta);
@@ -1914,9 +2370,17 @@ pub async fn restore_gateway_bindings(
             Ok((upstream, label)) => {
                 let client: GatewayClient = binding.client.into();
                 let access_source = access_source_of(&binding.source);
-                state.bindings.write().await.insert(client, upstream);
+                let profile = binding
+                    .isolated
+                    .as_ref()
+                    .map(|target| target.slug.clone())
+                    .unwrap_or_else(|| "default".to_string());
+                let route = GatewayRoute { client, profile };
+                if binding.enabled {
+                    state.bindings.write().await.insert(route.clone(), upstream);
+                }
                 state.meta.lock().await.insert(
-                    client,
+                    route,
                     BindingMeta {
                         label: label.clone(),
                         source: binding.source,
@@ -1925,6 +2389,7 @@ pub async fn restore_gateway_bindings(
                         context1m: binding.context1m,
                         impersonate: binding.impersonate,
                         isolated: binding.isolated.clone(),
+                        enabled: binding.enabled,
                     },
                 );
                 if let Err(error) = access.set(
@@ -1933,6 +2398,7 @@ pub async fn restore_gateway_bindings(
                         agent: binding.client.into(),
                         method: AccessMethodDto::Gateway,
                         label,
+                        account_label: None,
                         model: binding.model,
                         upstream_kind: Some(upstream_kind_str(binding.kind)),
                         impersonate: Some(binding.impersonate),
@@ -1986,12 +2452,12 @@ pub async fn start_gateway_server(
             .iter()
             .filter(|(client, _)| {
                 access
-                    .get(GatewayClientDto::from(**client).into())
+                    .get(GatewayClientDto::from(client.client).into())
                     .is_none_or(|record| record.method == AccessMethodDto::Gateway)
             })
             .map(|(client, meta)| {
                 (
-                    *client,
+                    client.client,
                     meta.model.clone(),
                     meta.context1m,
                     meta.isolated.clone(),
@@ -2020,10 +2486,14 @@ pub async fn start_gateway_server(
 
     let mut taken_over = Vec::new();
     for (client, model, context1m, isolated) in takeover_configs {
+        let profile = isolated
+            .as_ref()
+            .map(|target| target.slug.as_str())
+            .unwrap_or("default");
         if let Err(error) = apply_gateway_config(
             &takeover,
             client,
-            &base_url,
+            &format!("{base_url}/profiles/{profile}"),
             &local_credential,
             model.as_deref(),
             context1m,
@@ -2072,7 +2542,7 @@ pub async fn stop_gateway_server(
         .iter()
         .map(|(client, meta)| {
             (
-                *client,
+                client.client,
                 meta.model.clone(),
                 meta.context1m,
                 meta.isolated.clone(),
@@ -2142,7 +2612,7 @@ pub async fn recover_gateway_requests(
         .bindings
         .read()
         .await
-        .get(&gateway_client)
+        .get(&GatewayRoute::default(gateway_client))
         .cloned()
         .ok_or_else(|| CommandError::validation("The Agent has no gateway binding."))?;
     state.runtime.recover(gateway_client, &upstream.id).await;
@@ -2161,7 +2631,7 @@ pub async fn clear_gateway_statistics(
         .bindings
         .read()
         .await
-        .get(&gateway_client)
+        .get(&GatewayRoute::default(gateway_client))
         .cloned()
         .ok_or_else(|| CommandError::validation("The Agent has no gateway binding."))?;
     state

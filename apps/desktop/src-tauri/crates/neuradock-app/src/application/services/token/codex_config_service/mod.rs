@@ -46,7 +46,7 @@ impl CodexConfigService {
     }
 
     /// Configure Codex via a self-contained isolated file that never touches
-    /// config.toml/auth.json: `~/.codex/<slug>.config.toml`.
+    /// config.toml/auth.json: `~/.codex/profiles.d/<slug>.config.toml`.
     pub fn configure_isolated(
         &self,
         token: &ApiToken,

@@ -43,6 +43,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_check_in_calendar,
             get_check_in_trend,
             get_check_in_day_detail,
+            // Developer tools
+            list_developer_tool_connections,
+            save_developer_tool_connection,
+            delete_developer_tool_connection,
+            test_developer_tool_connection,
+            get_jira_metadata,
+            query_jira_issues,
+            query_gerrit_changes,
+            list_developer_tool_saved_queries,
+            save_developer_tool_query,
+            delete_developer_tool_query,
             recalculate_check_in_streaks,
             // Config commands
             get_log_level,
@@ -60,6 +71,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             // Token commands
             fetch_account_tokens,
             configure_claude_global,
+            configure_claude_isolated,
+            clear_claude_isolated,
             generate_claude_temp_commands,
             configure_codex_global,
             configure_codex_isolated,
@@ -82,6 +95,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             delete_independent_key,
             toggle_independent_key,
             configure_independent_key_claude,
+            configure_independent_key_claude_isolated,
             generate_independent_key_claude_temp,
             configure_independent_key_codex,
             configure_independent_key_codex_isolated,
@@ -96,6 +110,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_agent_access,
             // Local adaptation gateway commands
             set_gateway_binding,
+            set_gateway_profile_enabled,
             clear_gateway_binding,
             start_gateway_server,
             stop_gateway_server,
