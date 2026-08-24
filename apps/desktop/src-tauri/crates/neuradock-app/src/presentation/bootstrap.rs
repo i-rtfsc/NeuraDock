@@ -44,7 +44,7 @@ use neuradock_infrastructure::persistence::{
     },
     Database,
 };
-use neuradock_infrastructure::security::{EncryptionService, KeyManager};
+use neuradock_infrastructure::security::{reencrypt_legacy_records, EncryptionService, KeyManager};
 
 pub async fn build_app_state(
     app_handle: tauri::AppHandle,
@@ -98,7 +98,8 @@ pub async fn build_app_state(
     let master_key = key_manager
         .initialize_master_key()
         .map_err(|e| format!("Failed to initialize encryption master key: {}", e))?;
-    let encryption_service = Arc::new(
+    let is_legacy_installation = master_key.is_none();
+    let mut encryption_service = Arc::new(
         match master_key {
             Some(master_key) => EncryptionService::from_key(&master_key),
             None => {
@@ -134,6 +135,30 @@ pub async fn build_app_state(
     );
 
     let pool = Arc::new(database.pool().clone());
+
+    if is_legacy_installation {
+        let salt = key_manager
+            .initialize()
+            .map_err(|e| format!("Failed to initialize legacy encryption salt: {}", e))?;
+        let legacy = EncryptionService::from_password("neuradock_default_password_2024", &salt)
+            .map_err(|e| format!("Failed to create legacy encryption service: {}", e))?;
+        let new_key = key_manager
+            .generate_migration_key()
+            .map_err(|e| format!("Failed to generate encryption migration key: {}", e))?;
+        let current = EncryptionService::from_key(&new_key)
+            .map_err(|e| format!("Failed to create migrated encryption service: {}", e))?;
+        let migrated = reencrypt_legacy_records(&pool, &legacy, &current)
+            .await
+            .map_err(|e| format!("Failed to migrate encrypted records: {}", e))?;
+        key_manager
+            .save_master_key(&new_key)
+            .map_err(|e| format!("Failed to save encryption migration key: {}", e))?;
+        encryption_service = Arc::new(current);
+        info!(
+            "✓ Migrated {} encrypted records to a random master key",
+            migrated
+        );
+    }
 
     let account_repo = Arc::new(SqliteAccountRepository::new(
         pool.clone(),

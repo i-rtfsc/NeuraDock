@@ -43,6 +43,23 @@ impl KeyManager {
         Ok(Some(key))
     }
 
+    pub fn generate_migration_key(&self) -> Result<[u8; 32], KeyManagerError> {
+        let mut key = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut key);
+        Ok(key)
+    }
+
+    pub fn save_master_key(&self, key: &[u8; 32]) -> Result<(), KeyManagerError> {
+        if let Some(parent) = self.master_key_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                KeyManagerError::IoError(format!("Failed to create directory: {}", e))
+            })?;
+        }
+        fs::write(&self.master_key_path, key)
+            .map_err(|e| KeyManagerError::IoError(format!("Failed to write master key: {}", e)))?;
+        set_private_permissions(&self.master_key_path)
+    }
+
     /// Initialize encryption salt (load or generate)
     ///
     /// - If salt file exists, load it
@@ -118,9 +135,7 @@ impl KeyManager {
                 KeyManagerError::IoError(format!("Failed to create directory: {}", e))
             })?;
         }
-        fs::write(&self.master_key_path, key)
-            .map_err(|e| KeyManagerError::IoError(format!("Failed to write master key: {}", e)))?;
-        set_private_permissions(&self.master_key_path)?;
+        self.save_master_key(&key)?;
         Ok(key)
     }
 
