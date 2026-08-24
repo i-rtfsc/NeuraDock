@@ -97,14 +97,11 @@ export function IndependentKeyDialog({ open, onOpenChange, keyToEdit }: Independ
       description: input.description ?? null,
     }).then(unwrap),
     onSuccess: async () => {
-      console.log('[IndependentKeyDialog] Create success, invalidating queries...');
       toast.success(t('independentKey.created', 'API Key created successfully'));
 
       // Invalidate and refetch to ensure fresh data
       await queryClient.invalidateQueries({ queryKey: ['independent-keys'] });
-      console.log('[IndependentKeyDialog] Queries invalidated, refetching...');
       await queryClient.refetchQueries({ queryKey: ['independent-keys'] });
-      console.log('[IndependentKeyDialog] Refetch complete');
 
       // Close dialog after data is refreshed
       onOpenChange(false);
