@@ -1,0 +1,23 @@
+apps/desktop/src/hooks/codex/useCodexPayment.ts
+  s_e9dd769d815b63::t_c321bff9809ccf 2,30-33
+apps/desktop/src/hooks/useAiChatServices.ts
+  s_e9dd769d815b63::t_c321bff9809ccf 2-3,46,58,72,93,114,135,157,175,186,197
+apps/desktop/src/hooks/codex/useCodexRegister.ts
+  s_e9dd769d815b63::t_c321bff9809ccf 2,75-76,120-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "955fa9b8ba472d93fcddc12587d3759c6c98643d",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
