@@ -1,0 +1,21 @@
+Makefile
+  s_e9dd769d815b63::t_14b80c4242c17e 157
+  s_e9dd769d815b63::t_03d4af519a2c36 48,153,156
+  s_e9dd769d815b63::t_0072c752022b50 158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "aaf530a57379d322d82b5a321ee417331e91d9c5",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
