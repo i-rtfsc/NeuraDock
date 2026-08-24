@@ -10,7 +10,8 @@ import {
   AiChatServiceDto,
 } from '@/hooks/useAiChatServices';
 import { useAiChatStore } from '@/hooks/useAiChatStore';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,13 +77,13 @@ export function AiChatPage() {
   useEffect(() => {
     // Hide webview when dropdown is open (native webview overlays DOM elements)
     if (isDropdownOpen) {
-      invoke('hide_embedded_ai_chat').catch(console.error);
+      commands.hideEmbeddedAiChat().then(unwrap).catch(console.error);
       return;
     }
 
     if (!activeService || !containerRef.current) {
       // Hide webview when no active service
-      invoke('hide_embedded_ai_chat').catch(console.error);
+      commands.hideEmbeddedAiChat().then(unwrap).catch(console.error);
       setWebviewReady(false);
       return;
     }
@@ -94,15 +95,7 @@ export function AiChatPage() {
 
         // This will create new webview if needed, or show existing one
         // Uses LRU caching with configurable max cached webviews
-        await invoke('show_embedded_ai_chat', {
-          serviceId: activeService.serviceId,
-          url: activeService.url,
-          x: Math.round(rect.left),
-          y: Math.round(rect.top),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-          maxCached: maxCachedWebviews,
-        });
+        unwrap(await commands.showEmbeddedAiChat(activeService.serviceId, activeService.url, Math.round(rect.left), Math.round(rect.top), Math.round(rect.width), Math.round(rect.height), maxCachedWebviews));
         setWebviewReady(true);
       } catch (error) {
         console.error('Failed to show embedded webview:', error);
@@ -125,7 +118,7 @@ export function AiChatPage() {
   // Close all webviews when navigating away from AI Chat page
   useEffect(() => {
     return () => {
-      invoke('close_all_embedded_ai_chats').catch(console.error);
+      commands.closeAllEmbeddedAiChats().then(unwrap).catch(console.error);
     };
   }, []);
 
@@ -140,7 +133,7 @@ export function AiChatPage() {
 
   const handleCloseTab = useCallback(async (serviceId: string) => {
     // Close the webview for this tab
-    await invoke('close_embedded_ai_chat', { serviceId }).catch(console.error);
+    await commands.closeEmbeddedAiChat(serviceId).then(unwrap).catch(console.error);
     closeTab(serviceId);
   }, [closeTab]);
 
@@ -148,7 +141,7 @@ export function AiChatPage() {
     if (!activeService) return;
     setIsRefreshing(true);
     try {
-      await invoke('refresh_embedded_ai_chat');
+      unwrap(await commands.refreshEmbeddedAiChat());
     } catch (error) {
       console.error('Failed to refresh:', error);
     } finally {
@@ -159,7 +152,7 @@ export function AiChatPage() {
   const handleOpenInBrowser = async () => {
     if (!activeService) return;
     try {
-      await invoke('open_ai_chat_in_browser', { url: activeService.url });
+      unwrap(await commands.openAiChatInBrowser(activeService.url));
     } catch (error) {
       console.error('Failed to open in browser:', error);
     }
@@ -168,11 +161,7 @@ export function AiChatPage() {
   const handleOpenInWindow = async () => {
     if (!activeService) return;
     try {
-      await invoke('open_ai_chat_webview', {
-        serviceId: activeService.serviceId,
-        serviceName: activeService.name,
-        url: activeService.url,
-      });
+      unwrap(await commands.openAiChatWebview(activeService.serviceId, activeService.name, activeService.url));
     } catch (error) {
       console.error('Failed to open in window:', error);
     }
