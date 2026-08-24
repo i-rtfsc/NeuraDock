@@ -3,7 +3,6 @@
 /// Endpoints used:
 ///   POST https://api.tempmail.lol/v2/inbox/create  → { address, token }
 ///   GET  https://api.tempmail.lol/v2/inbox?token=T → { emails: [...] }
-
 use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.tempmail.lol/v2";
@@ -172,7 +171,9 @@ impl TempmailClient {
 
                 if let Some(anchor) = otp_sent_at_secs {
                     let min_allowed_timestamp = anchor - OTP_SENT_AT_TOLERANCE_SECS;
-                    if msg_timestamp.is_none() || msg_timestamp.unwrap_or_default() <= min_allowed_timestamp {
+                    if msg_timestamp.is_none()
+                        || msg_timestamp.unwrap_or_default() <= min_allowed_timestamp
+                    {
                         continue;
                     }
                 }
@@ -257,6 +258,9 @@ mod tests {
     fn otp_regex_matches_six_digit_code() {
         let re = regex::Regex::new(super::OTP_PATTERN).expect("valid OTP regex");
         let caps = re.captures("Your OpenAI verification code is 123456.");
-        assert_eq!(caps.and_then(|m| m.get(1)).map(|m| m.as_str()), Some("123456"));
+        assert_eq!(
+            caps.and_then(|m| m.get(1)).map(|m| m.as_str()),
+            Some("123456")
+        );
     }
 }

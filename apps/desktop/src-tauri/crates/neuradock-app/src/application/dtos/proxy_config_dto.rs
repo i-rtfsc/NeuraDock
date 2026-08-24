@@ -30,7 +30,12 @@ impl ProxyConfigDto {
             return None;
         }
 
-        Some(format!("{}://{}:{}", self.proxy_type, self.host.trim(), self.port))
+        Some(format!(
+            "{}://{}:{}",
+            self.proxy_type,
+            self.host.trim(),
+            self.port
+        ))
     }
 }
 

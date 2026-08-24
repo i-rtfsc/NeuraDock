@@ -5,9 +5,8 @@ use crate::application::queries::{
     AccountQueryService, BalanceStatisticsQueryService, CheckInStreakQueries,
 };
 use crate::application::services::{
-    BalanceService, ClaudeConfigService, CodexConfigService, ConfigService,
-    DeveloperToolsService, ProviderModelsQueryService, ProxyConfigService, ReminderSettingsService,
-    TokenService,
+    BalanceService, ClaudeConfigService, CodexConfigService, ConfigService, DeveloperToolsService,
+    ProviderModelsQueryService, ProxyConfigService, ReminderSettingsService, TokenService,
 };
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::ai_chat::AiChatServiceRepository;

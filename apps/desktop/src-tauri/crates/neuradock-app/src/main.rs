@@ -6,8 +6,8 @@ mod presentation;
 // Use external crates
 
 use application::services::GatewayTakeover;
-use presentation::commands::ai_chat::EmbeddedAiChatState;
 use presentation::commands::agent_access::AgentAccessState;
+use presentation::commands::ai_chat::EmbeddedAiChatState;
 use presentation::commands::gateway::GatewayState;
 use presentation::ipc;
 use presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};

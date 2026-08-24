@@ -3,9 +3,7 @@ use std::sync::Arc;
 
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
-use neuradock_domain::custom_node::{
-    CustomProviderNode, CustomProviderNodeRepository,
-};
+use neuradock_domain::custom_node::{CustomProviderNode, CustomProviderNodeRepository};
 use neuradock_domain::provider_models::ProviderModelsRepository;
 use neuradock_domain::shared::{DomainError, ProviderId};
 use neuradock_domain::waf_cookies::WafCookiesRepository;
@@ -130,13 +128,9 @@ async fn migrate_provider_references(
                 .await?;
         }
 
-        let old_waf = waf_cookies_repo
-            .get_valid(mapping.old_id.as_str())
-            .await?;
+        let old_waf = waf_cookies_repo.get_valid(mapping.old_id.as_str()).await?;
         if let Some(old_waf) = old_waf {
-            let new_waf = waf_cookies_repo
-                .get_valid(mapping.new_id.as_str())
-                .await?;
+            let new_waf = waf_cookies_repo.get_valid(mapping.new_id.as_str()).await?;
             if new_waf.is_none() {
                 waf_cookies_repo
                     .save(mapping.new_id.as_str(), &old_waf.cookies)

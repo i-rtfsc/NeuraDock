@@ -1,5 +1,4 @@
 /// Codex account management commands
-
 use chrono::Utc;
 use neuradock_domain::codex::CodexAccount;
 use neuradock_infrastructure::codex_auth::{CodexAuthFile, CodexAuthJson};
@@ -7,10 +6,12 @@ use neuradock_infrastructure::http::openai::quota::{fetch_codex_usage, CodexUsag
 use tauri::State;
 use tracing::{info, warn};
 
-use crate::application::dtos::{CodexAccountDto, CodexAuthInfoDto, CodexInboxCodeDto, CodexQuotaDto, CodexRateLimitWindowDto};
+use super::quota::{apply_usage_quota, quota_to_dto};
+use crate::application::dtos::{
+    CodexAccountDto, CodexAuthInfoDto, CodexInboxCodeDto, CodexQuotaDto, CodexRateLimitWindowDto,
+};
 use crate::presentation::error::CommandError;
 use crate::presentation::state::Repositories;
-use super::quota::{apply_usage_quota, quota_to_dto};
 use neuradock_domain::codex::CodexAccountId;
 use neuradock_infrastructure::http::openai::tempmail::TempmailClient;
 
@@ -34,7 +35,11 @@ async fn find_linked_account(
     }
 
     match email.filter(|value| !value.trim().is_empty()) {
-        Some(email) => repos.codex_account.find_by_email(email).await.map_err(map_err),
+        Some(email) => repos
+            .codex_account
+            .find_by_email(email)
+            .await
+            .map_err(map_err),
         None => Ok(None),
     }
 }
@@ -135,7 +140,9 @@ async fn load_active_auth(
             let mut last_refresh = resolve_active_auth_last_refresh(
                 &a,
                 linked_account.as_ref(),
-                quota_cache.as_ref().map(|(_, refreshed_at)| refreshed_at.as_str()),
+                quota_cache
+                    .as_ref()
+                    .map(|(_, refreshed_at)| refreshed_at.as_str()),
             );
 
             let (quota, quota_error) = if refresh_quota && has_tokens {
@@ -151,12 +158,16 @@ async fn load_active_auth(
                             if let Err(error) = sync_active_auth_quota(
                                 repos,
                                 email.as_deref(),
-                                (!tokens.account_id.is_empty()).then_some(tokens.account_id.as_str()),
+                                (!tokens.account_id.is_empty())
+                                    .then_some(tokens.account_id.as_str()),
                                 &quota,
                             )
                             .await
                             {
-                                warn!("Failed to sync active Codex auth quota to account store: {}", error);
+                                warn!(
+                                    "Failed to sync active Codex auth quota to account store: {}",
+                                    error
+                                );
                             }
                             if let Err(error) =
                                 CodexAuthFile::write_quota_cache(&a, &quota, &refreshed_at)
@@ -272,7 +283,12 @@ pub async fn refresh_codex_account_quota(
             apply_usage_quota(&mut account, &quota);
             repos.codex_account.save(&account).await.map_err(map_err)?;
         }
-        Err(e) => return Err(CommandError::infrastructure(format!("Failed to fetch quota: {}", e))),
+        Err(e) => {
+            return Err(CommandError::infrastructure(format!(
+                "Failed to fetch quota: {}",
+                e
+            )))
+        }
     }
 
     Ok(CodexAccountDto::from(&account))
@@ -313,7 +329,9 @@ pub async fn get_codex_account_inbox_code(
     let token = account
         .tempmail_token()
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| CommandError::infrastructure("This account has no inbox token".to_string()))?;
+        .ok_or_else(|| {
+            CommandError::infrastructure("This account has no inbox token".to_string())
+        })?;
 
     let client = TempmailClient::new(None)
         .map_err(|error| CommandError::infrastructure(error.to_string()))?;
@@ -321,7 +339,9 @@ pub async fn get_codex_account_inbox_code(
     let code = client
         .poll_for_otp(token, None, Some(12), || false, |_| {})
         .await
-        .map_err(|error| CommandError::infrastructure(format!("Failed to fetch inbox code: {}", error)))?
+        .map_err(|error| {
+            CommandError::infrastructure(format!("Failed to fetch inbox code: {}", error))
+        })?
         .ok_or_else(|| CommandError::infrastructure("No verification code received".to_string()))?;
 
     Ok(CodexInboxCodeDto {
@@ -352,14 +372,8 @@ pub async fn switch_codex_auth(
         .refresh_token()
         .ok_or("Account has no refresh token")?
         .to_string();
-    let id_token = account
-        .id_token()
-        .unwrap_or("")
-        .to_string();
-    let openai_account_id = account
-        .account_id()
-        .unwrap_or("")
-        .to_string();
+    let id_token = account.id_token().unwrap_or("").to_string();
+    let openai_account_id = account.account_id().unwrap_or("").to_string();
 
     let auth = CodexAuthJson::chatgpt(id_token, access_token, refresh_token, openai_account_id);
     CodexAuthFile::write(&auth).map_err(map_err)?;

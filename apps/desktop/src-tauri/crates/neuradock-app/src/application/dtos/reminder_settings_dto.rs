@@ -52,8 +52,8 @@ impl UpdateReminderSettingsInput {
     pub fn to_domain(&self) -> Result<ReminderSettings, String> {
         let mut times = Vec::with_capacity(self.times.len());
         for raw in &self.times {
-            let parsed = ReminderTime::parse(raw)
-                .ok_or_else(|| format!("Invalid reminder time: {raw}"))?;
+            let parsed =
+                ReminderTime::parse(raw).ok_or_else(|| format!("Invalid reminder time: {raw}"))?;
             times.push(parsed);
         }
 
@@ -99,7 +99,10 @@ mod tests {
         };
 
         let err = input.to_domain().unwrap_err();
-        assert!(err.contains("25:00"), "error should name the bad value: {err}");
+        assert!(
+            err.contains("25:00"),
+            "error should name the bad value: {err}"
+        );
     }
 
     #[test]

@@ -53,11 +53,18 @@ struct WindowPayload {
     limit_window_seconds: Option<i64>,
     #[serde(default, deserialize_with = "deserialize_optional_i64ish")]
     window_minutes: Option<i64>,
-    #[serde(default, alias = "resets_at", deserialize_with = "deserialize_optional_i64ish")]
+    #[serde(
+        default,
+        alias = "resets_at",
+        deserialize_with = "deserialize_optional_i64ish"
+    )]
     reset_at: Option<i64>,
 }
 
-pub async fn fetch_codex_usage(access_token: &str, account_id: Option<&str>) -> anyhow::Result<CodexUsageQuota> {
+pub async fn fetch_codex_usage(
+    access_token: &str,
+    account_id: Option<&str>,
+) -> anyhow::Result<CodexUsageQuota> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
         .user_agent("codex-cli")
@@ -89,7 +96,12 @@ pub async fn fetch_codex_usage(access_token: &str, account_id: Option<&str>) -> 
                 }
 
                 let payload: UsagePayload = serde_json::from_str(&body).map_err(|e| {
-                    anyhow::anyhow!("Decode error for quota payload from {}: {}; body={}", url, e, body)
+                    anyhow::anyhow!(
+                        "Decode error for quota payload from {}: {}; body={}",
+                        url,
+                        e,
+                        body
+                    )
                 })?;
 
                 let credits = payload.credits;
@@ -256,7 +268,13 @@ mod tests {
             .expect("primary window");
 
         assert_eq!(payload.plan_type.as_deref(), Some("plus"));
-        assert_eq!(payload.credits.and_then(|details| details.balance).as_deref(), Some("3.5"));
+        assert_eq!(
+            payload
+                .credits
+                .and_then(|details| details.balance)
+                .as_deref(),
+            Some("3.5")
+        );
         assert_eq!(primary.window_minutes, Some(60));
         assert_eq!(primary.reset_at, Some(1735689720));
     }

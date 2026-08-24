@@ -1,7 +1,7 @@
+use crate::application::dtos::RegisterTaskStatus;
 use serde::Serialize;
 use specta::Type;
 use tauri_specta::Event;
-use crate::application::dtos::RegisterTaskStatus;
 
 #[derive(Serialize, Type, Event, Clone)]
 pub struct CheckInProgress {

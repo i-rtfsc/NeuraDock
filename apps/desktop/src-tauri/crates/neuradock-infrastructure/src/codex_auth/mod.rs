@@ -7,7 +7,6 @@
 ///   "tokens": { "id_token": "", "access_token": "", "refresh_token": "", "account_id": "" },
 ///   "last_refresh": "2025-03-26T08:23:00Z"
 /// }
-
 use crate::http::openai::quota::CodexUsageQuota;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -130,14 +129,15 @@ fn set_private_permissions(path: &Path) -> anyhow::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn set_private_permissions(_path: &Path) -> anyhow::Result<()> { Ok(()) }
+fn set_private_permissions(_path: &Path) -> anyhow::Result<()> {
+    Ok(())
+}
 
 fn auth_fingerprint(auth: &CodexAuthJson) -> String {
     let email = auth.email().filter(|value| !value.trim().is_empty());
-    let account_id = auth
-        .tokens
-        .as_ref()
-        .and_then(|tokens| (!tokens.account_id.trim().is_empty()).then_some(tokens.account_id.as_str()));
+    let account_id = auth.tokens.as_ref().and_then(|tokens| {
+        (!tokens.account_id.trim().is_empty()).then_some(tokens.account_id.as_str())
+    });
 
     let mut hasher = DefaultHasher::new();
     auth.auth_mode.hash(&mut hasher);
@@ -194,7 +194,9 @@ impl CodexAuthFile {
         Ok(())
     }
 
-    pub fn read_quota_cache(auth: &CodexAuthJson) -> anyhow::Result<Option<(CodexUsageQuota, String)>> {
+    pub fn read_quota_cache(
+        auth: &CodexAuthJson,
+    ) -> anyhow::Result<Option<(CodexUsageQuota, String)>> {
         let fingerprint = auth_fingerprint(auth);
         let store = read_quota_cache_store()?;
 
@@ -216,7 +218,9 @@ impl CodexAuthFile {
 
         let fingerprint = auth_fingerprint(auth);
         let mut store = read_quota_cache_store()?;
-        store.entries.retain(|entry| entry.fingerprint != fingerprint);
+        store
+            .entries
+            .retain(|entry| entry.fingerprint != fingerprint);
         store.entries.push(CodexAuthQuotaCacheEntry {
             fingerprint,
             last_refresh: last_refresh.to_string(),

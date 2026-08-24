@@ -1,5 +1,5 @@
-use neuradock_domain::codex::{CodexAccount, CodexRateLimitWindow};
 use crate::application::dtos::{CodexAccountDto, CodexRateLimitWindowDto};
+use neuradock_domain::codex::{CodexAccount, CodexRateLimitWindow};
 
 fn map_window(window: Option<&CodexRateLimitWindow>) -> Option<CodexRateLimitWindowDto> {
     window.map(|window| CodexRateLimitWindowDto {

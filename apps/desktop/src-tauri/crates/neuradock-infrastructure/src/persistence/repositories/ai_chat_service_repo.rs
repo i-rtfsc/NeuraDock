@@ -183,10 +183,7 @@ impl AiChatServiceRepository for SqliteAiChatServiceRepository {
         for (id, order) in orders {
             self.base
                 .execute(
-                    sqlx::query(query)
-                        .bind(order)
-                        .bind(now)
-                        .bind(id.as_str()),
+                    sqlx::query(query).bind(order).bind(now).bind(id.as_str()),
                     "Update AI chat service sort order",
                 )
                 .await?;

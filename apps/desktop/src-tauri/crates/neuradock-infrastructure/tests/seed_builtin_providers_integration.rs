@@ -20,8 +20,10 @@ async fn seed_builtin_providers_migrates_stale_provider_references() {
     let (pool, encryption) = test_helpers::setup_in_memory_db().await;
     let pool = Arc::new(pool);
 
-    let account_repo: Arc<dyn AccountRepository> =
-        Arc::new(SqliteAccountRepository::new(pool.clone(), encryption.clone()));
+    let account_repo: Arc<dyn AccountRepository> = Arc::new(SqliteAccountRepository::new(
+        pool.clone(),
+        encryption.clone(),
+    ));
     let provider_repo: Arc<dyn ProviderRepository> =
         Arc::new(SqliteProviderRepository::new(pool.clone()));
     let custom_node_repo: Arc<dyn CustomProviderNodeRepository> =

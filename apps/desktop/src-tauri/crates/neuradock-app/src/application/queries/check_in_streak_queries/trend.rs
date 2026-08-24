@@ -39,7 +39,11 @@ pub async fn get_trend(
     for row in rows {
         let income_increment = if let Some(prev) = prev_income {
             let diff = row.daily_total_quota() - prev;
-            if diff > 0.0 { diff } else { 0.0 }
+            if diff > 0.0 {
+                diff
+            } else {
+                0.0
+            }
         } else {
             row.daily_total_quota() // First day handle
         };

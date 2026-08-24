@@ -182,11 +182,33 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
             .bind(account.is_unlimited().map(|v| v as i64))
             .bind(account.credit_balance())
             .bind(account.primary_window().map(|window| window.used_percent()))
-            .bind(account.primary_window().and_then(|window| window.window_minutes()))
-            .bind(account.primary_window().and_then(|window| window.resets_at()).map(|dt| dt.to_rfc3339()))
-            .bind(account.secondary_window().map(|window| window.used_percent()))
-            .bind(account.secondary_window().and_then(|window| window.window_minutes()))
-            .bind(account.secondary_window().and_then(|window| window.resets_at()).map(|dt| dt.to_rfc3339()))
+            .bind(
+                account
+                    .primary_window()
+                    .and_then(|window| window.window_minutes()),
+            )
+            .bind(
+                account
+                    .primary_window()
+                    .and_then(|window| window.resets_at())
+                    .map(|dt| dt.to_rfc3339()),
+            )
+            .bind(
+                account
+                    .secondary_window()
+                    .map(|window| window.used_percent()),
+            )
+            .bind(
+                account
+                    .secondary_window()
+                    .and_then(|window| window.window_minutes()),
+            )
+            .bind(
+                account
+                    .secondary_window()
+                    .and_then(|window| window.resets_at())
+                    .map(|dt| dt.to_rfc3339()),
+            )
             .bind(account.quota_checked_at().map(|dt| dt.to_rfc3339()))
             .bind(account.token_expires_at().map(|dt| dt.to_rfc3339()))
             .bind(account.last_refresh_at().map(|dt| dt.to_rfc3339()))
@@ -203,36 +225,37 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
     }
 
     async fn find_by_id(&self, id: &CodexAccountId) -> Result<Option<CodexAccount>, DomainError> {
-        let row: Option<CodexAccountRow> = sqlx::query_as(
-            "SELECT * FROM codex_accounts WHERE id = ?1",
-        )
-        .bind(id.as_str())
-        .fetch_optional(&*self.pool)
-        .await
-        .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by id"))?;
+        let row: Option<CodexAccountRow> =
+            sqlx::query_as("SELECT * FROM codex_accounts WHERE id = ?1")
+                .bind(id.as_str())
+                .fetch_optional(&*self.pool)
+                .await
+                .map_err(|e| {
+                    RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by id")
+                })?;
 
         row.map(|r| r.into_domain()).transpose()
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<CodexAccount>, DomainError> {
-        let row: Option<CodexAccountRow> = sqlx::query_as(
-            "SELECT * FROM codex_accounts WHERE email = ?1",
-        )
-        .bind(email.to_lowercase())
-        .fetch_optional(&*self.pool)
-        .await
-        .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by email"))?;
+        let row: Option<CodexAccountRow> =
+            sqlx::query_as("SELECT * FROM codex_accounts WHERE email = ?1")
+                .bind(email.to_lowercase())
+                .fetch_optional(&*self.pool)
+                .await
+                .map_err(|e| {
+                    RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by email")
+                })?;
 
         row.map(|r| r.into_domain()).transpose()
     }
 
     async fn find_all(&self) -> Result<Vec<CodexAccount>, DomainError> {
-        let rows: Vec<CodexAccountRow> = sqlx::query_as(
-            "SELECT * FROM codex_accounts ORDER BY created_at DESC",
-        )
-        .fetch_all(&*self.pool)
-        .await
-        .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all codex accounts"))?;
+        let rows: Vec<CodexAccountRow> =
+            sqlx::query_as("SELECT * FROM codex_accounts ORDER BY created_at DESC")
+                .fetch_all(&*self.pool)
+                .await
+                .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all codex accounts"))?;
 
         rows.into_iter().map(|r| r.into_domain()).collect()
     }

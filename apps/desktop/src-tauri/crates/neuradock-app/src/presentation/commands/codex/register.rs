@@ -1,30 +1,30 @@
+use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicBool, Ordering};
 /// Codex account registration commands
 ///
 /// Handles single and batch OpenAI account registration via Tempmail.lol.
-
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::State;
 use tracing::{info, warn};
-use once_cell::sync::Lazy;
 
-use crate::application::dtos::{RegisterConfig, RegisterMode, RegisterProgressDto, RegisterTaskStatus};
+use super::quota::apply_usage_quota;
+use crate::application::dtos::{
+    RegisterConfig, RegisterMode, RegisterProgressDto, RegisterTaskStatus,
+};
 use crate::presentation::error::CommandError;
 use crate::presentation::events::CodexRegisterProgress;
 use crate::presentation::state::{Repositories, Services};
-use super::quota::apply_usage_quota;
 use neuradock_domain::codex::{CodexAccount, CodexAccountSource};
 use neuradock_infrastructure::http::openai::quota::fetch_codex_usage;
-use neuradock_infrastructure::http::openai::tempmail::TempmailClient;
 use neuradock_infrastructure::http::openai::registrar::run_full_registration;
+use neuradock_infrastructure::http::openai::tempmail::TempmailClient;
 
 fn map_err(e: impl std::fmt::Display) -> CommandError {
     CommandError::from(e.to_string())
 }
 
 /// Global cancellation flag for active registration tasks
-static CANCEL_FLAG: Lazy<Arc<AtomicBool>> =
-    Lazy::new(|| Arc::new(AtomicBool::new(false)));
+static CANCEL_FLAG: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
 
 #[tauri::command]
 #[specta::specta]
@@ -304,11 +304,15 @@ async fn register_single_account(
                 }
                 let tm = TempmailClient::new(proxy.as_deref())?;
                 let otp = tm
-                    .poll_for_otp(&token, Some(otp_sent_at), Some(120), || {
-                        cancel_flag.load(Ordering::SeqCst)
-                    }, |msg| {
-                        tracing::debug!("[tempmail poll] {}", msg);
-                    })
+                    .poll_for_otp(
+                        &token,
+                        Some(otp_sent_at),
+                        Some(120),
+                        || cancel_flag.load(Ordering::SeqCst),
+                        |msg| {
+                            tracing::debug!("[tempmail poll] {}", msg);
+                        },
+                    )
                     .await?;
                 otp.ok_or_else(|| anyhow::anyhow!("等待验证码超时 (120s)"))
             }
@@ -335,7 +339,11 @@ async fn register_single_account(
         result.access_token,
         result.refresh_token,
         result.id_token,
-        if result.account_id.is_empty() { None } else { Some(result.account_id) },
+        if result.account_id.is_empty() {
+            None
+        } else {
+            Some(result.account_id)
+        },
         expires_dt,
     );
 

@@ -19,7 +19,7 @@ struct BuiltinAiChatConfig {
 /// Load built-in AI chat services from embedded JSON config file
 fn load_builtin_ai_chats() -> Vec<BuiltinAiChatConfig> {
     const CONFIG_JSON: &str = include_str!("../../../../config/ai_chat/builtin_services.json");
-    
+
     serde_json::from_str(CONFIG_JSON).unwrap_or_else(|e| {
         tracing::error!("Failed to parse builtin_services.json: {}", e);
         Vec::new()

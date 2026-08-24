@@ -25,10 +25,7 @@ impl ReminderSettingsRepository for SqliteReminderSettingsRepository {
 
         let row: Result<Option<(bool, String, String, bool)>, _> = self
             .base
-            .fetch_optional(
-                sqlx::query_as(query),
-                "Get reminder settings",
-            )
+            .fetch_optional(sqlx::query_as(query), "Get reminder settings")
             .await;
 
         Ok(match row? {

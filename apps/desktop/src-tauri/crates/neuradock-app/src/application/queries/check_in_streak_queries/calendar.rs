@@ -78,7 +78,11 @@ pub async fn get_calendar(
         if let Some(row) = daily_map.get(&date_str) {
             let income_increment = if let Some(prev) = prev_income {
                 let diff = row.daily_total_quota() - prev;
-                if diff > 0.0 { Some(diff) } else { None }
+                if diff > 0.0 {
+                    Some(diff)
+                } else {
+                    None
+                }
             } else if row.daily_total_quota() > 0.0 {
                 // If this is the first day we have data for, treat the current quota as increment
                 Some(row.daily_total_quota())
