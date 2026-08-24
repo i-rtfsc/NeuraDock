@@ -77,17 +77,20 @@ jobs:
         with:
           version: 9.15.5
 
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Audit frontend dependencies
         run: pnpm audit --audit-level high
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache cargo-audit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}-stable-v0.21.2
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        run: command -v cargo-audit >/dev/null || cargo install cargo-audit --version 0.21.2 --locked
 
       - name: Audit Rust dependencies
         working-directory: apps/desktop/src-tauri
