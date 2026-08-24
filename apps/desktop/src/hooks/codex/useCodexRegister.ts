@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { events } from '@/lib/tauri';
+import { commands, events } from '@/lib/tauri';
 import type { CodexRegisterProgress, RegisterConfig } from '@/lib/tauri';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -73,7 +72,8 @@ export function useCodexRegister() {
         });
         unlistenRef.current = unlisten;
 
-        await invoke('register_codex_accounts', { config });
+        const result = await commands.registerCodexAccounts(config);
+        if (result.status === 'error') throw new Error(result.error.message);
 
         const finalProgress = latestProgressRef.current;
 
@@ -117,7 +117,8 @@ export function useCodexRegister() {
     addLog({ message: '⛔ 已请求取消注册，等待当前步骤结束...', status: 'cancelled' });
 
     try {
-      await invoke('cancel_codex_registration');
+      const result = await commands.cancelCodexRegistration();
+      if (result.status === 'error') throw new Error(result.error.message);
     } catch (e: any) {
       cancelRequestedRef.current = false;
       setIsCancelling(false);

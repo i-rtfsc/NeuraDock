@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -42,7 +43,7 @@ export function useAiChatServices() {
   return useQuery({
     queryKey: AI_CHAT_SERVICES_KEY,
     queryFn: async (): Promise<AiChatServiceDto[]> => {
-      return await invoke('list_ai_chat_services');
+      return commands.listAiChatServices().then(unwrap);
     },
   });
 }
@@ -54,7 +55,7 @@ export function useEnabledAiChatServices() {
   return useQuery({
     queryKey: ENABLED_AI_CHAT_SERVICES_KEY,
     queryFn: async (): Promise<AiChatServiceDto[]> => {
-      return await invoke('list_enabled_ai_chat_services');
+      return commands.listEnabledAiChatServices().then(unwrap);
     },
   });
 }
@@ -68,7 +69,7 @@ export function useCreateAiChatService() {
 
   return useMutation({
     mutationFn: async (input: CreateAiChatServiceInput): Promise<AiChatServiceDto> => {
-      return await invoke('create_ai_chat_service', { input });
+      return commands.createAiChatService(input).then(unwrap);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AI_CHAT_SERVICES_KEY });
@@ -89,7 +90,7 @@ export function useUpdateAiChatService() {
 
   return useMutation({
     mutationFn: async (input: UpdateAiChatServiceInput): Promise<AiChatServiceDto> => {
-      return await invoke('update_ai_chat_service', { input });
+      return commands.updateAiChatService(input).then(unwrap);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AI_CHAT_SERVICES_KEY });
@@ -110,7 +111,7 @@ export function useDeleteAiChatService() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<boolean> => {
-      return await invoke('delete_ai_chat_service', { id });
+      return commands.deleteAiChatService(id).then(unwrap);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AI_CHAT_SERVICES_KEY });
@@ -131,7 +132,7 @@ export function useToggleAiChatService() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<AiChatServiceDto> => {
-      return await invoke('toggle_ai_chat_service', { id });
+      return commands.toggleAiChatService(id).then(unwrap);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: AI_CHAT_SERVICES_KEY });
@@ -153,7 +154,7 @@ export function useReorderAiChatServices() {
 
   return useMutation({
     mutationFn: async (input: ReorderAiChatServicesInput): Promise<boolean> => {
-      return await invoke('reorder_ai_chat_services', { input });
+      return commands.reorderAiChatServices(input).then(unwrap);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AI_CHAT_SERVICES_KEY });
@@ -171,11 +172,7 @@ export function useReorderAiChatServices() {
 export function useOpenAiChatWebview() {
   return useMutation({
     mutationFn: async (service: AiChatServiceDto): Promise<boolean> => {
-      return await invoke('open_ai_chat_webview', {
-        serviceId: service.id,
-        serviceName: service.name,
-        url: service.url,
-      });
+      return commands.openAiChatWebview(service.id, service.name, service.url).then(unwrap);
     },
   });
 }
@@ -186,7 +183,7 @@ export function useOpenAiChatWebview() {
 export function useCloseAiChatWebview() {
   return useMutation({
     mutationFn: async (serviceId: string): Promise<boolean> => {
-      return await invoke('close_ai_chat_webview', { serviceId });
+      return commands.closeAiChatWebview(serviceId).then(unwrap);
     },
   });
 }
@@ -197,7 +194,7 @@ export function useCloseAiChatWebview() {
 export function useOpenAiChatInBrowser() {
   return useMutation({
     mutationFn: async (url: string): Promise<boolean> => {
-      return await invoke('open_ai_chat_in_browser', { url });
+      return commands.openAiChatInBrowser(url).then(unwrap);
     },
   });
 }

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import type {
   CodexPaymentIntervalDto,
@@ -27,7 +27,10 @@ export function useGenerateCodexPaymentLink() {
   const { t } = useTranslation();
   return useMutation({
     mutationFn: ({ accountId, request }: GenerateCodexPaymentLinkArgs): Promise<CodexPaymentLinkDto> =>
-      invoke('generate_codex_payment_link', { accountId, request }),
+      commands.generateCodexPaymentLink(accountId, request).then((result) => {
+        if (result.status === 'error') throw new Error(result.error.message);
+        return result.data;
+      }),
     onSuccess: () => {
       toast.success(t('codex.toast.paymentLinkGenerated'));
     },
