@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import type { NotificationChannelDto } from '@/types/notification';
 
 interface NotificationChannelDialogProps {
@@ -164,22 +165,18 @@ export function NotificationChannelDialog({ open, onClose, channel }: Notificati
 
       if (channel) {
         // Update existing channel
-        await invoke('update_notification_channel', {
-          input: {
+        unwrap(await commands.updateNotificationChannel({
             channel_id: channel.id,
-            config: config,
+            config: JSON.stringify(config),
             enabled: null,
-          },
-        });
+        }));
         toast.success(t('notification.toast.channelUpdated'));
       } else {
         // Create new channel
-        await invoke('create_notification_channel', {
-          input: {
+        unwrap(await commands.createNotificationChannel({
             channel_type: channelType,
-            config: config,
-          },
-        });
+            config: JSON.stringify(config),
+        }));
         toast.success(t('notification.toast.channelCreated'));
       }
 

@@ -3,7 +3,8 @@ import { Bell, Trash2, TestTube2, Plus, Mail, MessageSquare, Send, Edit2, AlertC
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import { NotificationChannelDialog } from './NotificationChannelDialog';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
   const handleDelete = async (channelId: string) => {
     try {
-      await invoke('delete_notification_channel', { channelId });
+      unwrap(await commands.deleteNotificationChannel(channelId));
       toast.success(t('notification.deleted'));
       onUpdate();
     } catch (err) {
@@ -35,13 +36,11 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
 
   const handleToggle = async (channel: NotificationChannelDto) => {
     try {
-      await invoke('update_notification_channel', {
-        input: {
+      unwrap(await commands.updateNotificationChannel({
           channel_id: channel.id,
           enabled: !channel.enabled,
-          config: null,
-        },
-      });
+          config: '',
+      }));
       toast.success(channel.enabled ? t('notification.disabled') : t('notification.enabled'));
       onUpdate();
     } catch (err) {
@@ -52,9 +51,7 @@ export function NotificationChannelList({ channels, onUpdate }: NotificationChan
   const handleTest = async (channelId: string) => {
     setTestingId(channelId);
     try {
-      const result = await invoke<{ success: boolean; message: string }>('test_notification_channel', {
-        channelId,
-      });
+      const result = unwrap(await commands.testNotificationChannel(channelId));
       if (result.success) {
         toast.success(t('notification.testSuccess'), { description: result.message });
       } else {
