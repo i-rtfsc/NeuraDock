@@ -47,6 +47,7 @@ impl CodexAccountStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "expired" => Self::Expired,
@@ -70,6 +71,7 @@ impl CodexAccountSource {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "import" => Self::Import,
@@ -184,6 +186,7 @@ impl CodexAccount {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: CodexAccountId,
         email: String,

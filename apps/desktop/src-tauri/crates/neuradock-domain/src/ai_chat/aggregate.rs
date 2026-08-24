@@ -110,6 +110,7 @@ impl AiChatService {
     }
 
     /// Restore from persistence
+    #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: AiChatServiceId,
         name: String,
