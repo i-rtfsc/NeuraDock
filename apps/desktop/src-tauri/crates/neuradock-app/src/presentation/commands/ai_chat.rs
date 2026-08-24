@@ -361,6 +361,7 @@ pub async fn open_ai_chat_in_browser(app: AppHandle, url: String) -> Result<bool
 /// Uses LRU caching to limit memory usage
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn show_embedded_ai_chat(
     app: AppHandle,
     embedded_state: State<'_, EmbeddedAiChatState>,

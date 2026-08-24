@@ -125,9 +125,7 @@ impl NotificationService {
         {
             Ok(summaries) => {
                 // Find the latest summary that is strictly before today
-                if let Some(record) = summaries
-                    .into_iter().rfind(|s| s.check_in_date() < today)
-                {
+                if let Some(record) = summaries.into_iter().rfind(|s| s.check_in_date() < today) {
                     info!(
                         "Using fallback balance from summary for account {} from {}",
                         account_id,

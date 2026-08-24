@@ -174,6 +174,7 @@ fn preview(
     ])
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_documents(
     mut doc: toml_edit::DocumentMut,
     mut auth: Value,

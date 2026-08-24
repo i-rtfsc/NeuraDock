@@ -71,7 +71,7 @@ pub async fn get_all_streaks(
         });
     }
 
-    results.sort_by(|a, b| b.current_streak.cmp(&a.current_streak));
+    results.sort_by_key(|item| std::cmp::Reverse(item.current_streak));
 
     info!("[streak] get_all_streaks total_accounts={}", results.len());
     Ok(results)

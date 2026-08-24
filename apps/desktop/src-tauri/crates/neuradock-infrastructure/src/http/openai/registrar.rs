@@ -241,8 +241,8 @@ fn read_cookie(jar: &Jar, base_url: &str, name: &str) -> Option<String> {
     for part in header_str.split(';') {
         let part = part.trim();
         if let Some(rest) = part.strip_prefix(name) {
-            if rest.starts_with('=') {
-                return Some(rest[1..].to_string());
+            if let Some(value) = rest.strip_prefix('=') {
+                return Some(value.to_string());
             }
         }
     }

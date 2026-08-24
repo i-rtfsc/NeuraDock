@@ -323,10 +323,10 @@ impl StreamBridge {
                     ));
                 }
 
-                let mut output_index = usize::from(self.text_started);
-                for call in &self.accumulator.tool_calls {
+                for (output_index, call) in
+                    (usize::from(self.text_started)..).zip(self.accumulator.tool_calls.iter())
+                {
                     append_function_call_events(&mut events, output_index, call);
-                    output_index += 1;
                 }
 
                 let mut response =

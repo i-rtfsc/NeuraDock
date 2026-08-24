@@ -256,7 +256,7 @@ pub async fn register_codex_accounts(
 ///
 /// Flow (14 steps, all pure HTTP via reqwest):
 /// 1. Create Tempmail inbox
-/// 2-13. Full OAuth PKCE flow (device ID, sentinel, signup, password, OTP, tokens)
+///    2-13. Full OAuth PKCE flow (device ID, sentinel, signup, password, OTP, tokens)
 async fn register_single_account(
     task_id: &str,
     proxy_url: Option<&str>,

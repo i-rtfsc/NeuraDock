@@ -1234,9 +1234,9 @@ fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json:
                     message = Some(value);
                     break;
                 }
-                if value.get("error").is_some() {
-                    fallback = Some(value);
-                } else if fallback.is_none() && value.get("billing").is_none() {
+                if value.get("error").is_some()
+                    || (fallback.is_none() && value.get("billing").is_none())
+                {
                     fallback = Some(value);
                 }
             }
@@ -1704,6 +1704,7 @@ fn inject_canonical_fingerprint(
 /// sequence is emitted. Codex/Claude Code reject a partial or malformed
 /// lifecycle (e.g. a Responses stream without `response.completed` carrying a
 /// populated body), so a naive per-chunk passthrough is not enough.
+#[allow(clippy::too_many_arguments)]
 fn stream_response(
     protocol: InboundProtocol,
     model: String,

@@ -156,35 +156,38 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             match executor.execute_check_in(&account_id, &provider).await {
                 Ok(result) => {
                     // Update account balance cache and save to balance_history if we have new balance data
-                    let balance_dto = if result.success && result.user_info.is_some() {
-                        match shared::update_and_save_balance(
-                            &self.account_repo,
-                            &self.balance_history_service,
-                            &account_id,
-                            account,
-                            result.user_info.as_ref().unwrap(),
-                        )
-                        .await
-                        {
-                            Ok(balance) => {
-                                // Auto-fetch provider models if not exists in database
-                                shared::auto_fetch_provider_models(
-                                    &self.account_repo,
-                                    &self.provider_models_service,
-                                    &account_id,
-                                    &provider,
-                                )
-                                .await;
+                    let balance_dto = if result.success {
+                        match result.user_info.as_ref() {
+                            Some(user_info) => match shared::update_and_save_balance(
+                                &self.account_repo,
+                                &self.balance_history_service,
+                                &account_id,
+                                account,
+                                user_info,
+                            )
+                            .await
+                            {
+                                Ok(balance) => {
+                                    // Auto-fetch provider models if not exists in database
+                                    shared::auto_fetch_provider_models(
+                                        &self.account_repo,
+                                        &self.provider_models_service,
+                                        &account_id,
+                                        &provider,
+                                    )
+                                    .await;
 
-                                Some(balance)
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to update balance for account {}: {}",
-                                    account_id, e
-                                );
-                                None
-                            }
+                                    Some(balance)
+                                }
+                                Err(e) => {
+                                    error!(
+                                        "Failed to update balance for account {}: {}",
+                                        account_id, e
+                                    );
+                                    None
+                                }
+                            },
+                            None => None,
                         }
                     } else {
                         result.user_info.as_ref().map(|info| BalanceDto {

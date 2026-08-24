@@ -6,6 +6,7 @@ use tauri::State;
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn configure_codex_global(
     token_id: i64,
     account_id: String,
@@ -70,6 +71,7 @@ pub async fn configure_codex_global(
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn generate_codex_temp_commands(
     token_id: i64,
     account_id: String,
@@ -155,6 +157,7 @@ pub async fn clear_codex_isolated(
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn configure_codex_isolated(
     token_id: i64,
     account_id: String,

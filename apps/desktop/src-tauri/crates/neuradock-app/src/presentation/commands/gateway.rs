@@ -391,6 +391,7 @@ pub struct GatewayBindingConfigDto {
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn set_gateway_profile_enabled(
     client: GatewayClientDto,
     profile: String,
@@ -1854,10 +1855,11 @@ fn redact_json_value(value: &mut serde_json::Value) {
                     || normalized.contains("API_KEY")
                     || normalized.contains("SECRET")
                     || normalized.contains("PASSWORD"))
-                    && value.is_string() {
-                        *value = serde_json::Value::String("••••••••".to_string());
-                        continue;
-                    }
+                    && value.is_string()
+                {
+                    *value = serde_json::Value::String("••••••••".to_string());
+                    continue;
+                }
                 redact_json_value(value);
             }
         }
@@ -1910,6 +1912,7 @@ fn restore_access_record(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn rollback_binding_change(
     app: &tauri::AppHandle,
     state: &GatewayState,
@@ -1933,6 +1936,7 @@ async fn rollback_binding_change(
 /// gateway is running, the client's tool config is (re)taken over immediately.
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn set_gateway_binding(
     client: GatewayClientDto,
     source: GatewaySourceDto,

@@ -57,6 +57,7 @@ pub async fn configure_claude_global(
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn configure_claude_isolated(
     token_id: i64,
     account_id: String,
