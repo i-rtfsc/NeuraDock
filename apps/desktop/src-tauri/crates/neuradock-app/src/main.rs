@@ -55,7 +55,7 @@ fn install_panic_hook() {
 async fn main() {
     let builder = ipc::builder();
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
@@ -234,8 +234,13 @@ async fn main() {
             builder.mount_events(app);
 
             Ok(())
-        })
-        .build(tauri::generate_context!("../../tauri.conf.json"));
+        });
+
+    #[cfg(feature = "root-tauri-context")]
+    let app = builder.build(tauri::generate_context!());
+
+    #[cfg(not(feature = "root-tauri-context"))]
+    let app = builder.build(tauri::generate_context!("../../tauri.conf.json"));
 
     match app {
         Ok(app) => app.run(|app_handle, event| {

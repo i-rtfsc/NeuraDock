@@ -129,6 +129,10 @@ authors = ["NeuraDock"]
 edition = "2021"
 default-run = "NeuraDock"
 
+[features]
+default = ["root-tauri-context"]
+root-tauri-context = []
+
 [lib]
 name = "neuradock_lib"
 path = "crates/neuradock-app/src/lib.rs"

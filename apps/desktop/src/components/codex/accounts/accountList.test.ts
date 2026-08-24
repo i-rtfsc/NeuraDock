@@ -8,7 +8,6 @@ function createAccount(overrides: Partial<CodexAccountDto>): CodexAccountDto {
   return {
     id: overrides.id ?? crypto.randomUUID(),
     email: overrides.email ?? 'account@example.com',
-    password: null,
     hasPassword: false,
     hasTokens: true,
     hasPaymentSession: false,

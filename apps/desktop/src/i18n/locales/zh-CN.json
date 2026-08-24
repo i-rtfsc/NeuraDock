@@ -1331,6 +1331,7 @@
       "accountCopied": "账号已复制",
       "password": "密码",
       "passwordMissing": "未保存",
+      "passwordSaved": "已安全保存",
       "copyPassword": "复制密码",
       "passwordCopied": "密码已复制",
       "copyAccountId": "复制 Account ID",

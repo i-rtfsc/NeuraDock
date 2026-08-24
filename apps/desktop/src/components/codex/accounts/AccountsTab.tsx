@@ -500,7 +500,6 @@ export function AccountsTab() {
                           onFetchInboxCode={() => handleFetchInboxCode(account)}
                           onGeneratePaymentLink={() => handleOpenPaymentDialog(account)}
                           onCopyAccount={(value) => copyText(value, 'codex.accounts.accountCopied')}
-                          onCopyPassword={(value) => copyText(value, 'codex.accounts.passwordCopied')}
                         />
                       ))
                     ) : (
@@ -749,7 +748,6 @@ function AccountRow({
   onFetchInboxCode,
   onGeneratePaymentLink,
   onCopyAccount,
-  onCopyPassword,
 }: {
   account: CodexAccountDto;
   isActive: boolean;
@@ -762,7 +760,6 @@ function AccountRow({
   onFetchInboxCode: () => void;
   onGeneratePaymentLink: () => void;
   onCopyAccount: (value: string | null | undefined) => void;
-  onCopyPassword: (value: string | null | undefined) => void;
 }) {
   const { t } = useTranslation();
   const displayWindow = pickPrimaryDisplayWindow(account.secondaryWindow, account.primaryWindow);
@@ -812,20 +809,9 @@ function AccountRow({
           <span className="rounded border border-border/40 bg-muted/30 px-1.5 py-0.5 text-muted-foreground">
             {t('codex.accounts.password')}
           </span>
-            <span className={cn('font-mono text-xs', account.password ? 'text-foreground' : 'text-muted-foreground')}>
-              {account.password ? maskPassword(account.password) : t('codex.accounts.passwordMissing')}
-            </span>
-          {account.password && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="h-6 w-6"
-              title={t('codex.accounts.copyPassword')}
-              onClick={() => onCopyPassword(account.password)}
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          )}
+          <span className={cn('font-mono text-xs', account.hasPassword ? 'text-foreground' : 'text-muted-foreground')}>
+            {account.hasPassword ? t('codex.accounts.passwordSaved') : t('codex.accounts.passwordMissing')}
+          </span>
         </div>
       </td>
 
@@ -1414,11 +1400,6 @@ function buildQuotaFromAccount(account: CodexAccountDto | null): CodexQuotaDto |
 
 function getCurrencyForCountry(country: string) {
   return PAYMENT_COUNTRIES.find((item) => item.code === country)?.currency ?? 'USD';
-}
-
-function maskPassword(password: string) {
-  const maskLength = Math.min(Math.max(password.length + 2, 10), 16);
-  return '•'.repeat(maskLength);
 }
 
 function formatCompactDateTime(value?: string | null, locale = 'zh-CN', emptyLabel = '—') {

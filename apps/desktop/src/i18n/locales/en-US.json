@@ -1331,6 +1331,7 @@
       "accountCopied": "Account copied",
       "password": "Password",
       "passwordMissing": "Not saved",
+      "passwordSaved": "Saved securely",
       "copyPassword": "Copy password",
       "passwordCopied": "Password copied",
       "copyAccountId": "Copy account ID",
