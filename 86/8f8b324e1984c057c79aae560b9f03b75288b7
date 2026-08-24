@@ -1,0 +1,21 @@
+apps/desktop/src-tauri/crates/neuradock-domain/src/ai_chat/aggregate.rs
+  s_e9dd769d815b63::t_601d188433e4ce 113
+apps/desktop/src-tauri/crates/neuradock-domain/src/codex/aggregate.rs
+  s_e9dd769d815b63::t_601d188433e4ce 50,74,189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "868f8b324e1984c057c79aae560b9f03b75288b7",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
