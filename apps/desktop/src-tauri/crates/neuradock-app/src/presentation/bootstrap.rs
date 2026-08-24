@@ -44,7 +44,9 @@ use neuradock_infrastructure::persistence::{
     },
     Database,
 };
-use neuradock_infrastructure::security::{reencrypt_legacy_records, EncryptionService, KeyManager};
+use neuradock_infrastructure::security::{
+    encryption_key_migration_complete, reencrypt_legacy_records, EncryptionService, KeyManager,
+};
 
 pub async fn build_app_state(
     app_handle: tauri::AppHandle,
@@ -136,7 +138,25 @@ pub async fn build_app_state(
 
     let pool = Arc::new(database.pool().clone());
 
-    if is_legacy_installation {
+    let pending_key = key_manager
+        .load_pending_master_key()
+        .map_err(|e| format!("Failed to inspect pending encryption key: {}", e))?;
+    let recover_completed_migration = pending_key.is_some()
+        && encryption_key_migration_complete(&pool)
+            .await
+            .map_err(|e| format!("Failed to inspect encryption migration state: {}", e))?;
+
+    if recover_completed_migration {
+        let pending_key = pending_key.ok_or("Missing pending encryption key")?;
+        key_manager
+            .promote_pending_master_key()
+            .map_err(|e| format!("Failed to recover encryption key migration: {}", e))?;
+        encryption_service = Arc::new(
+            EncryptionService::from_key(&pending_key)
+                .map_err(|e| format!("Failed to load recovered encryption key: {}", e))?,
+        );
+        info!("✓ Recovered completed encryption key migration");
+    } else if is_legacy_installation {
         let salt = key_manager
             .initialize()
             .map_err(|e| format!("Failed to initialize legacy encryption salt: {}", e))?;
@@ -145,13 +165,16 @@ pub async fn build_app_state(
         let new_key = key_manager
             .generate_migration_key()
             .map_err(|e| format!("Failed to generate encryption migration key: {}", e))?;
+        key_manager
+            .save_pending_master_key(&new_key)
+            .map_err(|e| format!("Failed to stage encryption migration key: {}", e))?;
         let current = EncryptionService::from_key(&new_key)
             .map_err(|e| format!("Failed to create migrated encryption service: {}", e))?;
         let migrated = reencrypt_legacy_records(&pool, &legacy, &current)
             .await
             .map_err(|e| format!("Failed to migrate encrypted records: {}", e))?;
         key_manager
-            .save_master_key(&new_key)
+            .promote_pending_master_key()
             .map_err(|e| format!("Failed to save encryption migration key: {}", e))?;
         encryption_service = Arc::new(current);
         info!(

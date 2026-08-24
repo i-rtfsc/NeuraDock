@@ -60,6 +60,22 @@ pub async fn reencrypt_legacy_records(
         migrated += 1;
     }
 
+    sqlx::query(
+        "INSERT INTO app_security_metadata (key, value) VALUES ('encryption_key_version', '2') \
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .execute(&mut *tx)
+    .await?;
+
     tx.commit().await?;
     Ok(migrated)
+}
+
+pub async fn encryption_key_migration_complete(pool: &SqlitePool) -> anyhow::Result<bool> {
+    let value = sqlx::query_scalar::<_, String>(
+        "SELECT value FROM app_security_metadata WHERE key = 'encryption_key_version'",
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(value.as_deref() == Some("2"))
 }

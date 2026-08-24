@@ -13,6 +13,7 @@ use thiserror::Error;
 pub struct KeyManager {
     salt_path: PathBuf,
     master_key_path: PathBuf,
+    pending_master_key_path: PathBuf,
 }
 
 impl KeyManager {
@@ -23,9 +24,11 @@ impl KeyManager {
     pub fn new(app_data_dir: PathBuf) -> Self {
         let salt_path = app_data_dir.join(".encryption_salt");
         let master_key_path = app_data_dir.join(".encryption_key");
+        let pending_master_key_path = app_data_dir.join(".encryption_key.pending");
         Self {
             salt_path,
             master_key_path,
+            pending_master_key_path,
         }
     }
 
@@ -57,6 +60,30 @@ impl KeyManager {
         }
         fs::write(&self.master_key_path, key)
             .map_err(|e| KeyManagerError::IoError(format!("Failed to write master key: {}", e)))?;
+        set_private_permissions(&self.master_key_path)
+    }
+
+    pub fn save_pending_master_key(&self, key: &[u8; 32]) -> Result<(), KeyManagerError> {
+        fs::write(&self.pending_master_key_path, key).map_err(|e| {
+            KeyManagerError::IoError(format!("Failed to write pending master key: {}", e))
+        })?;
+        set_private_permissions(&self.pending_master_key_path)
+    }
+
+    pub fn load_pending_master_key(&self) -> Result<Option<[u8; 32]>, KeyManagerError> {
+        if !self.pending_master_key_path.exists() {
+            return Ok(None);
+        }
+        self.load_key(&self.pending_master_key_path).map(Some)
+    }
+
+    pub fn promote_pending_master_key(&self) -> Result<(), KeyManagerError> {
+        if !self.pending_master_key_path.exists() {
+            return Ok(());
+        }
+        fs::rename(&self.pending_master_key_path, &self.master_key_path).map_err(|e| {
+            KeyManagerError::IoError(format!("Failed to promote pending master key: {}", e))
+        })?;
         set_private_permissions(&self.master_key_path)
     }
 
@@ -114,7 +141,11 @@ impl KeyManager {
     }
 
     fn load_master_key(&self) -> Result<[u8; 32], KeyManagerError> {
-        let bytes = fs::read(&self.master_key_path)
+        self.load_key(&self.master_key_path)
+    }
+
+    fn load_key(&self, path: &std::path::Path) -> Result<[u8; 32], KeyManagerError> {
+        let bytes = fs::read(path)
             .map_err(|e| KeyManagerError::IoError(format!("Failed to read master key: {}", e)))?;
         if bytes.len() != 32 {
             return Err(KeyManagerError::InvalidMasterKey(format!(
