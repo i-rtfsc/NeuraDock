@@ -158,9 +158,10 @@ export function IndependentKeyDialog({ open, onOpenChange, keyToEdit }: Independ
 
     if (keyToEdit) {
       // Update existing key
-      const updateInput: any = {
+      const updateInput: UpdateIndependentKeyInput = {
         key_id: keyToEdit.id,
         name: name.trim(),
+        api_key: null,
         base_url: baseUrl.trim(),
         organization_id: organizationId.trim() || null,
         description: description.trim() || null,

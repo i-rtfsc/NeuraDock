@@ -43,7 +43,7 @@ export function useCheckIn() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  return useMutation<CheckInResult, any, string | undefined>({
+  return useMutation<CheckInResult, unknown, string | undefined>({
     mutationFn: (accountId) => {
       if (!accountId) {
         return Promise.reject(new Error('accountId is required'));
@@ -72,12 +72,12 @@ export function useCheckIn() {
         );
       }
     },
-    onError: (error: any, accountId) => {
+    onError: (error: unknown, accountId) => {
       console.error('Check-in error:', error);
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       }
-      const errorMessage = error?.message || error?.toString() || t('common.unknownError', '未知错误');
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast.error(
         t('checkIn.failedWithReason', {
           defaultValue: '签到失败: {{reason}}',
@@ -118,9 +118,9 @@ export function useBatchCheckIn() {
         );
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('Batch check-in error:', error);
-      const errorMessage = error?.message || error?.toString() || t('common.unknownError', '未知错误');
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast.error(
         t('checkIn.batchFailed', {
           defaultValue: '批量签到失败：{{reason}}',

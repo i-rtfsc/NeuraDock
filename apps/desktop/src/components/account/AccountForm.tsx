@@ -16,10 +16,11 @@ import {
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useProviders } from '@/hooks/useProviders';
 
 // Validation schema
-const getAccountFormSchema = (t: any) => z.object({
+const getAccountFormSchema = (t: TFunction) => z.object({
   name: z.string().min(1, t('accountForm.accountNameRequired')).max(100),
   provider_id: z.string().min(1, t('accountForm.providerRequired')),
   cookies_json: z.string().min(1, t('accountForm.cookiesRequired')).refine(

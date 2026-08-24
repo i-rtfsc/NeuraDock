@@ -56,7 +56,7 @@ export function ProvidersPage({
   const itemVariants = createFadeUpItem({ y: 8, scale: 0.98 });
 
   useEffect(() => {
-    const state = location.state as any;
+    const state = location.state as { openNodeManager?: { providerId?: unknown } } | null;
     const providerId = state?.openNodeManager?.providerId;
     if (typeof providerId === 'string' && providerId) {
       setPendingOpenProviderId(providerId);
