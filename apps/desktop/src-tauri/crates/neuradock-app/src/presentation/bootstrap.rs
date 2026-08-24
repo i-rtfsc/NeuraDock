@@ -95,16 +95,16 @@ pub async fn build_app_state(
     info!("🔐 Initializing encryption...");
     let started_at = Instant::now();
     let key_manager = KeyManager::new(app_data_dir.clone());
-    let salt = key_manager
-        .initialize()
-        .map_err(|e| format!("Failed to initialize encryption salt: {}", e))?;
-
-    // TODO: In production, get password from secure input
-    // For now, use a default password (should be configurable)
+    let master_key = key_manager
+        .initialize_master_key()
+        .map_err(|e| format!("Failed to initialize encryption master key: {}", e))?;
     let encryption_service = Arc::new(
-        match key_manager.initialize_master_key()? {
+        match master_key {
             Some(master_key) => EncryptionService::from_key(&master_key),
             None => {
+                let salt = key_manager
+                    .initialize()
+                    .map_err(|e| format!("Failed to initialize encryption salt: {}", e))?;
                 // Existing installations are kept readable until an explicit
                 // record-by-record re-encryption migration is completed.
                 EncryptionService::from_password("neuradock_default_password_2024", &salt)
