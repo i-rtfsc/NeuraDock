@@ -34,8 +34,8 @@ export function useCreateAccount() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accounts.createSuccess', '账号创建成功'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accounts.createFailed', {
           defaultValue: '创建账号失败: {{message}}',
@@ -58,8 +58,8 @@ export function useUpdateAccount() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accounts.updateSuccess', '账号已更新'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accounts.updateFailed', {
           defaultValue: '更新账号失败: {{message}}',
@@ -82,8 +82,8 @@ export function useDeleteAccount() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accountCard.deleted', '账号已删除'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accountCard.deleteFailed', {
           defaultValue: '删除账号失败: {{message}}',
@@ -111,23 +111,22 @@ export function useToggleAccount() {
       const previousDetail = queryClient.getQueryData(accountKeys.detail(accountId));
 
       // Optimistically update to the new value
-      queryClient.setQueriesData({ queryKey: accountKeys.lists() }, (old: any) => {
+      queryClient.setQueriesData({ queryKey: accountKeys.lists() }, (old: unknown) => {
         if (!Array.isArray(old)) return old;
-        return old.map((acc: any) =>
+        return old.map((acc) =>
           acc.id === accountId ? { ...acc, enabled } : acc
         );
       });
 
       if (previousDetail) {
-        queryClient.setQueryData(accountKeys.detail(accountId), (old: any) => ({
-          ...old,
-          enabled,
-        }));
+        queryClient.setQueryData(accountKeys.detail(accountId), (old) =>
+          old ? { ...old, enabled } : old
+        );
       }
 
       return { previousAccounts, previousDetail };
     },
-    onError: (error: any, { accountId }, context) => {
+    onError: (error: unknown, { accountId }, context) => {
       // Rollback
       if (context?.previousAccounts) {
         context.previousAccounts.forEach(([queryKey, data]) => {
@@ -138,7 +137,7 @@ export function useToggleAccount() {
         queryClient.setQueryData(accountKeys.detail(accountId), context.previousDetail);
       }
 
-      const message = error?.message || String(error);
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accountCard.toggleFailed', {
           defaultValue: '切换账号状态失败: {{message}}',
@@ -171,8 +170,8 @@ export function useImportAccountFromJson() {
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accounts.importSuccess', '账号导入成功'));
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accounts.importFailed', {
           defaultValue: '导入账号失败: {{message}}',
@@ -199,8 +198,8 @@ export function useImportAccountsBatch() {
         })
       );
     },
-    onError: (error: any) => {
-      const message = error?.message || String(error);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         t('accounts.batchImportFailed', {
           defaultValue: '批量导入账号失败: {{message}}',
