@@ -132,7 +132,7 @@ async fn benchmark_encryption_performance() {
 #[test]
 fn benchmark_account_aggregate_creation() {
     use neuradock_lib::domain::account::{Account, Credentials};
-    use neuradock_lib::domain::shared::{AccountId, ProviderId};
+    use neuradock_lib::domain::shared::ProviderId;
     use std::collections::HashMap;
 
     println!("\n========== Performance Benchmark: Account Aggregate ==========");
