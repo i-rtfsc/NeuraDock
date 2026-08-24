@@ -1,0 +1,19 @@
+apps/desktop/src/pages/AiChatPage.tsx
+  s_e9dd769d815b63::t_a69d30e4bde8f9 13-14,80,86,98,121,136,144,155,164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "482560f96d54171716dbf743c4ab6734e1fb0b26",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
