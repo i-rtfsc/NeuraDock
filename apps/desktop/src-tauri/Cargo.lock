@@ -3339,7 +3339,7 @@ dependencies = [
 
 [[package]]
 name = "neuradock"
-version = "0.9.5"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3390,7 +3390,7 @@ dependencies = [
 
 [[package]]
 name = "neuradock-app"
-version = "0.9.5"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "neuradock-domain"
-version = "0.9.5"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3455,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "neuradock-infrastructure"
-version = "0.9.5"
+version = "1.2.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
