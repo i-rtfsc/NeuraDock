@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import { commands } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -21,9 +20,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Switch } from '@/components/ui/switch';
 import { AgentAccessDrawer, type KeyOption } from './AgentAccessDrawer';
 import type { IndependentKeyDto } from '@/types/independentKey';
-import type { AccountDto, TokenDto } from '@/types/token';
+import type { AccountDto } from '@/types/token';
+import type { AgentConfigurationStateDto, AgentAccessDto, GatewayStatusDto } from '@/lib/tauri';
 import { formatQuotaUSD } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+
+function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+}
 
 /** Agents the gateway can serve. Adding one is a single entry here. */
 export type AgentId = 'codex' | 'claude_code';
@@ -161,24 +166,24 @@ export const AGENT_ACCESS_QUERY_KEY = ['agent-access'];
 export const AGENT_CONFIGURATION_QUERY_KEY = ['agent-configuration-states'];
 
 export function useGatewayStatus() {
-  return useQuery<GatewayStatus>({
+  return useQuery<GatewayStatusDto>({
     queryKey: GATEWAY_STATUS_QUERY_KEY,
-    queryFn: () => invoke<GatewayStatus>('get_gateway_status'),
+    queryFn: () => commands.getGatewayStatus().then(unwrap),
     refetchInterval: 5000,
   });
 }
 
 export function useAgentAccess() {
-  return useQuery<AgentAccess[]>({
+  return useQuery<AgentAccessDto[]>({
     queryKey: AGENT_ACCESS_QUERY_KEY,
-    queryFn: () => invoke<AgentAccess[]>('get_agent_access'),
+    queryFn: () => commands.getAgentAccess().then(unwrap),
   });
 }
 
 export function useAgentConfigurationStates() {
-  return useQuery<AgentConfigurationState[]>({
+  return useQuery<AgentConfigurationStateDto[]>({
     queryKey: AGENT_CONFIGURATION_QUERY_KEY,
-    queryFn: () => invoke<AgentConfigurationState[]>('get_agent_configuration_states'),
+    queryFn: () => commands.getAgentConfigurationStates().then(unwrap) as Promise<AgentConfigurationState[]>,
     refetchInterval: 5000,
   });
 }
@@ -187,11 +192,11 @@ export function useAgentConfigurationStates() {
 function useKeyOptions() {
   const independent = useQuery<IndependentKeyDto[]>({
     queryKey: ['independent-keys'],
-    queryFn: () => invoke<IndependentKeyDto[]>('get_all_independent_keys'),
+    queryFn: () => commands.getAllIndependentKeys().then(unwrap),
   });
   const accounts = useQuery<AccountDto[]>({
     queryKey: ['accounts', 'gateway-picker'],
-    queryFn: () => invoke<AccountDto[]>('get_all_accounts', { enabledOnly: false }),
+    queryFn: () => commands.getAllAccounts(false).then(unwrap),
   });
   const tokens = useQuery<KeyOption[]>({
     queryKey: [
@@ -205,10 +210,7 @@ function useKeyOptions() {
       const groups = await Promise.all(
         enabledAccounts.map(async (account): Promise<KeyOption[]> => {
           try {
-            const list = await invoke<TokenDto[]>('fetch_account_tokens', {
-              accountId: account.id,
-              forceRefresh: false,
-            });
+            const list = await commands.fetchAccountTokens(account.id, false).then(unwrap);
             const options: KeyOption[] = [];
             for (const tk of list) {
               // Disabled tokens can't be configured; leave them out of the picker.
@@ -282,10 +284,10 @@ function GatewayControl({ status, disabled }: { status?: GatewayStatus; disabled
     setBusy(true);
     try {
       if (running) {
-        await invoke('stop_gateway_server');
+        await commands.stopGatewayServer().then(unwrap);
         toast.success(t('agentConfig.gatewayStopped', '网关已停止，工具配置已还原'));
       } else {
-        await invoke('start_gateway_server');
+        await commands.startGatewayServer().then(unwrap);
         toast.success(t('agentConfig.gatewayStarted', '网关已启动'));
       }
       queryClient.invalidateQueries({ queryKey: GATEWAY_STATUS_QUERY_KEY });
@@ -832,7 +834,7 @@ export function AgentConfigGateway({
   const access = editingSlug === undefined
     ? undefined
     : (accessList ?? []).find((item) => item.agent === selectedAgent && (item.isolated_slug ?? null) === editingSlug);
-  const configuration = configurationStates?.find((item) => item.agent === selectedAgent);
+  const configuration = configurationStates?.find((item) => item.agent === selectedAgent) as AgentConfigurationState | undefined;
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: GATEWAY_STATUS_QUERY_KEY });
