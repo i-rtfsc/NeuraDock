@@ -1,0 +1,39 @@
+apps/desktop/src-tauri/Cargo.toml
+  s_e9dd769d815b63::t_49b48d1979fa30 29,126
+apps/desktop/src-tauri/tauri.conf.json
+  s_e9dd769d815b63::t_49b48d1979fa30 4
+package.json
+  s_e9dd769d815b63::t_49b48d1979fa30 3
+README.md
+  s_e9dd769d815b63::t_49b48d1979fa30 17
+README_EN.md
+  s_e9dd769d815b63::t_49b48d1979fa30 17
+apps/desktop/package.json
+  s_e9dd769d815b63::t_49b48d1979fa30 3
+apps/desktop/src-tauri/Cargo.lock
+  s_45523d6cdd74f1::t_e6211b633a7d5a 3342,3393,3442,3458
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "80bb4a79bf1b0b93b6300862837b4291b43cf0a6",
+  "prompts": {},
+  "sessions": {
+    "s_45523d6cdd74f1": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0137d-ebb1-79b2-abfb-ac185f54e4f5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
