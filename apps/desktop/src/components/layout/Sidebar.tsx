@@ -25,7 +25,8 @@ import { Button } from '@/components/ui/button';
 import { CodexMarkIcon } from '@/components/icons/CodexMarkIcon';
 import { useGatewayStatus } from '@/components/agent/AgentConfigGateway';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import type { ComponentType } from 'react';
+import { commands } from '@/lib/tauri';
 
 export function Sidebar() {
   const location = useLocation();
@@ -42,7 +43,7 @@ export function Sidebar() {
   const [devToolboxOpen, setDevToolboxOpen] = useState(devToolboxRouteActive);
 
   useEffect(() => {
-    invoke<string>('get_app_version')
+    commands.getAppVersion()
       .then((fullVersion) => {
         const match = fullVersion.match(/^(.*) \((.*)\)$/);
         setAppVersion(match && match.length === 3 ? match[1] : fullVersion);
@@ -79,7 +80,7 @@ export function Sidebar() {
 
   // Helper for rendering links to avoid duplication between nav and settings
   const renderLink = (
-    item: { name: string; href: string; icon: any; gatewayStatus?: boolean },
+    item: { name: string; href: string; icon: ComponentType<{ className?: string }>; gatewayStatus?: boolean },
     isSettings = false
   ) => {
     const normalizedHref = item.href.split('?')[0];

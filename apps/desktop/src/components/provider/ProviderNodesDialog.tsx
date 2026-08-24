@@ -87,8 +87,8 @@ export function ProviderNodesDialog({
       setBaseUrl('');
       queryClient.invalidateQueries({ queryKey: ['provider-nodes', providerId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.message || t('common.error', 'Error'));
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : String(error));
     },
   });
 
@@ -106,8 +106,8 @@ export function ProviderNodesDialog({
       toast.success(message || t('common.success', 'Success'));
       queryClient.invalidateQueries({ queryKey: ['provider-nodes', providerId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.message || t('common.error', 'Error'));
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : String(error));
     },
   });
 
