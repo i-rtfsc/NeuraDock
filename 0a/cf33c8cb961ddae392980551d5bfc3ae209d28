@@ -1,0 +1,21 @@
+scripts/verify-version.mjs
+  s_e9dd769d815b63::t_f4d331ade4cd6d 1-31
+Makefile
+  s_e9dd769d815b63::t_f4d331ade4cd6d 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0acf33c8cb961ddae392980551d5bfc3ae209d28",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
