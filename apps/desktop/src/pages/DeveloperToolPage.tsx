@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, Plus, RefreshCw, Save, Settings2, Trash2 } from 'lucide-react';
@@ -16,10 +15,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { extractErrorMessage } from '@/lib/errorHandling';
+import { commands, type CommandError, type DeveloperToolConnectionDto, type GerritChangeDto, type JiraIssueDto, type JiraMetadataDto, type SavedDeveloperToolQueryDto } from '@/lib/tauri';
 
 type Service = 'jira' | 'gerrit';
 
-interface Connection {
+type Connection = DeveloperToolConnectionDto;
+/*
+ * The generated client returns a typed Result so command failures cannot be
+ * mistaken for successful payloads at the page boundary.
+ */
+function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: CommandError }): T {
+  if (result.status === 'error') throw new Error(result.error.message);
+  return result.data;
+}
+
+/* interface Connection {
   id: string;
   name: string;
   service: Service;
@@ -29,9 +39,9 @@ interface Connection {
   username: string | null;
   has_secret: boolean;
   profile_json: string | null;
-}
+} */
 
-interface JiraIssue {
+/* interface JiraIssue {
   key: string;
   summary: string;
   project: string;
@@ -43,9 +53,9 @@ interface JiraIssue {
   updated: string;
   url: string;
   semantic_fields_json: string;
-}
+} */
 
-interface GerritChange {
+/* interface GerritChange {
   id: string;
   project: string;
   branch: string;
@@ -54,10 +64,12 @@ interface GerritChange {
   status: string;
   updated: string;
   url: string;
-}
+} */
 
-interface SavedQuery { id: string; connection_id: string; name: string; query: string }
-interface JiraMetadata { fields: { id: string; name: string; custom: boolean; field_type: string | null }[]; statuses: { id: string; name: string; category: string }[] }
+type JiraIssue = JiraIssueDto;
+type GerritChange = GerritChangeDto;
+type SavedQuery = SavedDeveloperToolQueryDto;
+type JiraMetadata = JiraMetadataDto;
 
 const EMPTY_PROFILE = JSON.stringify({ schema_version: 1, name: 'Local Jira profile', field_mappings: {}, status_mappings: {} }, null, 2);
 
@@ -81,7 +93,7 @@ function DeveloperToolPage({ service }: { service: Service }) {
   const active = connections.find((item) => item.id === connectionId);
 
   const loadConnections = async () => {
-    const all = await invoke<Connection[]>('list_developer_tool_connections');
+    const all = unwrap(await commands.listDeveloperToolConnections());
     const filtered = all.filter((item) => item.service === service);
     setConnections(filtered);
     setConnectionId((current) => filtered.some((item) => item.id === current) ? current : filtered[0]?.id ?? '');
@@ -90,16 +102,18 @@ function DeveloperToolPage({ service }: { service: Service }) {
   useEffect(() => { loadConnections().catch((error) => toast.error(extractErrorMessage(error))); }, [service]);
   useEffect(() => {
     if (!connectionId) { setSavedQueries([]); return; }
-    invoke<SavedQuery[]>('list_developer_tool_saved_queries', { connectionId })
-      .then(setSavedQueries).catch((error) => toast.error(extractErrorMessage(error)));
+    commands.listDeveloperToolSavedQueries(connectionId)
+      .then(unwrap).then(setSavedQueries).catch((error) => toast.error(extractErrorMessage(error)));
   }, [connectionId]);
 
   const runQuery = async () => {
     if (!connectionId || !query.trim()) return;
     setLoading(true);
     try {
-      const command = service === 'jira' ? 'query_jira_issues' : 'query_gerrit_changes';
-      setResults(await invoke(command, { connectionId, query }));
+      const data = service === 'jira'
+        ? unwrap(await commands.queryJiraIssues(connectionId, query))
+        : unwrap(await commands.queryGerritChanges(connectionId, query));
+      setResults(data as (JiraIssue | GerritChange)[]);
     } catch (error) { toast.error(extractErrorMessage(error)); }
     finally { setLoading(false); }
   };
@@ -108,27 +122,27 @@ function DeveloperToolPage({ service }: { service: Service }) {
     if (!connectionId || !query.trim()) return;
     const name = queryName.trim();
     if (!name) return;
-    const saved = await invoke<SavedQuery>('save_developer_tool_query', { connectionId, queryId: null, name, query });
+    const saved = unwrap(await commands.saveDeveloperToolQuery(connectionId, null, name, query));
     setSavedQueries((items) => [saved, ...items]);
     setQueryName('');
     setSaveQueryOpen(false);
   };
 
   const deleteSavedQuery = async (queryId: string) => {
-    await invoke('delete_developer_tool_query', { queryId });
+    unwrap(await commands.deleteDeveloperToolQuery(queryId));
     setSavedQueries((items) => items.filter((item) => item.id !== queryId));
   };
 
   const deleteConnection = async () => {
     if (!active) return;
-    await invoke('delete_developer_tool_connection', { connectionId: active.id });
+    unwrap(await commands.deleteDeveloperToolConnection(active.id));
     setResults([]); setMetadata(null); await loadConnections();
   };
 
   const loadMetadata = async () => {
     if (!connectionId) return;
     setLoading(true);
-    try { setMetadata(await invoke<JiraMetadata>('get_jira_metadata', { connectionId })); }
+    try { setMetadata(unwrap(await commands.getJiraMetadata(connectionId))); }
     catch (error) { toast.error(extractErrorMessage(error)); }
     finally { setLoading(false); }
   };
@@ -187,12 +201,12 @@ function ConnectionDialog({ service, open, connection, onOpenChange, onSaved }: 
   const [form, setForm] = useState(initial);
   useEffect(() => setForm(initial), [initial]);
   const save = async () => {
-    await invoke('save_developer_tool_connection', { input: { id: connection?.id ?? null, name: form.name, service, base_url: form.baseUrl, deployment: form.deployment, auth_method: form.authMethod, username: form.username || null, secret: form.secret || null, profile_json: service === 'jira' ? form.profile : null } });
+    unwrap(await commands.saveDeveloperToolConnection({ id: connection?.id ?? null, name: form.name, service, base_url: form.baseUrl, deployment: form.deployment, auth_method: form.authMethod, username: form.username || null, secret: form.secret || null, profile_json: service === 'jira' ? form.profile : null }));
     await onSaved(); onOpenChange(false); toast.success(t('common.saved', '已保存'));
   };
   const test = async () => {
     if (!connection) { toast.info(t('devTools.saveBeforeTest', '请先保存连接')); return; }
-    const result = await invoke<{ deployment: string; version: string | null }>('test_developer_tool_connection', { connectionId: connection.id });
+    const result = unwrap(await commands.testDeveloperToolConnection(connection.id));
     toast.success(`${result.deployment}${result.version ? ` · ${result.version}` : ''}`);
   };
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent size="lg"><DialogHeader><DialogTitle>{service === 'jira' ? 'Jira' : 'Gerrit'} {t('devTools.connection', '连接')}</DialogTitle></DialogHeader><div className="grid gap-3 py-2 md:grid-cols-2">
