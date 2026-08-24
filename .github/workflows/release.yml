@@ -325,6 +325,7 @@ jobs:
         run: |
           mkdir -p release-assets
           find all-artifacts -type f -exec cp {} release-assets/ \;
+          (cd release-assets && sha256sum NeuraDock-* > SHA256SUMS.txt)
           echo "📦 Final release assets:"
           ls -lh release-assets/
 
@@ -364,6 +365,10 @@ jobs:
             #### 🐧 Linux
             - **NeuraDock-${{ steps.version.outputs.version }}-Linux-x64.AppImage** - AppImage（通用格式，推荐）
             - **NeuraDock-${{ steps.version.outputs.version }}-Linux-x64.deb** - Debian/Ubuntu 软件包
+
+            ### 校验和
+
+            下载 `SHA256SUMS.txt` 后，可使用 `sha256sum -c SHA256SUMS.txt` 校验安装包完整性。
 
             ### 安装说明
 
