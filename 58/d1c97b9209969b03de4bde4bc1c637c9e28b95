@@ -1,0 +1,21 @@
+.github/workflows/release.yml
+  s_e9dd769d815b63::t_c46be7768fd8f2 79-92
+  s_e9dd769d815b63::t_c52f3d283ef2c0 10,12
+  s_e9dd769d815b63::t_3eb0ae6bf5c90f 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "58d1c97b9209969b03de4bde4bc1c637c9e28b95",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
