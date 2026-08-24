@@ -4,7 +4,7 @@
  * 将前端日志上报到后端，统一记录到日志文件中
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from './tauri';
 
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
@@ -26,12 +26,7 @@ class Logger {
   ) {
     try {
       // 上报到后端（fields 需要序列化为 JSON 字符串）
-      await invoke('log_from_frontend', {
-        level,
-        target,
-        message,
-        fields: fields ? JSON.stringify(fields) : null
-      });
+      await commands.logFromFrontend(level, target, message, fields ? JSON.stringify(fields) : null);
     } catch (error) {
       // 降级到 console，但不抛出错误（避免日志记录阻塞业务）
       console[level]?.(`[${target}] ${message}`, fields, error);

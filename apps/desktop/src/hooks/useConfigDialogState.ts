@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
 import { useTranslation } from 'react-i18next';
 import type { TokenDto, AccountDto, ProviderNode } from '@/types/token';
 
@@ -27,7 +27,10 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
   // Fetch nodes for the account's provider
   const { data: nodes = [] } = useQuery<ProviderNode[]>({
     queryKey: ['provider-nodes', account?.provider_id],
-    queryFn: () => invoke('get_provider_nodes', { providerId: account!.provider_id }),
+    queryFn: () => commands.getProviderNodes(account!.provider_id).then((r) => {
+      if (r.status === 'error') throw new Error(r.error.message);
+      return r.data;
+    }),
     enabled: !!account && open,
   });
 
@@ -37,10 +40,9 @@ export function useConfigDialogState({ token, account, open }: UseConfigDialogSt
     queryKey: ['provider-models', account?.provider_id],
     queryFn: async () => {
       if (!account) return [];
-      const models = await invoke<string[]>('get_cached_provider_models', {
-        providerId: account.provider_id,
-      });
-      return models ?? [];
+      const result = await commands.getCachedProviderModels(account.provider_id);
+      if (result.status === 'error') throw new Error(result.error.message);
+      return result.data;
     },
     enabled: shouldLoadProviderModels,
     staleTime: 5 * 60 * 1000,

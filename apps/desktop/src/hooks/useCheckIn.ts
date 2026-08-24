@@ -2,6 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
+import { commands } from '@/lib/tauri';
+
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 
 // Types for check-in
 export interface CheckInResult {
@@ -14,7 +17,7 @@ export interface CheckInResult {
     total_consumed: number;
     total_quota: number;
   };
-  error?: string;
+  error?: string | null;
 }
 
 export interface BatchCheckInResult {
@@ -26,13 +29,13 @@ export interface BatchCheckInResult {
 
 // Tauri commands
 async function executeCheckIn(accountId: string): Promise<CheckInResult> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke('execute_check_in', { accountId });
+  const result = unwrap(await commands.executeCheckIn(accountId));
+  return { ...result, balance: result.balance ?? undefined };
 }
 
 async function executeBatchCheckIn(accountIds: string[]): Promise<BatchCheckInResult> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke('execute_batch_check_in', { accountIds });
+  const result = unwrap(await commands.executeBatchCheckIn(accountIds));
+  return { ...result, results: result.results.map((item) => ({ ...item, balance: item.balance ?? undefined })) };
 }
 
 // Single check-in hook
