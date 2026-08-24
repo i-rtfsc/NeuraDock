@@ -1207,7 +1207,7 @@ async fn forward_passthrough(
 
 fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json::Error> {
     match serde_json::from_slice::<Value>(bytes) {
-        Ok(value) => return Ok(value),
+        Ok(value) => Ok(value),
         Err(primary_error) => {
             let mut fallback = None;
             let mut message = None;
@@ -1241,7 +1241,7 @@ fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json:
                 }
             }
 
-            return message.or(fallback).ok_or(primary_error);
+            message.or(fallback).ok_or(primary_error)
         }
     }
 }

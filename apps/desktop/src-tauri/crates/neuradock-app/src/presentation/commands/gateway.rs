@@ -1850,16 +1850,14 @@ fn redact_json_value(value: &mut serde_json::Value) {
         serde_json::Value::Object(object) => {
             for (key, value) in object {
                 let normalized = key.to_ascii_uppercase();
-                if normalized.contains("TOKEN")
+                if (normalized.contains("TOKEN")
                     || normalized.contains("API_KEY")
                     || normalized.contains("SECRET")
-                    || normalized.contains("PASSWORD")
-                {
-                    if value.is_string() {
+                    || normalized.contains("PASSWORD"))
+                    && value.is_string() {
                         *value = serde_json::Value::String("••••••••".to_string());
                         continue;
                     }
-                }
                 redact_json_value(value);
             }
         }

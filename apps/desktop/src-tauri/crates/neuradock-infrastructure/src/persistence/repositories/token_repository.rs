@@ -204,7 +204,7 @@ impl TokenRepository for SqliteTokenRepository {
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
         for token in &tokens {
-            Self::insert_token(&mut *tx, token).await?;
+            Self::insert_token(&mut tx, token).await?;
         }
 
         tx.commit()
@@ -288,7 +288,7 @@ impl TokenRepository for SqliteTokenRepository {
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Delete tokens in replace"))?;
 
         for token in &tokens {
-            Self::insert_token(&mut *tx, token).await?;
+            Self::insert_token(&mut tx, token).await?;
         }
 
         tx.commit()

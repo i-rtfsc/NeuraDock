@@ -75,7 +75,7 @@ fn configure_at_path(
 
     // Read existing config or create empty object
     let config = build_config(
-        load_config(&config_path)?,
+        load_config(config_path)?,
         api_key,
         base_url,
         model,
@@ -84,8 +84,8 @@ fn configure_at_path(
 
     // Write back config with proper formatting
     let content = serde_json::to_string_pretty(&config)?;
-    backup_file(&config_path)?;
-    atomic_write(&config_path, &content, true)?;
+    backup_file(config_path)?;
+    atomic_write(config_path, &content, true)?;
 
     log::info!(
         "Successfully configured Claude Code {} at: {}",

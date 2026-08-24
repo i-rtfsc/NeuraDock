@@ -104,7 +104,7 @@ fn random_user_info() -> (String, String) {
 // ─── JWT helpers ──────────────────────────────────────────────────────────────
 
 fn parse_jwt_claims(id_token: &str) -> Value {
-    let segment = id_token.splitn(3, '.').nth(1).unwrap_or("");
+    let segment = id_token.split('.').nth(1).unwrap_or("");
     base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(segment)
         .ok()
@@ -230,7 +230,7 @@ fn extract_code_from_url(callback_url: &str) -> Result<String> {
     }
     bail!(
         "callback URL 中未找到 code 参数: {}",
-        crate::logging::log_utils::truncate_for_log(&callback_url, 200)
+        crate::logging::log_utils::truncate_for_log(callback_url, 200)
     )
 }
 

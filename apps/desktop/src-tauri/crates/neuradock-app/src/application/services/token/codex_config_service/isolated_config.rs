@@ -242,7 +242,7 @@ pub(super) fn configure_isolated_with_key_impl(
     // Derive a slug from the base_url host, fallback to "openai_compatible".
     let slug = url::Url::parse(base_url)
         .ok()
-        .and_then(|u| u.host_str().map(|h| sanitize_provider_slug(h)))
+        .and_then(|u| u.host_str().map(sanitize_provider_slug))
         .unwrap_or_else(|| "openai_compatible".to_string());
     configure_isolated(&slug, &slug, api_key, base_url, model, context_1m)
 }
@@ -352,7 +352,7 @@ pub(super) fn preview_isolated_with_key_impl(
 ) -> Result<Vec<(PathBuf, &'static str, String, String)>> {
     let slug = url::Url::parse(base_url)
         .ok()
-        .and_then(|u| u.host_str().map(|h| sanitize_provider_slug(h)))
+        .and_then(|u| u.host_str().map(sanitize_provider_slug))
         .unwrap_or_else(|| "openai_compatible".to_string());
     preview_isolated(&slug, &slug, api_key, base_url, model, context_1m)
 }
