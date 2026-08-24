@@ -1,0 +1,22 @@
+apps/desktop/src/hooks/codex/useCodexRegister.ts
+  s_e9dd769d815b63::t_1fb0cfc52d6540 100-101,122,125
+apps/desktop/src/components/account/BatchUpdateDialog.tsx
+  s_e9dd769d815b63::t_685c803cb0de84 132
+  s_e9dd769d815b63::t_1fb0cfc52d6540 40-45,124-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b6cddc34600762ff138e4ee25ae0eec412301326",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
