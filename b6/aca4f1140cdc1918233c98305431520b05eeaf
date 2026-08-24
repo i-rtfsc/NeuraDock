@@ -1,0 +1,19 @@
+apps/desktop/src/components/agent/AgentConfigGateway.tsx
+  s_e9dd769d815b63::t_176565a963a5ec 4,752
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b6aca4f1140cdc1918233c98305431520b05eeaf",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
