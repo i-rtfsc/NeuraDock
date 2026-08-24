@@ -1,0 +1,20 @@
+apps/desktop/src/hooks/useProviderActions.tsx
+  s_e9dd769d815b63::t_c8b7da35a957bd 31-41,69-82
+  s_e9dd769d815b63::t_bf011cdf9463b4 4,9-10,47,49,88,90,97,103,105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8d1e4481b6cbcc769ea971cbc79e90e70e2c5769",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
