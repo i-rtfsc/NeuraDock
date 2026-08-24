@@ -45,7 +45,8 @@ use neuradock_infrastructure::persistence::{
     Database,
 };
 use neuradock_infrastructure::security::{
-    encryption_key_migration_complete, reencrypt_legacy_records, EncryptionService, KeyManager,
+    encrypt_codex_credentials, encryption_key_migration_complete, reencrypt_legacy_records,
+    EncryptionService, KeyManager,
 };
 
 pub async fn build_app_state(
@@ -183,6 +184,16 @@ pub async fn build_app_state(
         );
     }
 
+    let encrypted_codex_fields = encrypt_codex_credentials(&pool, &encryption_service)
+        .await
+        .map_err(|e| format!("Failed to encrypt Codex credentials: {}", e))?;
+    if encrypted_codex_fields > 0 {
+        info!(
+            "✓ Encrypted {} legacy Codex credential fields",
+            encrypted_codex_fields
+        );
+    }
+
     let account_repo = Arc::new(SqliteAccountRepository::new(
         pool.clone(),
         encryption_service.clone(),
@@ -210,8 +221,10 @@ pub async fn build_app_state(
         as Arc<dyn BalanceHistoryRepository>;
     let ai_chat_service_repo = Arc::new(SqliteAiChatServiceRepository::new(pool.clone()))
         as Arc<dyn AiChatServiceRepository>;
-    let codex_account_repo = Arc::new(SqliteCodexAccountRepository::new(pool.clone()))
-        as Arc<dyn CodexAccountRepository>;
+    let codex_account_repo = Arc::new(SqliteCodexAccountRepository::new(
+        pool.clone(),
+        encryption_service.clone(),
+    )) as Arc<dyn CodexAccountRepository>;
 
     info!("🌱 Seeding built-in providers...");
     let started_at = Instant::now();

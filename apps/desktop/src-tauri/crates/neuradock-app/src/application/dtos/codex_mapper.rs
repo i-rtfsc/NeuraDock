@@ -14,7 +14,6 @@ impl From<&CodexAccount> for CodexAccountDto {
         Self {
             id: account.id().as_str().to_string(),
             email: account.email().to_string(),
-            password: account.password().map(|s| s.to_string()),
             has_password: account.password().is_some(),
             has_tokens: account.access_token().is_some(),
             has_payment_session: account.has_payment_session(),

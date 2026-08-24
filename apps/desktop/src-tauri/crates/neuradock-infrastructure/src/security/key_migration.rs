@@ -60,6 +60,51 @@ pub async fn reencrypt_legacy_records(
         migrated += 1;
     }
 
+    let accounts = sqlx::query("SELECT id, password, access_token, refresh_token, id_token, web_session_cookie, web_session_device_id, tempmail_token FROM codex_accounts")
+        .fetch_all(&mut *tx)
+        .await?;
+    for row in accounts {
+        let id: String = row.try_get("id")?;
+        let fields = [
+            ("password", row.try_get::<Option<String>, _>("password")?),
+            (
+                "access_token",
+                row.try_get::<Option<String>, _>("access_token")?,
+            ),
+            (
+                "refresh_token",
+                row.try_get::<Option<String>, _>("refresh_token")?,
+            ),
+            ("id_token", row.try_get::<Option<String>, _>("id_token")?),
+            (
+                "web_session_cookie",
+                row.try_get::<Option<String>, _>("web_session_cookie")?,
+            ),
+            (
+                "web_session_device_id",
+                row.try_get::<Option<String>, _>("web_session_device_id")?,
+            ),
+            (
+                "tempmail_token",
+                row.try_get::<Option<String>, _>("tempmail_token")?,
+            ),
+        ];
+        for (field, value) in fields {
+            if let Some(value) = value {
+                let plaintext = legacy.decrypt(&value).unwrap_or(value);
+                let encrypted = current.encrypt(&plaintext)?;
+                sqlx::query(&format!(
+                    "UPDATE codex_accounts SET {field} = ? WHERE id = ?"
+                ))
+                .bind(encrypted)
+                .bind(&id)
+                .execute(&mut *tx)
+                .await?;
+                migrated += 1;
+            }
+        }
+    }
+
     sqlx::query(
         "INSERT INTO app_security_metadata (key, value) VALUES ('encryption_key_version', '2') \
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -78,4 +123,68 @@ pub async fn encryption_key_migration_complete(pool: &SqlitePool) -> anyhow::Res
     .fetch_optional(pool)
     .await?;
     Ok(value.as_deref() == Some("2"))
+}
+
+pub async fn encrypt_codex_credentials(
+    pool: &SqlitePool,
+    encryption: &EncryptionService,
+) -> anyhow::Result<u64> {
+    let completed = sqlx::query_scalar::<_, String>(
+        "SELECT value FROM app_security_metadata WHERE key = 'codex_credentials_version'",
+    )
+    .fetch_optional(pool)
+    .await?;
+    if completed.as_deref() == Some("1") {
+        return Ok(0);
+    }
+    let mut tx = pool.begin().await?;
+    let rows = sqlx::query("SELECT id, password, access_token, refresh_token, id_token, web_session_cookie, web_session_device_id, tempmail_token FROM codex_accounts")
+        .fetch_all(&mut *tx).await?;
+    let mut migrated = 0;
+    for row in rows {
+        let id: String = row.try_get("id")?;
+        let fields = [
+            ("password", row.try_get::<Option<String>, _>("password")?),
+            (
+                "access_token",
+                row.try_get::<Option<String>, _>("access_token")?,
+            ),
+            (
+                "refresh_token",
+                row.try_get::<Option<String>, _>("refresh_token")?,
+            ),
+            ("id_token", row.try_get::<Option<String>, _>("id_token")?),
+            (
+                "web_session_cookie",
+                row.try_get::<Option<String>, _>("web_session_cookie")?,
+            ),
+            (
+                "web_session_device_id",
+                row.try_get::<Option<String>, _>("web_session_device_id")?,
+            ),
+            (
+                "tempmail_token",
+                row.try_get::<Option<String>, _>("tempmail_token")?,
+            ),
+        ];
+        for (field, value) in fields {
+            let Some(value) = value else { continue };
+            if encryption.decrypt(&value).is_ok() {
+                continue;
+            }
+            let encrypted = encryption.encrypt(&value)?;
+            sqlx::query(&format!(
+                "UPDATE codex_accounts SET {field} = ? WHERE id = ?"
+            ))
+            .bind(encrypted)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await?;
+            migrated += 1;
+        }
+    }
+    sqlx::query("INSERT INTO app_security_metadata (key, value) VALUES ('codex_credentials_version', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .execute(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(migrated)
 }

@@ -4,4 +4,6 @@ pub mod key_migration;
 
 pub use encryption::{EncryptionError, EncryptionService};
 pub use key_manager::{KeyManager, KeyManagerError};
-pub use key_migration::{encryption_key_migration_complete, reencrypt_legacy_records};
+pub use key_migration::{
+    encrypt_codex_credentials, encryption_key_migration_complete, reencrypt_legacy_records,
+};

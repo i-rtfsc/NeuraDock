@@ -4,6 +4,7 @@ use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
 use crate::persistence::RepositoryErrorMapper;
+use crate::security::EncryptionService;
 use neuradock_domain::codex::{
     CodexAccount, CodexAccountId, CodexAccountRepository, CodexAccountSource, CodexAccountStatus,
     CodexRateLimitWindow,
@@ -65,8 +66,39 @@ fn build_rate_limit_window(
     ))
 }
 
+fn encrypt_optional(
+    encryption: &EncryptionService,
+    value: Option<&str>,
+) -> Result<Option<String>, DomainError> {
+    value
+        .map(|value| {
+            encryption.encrypt(value).map_err(|e| {
+                DomainError::DataIntegrity(format!("Failed to encrypt Codex credential: {}", e))
+            })
+        })
+        .transpose()
+}
+
+fn decrypt_optional(
+    encryption: &EncryptionService,
+    value: Option<String>,
+    field: &str,
+    account_id: &str,
+) -> Result<Option<String>, DomainError> {
+    value
+        .map(|value| {
+            encryption.decrypt(&value).map_err(|e| {
+                DomainError::DataIntegrity(format!(
+                    "Failed to decrypt Codex {} for account {}: {}",
+                    field, account_id, e
+                ))
+            })
+        })
+        .transpose()
+}
+
 impl CodexAccountRow {
-    fn into_domain(self) -> Result<CodexAccount, DomainError> {
+    fn into_domain(self, encryption: &EncryptionService) -> Result<CodexAccount, DomainError> {
         let created_at = DateTime::parse_from_rfc3339(&self.created_at)
             .map_err(|e| DomainError::DataIntegrity(format!("Invalid created_at: {}", e)))?
             .with_timezone(&Utc);
@@ -77,13 +109,23 @@ impl CodexAccountRow {
         Ok(CodexAccount::restore(
             CodexAccountId::from_string(&self.id),
             self.email,
-            self.password,
-            self.access_token,
-            self.refresh_token,
-            self.id_token,
+            decrypt_optional(encryption, self.password, "password", &self.id)?,
+            decrypt_optional(encryption, self.access_token, "access token", &self.id)?,
+            decrypt_optional(encryption, self.refresh_token, "refresh token", &self.id)?,
+            decrypt_optional(encryption, self.id_token, "ID token", &self.id)?,
             self.account_id,
-            self.web_session_cookie,
-            self.web_session_device_id,
+            decrypt_optional(
+                encryption,
+                self.web_session_cookie,
+                "session cookie",
+                &self.id,
+            )?,
+            decrypt_optional(
+                encryption,
+                self.web_session_device_id,
+                "device ID",
+                &self.id,
+            )?,
             self.plan_type,
             self.has_credits.map(|v| v != 0),
             self.is_unlimited.map(|v| v != 0),
@@ -101,7 +143,7 @@ impl CodexAccountRow {
             parse_opt_dt(self.quota_checked_at),
             parse_opt_dt(self.token_expires_at),
             parse_opt_dt(self.last_refresh_at),
-            self.tempmail_token,
+            decrypt_optional(encryption, self.tempmail_token, "tempmail token", &self.id)?,
             CodexAccountSource::from_str(&self.source),
             CodexAccountStatus::from_str(&self.status),
             created_at,
@@ -112,11 +154,12 @@ impl CodexAccountRow {
 
 pub struct SqliteCodexAccountRepository {
     pool: Arc<SqlitePool>,
+    encryption: Arc<EncryptionService>,
 }
 
 impl SqliteCodexAccountRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<SqlitePool>, encryption: Arc<EncryptionService>) -> Self {
+        Self { pool, encryption }
     }
 }
 
@@ -170,13 +213,19 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
         sqlx::query(query)
             .bind(account.id().as_str())
             .bind(account.email())
-            .bind(account.password())
-            .bind(account.access_token())
-            .bind(account.refresh_token())
-            .bind(account.id_token())
+            .bind(encrypt_optional(&self.encryption, account.password())?)
+            .bind(encrypt_optional(&self.encryption, account.access_token())?)
+            .bind(encrypt_optional(&self.encryption, account.refresh_token())?)
+            .bind(encrypt_optional(&self.encryption, account.id_token())?)
             .bind(account.account_id())
-            .bind(account.web_session_cookie())
-            .bind(account.web_session_device_id())
+            .bind(encrypt_optional(
+                &self.encryption,
+                account.web_session_cookie(),
+            )?)
+            .bind(encrypt_optional(
+                &self.encryption,
+                account.web_session_device_id(),
+            )?)
             .bind(account.plan_type())
             .bind(account.has_credits().map(|v| v as i64))
             .bind(account.is_unlimited().map(|v| v as i64))
@@ -212,7 +261,10 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
             .bind(account.quota_checked_at().map(|dt| dt.to_rfc3339()))
             .bind(account.token_expires_at().map(|dt| dt.to_rfc3339()))
             .bind(account.last_refresh_at().map(|dt| dt.to_rfc3339()))
-            .bind(account.tempmail_token())
+            .bind(encrypt_optional(
+                &self.encryption,
+                account.tempmail_token(),
+            )?)
             .bind(account.source().as_str())
             .bind(account.status().as_str())
             .bind(account.created_at().to_rfc3339())
@@ -234,7 +286,7 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
                     RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by id")
                 })?;
 
-        row.map(|r| r.into_domain()).transpose()
+        row.map(|r| r.into_domain(&self.encryption)).transpose()
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<CodexAccount>, DomainError> {
@@ -247,7 +299,7 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
                     RepositoryErrorMapper::map_sqlx_error(e, "Find codex account by email")
                 })?;
 
-        row.map(|r| r.into_domain()).transpose()
+        row.map(|r| r.into_domain(&self.encryption)).transpose()
     }
 
     async fn find_all(&self) -> Result<Vec<CodexAccount>, DomainError> {
@@ -257,7 +309,9 @@ impl CodexAccountRepository for SqliteCodexAccountRepository {
                 .await
                 .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Find all codex accounts"))?;
 
-        rows.into_iter().map(|r| r.into_domain()).collect()
+        rows.into_iter()
+            .map(|r| r.into_domain(&self.encryption))
+            .collect()
     }
 
     async fn delete(&self, id: &CodexAccountId) -> Result<(), DomainError> {

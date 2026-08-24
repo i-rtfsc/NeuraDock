@@ -16,7 +16,6 @@ pub struct CodexRateLimitWindowDto {
 pub struct CodexAccountDto {
     pub id: String,
     pub email: String,
-    pub password: Option<String>,
     pub has_password: bool,
     pub has_tokens: bool,
     pub has_payment_session: bool,
