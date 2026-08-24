@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify project versions
+        run: make verify-version
+
       - name: Run quality gates
         run: make check
 

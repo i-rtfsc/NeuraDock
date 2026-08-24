@@ -90,6 +90,7 @@ jobs:
             echo "Release tag $VERSION does not match package version $EXPECTED" >&2
             exit 1
           }
+          make verify-version
 
       - name: Enable Corepack (pnpm)
         shell: bash
