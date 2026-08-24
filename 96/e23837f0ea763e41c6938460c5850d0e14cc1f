@@ -1,0 +1,21 @@
+apps/desktop/src/components/token/IndependentKeyDialog.tsx
+  s_e9dd769d815b63::t_9bcd98c86f2efd 25-31,119
+  s_e9dd769d815b63::t_e9073e47af2a55 92-93,95-98
+  s_e9dd769d815b63::t_ff40698656bd23 94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "96e23837f0ea763e41c6938460c5850d0e14cc1f",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
