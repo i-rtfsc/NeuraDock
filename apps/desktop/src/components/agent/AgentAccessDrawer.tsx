@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
@@ -44,11 +43,17 @@ import {
 import { cn } from '@/lib/utils';
 import type { ProviderNode } from '@/types/token';
 import type { AgentAccess, AgentAccessSource, AgentDef } from './AgentConfigGateway';
-import { commands } from '@/lib/tauri';
+import { commands, type GatewaySourceDto } from '@/lib/tauri';
 
 function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
   if (result.status === 'error') throw new Error(result.error.message);
   return result.data;
+}
+
+function typedSource(source: AgentAccessSource): GatewaySourceDto {
+  return source.type === 'account_token'
+    ? { ...source, base_url: source.base_url ?? null }
+    : source;
 }
 
 type UpstreamKind = 'openai_chat' | 'openai_responses' | 'anthropic';
@@ -314,13 +319,12 @@ export function AgentAccessDrawer({
   const { data: nodes = [], isLoading: nodesLoading } = useQuery<ProviderNode[]>({
     queryKey: ['provider-nodes', selected?.providerId],
     enabled: !!selected?.providerId,
-    queryFn: () => invoke<ProviderNode[]>('get_provider_nodes', { providerId: selected!.providerId }),
+    queryFn: () => commands.getProviderNodes(selected!.providerId!).then(unwrap) as Promise<ProviderNode[]>,
   });
   const { data: providerModels = [], isLoading: modelsLoading } = useQuery<string[]>({
     queryKey: ['provider-models', selected?.providerId],
     enabled: !!selected?.providerId,
-    queryFn: async () =>
-      (await invoke<string[]>('get_cached_provider_models', { providerId: selected!.providerId })) ?? [],
+    queryFn: () => commands.getCachedProviderModels(selected!.providerId!).then(unwrap),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -398,8 +402,10 @@ export function AgentAccessDrawer({
   const previewQuery = useQuery<AgentConfigPreview>({
     queryKey: ['agent-config-preview', previewRequest],
     enabled: !!previewRequest,
-    queryFn: () =>
-      invoke<AgentConfigPreview>('get_agent_config_preview', { request: previewRequest! }),
+    queryFn: () => commands.getAgentConfigPreview({
+      ...previewRequest!,
+      source: typedSource(previewRequest!.source),
+    }).then(unwrap) as Promise<AgentConfigPreview>,
     staleTime: 0,
   });
 
@@ -475,22 +481,17 @@ export function AgentAccessDrawer({
     setBusy(true);
     try {
       if (method === 'gateway') {
-        await invoke('set_gateway_binding', {
-          client: agent.id,
-          source: accessSource,
-          config: {
+        unwrap(await commands.setGatewayBinding(agent.id, typedSource(accessSource), {
             upstreamKind: kind,
             model: model || null,
             context1m,
             impersonate,
             isolated: writeMode === 'isolated',
-          },
-        });
+        }));
         toast.success(t('agentConfig.bound', '已接入（经网关）'));
       } else {
         await directConfigure(agent.id, selected, baseUrl, model || null, context1m, writeMode === 'isolated');
-        await invoke('record_agent_access', {
-          record: {
+        unwrap(await commands.recordAgentAccess({
             agent: agent.id,
             method: 'direct',
             label: `${selected.providerName} · ${selected.label}`,
@@ -498,14 +499,13 @@ export function AgentAccessDrawer({
             model: model || null,
             upstream_kind: null,
             impersonate: null,
-            source: accessSource,
+            source: typedSource(accessSource),
             context1m,
             isolated_slug:
               writeMode === 'isolated'
                 ? isolatedSlugForOption(selected, agent.id)
                 : null,
-          },
-        });
+        }));
         toast.success(t('agentConfig.directWritten', '已直接写入配置'));
       }
       onDone();
