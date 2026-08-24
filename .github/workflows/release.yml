@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to build (e.g., v0.1.0)'
+        description: 'Version to build (e.g., v1.2.0)'
         required: true
-        default: 'v0.1.0'
+        default: 'v1.2.0'
 
 permissions:
   contents: write
@@ -54,7 +54,6 @@ jobs:
           if [ -f /etc/os-release ]; then
             echo "--- /etc/os-release ---"
             cat /etc/os-release
-          fi
 
       - name: Show runner OS details (Windows)
         if: runner.os == 'Windows'
@@ -76,6 +75,21 @@ jobs:
           node-version: '20'
           # NOTE: Don't use setup-node's built-in pnpm cache here.
           # It fails if pnpm isn't available yet. We cache pnpm's store after enabling pnpm.
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME:-${{ github.event.inputs.version }}}"
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Invalid release version: $VERSION" >&2
+            exit 1
+          }
+          EXPECTED="v$(node -p "require('./package.json').version")"
+          [[ "$VERSION" = "$EXPECTED" ]] || {
+            echo "Release tag $VERSION does not match package version $EXPECTED" >&2
+            exit 1
+          }
 
       - name: Enable Corepack (pnpm)
         shell: bash
