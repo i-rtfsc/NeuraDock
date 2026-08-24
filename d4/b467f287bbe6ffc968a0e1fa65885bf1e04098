@@ -1,0 +1,44 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/token/claude.rs
+  s_e9dd769d815b63::t_5cce287188766e 60
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/token/codex.rs
+  s_e9dd769d815b63::t_5cce287188766e 9,74,160
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/codex/register.rs
+  s_e9dd769d815b63::t_5cce287188766e 259
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/ai_chat.rs
+  s_e9dd769d815b63::t_5cce287188766e 364
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/handlers/execute_check_in_handler/batch.rs
+  s_e9dd769d815b63::t_09b6aea94150c8 159-161,189-190
+  s_e9dd769d815b63::t_247be6fedde588 162-178,180-188
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/notification_service.rs
+  s_e9dd769d815b63::t_247be6fedde588 128
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/http/openai/registrar.rs
+  s_e9dd769d815b63::t_09b6aea94150c8 244-245
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_e9dd769d815b63::t_247be6fedde588 1858-1862
+  s_e9dd769d815b63::t_5cce287188766e 394,1915,1939
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/server.rs
+  s_e9dd769d815b63::t_09b6aea94150c8 1237-1239,1707
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/stream.rs
+  s_e9dd769d815b63::t_09b6aea94150c8 328
+  s_e9dd769d815b63::t_247be6fedde588 326-327
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/streak.rs
+  s_e9dd769d815b63::t_5cce287188766e 74
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/global_config.rs
+  s_e9dd769d815b63::t_5cce287188766e 177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d4b467f287bbe6ffc968a0e1fa65885bf1e04098",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
