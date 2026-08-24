@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import {
   Sheet,
   SheetContent,
@@ -57,10 +58,7 @@ export function AccountDrawer({
   const { data: tokens = [], isLoading: tokensLoading } = useQuery<TokenDto[]>({
     queryKey: ['tokens', account?.id],
     queryFn: () =>
-      invoke<TokenDto[]>('fetch_account_tokens', {
-        accountId: account!.id,
-        forceRefresh: false,
-      }),
+      commands.fetchAccountTokens(account!.id, false).then(unwrap),
     enabled: !!account && open && activeTab === 'tokens',
     staleTime: 0,
   });
@@ -68,7 +66,7 @@ export function AccountDrawer({
   // Check-in mutation
   const checkInMutation = useMutation({
     mutationFn: (accountId: string) =>
-      invoke('execute_check_in', { accountId }),
+      commands.executeCheckIn(accountId).then(unwrap),
     onSuccess: () => {
       toast.success(t('checkIn.success'));
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -81,10 +79,7 @@ export function AccountDrawer({
   // Refresh balance mutation
   const refreshBalanceMutation = useMutation({
     mutationFn: (accountId: string) =>
-      invoke('fetch_account_balance', {
-        accountId,
-        forceRefresh: true,
-      }),
+      commands.fetchAccountBalance(accountId, true).then(unwrap),
     onSuccess: () => {
       toast.success(t('accountCard.balanceRefreshed'));
       queryClient.invalidateQueries({ queryKey: ['accounts'] });

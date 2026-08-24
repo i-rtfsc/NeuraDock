@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -68,7 +69,7 @@ export function AccountOverviewPage() {
   const { data: account, isLoading } = useQuery<Account>({
     queryKey: ['account', accountId],
     queryFn: async () => {
-      const accounts = await invoke<Account[]>('get_all_accounts', { enabledOnly: false });
+      const accounts = await commands.getAllAccounts(false).then(unwrap);
       const found = accounts.find(a => a.id === accountId);
       if (!found) throw new Error('Account not found');
       return found;
@@ -80,10 +81,7 @@ export function AccountOverviewPage() {
   const { data: tokens = [], isLoading: tokensLoading } = useQuery<TokenDto[]>({
     queryKey: ['tokens', accountId],
     queryFn: () =>
-      invoke<TokenDto[]>('fetch_account_tokens', {
-        accountId: accountId!,
-        forceRefresh: false,
-      }),
+      commands.fetchAccountTokens(accountId!, false).then(unwrap),
     enabled: !!accountId,
   });
 
@@ -93,10 +91,7 @@ export function AccountOverviewPage() {
       tokensRefreshingRef.current = true;
       setTokensRefreshing(true);
       try {
-        const data = await invoke<TokenDto[]>('fetch_account_tokens', {
-          accountId,
-          forceRefresh: true,
-        });
+        const data = await commands.fetchAccountTokens(accountId, true).then(unwrap);
         queryClient.setQueryData(['tokens', accountId], data);
         if (showToast) {
           toast.success(t('token.refreshSuccess', 'API keys refreshed successfully'));
@@ -143,10 +138,7 @@ export function AccountOverviewPage() {
   // Refresh balance mutation
   const refreshBalanceMutation = useMutation({
     mutationFn: () =>
-      invoke('fetch_account_balance', {
-        accountId: accountId!,
-        forceRefresh: true,
-      }),
+      commands.fetchAccountBalance(accountId!, true).then(unwrap),
     onSuccess: () => {
       toast.success(t('accountCard.balanceRefreshed'));
       queryClient.invalidateQueries({ queryKey: ['account', accountId] });
@@ -158,7 +150,7 @@ export function AccountOverviewPage() {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: () => invoke('delete_account', { accountId: accountId! }),
+    mutationFn: () => commands.deleteAccount(accountId!).then(unwrap),
     onSuccess: () => {
       toast.success(t('accountCard.deleted', '账号已删除'));
       navigate(buildTransitHubPath('accounts'));

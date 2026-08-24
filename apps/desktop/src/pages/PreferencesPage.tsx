@@ -10,6 +10,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useProxyConfig } from '@/hooks/useProxyConfig';
 import { useReminderSettings, type ReminderChannel } from '@/hooks/useReminderSettings';
 import { useTranslation } from 'react-i18next';
+import { commands } from '@/lib/tauri';
+const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import {
   Info, Sun,
   Database, Trash2,
@@ -408,7 +410,7 @@ const SystemSettings = () => {
     if (stored) {
       setCacheAgeHours(parseInt(stored, 10));
     }
-    invoke<string>('get_log_level').then(setLogLevel).catch(console.error);
+    commands.getLogLevel().then((result) => setLogLevel(unwrap(result))).catch(console.error);
   }, []);
 
   const handleSaveCache = (val: number) => {
@@ -418,7 +420,7 @@ const SystemSettings = () => {
 
   const handleLogLevelChange = async (level: string) => {
     try {
-      await invoke('set_log_level', { level });
+      unwrap(await commands.setLogLevel(level));
       setLogLevel(level);
       toast.success(t('settings.logLevelUpdated'));
     } catch (err) {
