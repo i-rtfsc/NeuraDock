@@ -45,6 +45,7 @@ FRONTEND_CACHE_DIRS := \
 	package package-arch package-macos-apple-silicon package-macos-intel package-all-macos \
 	test test-frontend test-backend \
 	check check-frontend check-backend fmt \
+	verify-version \
 	clean clean-db purge \
 	migrate
 
@@ -149,7 +150,11 @@ test-frontend: ## Run frontend tests (vitest run)
 	@$(PNPM_DESKTOP) run test:run
 
 check: check-backend check-frontend ## Run lint/type checks (backend + frontend)
+	@$(MAKE) verify-version
 	@echo "✅ Checks passed"
+
+verify-version: ## Verify package, Tauri, Cargo, and README versions match
+	@node -e 'const fs=require("fs"); const root=JSON.parse(fs.readFileSync("package.json","utf8")).version; const desktop=JSON.parse(fs.readFileSync("apps/desktop/package.json","utf8")).version; const tauri=JSON.parse(fs.readFileSync("apps/desktop/src-tauri/tauri.conf.json","utf8")).version; const cargo=fs.readFileSync("apps/desktop/src-tauri/Cargo.toml","utf8").match(/\[workspace\.package\][\s\S]*?^version = "([^"]+)"/m)?.[1]; const cargoApp=fs.readFileSync("apps/desktop/src-tauri/Cargo.toml","utf8").match(/\[package\][\s\S]*?^version = "([^"]+)"/m)?.[1]; const readmes=["README.md","README_EN.md"].map(f=>fs.readFileSync(f,"utf8").match(/version-([0-9.]+)/)?.[1]); const values=[root,desktop,tauri,cargo,cargoApp,...readmes]; if(values.some(v=>!v)||values.some(v=>v!==root)){console.error("Version mismatch:",values); process.exit(1)} console.log(`Version ${root} is consistent across project metadata.`);'
 
 check-backend: ## cargo fmt --check + clippy -D warnings
 	@cd $(TAURI_DIR) && cargo fmt --all --check
