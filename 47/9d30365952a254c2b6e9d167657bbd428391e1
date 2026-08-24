@@ -1,0 +1,22 @@
+apps/desktop/src/components/layout/Sidebar.tsx
+  s_e9dd769d815b63::t_8eb4a7e48b9f27 28-29,83
+  s_e9dd769d815b63::t_6108bbb5aa7db9 46
+apps/desktop/src/components/provider/ProviderNodesDialog.tsx
+  s_e9dd769d815b63::t_8eb4a7e48b9f27 90-91,109-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "479d30365952a254c2b6e9d167657bbd428391e1",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
