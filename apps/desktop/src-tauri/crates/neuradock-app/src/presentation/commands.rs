@@ -10,6 +10,7 @@ pub mod developer_tools;
 pub mod gateway;
 pub(crate) mod gateway_fingerprint;
 pub(crate) mod gateway_helpers;
+pub(crate) mod gateway_lifecycle;
 pub(crate) mod gateway_mapping;
 pub(crate) mod gateway_persistence;
 pub(crate) mod gateway_preview;
