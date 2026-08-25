@@ -5,6 +5,7 @@
 //! the OpenAI Responses protocol (Codex) or the Anthropic Messages protocol
 //! (Claude Code, e.g. when backed by DeepSeek).
 
+pub(crate) mod headers;
 pub mod reliability;
 pub(crate) mod response;
 pub mod server;

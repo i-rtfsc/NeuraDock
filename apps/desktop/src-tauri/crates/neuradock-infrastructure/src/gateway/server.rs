@@ -29,6 +29,9 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use uuid::Uuid;
 
+use super::headers::{
+    inject_canonical_fingerprint, is_client_fingerprint_header, is_hop_by_hop_header,
+};
 use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
 use super::response::{read_response_bytes, read_response_json, read_response_text};
 use super::stream::StreamBridge;
@@ -1484,47 +1487,6 @@ fn sanitized_url_for_log(value: &str) -> String {
     parsed.to_string()
 }
 
-/// Whether a header is hop-by-hop, CDN, or tracing metadata that must not be
-/// forwarded to the upstream relay. Everything else (user-agent, originator,
-/// session ids, and other client fingerprint headers a relay checks) is kept.
-/// Uses a conservative proxy header skip list.
-fn is_hop_by_hop_header(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "host"
-            | "connection"
-            | "keep-alive"
-            | "proxy-authenticate"
-            | "proxy-authorization"
-            | "te"
-            | "trailer"
-            | "transfer-encoding"
-            | "upgrade"
-            | "content-length"
-            | "x-forwarded-host"
-            | "x-forwarded-for"
-            | "x-forwarded-port"
-            | "x-forwarded-proto"
-            | "forwarded"
-            | "cf-connecting-ip"
-            | "cf-ipcountry"
-            | "cf-ray"
-            | "cf-visitor"
-            | "true-client-ip"
-            | "fastly-client-ip"
-            | "x-request-id"
-            | "x-correlation-id"
-            | "x-trace-id"
-            | "x-amzn-trace-id"
-            | "x-b3-traceid"
-            | "x-b3-spanid"
-            | "x-b3-parentspanid"
-            | "x-b3-sampled"
-            | "traceparent"
-            | "tracestate"
-    )
-}
-
 /// Inject the real relay key in the shape the upstream protocol expects.
 fn apply_auth(
     request: reqwest::RequestBuilder,
@@ -1547,33 +1509,6 @@ fn apply_auth(
             request.bearer_auth(&upstream.api_key)
         }
     }
-}
-
-/// Canonical client fingerprint of a real Codex CLI, injected when
-/// impersonation is on so any caller looks like Codex to the relay.
-const CODEX_USER_AGENT: &str = "codex_cli_rs/0.20.0 (Mac OS 15.0.0; arm64) NeuraDock";
-const CODEX_ORIGINATOR: &str = "codex_cli_rs";
-/// Canonical client fingerprint of a real Claude Code CLI.
-const CLAUDE_CODE_USER_AGENT: &str = "claude-cli/1.0.119 (external, cli)";
-
-/// Whether a header is part of the client's identity fingerprint that a relay
-/// inspects to recognise Codex / Claude Code. On the impersonation path these
-/// are dropped from the caller and replaced with canonical values so an
-/// arbitrary agent is presented as the expected client.
-fn is_client_fingerprint_header(name: &str) -> bool {
-    matches!(
-        name,
-        "user-agent"
-            | "originator"
-            | "session_id"
-            | "session-id"
-            | "thread-id"
-            | "conversation_id"
-            | "x-app"
-            | "x-client-request-id"
-            | "openai-beta"
-    ) || name.starts_with("x-stainless-")
-        || name.starts_with("x-codex-")
 }
 
 /// Copy the tool's request headers onto the upstream request. Relays may
@@ -1670,36 +1605,6 @@ fn forward_headers(
         request = request.header("anthropic-version", "2023-06-01");
     }
     request
-}
-
-/// Inject a canonical Codex / Claude Code fingerprint onto an impersonated
-/// request. The tool a caller is bound to (by inbound protocol) decides which
-/// identity to present. Session-style ids the caller already sent are reused;
-/// otherwise a stable synthetic id is supplied so relays that require one are
-/// satisfied. The value is derived from the caller's own session id when
-/// present, so retries within a conversation stay consistent.
-fn inject_canonical_fingerprint(
-    request: reqwest::RequestBuilder,
-    inbound_headers: &axum::http::HeaderMap,
-    protocol: InboundProtocol,
-) -> reqwest::RequestBuilder {
-    match protocol {
-        InboundProtocol::Responses => {
-            let session = inbound_headers
-                .get("session_id")
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_string)
-                .unwrap_or_else(|| "neuradock-gateway-session".to_string());
-            request
-                .header(header::USER_AGENT, CODEX_USER_AGENT)
-                .header("originator", CODEX_ORIGINATOR)
-                .header("session_id", session)
-                .header("openai-beta", "responses=experimental")
-        }
-        InboundProtocol::AnthropicMessages => request
-            .header(header::USER_AGENT, CLAUDE_CODE_USER_AGENT)
-            .header("x-app", "cli"),
-    }
 }
 
 /// Bridge the upstream Chat SSE stream into the inbound protocol's SSE stream.
