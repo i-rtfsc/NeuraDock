@@ -3154,4 +3154,26 @@ data: {"message":{"usage":{"input_tokens":9,"cache_read_input_tokens":3}}}
 
         gateway.shutdown().await;
     }
+
+    #[test]
+    fn hop_by_hop_and_trace_headers_are_never_forwarded() {
+        for name in [
+            "connection",
+            "content-length",
+            "x-forwarded-for",
+            "traceparent",
+            "cf-ray",
+        ] {
+            assert!(is_hop_by_hop_header(name), "expected {name} to be filtered");
+        }
+        assert!(!is_hop_by_hop_header("user-agent"));
+    }
+
+    #[test]
+    fn fingerprint_headers_include_client_identity_fields() {
+        for name in ["user-agent", "originator", "session_id", "x-stainless-os"] {
+            assert!(is_client_fingerprint_header(name));
+        }
+        assert!(!is_client_fingerprint_header("content-type"));
+    }
 }
