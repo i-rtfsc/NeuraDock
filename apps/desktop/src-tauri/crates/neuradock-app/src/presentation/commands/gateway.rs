@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
-use super::gateway_helpers::{canonical_url, display_endpoint, model_without_context_marker};
+use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
 use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
@@ -257,19 +256,6 @@ pub struct CodexConfigFileDto {
     pub model: Option<String>,
     pub context1m: bool,
     pub credential_present: bool,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct AgentConfigFingerprint {
-    managed_values: BTreeMap<String, String>,
-    endpoint: Option<String>,
-    model: Option<String>,
-    context1m: bool,
-    credential_present: bool,
-    configured: bool,
-    parse_ok: bool,
-    exists: bool,
-    paths: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -613,166 +599,6 @@ fn apply_gateway_config(
             .take_over(client, base_url, local_credential, model, context1m)
             .map_err(|e| CommandError::infrastructure(e.to_string())),
     }
-}
-
-fn claude_fingerprint(content: &str, path: PathBuf) -> anyhow::Result<AgentConfigFingerprint> {
-    let mut result = AgentConfigFingerprint {
-        parse_ok: true,
-        exists: path.exists(),
-        paths: vec![path],
-        ..Default::default()
-    };
-    if content.trim().is_empty() {
-        return Ok(result);
-    }
-
-    let root: serde_json::Value = serde_json::from_str(content)?;
-    let Some(env) = root.get("env").and_then(serde_json::Value::as_object) else {
-        return Ok(result);
-    };
-    const KEYS: &[&str] = &[
-        "ANTHROPIC_AUTH_TOKEN",
-        "ANTHROPIC_API_KEY",
-        "ANTHROPIC_BASE_URL",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-    ];
-    for key in KEYS {
-        if let Some(value) = env
-            .get(*key)
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-        {
-            let normalized = if *key == "ANTHROPIC_BASE_URL" {
-                canonical_url(value)
-            } else {
-                value.trim().to_string()
-            };
-            result.managed_values.insert((*key).to_string(), normalized);
-        }
-    }
-
-    result.credential_present = result.managed_values.contains_key("ANTHROPIC_AUTH_TOKEN")
-        || result.managed_values.contains_key("ANTHROPIC_API_KEY");
-    if let Some(base_url) = result.managed_values.get("ANTHROPIC_BASE_URL") {
-        result.endpoint = Some(display_endpoint(base_url));
-    }
-    let model = [
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-    ]
-    .into_iter()
-    .find_map(|key| result.managed_values.get(key));
-    if let Some(model) = model {
-        let (model, context1m) = model_without_context_marker(model);
-        result.model = Some(model);
-        result.context1m = context1m;
-    }
-    result.configured =
-        result.credential_present || result.endpoint.is_some() || result.model.is_some();
-    Ok(result)
-}
-
-fn codex_fingerprint(
-    config_content: &str,
-    auth_content: &str,
-    paths: Vec<PathBuf>,
-) -> anyhow::Result<AgentConfigFingerprint> {
-    let mut result = AgentConfigFingerprint {
-        parse_ok: true,
-        exists: paths.iter().any(|path| path.exists()),
-        paths,
-        ..Default::default()
-    };
-    let doc = if config_content.trim().is_empty() {
-        toml_edit::DocumentMut::new()
-    } else {
-        config_content.parse::<toml_edit::DocumentMut>()?
-    };
-    for key in [
-        "model",
-        "model_provider",
-        "preferred_auth_method",
-        "model_context_window",
-    ] {
-        if let Some(item) = doc.get(key) {
-            if let Some(value) = item.as_str() {
-                result
-                    .managed_values
-                    .insert(format!("config.{key}"), value.to_string());
-            } else if let Some(value) = item.as_integer() {
-                result
-                    .managed_values
-                    .insert(format!("config.{key}"), value.to_string());
-            }
-        }
-    }
-
-    if let Some(provider_slug) = doc.get("model_provider").and_then(toml_edit::Item::as_str) {
-        if let Some(provider) = doc
-            .get("model_providers")
-            .and_then(toml_edit::Item::as_table)
-            .and_then(|providers| providers.get(provider_slug))
-            .and_then(toml_edit::Item::as_table)
-        {
-            for key in ["name", "base_url", "wire_api", "experimental_bearer_token"] {
-                if let Some(value) = provider.get(key).and_then(toml_edit::Item::as_str) {
-                    let normalized = if key == "base_url" {
-                        canonical_url(value)
-                    } else {
-                        value.to_string()
-                    };
-                    result
-                        .managed_values
-                        .insert(format!("provider.{key}"), normalized);
-                    if key == "experimental_bearer_token" && !value.trim().is_empty() {
-                        result.credential_present = true;
-                    }
-                }
-            }
-        }
-    }
-
-    let auth = if auth_content.trim().is_empty() {
-        serde_json::json!({})
-    } else {
-        serde_json::from_str::<serde_json::Value>(auth_content)?
-    };
-    if let Some(api_key) = auth
-        .get("OPENAI_API_KEY")
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-    {
-        result.managed_values.insert(
-            "auth.OPENAI_API_KEY".to_string(),
-            api_key.trim().to_string(),
-        );
-        result.credential_present = true;
-    }
-    if auth.get("tokens").is_some_and(|tokens| !tokens.is_null()) {
-        result
-            .managed_values
-            .insert("auth.tokens_present".to_string(), "true".to_string());
-        result.credential_present = true;
-    }
-
-    result.endpoint = result
-        .managed_values
-        .get("provider.base_url")
-        .map(|value| display_endpoint(value));
-    result.model = result.managed_values.get("config.model").cloned();
-    result.context1m = result
-        .managed_values
-        .get("config.model_context_window")
-        .and_then(|value| value.parse::<u64>().ok())
-        .is_some_and(|value| value >= 1_000_000);
-    result.configured = result.credential_present
-        || result.endpoint.is_some()
-        || result.model.is_some()
-        || result.managed_values.contains_key("config.model_provider");
-    Ok(result)
 }
 
 /// Read the config a tool is actually running with. `isolated_slug` selects the
