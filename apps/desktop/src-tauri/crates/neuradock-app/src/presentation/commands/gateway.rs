@@ -7,11 +7,10 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
-use super::gateway_preview::fingerprint_from_preview;
+use super::gateway_preview::{fingerprint_from_preview, preview_files_to_dto};
 use super::gateway_profiles::{
     list_claude_profiles, list_codex_config_files, match_profile_account,
 };
-use super::gateway_redaction::redact_content;
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
@@ -1078,20 +1077,17 @@ pub async fn get_agent_config_preview(
         }
     };
 
-    let files = raw_files
-        .into_iter()
-        .map(|(path, format, current, mut next)| {
-            if request.method == AccessMethodDto::Gateway && !gateway_running {
-                next = current.clone();
-            }
-            AgentConfigPreviewFileDto {
-                path: abbreviate_home(&path),
-                format: format.to_string(),
-                current_content: redact_content(format, &current),
-                next_content: redact_content(format, &next),
-            }
-        })
-        .collect();
+    let files = preview_files_to_dto(
+        raw_files,
+        request.method == AccessMethodDto::Gateway,
+        gateway_running,
+    )
+    .into_iter()
+    .map(|mut file| {
+        file.path = abbreviate_home(std::path::Path::new(&file.path));
+        file
+    })
+    .collect();
 
     Ok(AgentConfigPreviewDto {
         files,
@@ -2054,6 +2050,7 @@ pub async fn clear_gateway_statistics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::presentation::commands::gateway_redaction::redact_content;
     use std::path::PathBuf;
 
     #[test]
