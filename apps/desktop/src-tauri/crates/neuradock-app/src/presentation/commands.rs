@@ -12,6 +12,7 @@ pub(crate) mod gateway_fingerprint;
 pub(crate) mod gateway_helpers;
 pub(crate) mod gateway_mapping;
 pub(crate) mod gateway_persistence;
+pub(crate) mod gateway_profiles;
 pub(crate) mod gateway_redaction;
 pub(crate) mod gateway_state;
 pub mod independent_key;
