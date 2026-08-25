@@ -8,6 +8,7 @@ pub mod codex;
 pub mod config;
 pub mod developer_tools;
 pub mod gateway;
+pub(crate) mod gateway_helpers;
 pub mod independent_key;
 pub mod migration;
 pub mod notification;
