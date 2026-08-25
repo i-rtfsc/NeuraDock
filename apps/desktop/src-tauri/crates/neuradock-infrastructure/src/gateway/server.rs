@@ -43,6 +43,7 @@ use super::sanitization::{
 use super::stream::StreamBridge;
 use super::streaming::{
     inspect_native_sse_block, is_relay_billing_sse_block, native_stream_error, take_sse_block,
+    usage_from_sse_block,
 };
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
@@ -1382,27 +1383,6 @@ fn native_stream_error_legacy(protocol: InboundProtocol, message: &str, request_
         .into_bytes(),
     }
 } */
-
-fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
-    let text = String::from_utf8_lossy(block);
-    let mut usage = GatewayTokenUsage::default();
-    for line in text.lines() {
-        let Some(payload) = line.trim().strip_prefix("data:") else {
-            continue;
-        };
-        let Ok(value) = serde_json::from_str::<Value>(payload.trim()) else {
-            continue;
-        };
-        usage.merge(usage_from_json(&value));
-        if let Some(message) = value.get("message") {
-            usage.merge(usage_from_json(message));
-        }
-        if let Some(response) = value.get("response") {
-            usage.merge(usage_from_json(response));
-        }
-    }
-    usage
-}
 
 /// Combine a relay base URL with an API endpoint: a base already ending in
 /// `/v1` joins directly, a bare origin gains

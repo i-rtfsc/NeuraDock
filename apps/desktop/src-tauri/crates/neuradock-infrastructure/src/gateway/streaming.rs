@@ -119,6 +119,28 @@ pub(crate) fn native_stream_error(
         InboundProtocol::Responses => format!("event: response.failed\ndata: {}\n\n", serde_json::json!({"type":"response.failed","response":{"id":format!("resp_{}", request_id.replace('-', "")),"object":"response","status":"failed","output":[],"error":{"type":"upstream_error","message":message,"request_id":request_id}}})).into_bytes(),
     }
 }
+use super::reliability::{usage_from_json, GatewayTokenUsage};
 use super::sanitization::{sanitize_error_message, value_error_message};
 use super::transform::InboundProtocol;
 use serde_json::Value;
+
+pub(crate) fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
+    let text = String::from_utf8_lossy(block);
+    let mut usage = GatewayTokenUsage::default();
+    for line in text.lines() {
+        let Some(payload) = line.trim().strip_prefix("data:") else {
+            continue;
+        };
+        let Ok(value) = serde_json::from_str::<Value>(payload.trim()) else {
+            continue;
+        };
+        usage.merge(usage_from_json(&value));
+        if let Some(message) = value.get("message") {
+            usage.merge(usage_from_json(message));
+        }
+        if let Some(response) = value.get("response") {
+            usage.merge(usage_from_json(response));
+        }
+    }
+    usage
+}
