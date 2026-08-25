@@ -2562,4 +2562,27 @@ experimental_bearer_token = "sk-secret"
         assert_eq!(fingerprint.model.as_deref(), Some("deepseek-v4-flash"));
         assert_eq!(fingerprint.endpoint.as_deref(), Some("api.deepseek.com"));
     }
+
+    #[test]
+    fn claude_fingerprint_tracks_context_marker_and_credentials() {
+        let content = r#"{
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "secret",
+                "ANTHROPIC_BASE_URL": "https://relay.example/v1/",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet[1m]"
+            }
+        }"#;
+        let fingerprint = claude_fingerprint(content, PathBuf::from("/tmp/settings.json")).unwrap();
+        assert!(fingerprint.credential_present);
+        assert!(fingerprint.configured);
+        assert!(fingerprint.context1m);
+        assert_eq!(fingerprint.endpoint.as_deref(), Some("relay.example"));
+        assert_eq!(fingerprint.model.as_deref(), Some("claude-sonnet"));
+    }
+
+    #[test]
+    fn malformed_fingerprint_is_reported_as_parse_failure_by_callers() {
+        let result = claude_fingerprint("{not-json", PathBuf::from("/tmp/settings.json"));
+        assert!(result.is_err());
+    }
 }
