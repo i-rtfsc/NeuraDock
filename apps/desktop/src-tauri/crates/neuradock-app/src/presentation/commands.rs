@@ -16,6 +16,7 @@ pub(crate) mod gateway_persistence;
 pub(crate) mod gateway_preview;
 pub(crate) mod gateway_profiles;
 pub(crate) mod gateway_redaction;
+pub(crate) mod gateway_runtime;
 pub(crate) mod gateway_state;
 pub(crate) mod gateway_status;
 pub mod independent_key;
