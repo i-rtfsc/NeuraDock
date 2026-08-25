@@ -41,7 +41,9 @@ use super::sanitization::{
     strip_one_m_model_marker, value_error_message,
 };
 use super::stream::StreamBridge;
-use super::streaming::{is_relay_billing_sse_block, take_sse_block};
+use super::streaming::{
+    inspect_native_sse_block, is_relay_billing_sse_block, native_stream_error, take_sse_block,
+};
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
     wants_stream, InboundProtocol,
@@ -1260,13 +1262,7 @@ fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json:
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct NativeSseObservation {
-    valid: bool,
-    terminal: bool,
-}
-
-fn inspect_native_sse_block(
+/* fn inspect_native_sse_block(
     protocol: InboundProtocol,
     block: &[u8],
 ) -> Result<NativeSseObservation, String> {
@@ -1351,7 +1347,7 @@ fn inspect_native_sse_block(
     }
 }
 
-fn native_stream_error(protocol: InboundProtocol, message: &str, request_id: &str) -> Vec<u8> {
+fn native_stream_error_legacy(protocol: InboundProtocol, message: &str, request_id: &str) -> Vec<u8> {
     let message = sanitize_error_message(message);
     match protocol {
         InboundProtocol::AnthropicMessages => format!(
@@ -1385,7 +1381,7 @@ fn native_stream_error(protocol: InboundProtocol, message: &str, request_id: &st
         )
         .into_bytes(),
     }
-}
+} */
 
 fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
     let text = String::from_utf8_lossy(block);
