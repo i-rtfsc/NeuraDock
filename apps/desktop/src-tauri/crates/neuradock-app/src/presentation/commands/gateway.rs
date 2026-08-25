@@ -1,21 +1,20 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 use tauri::{Manager, State};
-use tokio::sync::{Mutex, RwLock};
 
 use super::gateway_helpers::{canonical_url, display_endpoint, model_without_context_marker};
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
+pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
 use neuradock_domain::shared::{AccountId, ProviderId};
 use neuradock_infrastructure::fs_safe::atomic_write;
 use neuradock_infrastructure::gateway::{
-    start_gateway_with_runtime, CircuitState, GatewayBindings, GatewayClient, GatewayHandle,
-    GatewayRoute, GatewayRuntime, GatewayUpstream, UpstreamKind,
+    start_gateway_with_runtime, CircuitState, GatewayClient, GatewayRoute, GatewayUpstream,
+    UpstreamKind,
 };
 
 use crate::application::services::{ClaudeConfigService, CodexConfigService, GatewayTakeover};
@@ -23,39 +22,6 @@ use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
 use crate::presentation::commands::token::ensure_account_token_usable;
-
-/// Runtime state for the local adaptation gateway: one server, one port,
-/// path-routed clients, each independently bound to an upstream relay key.
-pub struct GatewayState {
-    bindings: GatewayBindings,
-    meta: Mutex<HashMap<GatewayRoute, BindingMeta>>,
-    server: Mutex<Option<GatewayHandle>>,
-    runtime: Arc<GatewayRuntime>,
-    codex_operation: Mutex<()>,
-    claude_operation: Mutex<()>,
-}
-
-impl Default for GatewayState {
-    fn default() -> Self {
-        Self {
-            bindings: Arc::new(RwLock::new(HashMap::new())),
-            meta: Mutex::new(HashMap::new()),
-            server: Mutex::new(None),
-            runtime: GatewayRuntime::shared(),
-            codex_operation: Mutex::new(()),
-            claude_operation: Mutex::new(()),
-        }
-    }
-}
-
-impl GatewayState {
-    fn operation_lock(&self, client: GatewayClient) -> &Mutex<()> {
-        match client {
-            GatewayClient::Codex => &self.codex_operation,
-            GatewayClient::ClaudeCode => &self.claude_operation,
-        }
-    }
-}
 
 /// Per-client runtime metadata plus everything needed to persist and rebuild
 /// the binding across restarts (the real key is never stored; it is re-resolved
