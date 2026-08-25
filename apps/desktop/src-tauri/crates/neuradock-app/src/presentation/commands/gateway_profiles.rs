@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn abbreviate_home(path: &Path) -> String {
+pub(super) fn abbreviate_home(path: &Path) -> String {
     if let Some(home) = dirs::home_dir() {
         if let Ok(relative) = path.strip_prefix(home) {
             return format!("~/{}", relative.display());

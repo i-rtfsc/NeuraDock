@@ -9,7 +9,7 @@ use super::gateway_mapping::{
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
 use super::gateway_preview::{fingerprint_from_preview, preview_files_to_dto};
 use super::gateway_profiles::{
-    list_claude_profiles, list_codex_config_files, match_profile_account,
+    abbreviate_home, list_claude_profiles, list_codex_config_files, match_profile_account,
 };
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
@@ -1265,15 +1265,6 @@ async fn preview_direct(
             )
         }
     }
-}
-
-fn abbreviate_home(path: &std::path::Path) -> String {
-    if let Some(home) = dirs::home_dir() {
-        if let Ok(relative) = path.strip_prefix(home) {
-            return format!("~/{}", relative.display());
-        }
-    }
-    path.display().to_string()
 }
 
 async fn restore_binding_memory(
