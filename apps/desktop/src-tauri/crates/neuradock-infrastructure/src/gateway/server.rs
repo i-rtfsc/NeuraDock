@@ -34,6 +34,10 @@ use super::headers::{
 };
 use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
 use super::response::{read_response_bytes, read_response_json, read_response_text};
+use super::sanitization::{
+    build_upstream_url, redact_sensitive_message, sanitize_error_message, sanitized_url_for_log,
+    value_error_message,
+};
 use super::stream::StreamBridge;
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
@@ -1454,51 +1458,6 @@ fn strip_one_m_model_marker(model: &str) -> &str {
 /// `/v1` joins directly, a bare origin gains
 /// `/v1`, and a custom-prefix base (e.g. `https://x/openai`) joins without
 /// inserting `/v1`. Duplicate `/v1/v1` segments collapse.
-fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
-    let base = base_url.trim_end_matches('/');
-    let ep = endpoint.trim_start_matches('/');
-
-    let origin_only = url::Url::parse(base)
-        .map(|u| u.path() == "/" || u.path().is_empty())
-        .unwrap_or(false);
-
-    let mut combined = if base.ends_with("/v1") {
-        format!("{base}/{ep}")
-    } else if origin_only {
-        format!("{base}/v1/{ep}")
-    } else {
-        format!("{base}/{ep}")
-    };
-
-    while combined.contains("/v1/v1") {
-        combined = combined.replace("/v1/v1", "/v1");
-    }
-    combined
-}
-
-fn sanitized_url_for_log(value: &str) -> String {
-    let Ok(mut parsed) = url::Url::parse(value) else {
-        return "<invalid-upstream-url>".to_string();
-    };
-    let _ = parsed.set_username("");
-    let _ = parsed.set_password(None);
-    parsed.set_query(None);
-    parsed.set_fragment(None);
-    parsed.to_string()
-}
-
-/// Copy the tool's request headers onto the upstream request. Relays may
-/// fingerprint the client (user-agent, originator, session
-/// id, ...) and reject requests that don't look like a real Codex / Claude
-/// Code, so every header the tool sent is forwarded except hop-by-hop / CDN /
-/// tracing ones. The auth header is replaced inline with the real relay key,
-/// and Anthropic upstreams get a default `anthropic-version` when the client
-/// did not send one. Used on both the passthrough and convert paths.
-///
-/// When `upstream.impersonate` is on, the caller's fingerprint headers are
-/// dropped and replaced with a canonical Codex / Claude Code fingerprint, so a
-/// non-Codex/Claude agent (or a bare script) is presented to the relay as the
-/// expected client.
 fn forward_headers(
     mut request: reqwest::RequestBuilder,
     inbound_headers: &axum::http::HeaderMap,
@@ -1869,28 +1828,6 @@ async fn read_response_json_legacy(
     serde_json::from_slice(&bytes)
         .map_err(|error| format!("upstream returned malformed JSON: {error}"))
 } */
-
-fn value_error_message(value: &Value) -> Option<String> {
-    value
-        .pointer("/error/message")
-        .or_else(|| value.get("message"))
-        .and_then(Value::as_str)
-        .map(sanitize_error_message)
-}
-
-fn sanitize_error_message(message: &str) -> String {
-    let compact = message.split_whitespace().collect::<Vec<_>>().join(" ");
-    compact.chars().take(500).collect()
-}
-
-fn redact_sensitive_message(message: &str, secret: &str) -> String {
-    let sanitized = sanitize_error_message(message);
-    if secret.is_empty() {
-        sanitized
-    } else {
-        sanitized.replace(secret, "[redacted]")
-    }
-}
 
 fn transport_error_message(error: &reqwest::Error) -> String {
     if error.is_timeout() {

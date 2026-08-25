@@ -8,6 +8,7 @@
 pub(crate) mod headers;
 pub mod reliability;
 pub(crate) mod response;
+pub(crate) mod sanitization;
 pub mod server;
 pub mod stream;
 pub mod transform;
