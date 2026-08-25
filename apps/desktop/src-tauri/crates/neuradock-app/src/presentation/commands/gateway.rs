@@ -7,6 +7,7 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
+use super::gateway_preview::fingerprint_from_preview;
 use super::gateway_profiles::{
     list_claude_profiles, list_codex_config_files, match_profile_account,
 };
@@ -686,7 +687,7 @@ pub(super) fn read_agent_fingerprint(
     }
 }
 
-fn fingerprint_from_preview(
+/* fn fingerprint_from_preview_legacy(
     client: GatewayClientDto,
     files: &[RawPreviewFile],
 ) -> Result<AgentConfigFingerprint, CommandError> {
@@ -708,7 +709,7 @@ fn fingerprint_from_preview(
             codex_fingerprint(&config.3, auth_content, paths).map_err(CommandError::from)
         }
     }
-}
+} */
 
 async fn expected_fingerprint(
     record: &AgentAccessDto,
@@ -1099,7 +1100,7 @@ pub async fn get_agent_config_preview(
     })
 }
 
-type RawPreviewFile = (std::path::PathBuf, &'static str, String, String);
+pub(super) type RawPreviewFile = (std::path::PathBuf, &'static str, String, String);
 
 fn preview_with_key(
     client: GatewayClientDto,
