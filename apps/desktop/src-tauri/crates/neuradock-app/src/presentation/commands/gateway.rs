@@ -8,6 +8,7 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
+use super::gateway_profiles::{list_claude_profiles, list_codex_config_files};
 use super::gateway_redaction::redact_content;
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
@@ -605,7 +606,7 @@ fn apply_gateway_config(
 /// Read the config a tool is actually running with. `isolated_slug` selects the
 /// isolated Codex config (`<slug>.config.toml`) instead of the official
 /// config.toml/auth.json, so a binding is compared against the file it wrote.
-fn read_agent_fingerprint(
+pub(super) fn read_agent_fingerprint(
     client: GatewayClientDto,
     isolated_slug: Option<&str>,
 ) -> Result<AgentConfigFingerprint, CommandError> {
@@ -682,131 +683,6 @@ fn read_agent_fingerprint(
             )
         }
     }
-}
-
-fn list_codex_config_files(
-    has_current_target: bool,
-    current_slug: Option<&str>,
-) -> Result<Vec<CodexConfigFileDto>, CommandError> {
-    let (official_path, _) = CodexConfigService::managed_paths().map_err(CommandError::from)?;
-    let codex_dir = official_path
-        .parent()
-        .map(PathBuf::from)
-        .ok_or_else(|| CommandError::infrastructure("Codex config directory is unavailable"))?;
-    let profiles_dir = codex_dir.join("profiles.d");
-    let mut targets: Vec<(String, Option<String>, PathBuf)> =
-        vec![("official".to_string(), None, official_path)];
-
-    if profiles_dir.exists() {
-        for entry in fs::read_dir(&profiles_dir).map_err(|error| {
-            CommandError::infrastructure(format!(
-                "Failed to read {}: {error}",
-                profiles_dir.display()
-            ))
-        })? {
-            let entry = entry.map_err(|error| CommandError::infrastructure(error.to_string()))?;
-            let file_name = entry.file_name().to_string_lossy().into_owned();
-            let Some(slug) = file_name.strip_suffix(".config.toml") else {
-                continue;
-            };
-            if slug.is_empty() || !entry.path().is_file() {
-                continue;
-            }
-            targets.push(("isolated".to_string(), Some(slug.to_string()), entry.path()));
-        }
-    }
-    if let Some(slug) = current_slug {
-        if !targets
-            .iter()
-            .any(|(_, target_slug, _)| target_slug.as_deref() == Some(slug))
-        {
-            targets.push((
-                "isolated".to_string(),
-                Some(slug.to_string()),
-                CodexConfigService::isolated_path(slug).map_err(CommandError::from)?,
-            ));
-        }
-    }
-    targets.sort_by(|left, right| left.2.cmp(&right.2));
-
-    targets
-        .into_iter()
-        .map(|(kind, slug, path)| {
-            let fingerprint = read_agent_fingerprint(GatewayClientDto::Codex, slug.as_deref())?;
-            Ok(CodexConfigFileDto {
-                current: has_current_target && slug.as_deref() == current_slug,
-                kind,
-                slug,
-                path: abbreviate_home(&path),
-                exists: fingerprint.exists,
-                parse_ok: fingerprint.parse_ok,
-                configured: fingerprint.configured,
-                endpoint: fingerprint.endpoint,
-                model: fingerprint.model,
-                context1m: fingerprint.context1m,
-                credential_present: fingerprint.credential_present,
-            })
-        })
-        .collect()
-}
-
-fn list_claude_profiles() -> Result<Vec<AgentProfileDto>, CommandError> {
-    let service = ClaudeConfigService::new();
-    let official = ClaudeConfigService::managed_path().map_err(CommandError::from)?;
-    let mut paths = vec![("official".to_string(), None, official)];
-    let profiles_dir = service
-        .isolated_path("profile")
-        .map_err(CommandError::from)?
-        .parent()
-        .map(PathBuf::from)
-        .ok_or_else(|| CommandError::infrastructure("Claude profiles directory is unavailable"))?;
-    if profiles_dir.exists() {
-        for entry in fs::read_dir(&profiles_dir).map_err(|error| {
-            CommandError::infrastructure(format!(
-                "Failed to read {}: {error}",
-                profiles_dir.display()
-            ))
-        })? {
-            let entry = entry.map_err(|error| CommandError::infrastructure(error.to_string()))?;
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if let Some(slug) = name
-                .strip_prefix("settings-")
-                .and_then(|v| v.strip_suffix(".json"))
-            {
-                if !slug.is_empty() && entry.path().is_file() {
-                    paths.push(("isolated".to_string(), Some(slug.to_string()), entry.path()));
-                }
-            }
-        }
-    }
-    paths.sort_by(|left, right| left.2.cmp(&right.2));
-    paths
-        .into_iter()
-        .map(|(kind, slug, path)| {
-            let content = if path.exists() {
-                fs::read_to_string(&path).unwrap_or_default()
-            } else {
-                String::new()
-            };
-            let fingerprint = claude_fingerprint(&content, path.clone()).unwrap_or_default();
-            Ok(AgentProfileDto {
-                kind,
-                slug,
-                path: abbreviate_home(&path),
-                exists: fingerprint.exists,
-                parse_ok: fingerprint.parse_ok,
-                configured: fingerprint.configured,
-                endpoint: fingerprint.endpoint,
-                model: fingerprint.model,
-                context1m: fingerprint.context1m,
-                credential_present: fingerprint.credential_present,
-                managed: false,
-                account_label: None,
-                gateway_enabled: false,
-                method: None,
-            })
-        })
-        .collect()
 }
 
 fn expand_home_path(path: &str) -> PathBuf {
