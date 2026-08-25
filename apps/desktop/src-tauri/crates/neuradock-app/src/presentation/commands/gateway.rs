@@ -7,7 +7,10 @@ use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
 use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
-use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
+use super::gateway_persistence::{
+    write_bindings, BindingMeta, IsolatedTarget, PersistedBinding, BINDINGS_FILENAME,
+    RUNTIME_FILENAME,
+};
 use super::gateway_preview::{fingerprint_from_preview, preview_files_to_dto};
 use super::gateway_profiles::{
     abbreviate_home, list_claude_profiles, list_codex_config_files, match_profile_account,
@@ -21,7 +24,6 @@ use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
 use neuradock_domain::shared::{AccountId, ProviderId};
-use neuradock_infrastructure::fs_safe::atomic_write;
 use neuradock_infrastructure::gateway::{
     start_gateway_with_runtime, CircuitState, GatewayClient, GatewayRoute, GatewayUpstream,
     UpstreamKind,
@@ -300,7 +302,7 @@ pub async fn set_gateway_profile_enabled(
         if let Some(meta) = state.meta.lock().await.get_mut(&route) {
             meta.enabled = false;
         }
-        persist_bindings(&app, &state).await?;
+        write_bindings(&app, &state).await?;
     } else {
         let meta = state
             .meta
@@ -328,7 +330,7 @@ pub async fn set_gateway_profile_enabled(
         if let Some(saved) = state.meta.lock().await.get_mut(&route) {
             saved.enabled = true;
         }
-        persist_bindings(&app, &state).await?;
+        write_bindings(&app, &state).await?;
         if state.server.lock().await.is_none() {
             start_gateway_server(app.clone(), state.clone(), access.clone()).await?;
         } else {
@@ -1225,7 +1227,7 @@ async fn rollback_binding_change(
     old_access: Option<AgentAccessDto>,
 ) {
     restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
-    if let Err(error) = persist_bindings(app, state).await {
+    if let Err(error) = write_bindings(app, state).await {
         log::error!("Failed to roll back gateway bindings: {}", error);
     }
     if let Err(error) = restore_access_record(app, access, agent, old_access) {
@@ -1327,7 +1329,7 @@ pub async fn set_gateway_binding(
     state.bindings.write().await.insert(route.clone(), upstream);
     state.meta.lock().await.insert(route.clone(), new_meta);
 
-    if let Err(error) = persist_bindings(&app, &state).await {
+    if let Err(error) = write_bindings(&app, &state).await {
         restore_binding_memory(&state, route.clone(), old_upstream, old_meta).await;
         return Err(error);
     }
@@ -1437,7 +1439,7 @@ pub async fn clear_gateway_binding(
         .await
         .remove(&GatewayRoute::default(gateway_client));
 
-    if let Err(error) = persist_bindings(&app, &state).await {
+    if let Err(error) = write_bindings(&app, &state).await {
         restore_binding_memory(
             &state,
             GatewayRoute::default(gateway_client),
@@ -1543,7 +1545,7 @@ pub async fn drop_gateway_binding_for_direct(
         .lock()
         .await
         .remove(&GatewayRoute::default(client));
-    if let Err(error) = persist_bindings(app, state).await {
+    if let Err(error) = write_bindings(app, state).await {
         restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
         return Err(error);
     }
@@ -1579,42 +1581,8 @@ pub async fn drop_gateway_binding_for_direct(
     Ok(())
 }
 
-const BINDINGS_FILENAME: &str = "gateway_bindings.json";
-const RUNTIME_FILENAME: &str = "gateway_runtime.json";
-
 /// Persist the current bindings (references only, never keys) to app data so
 /// they survive a restart.
-async fn persist_bindings(
-    app: &tauri::AppHandle,
-    state: &GatewayState,
-) -> Result<(), CommandError> {
-    let dir = app.path().app_data_dir().map_err(|error| {
-        CommandError::infrastructure(format!("Failed to get app data directory: {error}"))
-    })?;
-    let meta = state.meta.lock().await;
-    let bindings: Vec<PersistedBinding> = meta
-        .iter()
-        .map(|(client, meta)| PersistedBinding {
-            client: client.client.into(),
-            source: meta.source.clone(),
-            kind: meta.kind,
-            model: meta.model.clone(),
-            context1m: meta.context1m,
-            impersonate: meta.impersonate,
-            label: meta.label.clone(),
-            isolated: meta.isolated.clone(),
-            enabled: meta.enabled,
-        })
-        .collect();
-    drop(meta);
-
-    let path = dir.join(BINDINGS_FILENAME);
-    let json = serde_json::to_string_pretty(&bindings)
-        .map_err(|error| CommandError::infrastructure(error.to_string()))?;
-    atomic_write(&path, &json, false)
-        .map_err(|error| CommandError::infrastructure(error.to_string()))
-}
-
 /// Rebuild the binding table from disk on startup. Re-resolves each saved
 /// reference into a live upstream (the key is fetched fresh); bindings whose
 /// key was deleted or disabled are skipped with a log line. The gateway server
