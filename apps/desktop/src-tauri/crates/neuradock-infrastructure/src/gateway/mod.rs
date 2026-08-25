@@ -6,6 +6,7 @@
 //! (Claude Code, e.g. when backed by DeepSeek).
 
 pub mod reliability;
+pub(crate) mod response;
 pub mod server;
 pub mod stream;
 pub mod transform;

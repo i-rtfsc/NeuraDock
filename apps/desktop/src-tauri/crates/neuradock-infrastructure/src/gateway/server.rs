@@ -30,6 +30,7 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
+use super::response::{read_response_bytes, read_response_json, read_response_text};
 use super::stream::StreamBridge;
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
@@ -1940,7 +1941,7 @@ fn stream_response(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
-async fn read_response_bytes(
+/* async fn read_response_bytes(
     response: reqwest::Response,
     max_bytes: usize,
     timeout: Duration,
@@ -1969,7 +1970,7 @@ async fn read_response_bytes(
     })?
 }
 
-async fn read_response_text(
+async fn read_response_text_legacy(
     response: reqwest::Response,
     max_bytes: usize,
     timeout: Duration,
@@ -1978,7 +1979,7 @@ async fn read_response_text(
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
-async fn read_response_json(
+async fn read_response_json_legacy(
     response: reqwest::Response,
     max_bytes: usize,
     timeout: Duration,
@@ -1986,7 +1987,7 @@ async fn read_response_json(
     let bytes = read_response_bytes(response, max_bytes, timeout).await?;
     serde_json::from_slice(&bytes)
         .map_err(|error| format!("upstream returned malformed JSON: {error}"))
-}
+} */
 
 fn value_error_message(value: &Value) -> Option<String> {
     value
