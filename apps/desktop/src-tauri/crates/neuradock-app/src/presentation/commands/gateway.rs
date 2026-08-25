@@ -7,6 +7,7 @@ use tauri::{Manager, State};
 use tokio::sync::{Mutex, RwLock};
 
 use super::gateway_helpers::{canonical_url, display_endpoint, model_without_context_marker};
+use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
 use neuradock_domain::independent_key::IndependentKeyId;
@@ -59,54 +60,6 @@ impl GatewayState {
 /// Per-client runtime metadata plus everything needed to persist and rebuild
 /// the binding across restarts (the real key is never stored; it is re-resolved
 /// from the source).
-#[derive(Debug, Clone)]
-struct BindingMeta {
-    label: String,
-    source: GatewaySourceDto,
-    kind: UpstreamKindDto,
-    model: Option<String>,
-    context1m: bool,
-    impersonate: bool,
-    /// When set, Codex is configured via an isolated file (never the official
-    /// config.toml/auth.json). Carries the file identity so the takeover-free
-    /// write path can name the file after the real relay provider.
-    isolated: Option<IsolatedTarget>,
-    enabled: bool,
-}
-
-/// File identity for an isolated-config binding: the provider slug the file is
-/// named after (`<slug>.config.toml`) and a human display name for the TOML
-/// `name` field.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct IsolatedTarget {
-    slug: String,
-    display: String,
-}
-
-/// On-disk shape of a saved binding. Keys are never written; only the reference
-/// (account token ids or independent key id) is, so the key is re-resolved on
-/// startup.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PersistedBinding {
-    client: GatewayClientDto,
-    source: GatewaySourceDto,
-    kind: UpstreamKindDto,
-    model: Option<String>,
-    #[serde(default)]
-    context1m: bool,
-    #[serde(default)]
-    impersonate: bool,
-    label: String,
-    #[serde(default)]
-    isolated: Option<IsolatedTarget>,
-    #[serde(default = "default_true")]
-    enabled: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
 /// Which tool a binding applies to.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
