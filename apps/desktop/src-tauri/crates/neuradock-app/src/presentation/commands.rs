@@ -8,6 +8,7 @@ pub mod codex;
 pub mod config;
 pub mod developer_tools;
 pub mod gateway;
+pub(crate) mod gateway_fingerprint;
 pub(crate) mod gateway_helpers;
 pub(crate) mod gateway_mapping;
 pub(crate) mod gateway_persistence;
