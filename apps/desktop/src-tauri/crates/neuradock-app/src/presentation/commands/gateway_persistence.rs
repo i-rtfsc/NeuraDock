@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+use super::agent_access::{AgentAccessDto, AgentAccessState, AgentIdDto};
 use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
 use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use neuradock_infrastructure::fs_safe::atomic_write;
+use neuradock_infrastructure::gateway::{GatewayClient, GatewayRoute, GatewayUpstream};
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -89,4 +91,63 @@ pub(super) fn read_bindings(dir: &std::path::Path) -> Result<Vec<PersistedBindin
     serde_json::from_str(&content).map_err(|e| {
         CommandError::infrastructure(format!("Failed to parse saved gateway bindings: {e}"))
     })
+}
+
+pub(super) async fn restore_binding_memory(
+    state: &GatewayState,
+    route: GatewayRoute,
+    upstream: Option<GatewayUpstream>,
+    meta: Option<BindingMeta>,
+) {
+    let mut bindings = state.bindings.write().await;
+    match upstream {
+        Some(value) => {
+            bindings.insert(route.clone(), value);
+        }
+        None => {
+            bindings.remove(&route);
+        }
+    }
+    drop(bindings);
+    let mut metadata = state.meta.lock().await;
+    match meta {
+        Some(value) => {
+            metadata.insert(route, value);
+        }
+        None => {
+            metadata.remove(&route);
+        }
+    }
+}
+
+pub(super) fn restore_access_record(
+    app: &tauri::AppHandle,
+    access: &AgentAccessState,
+    agent: AgentIdDto,
+    record: Option<AgentAccessDto>,
+) -> Result<(), CommandError> {
+    match record {
+        Some(value) => access.set(app, value),
+        None => access.remove(app, agent),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn rollback_binding_change(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+    access: &AgentAccessState,
+    client: GatewayClient,
+    agent: AgentIdDto,
+    old_upstream: Option<GatewayUpstream>,
+    old_meta: Option<BindingMeta>,
+    old_access: Option<AgentAccessDto>,
+) {
+    restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
+    if let Err(error) = write_bindings(app, state).await {
+        log::error!("Failed to roll back gateway bindings: {}", error);
+    }
+    if let Err(error) = restore_access_record(app, access, agent, old_access) {
+        log::error!("Failed to roll back agent access record: {}", error);
+    }
 }

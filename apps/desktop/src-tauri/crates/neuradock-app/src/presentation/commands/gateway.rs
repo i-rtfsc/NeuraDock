@@ -8,7 +8,8 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{
-    app_data_dir, read_bindings, write_bindings, BindingMeta, IsolatedTarget, RUNTIME_FILENAME,
+    app_data_dir, read_bindings, restore_binding_memory, rollback_binding_change, write_bindings,
+    BindingMeta, IsolatedTarget, RUNTIME_FILENAME,
 };
 use super::gateway_preview::{fingerprint_from_preview, preview_files_to_dto};
 use super::gateway_profiles::{
@@ -1174,7 +1175,7 @@ async fn preview_direct(
     }
 }
 
-async fn restore_binding_memory(
+/* async fn restore_binding_memory_legacy(
     state: &GatewayState,
     route: GatewayRoute,
     upstream: Option<GatewayUpstream>,
@@ -1202,7 +1203,7 @@ async fn restore_binding_memory(
     }
 }
 
-fn restore_access_record(
+fn restore_access_record_legacy(
     app: &tauri::AppHandle,
     access: &AgentAccessState,
     agent: AgentIdDto,
@@ -1215,7 +1216,7 @@ fn restore_access_record(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn rollback_binding_change(
+async fn rollback_binding_change_legacy(
     app: &tauri::AppHandle,
     state: &GatewayState,
     access: &AgentAccessState,
@@ -1232,7 +1233,7 @@ async fn rollback_binding_change(
     if let Err(error) = restore_access_record(app, access, agent, old_access) {
         log::error!("Failed to roll back agent access record: {}", error);
     }
-}
+} */
 
 /// Bind a client (Codex / Claude Code) to an upstream relay key. If the
 /// gateway is running, the client's tool config is (re)taken over immediately.
@@ -1858,6 +1859,7 @@ pub async fn stop_gateway_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::presentation::commands::gateway_persistence::PersistedBinding;
     use crate::presentation::commands::gateway_redaction::redact_content;
     use std::path::PathBuf;
 
