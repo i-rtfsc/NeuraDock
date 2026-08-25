@@ -1,3 +1,4 @@
+use super::server::{GatewayUpstream, UpstreamKind};
 use super::transform::InboundProtocol;
 use axum::http::{header, HeaderMap};
 use reqwest::RequestBuilder;
@@ -80,5 +81,21 @@ pub(crate) fn inject_canonical_fingerprint(
         InboundProtocol::AnthropicMessages => request
             .header(header::USER_AGENT, CLAUDE_CODE_USER_AGENT)
             .header("x-app", "cli"),
+    }
+}
+
+pub(crate) fn apply_auth(
+    request: RequestBuilder,
+    upstream: &GatewayUpstream,
+    inbound_header: Option<&str>,
+) -> RequestBuilder {
+    match upstream.kind {
+        UpstreamKind::Anthropic if inbound_header == Some("x-api-key") => {
+            request.header("x-api-key", &upstream.api_key)
+        }
+        UpstreamKind::Anthropic => request.bearer_auth(&upstream.api_key),
+        UpstreamKind::OpenAiChat | UpstreamKind::OpenAiResponses => {
+            request.bearer_auth(&upstream.api_key)
+        }
     }
 }

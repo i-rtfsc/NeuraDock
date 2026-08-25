@@ -30,7 +30,7 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use super::headers::{
-    inject_canonical_fingerprint, is_client_fingerprint_header, is_hop_by_hop_header,
+    apply_auth, inject_canonical_fingerprint, is_client_fingerprint_header, is_hop_by_hop_header,
 };
 use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
 use super::response::{read_response_bytes, read_response_json, read_response_text};
@@ -1485,30 +1485,6 @@ fn sanitized_url_for_log(value: &str) -> String {
     parsed.set_query(None);
     parsed.set_fragment(None);
     parsed.to_string()
-}
-
-/// Inject the real relay key in the shape the upstream protocol expects.
-fn apply_auth(
-    request: reqwest::RequestBuilder,
-    upstream: &GatewayUpstream,
-    inbound_header: Option<&str>,
-) -> reqwest::RequestBuilder {
-    match upstream.kind {
-        // Claude Code configured with ANTHROPIC_AUTH_TOKEN authenticates with
-        // `Authorization: Bearer ...`. Some relays (including agentrouter)
-        // route bearer tokens and x-api-key credentials differently, so
-        // changing the header shape can select the wrong channel even though
-        // the credential itself is valid. Preserve the caller's auth shape and
-        // only replace the secret value. Default to bearer because that is the
-        // shape written by NeuraDock's Claude Code configuration.
-        UpstreamKind::Anthropic if inbound_header == Some("x-api-key") => {
-            request.header("x-api-key", &upstream.api_key)
-        }
-        UpstreamKind::Anthropic => request.bearer_auth(&upstream.api_key),
-        UpstreamKind::OpenAiChat | UpstreamKind::OpenAiResponses => {
-            request.bearer_auth(&upstream.api_key)
-        }
-    }
 }
 
 /// Copy the tool's request headers onto the upstream request. Relays may
