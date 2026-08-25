@@ -4,6 +4,7 @@ use super::gateway::{
 use super::gateway_fingerprint::claude_fingerprint;
 use crate::application::services::{ClaudeConfigService, CodexConfigService};
 use crate::presentation::error::CommandError;
+use crate::presentation::state::{Repositories, Services};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -16,6 +17,69 @@ fn abbreviate_home(path: &Path) -> String {
         }
     }
     path.display().to_string()
+}
+
+fn expand_home_path(path: &str) -> PathBuf {
+    path.strip_prefix("~/")
+        .and_then(|relative| dirs::home_dir().map(|home| home.join(relative)))
+        .unwrap_or_else(|| PathBuf::from(path))
+}
+
+fn profile_credential(client: GatewayClientDto, path: &str) -> Option<String> {
+    let content = fs::read_to_string(expand_home_path(path)).ok()?;
+    match client {
+        GatewayClientDto::Codex => content
+            .parse::<toml_edit::DocumentMut>()
+            .ok()?
+            .get("model_providers")?
+            .as_table()?
+            .iter()
+            .find_map(|(_, provider)| {
+                provider
+                    .as_table()?
+                    .get("experimental_bearer_token")?
+                    .as_str()
+                    .map(str::to_string)
+            }),
+        GatewayClientDto::ClaudeCode => {
+            let doc = serde_json::from_str::<serde_json::Value>(&content).ok()?;
+            doc.pointer("/env/ANTHROPIC_AUTH_TOKEN")
+                .or_else(|| doc.pointer("/env/ANTHROPIC_API_KEY"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        }
+    }
+}
+
+pub(super) async fn match_profile_account(
+    client: GatewayClientDto,
+    profile: &AgentProfileDto,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<Option<String>, CommandError> {
+    let Some(credential) = profile_credential(client, &profile.path) else {
+        return Ok(None);
+    };
+    let normalized = credential.trim().trim_start_matches("sk-");
+    for account in repositories
+        .account
+        .find_all()
+        .await
+        .map_err(CommandError::from)?
+    {
+        let tokens = services
+            .token
+            .get_cached_tokens(account.id())
+            .await
+            .map_err(CommandError::from)?;
+        if tokens
+            .iter()
+            .any(|token| token.key().trim().trim_start_matches("sk-") == normalized)
+        {
+            return Ok(Some(account.name().to_string()));
+        }
+    }
+    Ok(None)
 }
 
 pub(super) fn list_codex_config_files(

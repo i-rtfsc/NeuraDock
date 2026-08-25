@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 use tauri::{Manager, State};
 
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
@@ -8,7 +7,9 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
-use super::gateway_profiles::{list_claude_profiles, list_codex_config_files};
+use super::gateway_profiles::{
+    list_claude_profiles, list_codex_config_files, match_profile_account,
+};
 use super::gateway_redaction::redact_content;
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
@@ -683,75 +684,6 @@ pub(super) fn read_agent_fingerprint(
             )
         }
     }
-}
-
-fn expand_home_path(path: &str) -> PathBuf {
-    if let Some(relative) = path.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(relative);
-        }
-    }
-    PathBuf::from(path)
-}
-
-fn profile_credential(client: GatewayClientDto, path: &str) -> Option<String> {
-    let content = fs::read_to_string(expand_home_path(path)).ok()?;
-    match client {
-        GatewayClientDto::Codex => {
-            let document = content.parse::<toml_edit::DocumentMut>().ok()?;
-            let credential = document
-                .get("model_providers")?
-                .as_table()?
-                .iter()
-                .find_map(|(_, provider)| {
-                    provider
-                        .as_table()?
-                        .get("experimental_bearer_token")?
-                        .as_str()
-                        .map(str::to_string)
-                });
-            credential
-        }
-        GatewayClientDto::ClaudeCode => {
-            let document = serde_json::from_str::<serde_json::Value>(&content).ok()?;
-            document
-                .pointer("/env/ANTHROPIC_AUTH_TOKEN")
-                .or_else(|| document.pointer("/env/ANTHROPIC_API_KEY"))
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_string)
-        }
-    }
-}
-
-async fn match_profile_account(
-    client: GatewayClientDto,
-    profile: &AgentProfileDto,
-    services: &Services,
-    repositories: &Repositories,
-) -> Result<Option<String>, CommandError> {
-    let Some(credential) = profile_credential(client, &profile.path) else {
-        return Ok(None);
-    };
-    let normalized = credential.trim().trim_start_matches("sk-");
-    for account in repositories
-        .account
-        .find_all()
-        .await
-        .map_err(CommandError::from)?
-    {
-        let tokens = services
-            .token
-            .get_cached_tokens(account.id())
-            .await
-            .map_err(CommandError::from)?;
-        if tokens
-            .iter()
-            .any(|token| token.key().trim().trim_start_matches("sk-") == normalized)
-        {
-            return Ok(Some(account.name().to_string()));
-        }
-    }
-    Ok(None)
 }
 
 fn fingerprint_from_preview(
@@ -2121,6 +2053,7 @@ pub async fn clear_gateway_statistics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn gateway_upstream_model_never_carries_1m_suffix() {
