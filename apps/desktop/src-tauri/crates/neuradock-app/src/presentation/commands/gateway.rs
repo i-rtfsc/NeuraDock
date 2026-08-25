@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use tauri::{Manager, State};
+use tauri::State;
 
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
 use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
@@ -8,8 +8,7 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{
-    write_bindings, BindingMeta, IsolatedTarget, PersistedBinding, BINDINGS_FILENAME,
-    RUNTIME_FILENAME,
+    app_data_dir, read_bindings, write_bindings, BindingMeta, IsolatedTarget, RUNTIME_FILENAME,
 };
 use super::gateway_preview::{fingerprint_from_preview, preview_files_to_dto};
 use super::gateway_profiles::{
@@ -1594,23 +1593,16 @@ pub async fn restore_gateway_bindings(
     services: &Services,
     repositories: &Repositories,
 ) {
-    let Ok(dir) = app.path().app_data_dir() else {
+    let Ok(dir) = app_data_dir(app) else {
         return;
     };
     state
         .runtime
         .configure_persistence(dir.join(RUNTIME_FILENAME))
         .await;
-    let path = dir.join(BINDINGS_FILENAME);
-    let Ok(content) = std::fs::read_to_string(&path) else {
-        return;
-    };
-    let saved: Vec<PersistedBinding> = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(e) => {
-            log::warn!("Failed to parse saved gateway bindings: {}", e);
-            return;
-        }
+    let saved = match read_bindings(&dir) {
+        Ok(bindings) => bindings,
+        Err(_) => return,
     };
 
     for binding in saved {

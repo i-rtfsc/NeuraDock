@@ -4,6 +4,7 @@ use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
 use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use neuradock_infrastructure::fs_safe::atomic_write;
+use std::path::PathBuf;
 use tauri::Manager;
 
 pub(super) const BINDINGS_FILENAME: &str = "gateway_bindings.json";
@@ -74,4 +75,18 @@ pub(super) async fn write_bindings(
         .map_err(|e| CommandError::infrastructure(e.to_string()))?;
     atomic_write(&dir.join(BINDINGS_FILENAME), &json, false)
         .map_err(|e| CommandError::infrastructure(e.to_string()))
+}
+
+pub(super) fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, CommandError> {
+    app.path()
+        .app_data_dir()
+        .map_err(|e| CommandError::infrastructure(format!("Failed to get app data directory: {e}")))
+}
+
+pub(super) fn read_bindings(dir: &std::path::Path) -> Result<Vec<PersistedBinding>, CommandError> {
+    let content = std::fs::read_to_string(dir.join(BINDINGS_FILENAME))
+        .map_err(|e| CommandError::infrastructure(e.to_string()))?;
+    serde_json::from_str(&content).map_err(|e| {
+        CommandError::infrastructure(format!("Failed to parse saved gateway bindings: {e}"))
+    })
 }
