@@ -11,6 +11,7 @@ pub(crate) mod response;
 pub(crate) mod sanitization;
 pub mod server;
 pub mod stream;
+pub(crate) mod streaming;
 pub mod transform;
 pub(crate) mod validation;
 

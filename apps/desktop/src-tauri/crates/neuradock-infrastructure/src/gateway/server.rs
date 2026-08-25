@@ -41,6 +41,7 @@ use super::sanitization::{
     strip_one_m_model_marker, value_error_message,
 };
 use super::stream::StreamBridge;
+use super::streaming::{is_relay_billing_sse_block, take_sse_block};
 use super::transform::{
     anthropic_to_chat, chat_to_anthropic, chat_to_responses, requested_model, responses_to_chat,
     wants_stream, InboundProtocol,
@@ -1259,32 +1260,10 @@ fn extract_anthropic_message_document(bytes: &[u8]) -> Result<Value, serde_json:
     }
 }
 
-fn is_relay_billing_sse_block(block: &[u8]) -> bool {
-    block
-        .windows(b"event: billing_summary".len())
-        .any(|window| window == b"event: billing_summary")
-        || block
-            .windows(b"\"type\":\"billing_summary\"".len())
-            .any(|window| window == b"\"type\":\"billing_summary\"")
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct NativeSseObservation {
     valid: bool,
     terminal: bool,
-}
-
-fn take_sse_block(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
-    let lf = buffer.windows(2).position(|window| window == b"\n\n");
-    let crlf = buffer.windows(4).position(|window| window == b"\r\n\r\n");
-    let (offset, delimiter_len) = match (lf, crlf) {
-        (Some(lf), Some(crlf)) if lf <= crlf => (lf, 2),
-        (Some(_), Some(crlf)) => (crlf, 4),
-        (Some(lf), None) => (lf, 2),
-        (None, Some(crlf)) => (crlf, 4),
-        (None, None) => return None,
-    };
-    Some(buffer.drain(..offset + delimiter_len).collect())
 }
 
 fn inspect_native_sse_block(
