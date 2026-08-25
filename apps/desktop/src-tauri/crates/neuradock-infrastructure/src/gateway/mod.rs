@@ -9,6 +9,7 @@ pub mod reliability;
 pub mod server;
 pub mod stream;
 pub mod transform;
+pub(crate) mod validation;
 
 pub use reliability::{
     usage_from_json, CircuitState, GatewayRuntime, GatewayTokenUsage, GatewayUpstreamSnapshot,
