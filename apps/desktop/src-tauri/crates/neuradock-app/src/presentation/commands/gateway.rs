@@ -8,6 +8,7 @@ use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
+use super::gateway_redaction::redact_content;
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{Repositories, Services};
@@ -1468,71 +1469,6 @@ fn abbreviate_home(path: &std::path::Path) -> String {
         }
     }
     path.display().to_string()
-}
-
-fn redact_content(format: &str, content: &str) -> String {
-    if content.trim().is_empty() {
-        return content.to_string();
-    }
-    if format == "toml" {
-        return redact_toml_content(content);
-    }
-    if format != "json" {
-        return content.to_string();
-    }
-    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) else {
-        return content.to_string();
-    };
-    redact_json_value(&mut value);
-    serde_json::to_string_pretty(&value).unwrap_or_else(|_| content.to_string())
-}
-
-fn redact_toml_content(content: &str) -> String {
-    content
-        .lines()
-        .map(|line| {
-            let Some((key, _value)) = line.split_once('=') else {
-                return line.to_string();
-            };
-            let normalized = key.trim().trim_matches(['\'', '"']).to_ascii_uppercase();
-            if normalized.contains("TOKEN")
-                || normalized.contains("API_KEY")
-                || normalized.contains("SECRET")
-                || normalized.contains("PASSWORD")
-            {
-                format!("{}= \"••••••••\"", key)
-            } else {
-                line.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn redact_json_value(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Object(object) => {
-            for (key, value) in object {
-                let normalized = key.to_ascii_uppercase();
-                if (normalized.contains("TOKEN")
-                    || normalized.contains("API_KEY")
-                    || normalized.contains("SECRET")
-                    || normalized.contains("PASSWORD"))
-                    && value.is_string()
-                {
-                    *value = serde_json::Value::String("••••••••".to_string());
-                    continue;
-                }
-                redact_json_value(value);
-            }
-        }
-        serde_json::Value::Array(values) => {
-            for value in values {
-                redact_json_value(value);
-            }
-        }
-        _ => {}
-    }
 }
 
 async fn restore_binding_memory(
