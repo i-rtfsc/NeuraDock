@@ -32,11 +32,13 @@ use uuid::Uuid;
 use super::headers::{
     apply_auth, inject_canonical_fingerprint, is_client_fingerprint_header, is_hop_by_hop_header,
 };
-use super::reliability::{usage_from_json, GatewayRuntime, GatewayTokenUsage};
+use super::reliability::{
+    circuit_failure_status, usage_from_json, GatewayRuntime, GatewayTokenUsage,
+};
 use super::response::{read_response_bytes, read_response_json, read_response_text};
 use super::sanitization::{
     build_upstream_url, redact_sensitive_message, sanitize_error_message, sanitized_url_for_log,
-    value_error_message,
+    strip_one_m_model_marker, value_error_message,
 };
 use super::stream::StreamBridge;
 use super::transform::{
@@ -1425,33 +1427,6 @@ fn usage_from_sse_block(block: &[u8]) -> GatewayTokenUsage {
         }
     }
     usage
-}
-
-/// True when `status` should trip the circuit breaker.
-///
-/// 401 and 403 are excluded: they reveal that the configured key is wrong or
-/// revoked, which is user-correctable state rather than upstream instability.
-/// Counting them toward the failure threshold meant that after 3 honest auth
-/// errors the breaker opened and started returning 503 for 60 seconds, so the
-/// user never saw the 401 that would have told them to fix their key.
-fn circuit_failure_status(status: StatusCode) -> bool {
-    status.is_server_error()
-        || matches!(
-            status,
-            StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
-        )
-}
-
-fn strip_one_m_model_marker(model: &str) -> &str {
-    let trimmed = model.trim_end();
-    let marker = "[1m]";
-    if trimmed.len() >= marker.len()
-        && trimmed[trimmed.len() - marker.len()..].eq_ignore_ascii_case(marker)
-    {
-        trimmed[..trimmed.len() - marker.len()].trim_end()
-    } else {
-        model
-    }
 }
 
 /// Combine a relay base URL with an API endpoint: a base already ending in

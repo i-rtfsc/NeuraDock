@@ -1,5 +1,17 @@
 use serde_json::Value;
 
+pub(crate) fn strip_one_m_model_marker(model: &str) -> &str {
+    let trimmed = model.trim_end();
+    let marker = "[1m]";
+    if trimmed.len() >= marker.len()
+        && trimmed[trimmed.len() - marker.len()..].eq_ignore_ascii_case(marker)
+    {
+        trimmed[..trimmed.len() - marker.len()].trim_end()
+    } else {
+        model
+    }
+}
+
 pub(crate) fn build_upstream_url(base_url: &str, endpoint: &str) -> String {
     let base = base_url.trim_end_matches('/');
     let ep = endpoint.trim_start_matches('/');

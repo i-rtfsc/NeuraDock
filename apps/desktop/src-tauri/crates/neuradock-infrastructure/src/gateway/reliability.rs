@@ -1,3 +1,4 @@
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -561,4 +562,11 @@ mod tests {
         assert_eq!(responses.output_tokens, 5);
         assert_eq!(responses.cache_read_tokens, 4);
     }
+}
+pub(crate) fn circuit_failure_status(status: StatusCode) -> bool {
+    status.is_server_error()
+        || matches!(
+            status,
+            StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
+        )
 }
