@@ -1,0 +1,56 @@
+use super::agent_access::{AgentAccessSourceDto, AgentIdDto};
+use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
+
+pub(super) fn upstream_kind_str(kind: UpstreamKindDto) -> String {
+    match kind {
+        UpstreamKindDto::OpenaiChat => "openai_chat",
+        UpstreamKindDto::OpenaiResponses => "openai_responses",
+        UpstreamKindDto::Anthropic => "anthropic",
+    }
+    .to_string()
+}
+
+pub(super) fn access_source_of(source: &GatewaySourceDto) -> AgentAccessSourceDto {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => AgentAccessSourceDto::AccountToken {
+            account_id: account_id.clone(),
+            provider_id: provider_id.clone(),
+            token_id: *token_id,
+            base_url: base_url.clone(),
+        },
+        GatewaySourceDto::IndependentKey { key_id } => {
+            AgentAccessSourceDto::IndependentKey { key_id: *key_id }
+        }
+    }
+}
+
+pub(super) fn source_from_access(source: &AgentAccessSourceDto) -> GatewaySourceDto {
+    match source {
+        AgentAccessSourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => GatewaySourceDto::AccountToken {
+            account_id: account_id.clone(),
+            provider_id: provider_id.clone(),
+            token_id: *token_id,
+            base_url: base_url.clone(),
+        },
+        AgentAccessSourceDto::IndependentKey { key_id } => {
+            GatewaySourceDto::IndependentKey { key_id: *key_id }
+        }
+    }
+}
+
+pub(super) fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
+    match agent {
+        AgentIdDto::Codex => GatewayClientDto::Codex,
+        AgentIdDto::ClaudeCode => GatewayClientDto::ClaudeCode,
+    }
+}

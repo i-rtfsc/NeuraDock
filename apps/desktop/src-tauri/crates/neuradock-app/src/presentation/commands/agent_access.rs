@@ -212,7 +212,7 @@ pub async fn record_agent_access(
     // Switching to direct write must retire any saved gateway binding, or a
     // later gateway start would take the tool config back over.
     if record.method == AccessMethodDto::Direct {
-        let client = super::gateway::client_for_agent(record.agent);
+        let client = super::gateway_mapping::client_for_agent(record.agent);
         super::gateway::drop_gateway_binding_for_direct(&app, &gateway, client.into()).await?;
     }
     state.set(&app, record)?;

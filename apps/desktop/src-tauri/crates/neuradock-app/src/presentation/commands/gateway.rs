@@ -5,6 +5,9 @@ use std::path::PathBuf;
 use tauri::{Manager, State};
 
 use super::gateway_helpers::{canonical_url, display_endpoint, model_without_context_marker};
+use super::gateway_mapping::{
+    access_source_of, client_for_agent, source_from_access, upstream_kind_str,
+};
 use super::gateway_persistence::{BindingMeta, IsolatedTarget, PersistedBinding};
 pub use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
@@ -73,15 +76,6 @@ pub enum UpstreamKindDto {
     Anthropic,
 }
 
-fn upstream_kind_str(kind: UpstreamKindDto) -> String {
-    match kind {
-        UpstreamKindDto::OpenaiChat => "openai_chat",
-        UpstreamKindDto::OpenaiResponses => "openai_responses",
-        UpstreamKindDto::Anthropic => "anthropic",
-    }
-    .to_string()
-}
-
 fn effective_gateway_model(
     _client: GatewayClientDto,
     model: Option<&str>,
@@ -120,25 +114,6 @@ pub enum GatewaySourceDto {
     IndependentKey {
         key_id: i64,
     },
-}
-
-fn access_source_of(source: &GatewaySourceDto) -> AgentAccessSourceDto {
-    match source {
-        GatewaySourceDto::AccountToken {
-            account_id,
-            provider_id,
-            token_id,
-            base_url,
-        } => AgentAccessSourceDto::AccountToken {
-            account_id: account_id.clone(),
-            provider_id: provider_id.clone(),
-            token_id: *token_id,
-            base_url: base_url.clone(),
-        },
-        GatewaySourceDto::IndependentKey { key_id } => {
-            AgentAccessSourceDto::IndependentKey { key_id: *key_id }
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -637,32 +612,6 @@ fn apply_gateway_config(
         _ => takeover
             .take_over(client, base_url, local_credential, model, context1m)
             .map_err(|e| CommandError::infrastructure(e.to_string())),
-    }
-}
-
-pub(crate) fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
-    match agent {
-        AgentIdDto::Codex => GatewayClientDto::Codex,
-        AgentIdDto::ClaudeCode => GatewayClientDto::ClaudeCode,
-    }
-}
-
-fn source_from_access(source: &AgentAccessSourceDto) -> GatewaySourceDto {
-    match source {
-        AgentAccessSourceDto::AccountToken {
-            account_id,
-            provider_id,
-            token_id,
-            base_url,
-        } => GatewaySourceDto::AccountToken {
-            account_id: account_id.clone(),
-            provider_id: provider_id.clone(),
-            token_id: *token_id,
-            base_url: base_url.clone(),
-        },
-        AgentAccessSourceDto::IndependentKey { key_id } => {
-            GatewaySourceDto::IndependentKey { key_id: *key_id }
-        }
     }
 }
 
