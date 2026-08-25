@@ -3,6 +3,7 @@ use std::fs;
 use tauri::{Manager, State};
 
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
+use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
 use super::gateway_mapping::{
     access_source_of, client_for_agent, source_from_access, upstream_kind_str,
 };
@@ -23,7 +24,7 @@ use neuradock_infrastructure::gateway::{
     UpstreamKind,
 };
 
-use crate::application::services::{ClaudeConfigService, CodexConfigService, GatewayTakeover};
+use crate::application::services::{ClaudeConfigService, CodexConfigService};
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
@@ -503,49 +504,6 @@ async fn isolated_target_for(
                 display: key.name().to_string(),
             })
         }
-    }
-}
-
-fn takeover_for(app: &tauri::AppHandle) -> Result<GatewayTakeover, CommandError> {
-    let app_data_dir = app.path().app_data_dir().map_err(|e| {
-        CommandError::infrastructure(format!("Failed to get app data directory: {}", e))
-    })?;
-    Ok(GatewayTakeover::new(&app_data_dir))
-}
-
-/// Point a client's tool config at the running gateway. Isolated bindings
-/// write a standalone config (named after the real relay) whose
-/// `base_url` is the local gateway — no snapshot, no restore, so the file simply
-/// gets rewritten with the current port on every start. All other bindings use
-/// the snapshot/restore takeover of the official config files.
-fn apply_gateway_config(
-    takeover: &GatewayTakeover,
-    client: GatewayClient,
-    base_url: &str,
-    local_credential: &str,
-    model: Option<&str>,
-    context1m: bool,
-    isolated: Option<&IsolatedTarget>,
-) -> Result<(), CommandError> {
-    match isolated {
-        Some(target) if client == GatewayClient::Codex => CodexConfigService::new()
-            .configure_isolated_gateway(
-                &target.slug,
-                &target.display,
-                base_url,
-                local_credential,
-                model,
-                context1m,
-            )
-            .map(|_| ())
-            .map_err(CommandError::from),
-        Some(target) if client == GatewayClient::ClaudeCode => ClaudeConfigService::new()
-            .configure_isolated_with_key(&target.slug, local_credential, base_url, model, context1m)
-            .map(|_| ())
-            .map_err(CommandError::from),
-        _ => takeover
-            .take_over(client, base_url, local_credential, model, context1m)
-            .map_err(|e| CommandError::infrastructure(e.to_string())),
     }
 }
 
