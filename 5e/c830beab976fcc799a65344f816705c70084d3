@@ -1,0 +1,23 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_persistence.rs
+  s_e9dd769d815b63::t_65b6a2e2d8866d 140,146
+  s_e9dd769d815b63::t_1a0d4f2e31dd6d 8
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_e9dd769d815b63::t_65b6a2e2d8866d 1281,1302,1326,1356-1362,1366-1367,1378,1405,1420
+  s_e9dd769d815b63::t_c8b7672e8fb91e 1363-1364,1370
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "5ec830beab976fcc799a65344f816705c70084d3",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
