@@ -84,6 +84,12 @@ pub struct AgentAccessState {
     profiles: Mutex<HashMap<String, AgentAccessDto>>,
 }
 
+struct RemovedProfileState {
+    key: String,
+    previous_record: Option<AgentAccessDto>,
+    previous_profile: Option<AgentAccessDto>,
+}
+
 fn profile_key(record: &AgentAccessDto) -> String {
     format!(
         "{:?}:{}",
@@ -93,6 +99,57 @@ fn profile_key(record: &AgentAccessDto) -> String {
 }
 
 impl AgentAccessState {
+    fn remove_profile_from_memory(
+        &self,
+        agent: AgentIdDto,
+        isolated_slug: Option<&str>,
+    ) -> RemovedProfileState {
+        let key = format!("{:?}:{}", agent, isolated_slug.unwrap_or("default"));
+        let previous_record = self.records.lock().unwrap().get(&agent).cloned();
+        let previous_profile = self.profiles.lock().unwrap().remove(&key);
+        if previous_record
+            .as_ref()
+            .is_some_and(|record| profile_key(record) == key)
+        {
+            let replacement = self
+                .profiles
+                .lock()
+                .unwrap()
+                .values()
+                .find(|record| record.agent == agent)
+                .cloned();
+            let mut records = self.records.lock().unwrap();
+            match replacement {
+                Some(record) => {
+                    records.insert(agent, record);
+                }
+                None => {
+                    records.remove(&agent);
+                }
+            }
+        }
+        RemovedProfileState {
+            key,
+            previous_record,
+            previous_profile,
+        }
+    }
+
+    fn restore_removed_profile(&self, agent: AgentIdDto, removed: RemovedProfileState) {
+        if let Some(previous) = removed.previous_profile {
+            self.profiles.lock().unwrap().insert(removed.key, previous);
+        }
+        let mut records = self.records.lock().unwrap();
+        match removed.previous_record {
+            Some(record) => {
+                records.insert(agent, record);
+            }
+            None => {
+                records.remove(&agent);
+            }
+        }
+    }
+
     fn path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
         app.path()
             .app_data_dir()
@@ -205,43 +262,9 @@ impl AgentAccessState {
         agent: AgentIdDto,
         isolated_slug: Option<&str>,
     ) -> Result<(), CommandError> {
-        let key = format!("{:?}:{}", agent, isolated_slug.unwrap_or("default"));
-        let previous_record = self.records.lock().unwrap().get(&agent).cloned();
-        let previous_profile = self.profiles.lock().unwrap().remove(&key);
-        if previous_record
-            .as_ref()
-            .is_some_and(|record| profile_key(record) == key)
-        {
-            let replacement = self
-                .profiles
-                .lock()
-                .unwrap()
-                .values()
-                .find(|record| record.agent == agent)
-                .cloned();
-            let mut records = self.records.lock().unwrap();
-            match replacement {
-                Some(record) => {
-                    records.insert(agent, record);
-                }
-                None => {
-                    records.remove(&agent);
-                }
-            }
-        }
+        let removed = self.remove_profile_from_memory(agent, isolated_slug);
         if let Err(error) = self.persist(app) {
-            if let Some(previous) = previous_profile {
-                self.profiles.lock().unwrap().insert(key, previous);
-            }
-            let mut records = self.records.lock().unwrap();
-            match previous_record {
-                Some(record) => {
-                    records.insert(agent, record);
-                }
-                None => {
-                    records.remove(&agent);
-                }
-            }
+            self.restore_removed_profile(agent, removed);
             return Err(error);
         }
         Ok(())
@@ -311,5 +334,76 @@ mod tests {
         let record: AgentAccessDto = serde_json::from_str(json).unwrap();
         assert!(record.source.is_none());
         assert!(record.context1m.is_none());
+    }
+
+    fn record(slug: Option<&str>) -> AgentAccessDto {
+        AgentAccessDto {
+            agent: AgentIdDto::Codex,
+            method: AccessMethodDto::Gateway,
+            label: slug.unwrap_or("default").into(),
+            account_label: None,
+            model: None,
+            upstream_kind: Some("openai_responses".into()),
+            impersonate: Some(true),
+            source: None,
+            context1m: Some(false),
+            isolated_slug: slug.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn removing_current_profile_falls_back_to_remaining_profile() {
+        let state = AgentAccessState::default();
+        let default = record(None);
+        let isolated = record(Some("relay-a"));
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&default), default.clone());
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&isolated), isolated.clone());
+        state
+            .records
+            .lock()
+            .unwrap()
+            .insert(AgentIdDto::Codex, isolated);
+
+        state.remove_profile_from_memory(AgentIdDto::Codex, Some("relay-a"));
+
+        assert_eq!(state.list(AgentIdDto::Codex).len(), 1);
+        assert!(state
+            .get(AgentIdDto::Codex)
+            .is_some_and(|record| record.isolated_slug.is_none()));
+    }
+
+    #[test]
+    fn removed_profile_state_can_be_restored_after_failure() {
+        let state = AgentAccessState::default();
+        let isolated = record(Some("relay-a"));
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&isolated), isolated.clone());
+        state
+            .records
+            .lock()
+            .unwrap()
+            .insert(AgentIdDto::Codex, isolated);
+
+        let removed = state.remove_profile_from_memory(AgentIdDto::Codex, Some("relay-a"));
+        state.restore_removed_profile(AgentIdDto::Codex, removed);
+
+        assert_eq!(state.list(AgentIdDto::Codex).len(), 1);
+        assert_eq!(
+            state
+                .get(AgentIdDto::Codex)
+                .and_then(|record| record.isolated_slug),
+            Some("relay-a".into())
+        );
     }
 }
