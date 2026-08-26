@@ -284,8 +284,10 @@ pub async fn set_gateway_profile_enabled(
     services: State<'_, Services>,
     repositories: State<'_, Repositories>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    let gateway_client: GatewayClient = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
     let route = GatewayRoute {
-        client: client.into(),
+        client: gateway_client,
         profile,
     };
     if !enabled {
