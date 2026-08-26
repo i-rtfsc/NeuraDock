@@ -1,0 +1,33 @@
+docs/contributing.md
+  s_e9dd769d815b63::t_08693c4c736d5e 111
+docs/en/development.md
+  s_e9dd769d815b63::t_ffce297d777d4a 61,64,67,182
+docs/zh/development.md
+  s_e9dd769d815b63::t_08693c4c736d5e 68-69,71,74-75,78,276
+docs/architecture-review-2026-08.md
+  s_e9dd769d815b63::t_d6fd9dc72814f2 131,133,181
+scripts/verify-doc-commands.mjs
+  s_e9dd769d815b63::t_08693c4c736d5e 1-12,14-28
+  s_e9dd769d815b63::t_ffce297d777d4a 13
+docs/en/contributing.md
+  s_e9dd769d815b63::t_ffce297d777d4a 111
+Makefile
+  s_e9dd769d815b63::t_08693c4c736d5e 152,159-160
+  s_e9dd769d815b63::t_d3ff85d1379fe1 161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4eaa9472bac7bb0ac54fac73ea6923d879170709",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
