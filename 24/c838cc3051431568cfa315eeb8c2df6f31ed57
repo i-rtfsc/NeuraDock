@@ -1,0 +1,26 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/security/key_manager.rs
+  s_e9dd769d815b63::t_4eab49be8e3393 261-267,269-270
+  s_e9dd769d815b63::t_ca87a62d99b348 260,268
+  h_8b376749578497 247-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "24c838cc3051431568cfa315eeb8c2df6f31ed57",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
