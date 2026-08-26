@@ -39,7 +39,7 @@
 make help                # 查看所有命令
 make dev                 # 启动开发服务器
 make doctor              # 检查开发环境
-make package-universal   # 构建 Universal Binary (Intel + Apple Silicon)
+make package-all-macos   # 构建 Intel + Apple Silicon 安装包
 ```
 
 ---
