@@ -332,14 +332,28 @@ pub async fn set_gateway_profile_enabled(
             return Err(error);
         }
         if state.server.lock().await.is_none() {
-            start_gateway_server(app.clone(), state.clone(), access.clone()).await?;
+            if let Err(error) =
+                start_gateway_server(app.clone(), state.clone(), access.clone()).await
+            {
+                restore_binding_memory(
+                    &state,
+                    route.clone(),
+                    old_upstream.clone(),
+                    old_meta.clone(),
+                )
+                .await;
+                if let Err(write_error) = write_bindings(&app, &state).await {
+                    log::error!("Failed to persist profile rollback: {}", write_error);
+                }
+                return Err(error);
+            }
         } else {
             let server = state.server.lock().await;
             let handle = server
                 .as_ref()
                 .ok_or_else(|| CommandError::infrastructure("Gateway stopped unexpectedly"))?;
             let profile_base = format!("{}/profiles/{}", handle.base_url(), route.profile);
-            apply_gateway_config(
+            if let Err(error) = apply_gateway_config(
                 &takeover_for(&app)?,
                 route.client,
                 &profile_base,
@@ -347,7 +361,19 @@ pub async fn set_gateway_profile_enabled(
                 meta.model.as_deref(),
                 meta.context1m,
                 meta.isolated.as_ref(),
-            )?;
+            ) {
+                restore_binding_memory(
+                    &state,
+                    route.clone(),
+                    old_upstream.clone(),
+                    old_meta.clone(),
+                )
+                .await;
+                if let Err(write_error) = write_bindings(&app, &state).await {
+                    log::error!("Failed to persist profile rollback: {}", write_error);
+                }
+                return Err(error);
+            }
         }
     }
     Ok(status_of(&state).await)
