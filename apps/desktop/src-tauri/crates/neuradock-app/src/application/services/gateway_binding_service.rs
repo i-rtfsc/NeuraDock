@@ -112,4 +112,25 @@ mod tests {
         assert!(result.impersonate);
         assert!(result.isolated);
     }
+
+    #[test]
+    fn upstream_construction_preserves_all_runtime_fields() {
+        let upstream = GatewayBindingService::build_upstream(
+            GatewayUpstreamInput {
+                id: "account:acct:1".into(),
+                label: "Provider · Alice · Main".into(),
+                base_url: "https://relay.example/v1".into(),
+                api_key: "sk-secret".into(),
+                model: Some("gpt-5".into()),
+                impersonate: true,
+            },
+            neuradock_infrastructure::gateway::UpstreamKind::OpenAiResponses,
+        );
+        assert_eq!(upstream.id, "account:acct:1");
+        assert_eq!(upstream.label, "Provider · Alice · Main");
+        assert_eq!(upstream.base_url, "https://relay.example/v1");
+        assert_eq!(upstream.api_key, "sk-secret");
+        assert_eq!(upstream.model.as_deref(), Some("gpt-5"));
+        assert!(upstream.impersonate);
+    }
 }
