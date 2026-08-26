@@ -1,0 +1,21 @@
+docs/README.md
+  s_e9dd769d815b63::t_2c45b1ee2c5e25 42
+docs/architecture/adr/006-gateway-binding-service-boundary.md
+  s_e9dd769d815b63::t_2c45b1ee2c5e25 1-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ce7a6320b44af3d4d2fc8e25883c3916f559f275",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
