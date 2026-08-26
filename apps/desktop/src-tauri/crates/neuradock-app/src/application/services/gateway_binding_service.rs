@@ -195,11 +195,13 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use chrono::Utc;
-    use neuradock_domain::account::Account;
-    use neuradock_domain::check_in::Provider;
+    use neuradock_domain::account::{Account, Credentials};
+    use neuradock_domain::check_in::{Provider, ProviderConfig};
     use neuradock_domain::independent_key::{
         IndependentApiKey, IndependentApiKeyConfig, KeyProviderType,
     };
+    use neuradock_domain::token::{ApiToken, ApiTokenConfig, TokenStatus};
+    use std::collections::HashMap;
 
     struct UnusedAccountRepository;
 
@@ -265,6 +267,84 @@ mod tests {
 
     struct StubIndependentKeyRepository {
         key: Option<IndependentApiKey>,
+    }
+
+    struct StubAccountRepository {
+        account: Option<Account>,
+    }
+
+    #[async_trait]
+    impl AccountRepository for StubAccountRepository {
+        async fn save(&self, _: &Account) -> Result<(), DomainError> {
+            panic!("save must not be used")
+        }
+
+        async fn find_by_id(&self, id: &AccountId) -> Result<Option<Account>, DomainError> {
+            Ok(self
+                .account
+                .as_ref()
+                .filter(|account| account.id() == id)
+                .cloned())
+        }
+
+        async fn find_by_ids(&self, _: &[AccountId]) -> Result<Vec<Account>, DomainError> {
+            panic!("find_by_ids must not be used")
+        }
+
+        async fn find_all(&self) -> Result<Vec<Account>, DomainError> {
+            panic!("find_all must not be used")
+        }
+
+        async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
+            panic!("find_enabled must not be used")
+        }
+
+        async fn delete(&self, _: &AccountId) -> Result<(), DomainError> {
+            panic!("delete must not be used")
+        }
+    }
+
+    struct StubProviderRepository {
+        provider: Option<Provider>,
+    }
+
+    #[async_trait]
+    impl ProviderRepository for StubProviderRepository {
+        async fn save(&self, _: &Provider) -> Result<(), DomainError> {
+            panic!("save must not be used")
+        }
+
+        async fn find_by_id(&self, id: &ProviderId) -> Result<Option<Provider>, DomainError> {
+            Ok(self
+                .provider
+                .as_ref()
+                .filter(|provider| provider.id() == id)
+                .cloned())
+        }
+
+        async fn find_all(&self) -> Result<Vec<Provider>, DomainError> {
+            panic!("find_all must not be used")
+        }
+
+        async fn delete(&self, _: &ProviderId) -> Result<(), DomainError> {
+            panic!("delete must not be used")
+        }
+    }
+
+    struct StubTokenReader {
+        tokens: Vec<ApiToken>,
+    }
+
+    #[async_trait]
+    impl CachedTokenReader for StubTokenReader {
+        async fn get_cached_tokens(&self, account_id: &AccountId) -> Result<Vec<ApiToken>, String> {
+            Ok(self
+                .tokens
+                .iter()
+                .filter(|token| token.account_id() == account_id)
+                .cloned()
+                .collect())
+        }
     }
 
     #[async_trait]
@@ -338,6 +418,94 @@ mod tests {
             &GatewayBindingSourceInput::IndependentKey { key_id },
             Some("gpt-5"),
             false,
+            GatewayResolverDeps {
+                accounts: &accounts,
+                providers: &providers,
+                independent_keys: &independent_keys,
+                tokens: &tokens,
+            },
+        )
+        .await
+    }
+
+    fn account(provider_id: &str, enabled: bool) -> Account {
+        let mut cookies = HashMap::new();
+        cookies.insert("session".into(), "test".into());
+        Account::builder(
+            AccountId::from_string("account-1"),
+            "Alice".into(),
+            ProviderId::from_string(provider_id),
+            Credentials::new(cookies, "user".into()),
+        )
+        .enabled(enabled)
+        .build()
+    }
+
+    fn provider(id: &str) -> Provider {
+        Provider::restore(
+            ProviderId::from_string(id),
+            ProviderConfig {
+                name: "Relay".into(),
+                domain: "https://relay.example/v1/".into(),
+                login_path: "/login".into(),
+                sign_in_path: None,
+                user_info_path: "/api/user/self".into(),
+                token_api_path: None,
+                models_path: None,
+                api_user_key: "new-api-user".into(),
+                bypass_method: None,
+                supports_check_in: true,
+                check_in_bugged: false,
+            },
+            false,
+            Utc::now(),
+        )
+    }
+
+    fn token(status: TokenStatus) -> ApiToken {
+        ApiToken::new(
+            TokenId::new(9),
+            AccountId::from_string("account-1"),
+            ApiTokenConfig {
+                name: "Main".into(),
+                key: "sk-account".into(),
+                status,
+                used_quota: 0,
+                remain_quota: 100,
+                unlimited_quota: false,
+                expired_time: None,
+                model_limits_enabled: false,
+                model_limits: None,
+            },
+        )
+    }
+
+    async fn resolve_account(
+        account_provider_id: &str,
+        source_provider_id: &str,
+        enabled: bool,
+        token_status: TokenStatus,
+        base_url: Option<String>,
+    ) -> Result<ResolvedGatewayUpstream, GatewayResolveError> {
+        let accounts = StubAccountRepository {
+            account: Some(account(account_provider_id, enabled)),
+        };
+        let providers = StubProviderRepository {
+            provider: Some(provider(source_provider_id)),
+        };
+        let tokens = StubTokenReader {
+            tokens: vec![token(token_status)],
+        };
+        let independent_keys = StubIndependentKeyRepository { key: None };
+        GatewayBindingService::resolve_upstream(
+            &GatewayBindingSourceInput::AccountToken {
+                account_id: "account-1".into(),
+                provider_id: source_provider_id.into(),
+                token_id: 9,
+                base_url,
+            },
+            Some("claude-sonnet-4"),
+            true,
             GatewayResolverDeps {
                 accounts: &accounts,
                 providers: &providers,
@@ -426,5 +594,65 @@ mod tests {
             error,
             GatewayResolveError::IndependentKeyNotFound(7)
         ));
+    }
+
+    #[tokio::test]
+    async fn resolves_active_account_token() {
+        let upstream =
+            resolve_account("provider-1", "provider-1", true, TokenStatus::Enabled, None)
+                .await
+                .unwrap();
+
+        assert_eq!(upstream.id, "account:account-1:9");
+        assert_eq!(upstream.label, "Relay · Alice · Main");
+        assert_eq!(upstream.base_url, "https://relay.example/v1");
+        assert_eq!(upstream.api_key, "sk-account");
+        assert_eq!(upstream.model.as_deref(), Some("claude-sonnet-4"));
+        assert!(upstream.impersonate);
+    }
+
+    #[tokio::test]
+    async fn rejects_disabled_account() {
+        let error = resolve_account(
+            "provider-1",
+            "provider-1",
+            false,
+            TokenStatus::Enabled,
+            None,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            GatewayResolveError::TokenUnusable(TokenUsabilityError::AccountDisabled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn rejects_inactive_account_token() {
+        let error = resolve_account(
+            "provider-1",
+            "provider-1",
+            true,
+            TokenStatus::Disabled,
+            None,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            GatewayResolveError::TokenUnusable(TokenUsabilityError::TokenInactive)
+        ));
+    }
+
+    #[tokio::test]
+    async fn rejects_provider_mismatch() {
+        let error = resolve_account("provider-1", "provider-2", true, TokenStatus::Enabled, None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, GatewayResolveError::ProviderMismatch));
     }
 }
