@@ -762,6 +762,26 @@ fn validate_connection(input: &SaveDeveloperToolConnectionInput) -> Result<()> {
         }
         _ => {}
     }
+    let requires_username = matches!(
+        (input.service.as_str(), input.auth_method.as_str()),
+        ("jira", "basic") | ("gerrit", "http_password")
+    );
+    if requires_username
+        && input
+            .username
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+    {
+        return Err(anyhow!("This authentication method requires a username"));
+    }
+    if input.auth_method == "anonymous"
+        && input
+            .secret
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+    {
+        return Err(anyhow!("Anonymous connections cannot include a secret"));
+    }
     let url = Url::parse(&input.base_url).context("Invalid base URL")?;
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
@@ -943,6 +963,32 @@ mod tests {
             profile_json: None,
         };
 
+        assert!(validate_connection(&input).is_err());
+    }
+
+    #[test]
+    fn connection_authentication_fields_are_consistent() {
+        let mut input = SaveDeveloperToolConnectionInput {
+            id: None,
+            name: "Jira".into(),
+            service: "jira".into(),
+            base_url: "https://example.com".into(),
+            deployment: "jira_cloud".into(),
+            auth_method: "basic".into(),
+            username: None,
+            secret: Some("secret".into()),
+            profile_json: None,
+        };
+        assert!(validate_connection(&input).is_err());
+
+        input.auth_method = "pat".into();
+        input.username = None;
+        assert!(validate_connection(&input).is_ok());
+
+        input.service = "gerrit".into();
+        input.deployment = "gerrit".into();
+        input.auth_method = "anonymous".into();
+        input.secret = Some("unexpected".into());
         assert!(validate_connection(&input).is_err());
     }
 }
