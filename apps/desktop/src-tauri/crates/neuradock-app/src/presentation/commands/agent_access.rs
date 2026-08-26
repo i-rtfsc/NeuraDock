@@ -197,6 +197,55 @@ impl AgentAccessState {
         }
         Ok(())
     }
+
+    /// Remove only one profile record, preserving other profiles for the agent.
+    pub fn remove_profile(
+        &self,
+        app: &tauri::AppHandle,
+        agent: AgentIdDto,
+        isolated_slug: Option<&str>,
+    ) -> Result<(), CommandError> {
+        let key = format!("{:?}:{}", agent, isolated_slug.unwrap_or("default"));
+        let previous_record = self.records.lock().unwrap().get(&agent).cloned();
+        let previous_profile = self.profiles.lock().unwrap().remove(&key);
+        if previous_record
+            .as_ref()
+            .is_some_and(|record| profile_key(record) == key)
+        {
+            let replacement = self
+                .profiles
+                .lock()
+                .unwrap()
+                .values()
+                .find(|record| record.agent == agent)
+                .cloned();
+            let mut records = self.records.lock().unwrap();
+            match replacement {
+                Some(record) => {
+                    records.insert(agent, record);
+                }
+                None => {
+                    records.remove(&agent);
+                }
+            }
+        }
+        if let Err(error) = self.persist(app) {
+            if let Some(previous) = previous_profile {
+                self.profiles.lock().unwrap().insert(key, previous);
+            }
+            let mut records = self.records.lock().unwrap();
+            match previous_record {
+                Some(record) => {
+                    records.insert(agent, record);
+                }
+                None => {
+                    records.remove(&agent);
+                }
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
 }
 
 /// Record an agent access (called by the frontend after a successful

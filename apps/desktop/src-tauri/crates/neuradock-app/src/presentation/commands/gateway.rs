@@ -1564,7 +1564,19 @@ pub async fn restore_gateway_bindings(
                         enabled: binding.enabled,
                     },
                 );
-                if let Err(error) = access.set(
+                if !binding.enabled {
+                    if let Err(error) = access.remove_profile(
+                        app,
+                        binding.client.into(),
+                        binding.isolated.as_ref().map(|target| target.slug.as_str()),
+                    ) {
+                        log::warn!(
+                            "Failed to remove disabled access record for {:?}: {}",
+                            binding.client,
+                            error
+                        );
+                    }
+                } else if let Err(error) = access.set(
                     app,
                     AgentAccessDto {
                         agent: binding.client.into(),
