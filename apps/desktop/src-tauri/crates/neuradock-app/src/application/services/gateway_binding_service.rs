@@ -193,6 +193,160 @@ impl GatewayBindingService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use neuradock_domain::account::Account;
+    use neuradock_domain::check_in::Provider;
+    use neuradock_domain::independent_key::{
+        IndependentApiKey, IndependentApiKeyConfig, KeyProviderType,
+    };
+
+    struct UnusedAccountRepository;
+
+    #[async_trait]
+    impl AccountRepository for UnusedAccountRepository {
+        async fn save(&self, _: &Account) -> Result<(), DomainError> {
+            panic!("account repository must not be used")
+        }
+
+        async fn find_by_id(&self, _: &AccountId) -> Result<Option<Account>, DomainError> {
+            panic!("account repository must not be used")
+        }
+
+        async fn find_by_ids(&self, _: &[AccountId]) -> Result<Vec<Account>, DomainError> {
+            panic!("account repository must not be used")
+        }
+
+        async fn find_all(&self) -> Result<Vec<Account>, DomainError> {
+            panic!("account repository must not be used")
+        }
+
+        async fn find_enabled(&self) -> Result<Vec<Account>, DomainError> {
+            panic!("account repository must not be used")
+        }
+
+        async fn delete(&self, _: &AccountId) -> Result<(), DomainError> {
+            panic!("account repository must not be used")
+        }
+    }
+
+    struct UnusedProviderRepository;
+
+    #[async_trait]
+    impl ProviderRepository for UnusedProviderRepository {
+        async fn save(&self, _: &Provider) -> Result<(), DomainError> {
+            panic!("provider repository must not be used")
+        }
+
+        async fn find_by_id(&self, _: &ProviderId) -> Result<Option<Provider>, DomainError> {
+            panic!("provider repository must not be used")
+        }
+
+        async fn find_all(&self) -> Result<Vec<Provider>, DomainError> {
+            panic!("provider repository must not be used")
+        }
+
+        async fn delete(&self, _: &ProviderId) -> Result<(), DomainError> {
+            panic!("provider repository must not be used")
+        }
+    }
+
+    struct UnusedTokenReader;
+
+    #[async_trait]
+    impl CachedTokenReader for UnusedTokenReader {
+        async fn get_cached_tokens(
+            &self,
+            _: &AccountId,
+        ) -> Result<Vec<neuradock_domain::token::ApiToken>, String> {
+            panic!("token reader must not be used")
+        }
+    }
+
+    struct StubIndependentKeyRepository {
+        key: Option<IndependentApiKey>,
+    }
+
+    #[async_trait]
+    impl IndependentKeyRepository for StubIndependentKeyRepository {
+        async fn create(&self, _: &IndependentApiKey) -> Result<IndependentKeyId, DomainError> {
+            panic!("create must not be used")
+        }
+
+        async fn update(&self, _: &IndependentApiKey) -> Result<(), DomainError> {
+            panic!("update must not be used")
+        }
+
+        async fn delete(&self, _: &IndependentKeyId) -> Result<(), DomainError> {
+            panic!("delete must not be used")
+        }
+
+        async fn find_by_id(
+            &self,
+            id: &IndependentKeyId,
+        ) -> Result<Option<IndependentApiKey>, DomainError> {
+            Ok(self
+                .key
+                .as_ref()
+                .filter(|key| key.id() == Some(id))
+                .cloned())
+        }
+
+        async fn find_all(&self) -> Result<Vec<IndependentApiKey>, DomainError> {
+            panic!("find_all must not be used")
+        }
+
+        async fn find_by_provider_type(
+            &self,
+            _: &KeyProviderType,
+        ) -> Result<Vec<IndependentApiKey>, DomainError> {
+            panic!("find_by_provider_type must not be used")
+        }
+
+        async fn find_active(&self) -> Result<Vec<IndependentApiKey>, DomainError> {
+            panic!("find_active must not be used")
+        }
+    }
+
+    fn independent_key(id: i64, active: bool) -> IndependentApiKey {
+        IndependentApiKey::restore(
+            IndependentKeyId::new(id),
+            IndependentApiKeyConfig {
+                name: "Primary key".into(),
+                provider_type: KeyProviderType::OpenAI,
+                custom_provider_name: None,
+                api_key: "sk-secret".into(),
+                base_url: Some("https://api.example/v1".into()),
+                organization_id: None,
+                description: None,
+            },
+            active,
+            Utc::now(),
+            Utc::now(),
+        )
+    }
+
+    async fn resolve_independent(
+        key_id: i64,
+        key: Option<IndependentApiKey>,
+    ) -> Result<ResolvedGatewayUpstream, GatewayResolveError> {
+        let accounts = UnusedAccountRepository;
+        let providers = UnusedProviderRepository;
+        let tokens = UnusedTokenReader;
+        let independent_keys = StubIndependentKeyRepository { key };
+        GatewayBindingService::resolve_upstream(
+            &GatewayBindingSourceInput::IndependentKey { key_id },
+            Some("gpt-5"),
+            false,
+            GatewayResolverDeps {
+                accounts: &accounts,
+                providers: &providers,
+                independent_keys: &independent_keys,
+                tokens: &tokens,
+            },
+        )
+        .await
+    }
 
     #[test]
     fn context_requires_a_model() {
@@ -239,5 +393,38 @@ mod tests {
         assert_eq!(upstream.api_key, "sk-secret");
         assert_eq!(upstream.model.as_deref(), Some("gpt-5"));
         assert!(upstream.impersonate);
+    }
+
+    #[tokio::test]
+    async fn resolves_active_independent_key() {
+        let upstream = resolve_independent(7, Some(independent_key(7, true)))
+            .await
+            .unwrap();
+
+        assert_eq!(upstream.id, "independent:7");
+        assert_eq!(upstream.label, "Primary key");
+        assert_eq!(upstream.base_url, "https://api.example/v1");
+        assert_eq!(upstream.api_key, "sk-secret");
+        assert_eq!(upstream.model.as_deref(), Some("gpt-5"));
+        assert!(!upstream.impersonate);
+    }
+
+    #[tokio::test]
+    async fn rejects_inactive_independent_key() {
+        let error = resolve_independent(7, Some(independent_key(7, false)))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, GatewayResolveError::IndependentKeyInactive));
+    }
+
+    #[tokio::test]
+    async fn reports_missing_independent_key() {
+        let error = resolve_independent(7, None).await.unwrap_err();
+
+        assert!(matches!(
+            error,
+            GatewayResolveError::IndependentKeyNotFound(7)
+        ));
     }
 }
