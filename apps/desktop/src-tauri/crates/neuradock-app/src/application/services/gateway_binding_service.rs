@@ -1,10 +1,19 @@
+use async_trait::async_trait;
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::ProviderRepository;
 use neuradock_domain::independent_key::{IndependentKeyId, IndependentKeyRepository};
 use neuradock_domain::shared::{AccountId, DomainError, ProviderId};
 use neuradock_domain::token::TokenId;
 
-use super::{ensure_token_usable, TokenService, TokenUsabilityError};
+use super::{ensure_token_usable, TokenUsabilityError};
+
+#[async_trait]
+pub trait CachedTokenReader: Send + Sync {
+    async fn get_cached_tokens(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Vec<neuradock_domain::token::ApiToken>, String>;
+}
 
 pub struct GatewayBindingService;
 
@@ -49,7 +58,7 @@ pub struct GatewayResolverDeps<'a> {
     pub accounts: &'a dyn AccountRepository,
     pub providers: &'a dyn ProviderRepository,
     pub independent_keys: &'a dyn IndependentKeyRepository,
-    pub tokens: &'a TokenService,
+    pub tokens: &'a dyn CachedTokenReader,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -125,7 +134,7 @@ impl GatewayBindingService {
                     .tokens
                     .get_cached_tokens(&account_id)
                     .await
-                    .map_err(|error| GatewayResolveError::Service(error.to_string()))?;
+                    .map_err(GatewayResolveError::Service)?;
                 let token_id = TokenId::new(*token_id);
                 let token = tokens
                     .iter()

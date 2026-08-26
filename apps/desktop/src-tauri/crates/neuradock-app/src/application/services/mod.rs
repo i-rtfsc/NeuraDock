@@ -25,7 +25,7 @@ pub use check_in_executor::CheckInExecutor;
 pub use config_service::{ConfigService, LogLevel};
 pub use developer_tools_service::*;
 pub use gateway_binding_service::{
-    GatewayBindingConfigInput, GatewayBindingService, GatewayBindingSourceInput,
+    CachedTokenReader, GatewayBindingConfigInput, GatewayBindingService, GatewayBindingSourceInput,
     GatewayResolveError, GatewayResolverDeps,
 };
 pub use migration_service::{LegacyImportError, LegacyMigrationService};

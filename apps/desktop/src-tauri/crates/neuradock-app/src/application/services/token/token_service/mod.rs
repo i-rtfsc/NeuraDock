@@ -79,3 +79,15 @@ impl TokenService {
         WafBypassService::with_proxy(true, proxy_url)
     }
 }
+
+#[async_trait::async_trait]
+impl crate::application::services::CachedTokenReader for TokenService {
+    async fn get_cached_tokens(
+        &self,
+        account_id: &neuradock_domain::shared::AccountId,
+    ) -> Result<Vec<neuradock_domain::token::ApiToken>, String> {
+        self.get_cached_tokens(account_id)
+            .await
+            .map_err(|error| error.to_string())
+    }
+}
