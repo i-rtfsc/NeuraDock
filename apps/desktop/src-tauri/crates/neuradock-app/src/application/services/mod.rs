@@ -26,7 +26,7 @@ pub use config_service::{ConfigService, LogLevel};
 pub use developer_tools_service::*;
 pub use gateway_binding_service::{
     GatewayBindingConfigInput, GatewayBindingService, GatewayBindingSourceInput,
-    GatewayUpstreamInput,
+    GatewayResolveError, GatewayResolverDeps,
 };
 pub use migration_service::{LegacyImportError, LegacyMigrationService};
 pub use notification_service::NotificationService;

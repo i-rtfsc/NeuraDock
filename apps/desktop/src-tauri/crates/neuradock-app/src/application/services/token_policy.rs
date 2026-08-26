@@ -1,9 +1,11 @@
 use neuradock_domain::account::Account;
 use neuradock_domain::token::ApiToken;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TokenUsabilityError {
+    #[error("The account is disabled.")]
     AccountDisabled,
+    #[error("The token is inactive or expired.")]
     TokenInactive,
 }
 

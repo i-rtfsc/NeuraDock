@@ -31,7 +31,7 @@ use neuradock_infrastructure::gateway::{
 
 use crate::application::services::{
     ClaudeConfigService, CodexConfigService, GatewayBindingConfigInput, GatewayBindingService,
-    GatewayBindingSourceInput, GatewayUpstreamInput,
+    GatewayBindingSourceInput, GatewayResolveError, GatewayResolverDeps,
 };
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
@@ -353,143 +353,48 @@ async fn resolve_upstream(
     services: &Services,
     repositories: &Repositories,
 ) -> Result<(GatewayUpstream, String), CommandError> {
-    let context = GatewayResolveContext {
-        kind,
+    let resolved = GatewayBindingService::resolve_upstream(
+        source,
         model,
         impersonate,
-        services,
-        repositories,
-    };
-    match source {
-        GatewayBindingSourceInput::AccountToken {
-            account_id,
-            provider_id,
-            token_id,
-            base_url,
-        } => {
-            resolve_account_upstream(
-                account_id,
-                provider_id,
-                *token_id,
-                base_url.as_deref(),
-                &context,
-            )
-            .await
-        }
-        GatewayBindingSourceInput::IndependentKey { key_id } => {
-            resolve_independent_upstream(*key_id, &context).await
-        }
-    }
-}
-
-struct GatewayResolveContext<'a> {
-    kind: UpstreamKind,
-    model: Option<&'a str>,
-    impersonate: bool,
-    services: &'a Services,
-    repositories: &'a Repositories,
-}
-
-async fn resolve_account_upstream(
-    account_id: &str,
-    provider_id: &str,
-    token_id: i64,
-    base_url: Option<&str>,
-    context: &GatewayResolveContext<'_>,
-) -> Result<(GatewayUpstream, String), CommandError> {
-    let upstream_id = format!("account:{account_id}:{token_id}");
-    let account_id = AccountId::from_string(account_id);
-    let token_id = neuradock_domain::token::TokenId::new(token_id);
-    let account = context
-        .repositories
-        .account
-        .find_by_id(&account_id)
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found("Account not found"))?;
-    let tokens = context
-        .services
-        .token
-        .get_cached_tokens(&account_id)
-        .await
-        .map_err(CommandError::from)?;
-    let token = tokens
-        .iter()
-        .find(|t| t.id() == &token_id)
-        .ok_or_else(|| CommandError::not_found("Token not found"))?;
-    ensure_account_token_usable(&account, token)?;
-
-    let provider_id = ProviderId::from_string(provider_id);
-    if account.provider_id() != &provider_id {
-        return Err(CommandError::validation(
-            "The selected provider does not belong to this account.",
-        ));
-    }
-    let provider = context
-        .repositories
-        .provider
-        .find_by_id(&provider_id)
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found("Provider not found"))?;
-
-    let base_url = base_url
-        .map(str::to_string)
-        .unwrap_or_else(|| provider.domain().to_string());
-    let label = format!(
-        "{} · {} · {}",
-        provider.name(),
-        account.name(),
-        token.name()
-    );
-
+        GatewayResolverDeps {
+            accounts: repositories.account.as_ref(),
+            providers: repositories.provider.as_ref(),
+            independent_keys: repositories.independent_key.as_ref(),
+            tokens: services.token.as_ref(),
+        },
+    )
+    .await
+    .map_err(map_gateway_resolve_error)?;
+    let label = resolved.label.clone();
     Ok((
-        GatewayBindingService::build_upstream(
-            GatewayUpstreamInput {
-                id: upstream_id,
-                label: label.clone(),
-                base_url,
-                api_key: token.key().to_string(),
-                model: context.model.map(str::to_string),
-                impersonate: context.impersonate,
-            },
-            context.kind,
-        ),
+        GatewayUpstream {
+            id: resolved.id,
+            label: resolved.label,
+            base_url: resolved.base_url,
+            api_key: resolved.api_key,
+            kind,
+            model: resolved.model,
+            impersonate: resolved.impersonate,
+        },
         label,
     ))
 }
 
-async fn resolve_independent_upstream(
-    key_id: i64,
-    context: &GatewayResolveContext<'_>,
-) -> Result<(GatewayUpstream, String), CommandError> {
-    let id = IndependentKeyId::new(key_id);
-    let key = context
-        .repositories
-        .independent_key
-        .find_by_id(&id)
-        .await
-        .map_err(CommandError::from)?
-        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
-    if !key.is_active() {
-        return Err(CommandError::validation(
-            "Cannot bind an inactive API key. Please enable it first.",
-        ));
+fn map_gateway_resolve_error(error: GatewayResolveError) -> CommandError {
+    match error {
+        GatewayResolveError::AccountNotFound => CommandError::not_found("Account not found"),
+        GatewayResolveError::TokenNotFound => CommandError::not_found("Token not found"),
+        GatewayResolveError::ProviderNotFound => CommandError::not_found("Provider not found"),
+        GatewayResolveError::ProviderMismatch => CommandError::validation(error.to_string()),
+        GatewayResolveError::IndependentKeyNotFound(id) => {
+            CommandError::not_found(format!("Key with ID {id} not found"))
+        }
+        GatewayResolveError::IndependentKeyInactive => CommandError::validation(error.to_string()),
+        GatewayResolveError::TokenUnusable(_) => CommandError::validation(error.to_string()),
+        GatewayResolveError::Domain(error) => error.into(),
+        GatewayResolveError::Service(message) => CommandError::infrastructure(message),
     }
-    Ok((
-        GatewayBindingService::build_upstream(
-            GatewayUpstreamInput {
-                id: format!("independent:{key_id}"),
-                label: key.name().to_string(),
-                base_url: key.base_url().to_string(),
-                api_key: key.api_key().to_string(),
-                model: context.model.map(str::to_string),
-                impersonate: context.impersonate,
-            },
-            context.kind,
-        ),
-        key.name().to_string(),
-    ))
 }
 
 /// Derive the isolated-file identity (slug + display name) for a binding, so
