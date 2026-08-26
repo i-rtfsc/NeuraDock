@@ -91,11 +91,11 @@ struct RemovedProfileState {
 }
 
 fn profile_key(record: &AgentAccessDto) -> String {
-    format!(
-        "{:?}:{}",
-        record.agent,
-        record.isolated_slug.as_deref().unwrap_or("default")
-    )
+    profile_storage_key(record.agent, record.isolated_slug.as_deref())
+}
+
+fn profile_storage_key(agent: AgentIdDto, isolated_slug: Option<&str>) -> String {
+    format!("{:?}:{}", agent, isolated_slug.unwrap_or("default"))
 }
 
 impl AgentAccessState {
@@ -104,18 +104,7 @@ impl AgentAccessState {
         agent: AgentIdDto,
         isolated_slug: Option<&str>,
     ) -> RemovedProfileState {
-        let key = profile_key(&AgentAccessDto {
-            agent,
-            method: AccessMethodDto::Gateway,
-            label: String::new(),
-            account_label: None,
-            model: None,
-            upstream_kind: None,
-            impersonate: None,
-            source: None,
-            context1m: None,
-            isolated_slug: isolated_slug.map(str::to_string),
-        });
+        let key = profile_storage_key(agent, isolated_slug);
         let previous_record = self.records.lock().unwrap().get(&agent).cloned();
         let previous_profile = self.profiles.lock().unwrap().remove(&key);
         if previous_record
@@ -230,6 +219,15 @@ impl AgentAccessState {
 
     pub fn get(&self, agent: AgentIdDto) -> Option<AgentAccessDto> {
         self.records.lock().unwrap().get(&agent).cloned()
+    }
+
+    pub fn get_profile(
+        &self,
+        agent: AgentIdDto,
+        isolated_slug: Option<&str>,
+    ) -> Option<AgentAccessDto> {
+        let key = profile_storage_key(agent, isolated_slug);
+        self.profiles.lock().unwrap().get(&key).cloned()
     }
 
     pub fn list(&self, agent: AgentIdDto) -> Vec<AgentAccessDto> {
@@ -365,7 +363,8 @@ mod tests {
     #[test]
     fn removing_current_profile_falls_back_to_remaining_profile() {
         let state = AgentAccessState::default();
-        let default = record(None);
+        let mut default = record(None);
+        default.method = AccessMethodDto::Direct;
         let isolated = record(Some("relay-a"));
         state
             .profiles
@@ -421,7 +420,8 @@ mod tests {
     #[test]
     fn removing_non_current_profile_preserves_current_summary() {
         let state = AgentAccessState::default();
-        let default = record(None);
+        let mut default = record(None);
+        default.method = AccessMethodDto::Direct;
         let isolated = record(Some("relay-a"));
         state
             .profiles
@@ -445,5 +445,38 @@ mod tests {
         assert!(state
             .get(AgentIdDto::Codex)
             .is_some_and(|record| record.isolated_slug.is_none()));
+    }
+
+    #[test]
+    fn profile_lookup_does_not_use_another_profile_summary() {
+        let state = AgentAccessState::default();
+        let mut default = record(None);
+        default.method = AccessMethodDto::Direct;
+        let isolated = record(Some("relay-a"));
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&default), default);
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&isolated), isolated.clone());
+        state
+            .records
+            .lock()
+            .unwrap()
+            .insert(AgentIdDto::Codex, isolated);
+
+        assert!(state
+            .get_profile(AgentIdDto::Codex, None)
+            .is_some_and(|record| record.method == AccessMethodDto::Direct));
+        assert!(state
+            .get_profile(AgentIdDto::Codex, Some("relay-a"))
+            .is_some_and(|record| record.method == AccessMethodDto::Gateway));
+        assert!(state
+            .get_profile(AgentIdDto::Codex, Some("missing"))
+            .is_none());
     }
 }

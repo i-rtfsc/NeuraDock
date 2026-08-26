@@ -1652,7 +1652,10 @@ pub async fn start_gateway_server(
             .filter(|(client, meta)| {
                 meta.enabled
                     && access
-                        .get(GatewayClientDto::from(client.client).into())
+                        .get_profile(
+                            GatewayClientDto::from(client.client).into(),
+                            (client.profile != "default").then_some(client.profile.as_str()),
+                        )
                         .is_none_or(|record| record.method == AccessMethodDto::Gateway)
             })
             .map(|(client, meta)| {
