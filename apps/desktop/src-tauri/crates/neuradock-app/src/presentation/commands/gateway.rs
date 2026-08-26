@@ -30,7 +30,7 @@ use neuradock_infrastructure::gateway::{
 };
 
 use crate::application::services::{
-    ClaudeConfigService, CodexConfigService, GatewayBindingService,
+    ClaudeConfigService, CodexConfigService, GatewayBindingConfigInput, GatewayBindingService,
 };
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
@@ -1255,8 +1255,17 @@ pub async fn set_gateway_binding(
     // Impersonation defaults on: the point of the gateway is to reach relays
     // that only admit recognised clients.
     let upstream_kind = config.upstream_kind;
-    let (model, context1m, impersonate, isolated_requested) =
-        GatewayBindingService::normalize_config(client, config)?;
+    let normalized = GatewayBindingService::normalize_config(GatewayBindingConfigInput {
+        model: config.model,
+        context1m: config.context_1m,
+        impersonate: config.impersonate,
+        isolated: config.isolated,
+    })
+    .map_err(|error| CommandError::validation(error.to_string()))?;
+    let model = normalized.model;
+    let context1m = normalized.context1m;
+    let impersonate = normalized.impersonate;
+    let isolated_requested = normalized.isolated;
     let effective_model = effective_gateway_model(client, model.as_deref(), context1m);
     let (upstream, label) = resolve_upstream(
         &source,
