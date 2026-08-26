@@ -782,6 +782,15 @@ fn validate_connection(input: &SaveDeveloperToolConnectionInput) -> Result<()> {
     {
         return Err(anyhow!("Anonymous connections cannot include a secret"));
     }
+    if input.id.is_none()
+        && input.auth_method != "anonymous"
+        && input
+            .secret
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+    {
+        return Err(anyhow!("This authentication method requires a secret"));
+    }
     let url = Url::parse(&input.base_url).context("Invalid base URL")?;
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
@@ -981,8 +990,16 @@ mod tests {
         };
         assert!(validate_connection(&input).is_err());
 
+        input.username = Some("   ".into());
+        assert!(validate_connection(&input).is_err());
+
         input.auth_method = "pat".into();
         input.username = None;
+        assert!(validate_connection(&input).is_ok());
+
+        input.secret = None;
+        assert!(validate_connection(&input).is_err());
+        input.id = Some("existing".into());
         assert!(validate_connection(&input).is_ok());
 
         input.service = "gerrit".into();
