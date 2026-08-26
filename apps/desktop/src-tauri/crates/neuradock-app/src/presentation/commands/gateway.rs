@@ -39,6 +39,14 @@ use crate::presentation::commands::agent_access::{
 };
 use crate::presentation::commands::token::ensure_account_token_usable;
 
+type GatewayStopConfig = (
+    GatewayClient,
+    String,
+    Option<String>,
+    bool,
+    Option<IsolatedTarget>,
+);
+
 /// Per-client runtime metadata plus everything needed to persist and rebuild
 /// the binding across restarts (the real key is never stored; it is re-resolved
 /// from the source).
@@ -1722,7 +1730,7 @@ pub async fn stop_gateway_server(
         .await
         .as_ref()
         .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
-    let configs: Vec<(GatewayClient, Option<String>, bool, Option<IsolatedTarget>)> = state
+    let configs: Vec<GatewayStopConfig> = state
         .meta
         .lock()
         .await
@@ -1731,6 +1739,7 @@ pub async fn stop_gateway_server(
         .map(|(client, meta)| {
             (
                 client.client,
+                client.profile.clone(),
                 meta.model.clone(),
                 meta.context1m,
                 meta.isolated.clone(),
@@ -1738,21 +1747,21 @@ pub async fn stop_gateway_server(
         })
         .collect();
     let mut restored = Vec::new();
-    for (client, _, _, _) in &configs {
+    for (client, _, _, _, _) in &configs {
         if !takeover.is_active_for(*client) {
             continue;
         }
         if let Err(error) = takeover.restore(*client) {
             if let Some((base_url, local_credential)) = &gateway {
                 for restored_client in restored.into_iter().rev() {
-                    if let Some((_, model, context1m, isolated)) = configs
+                    if let Some((_, profile, model, context1m, isolated)) = configs
                         .iter()
-                        .find(|(client, _, _, _)| *client == restored_client)
+                        .find(|(client, _, _, _, _)| *client == restored_client)
                     {
                         if let Err(takeover_error) = apply_gateway_config(
                             &takeover,
                             restored_client,
-                            base_url,
+                            &format!("{base_url}/profiles/{profile}"),
                             local_credential,
                             model.as_deref(),
                             *context1m,
