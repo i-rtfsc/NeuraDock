@@ -1,0 +1,26 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/developer_tools_service.rs
+  s_e9dd769d815b63::t_233b51685a5efc 769-770
+  s_e9dd769d815b63::t_c2786eaff14732 765-768,968-979,990-993
+  h_8b376749578497 771-784,980-989
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4ead3c88e0ae8bcabed3ae9b23c4c7509f3cf0c5",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
