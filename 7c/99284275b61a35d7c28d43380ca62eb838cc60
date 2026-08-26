@@ -1,0 +1,33 @@
+apps/desktop/src/components/codex/accounts/AccountsTab.tsx
+  h_8b376749578497 4,533-534,536
+apps/desktop/src/lib/externalUrl.ts
+  s_e9dd769d815b63::t_c68970493ea9e5 8-10
+  h_8b376749578497 1-7
+apps/desktop/src/pages/DeveloperToolPage.tsx
+  s_e9dd769d815b63::t_c68970493ea9e5 190-191
+  h_8b376749578497 18
+apps/desktop/src/lib/externalUrl.test.ts
+  s_e9dd769d815b63::t_c68970493ea9e5 1-12,17
+  h_8b376749578497 13-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7c99284275b61a35d7c28d43380ca62eb838cc60",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
