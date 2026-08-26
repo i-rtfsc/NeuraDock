@@ -1609,9 +1609,13 @@ pub async fn restore_gateway_bindings(
                 }
             }
             Err(e) => {
-                if let Err(remove_error) = access.remove(app, binding.client.into()) {
+                if let Err(remove_error) = access.remove_profile(
+                    app,
+                    binding.client.into(),
+                    binding.isolated.as_ref().map(|target| target.slug.as_str()),
+                ) {
                     log::warn!(
-                        "Failed to remove stale access record for {:?}: {}",
+                        "Failed to remove stale access profile for {:?}: {}",
                         binding.client,
                         remove_error
                     );
