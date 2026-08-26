@@ -5,7 +5,7 @@ use tauri::State;
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
 use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
 use super::gateway_mapping::{
-    access_source_of, client_for_agent, source_from_access, upstream_kind_str,
+    access_source_of, binding_source_input, client_for_agent, source_from_access, upstream_kind_str,
 };
 use super::gateway_persistence::{
     app_data_dir, read_bindings, restore_binding_memory, rollback_binding_change, write_bindings,
@@ -31,6 +31,7 @@ use neuradock_infrastructure::gateway::{
 
 use crate::application::services::{
     ClaudeConfigService, CodexConfigService, GatewayBindingConfigInput, GatewayBindingService,
+    GatewayBindingSourceInput,
 };
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
@@ -306,7 +307,7 @@ pub async fn set_gateway_profile_enabled(
             })?;
         let effective_model = GatewayBindingService::effective_model(meta.model.as_deref());
         let (upstream, _) = resolve_upstream(
-            &meta.source,
+            &binding_source_input(&meta.source),
             meta.kind.into(),
             effective_model.as_deref(),
             meta.impersonate,
@@ -345,7 +346,7 @@ pub async fn set_gateway_profile_enabled(
 /// the single exhaustive place key shapes are read; adding a source variant
 /// fails to compile until handled.
 async fn resolve_upstream(
-    source: &GatewaySourceDto,
+    source: &GatewayBindingSourceInput,
     kind: UpstreamKind,
     model: Option<&str>,
     impersonate: bool,
@@ -353,7 +354,7 @@ async fn resolve_upstream(
     repositories: &Repositories,
 ) -> Result<(GatewayUpstream, String), CommandError> {
     match source {
-        GatewaySourceDto::AccountToken {
+        GatewayBindingSourceInput::AccountToken {
             account_id,
             provider_id,
             token_id,
@@ -415,7 +416,7 @@ async fn resolve_upstream(
                 label,
             ))
         }
-        GatewaySourceDto::IndependentKey { key_id } => {
+        GatewayBindingSourceInput::IndependentKey { key_id } => {
             let id = IndependentKeyId::new(*key_id);
             let key = repositories
                 .independent_key
@@ -1254,7 +1255,7 @@ pub async fn set_gateway_binding(
     let isolated_requested = normalized.isolated;
     let effective_model = GatewayBindingService::effective_model(model.as_deref());
     let (upstream, label) = resolve_upstream(
-        &source,
+        &binding_source_input(&source),
         upstream_kind.into(),
         effective_model.as_deref(),
         impersonate,
@@ -1608,7 +1609,7 @@ pub async fn restore_gateway_bindings(
         }
         let effective_model = GatewayBindingService::effective_model(binding.model.as_deref());
         match resolve_upstream(
-            &binding.source,
+            &binding_source_input(&binding.source),
             binding.kind.into(),
             effective_model.as_deref(),
             binding.impersonate,

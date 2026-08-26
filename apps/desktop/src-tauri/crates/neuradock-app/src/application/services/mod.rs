@@ -23,7 +23,9 @@ pub use balance_service::BalanceService;
 pub use check_in_executor::CheckInExecutor;
 pub use config_service::{ConfigService, LogLevel};
 pub use developer_tools_service::*;
-pub use gateway_binding_service::{GatewayBindingConfigInput, GatewayBindingService};
+pub use gateway_binding_service::{
+    GatewayBindingConfigInput, GatewayBindingService, GatewayBindingSourceInput,
+};
 pub use migration_service::{LegacyImportError, LegacyMigrationService};
 pub use notification_service::NotificationService;
 pub use orphan_account_repair_service::OrphanAccountRepairService;

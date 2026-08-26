@@ -7,6 +7,19 @@ pub struct GatewayBindingConfigInput {
     pub isolated: bool,
 }
 
+#[derive(Debug, Clone)]
+pub enum GatewayBindingSourceInput {
+    AccountToken {
+        account_id: String,
+        provider_id: String,
+        token_id: i64,
+        base_url: Option<String>,
+    },
+    IndependentKey {
+        key_id: i64,
+    },
+}
+
 pub struct NormalizedGatewayBindingConfig {
     pub model: Option<String>,
     pub context1m: bool,

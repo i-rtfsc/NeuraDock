@@ -1,5 +1,6 @@
 use super::agent_access::{AgentAccessSourceDto, AgentIdDto};
 use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
+use crate::application::services::GatewayBindingSourceInput;
 
 pub(super) fn upstream_kind_str(kind: UpstreamKindDto) -> String {
     match kind {
@@ -52,5 +53,24 @@ pub(super) fn client_for_agent(agent: AgentIdDto) -> GatewayClientDto {
     match agent {
         AgentIdDto::Codex => GatewayClientDto::Codex,
         AgentIdDto::ClaudeCode => GatewayClientDto::ClaudeCode,
+    }
+}
+
+pub(super) fn binding_source_input(source: &GatewaySourceDto) -> GatewayBindingSourceInput {
+    match source {
+        GatewaySourceDto::AccountToken {
+            account_id,
+            provider_id,
+            token_id,
+            base_url,
+        } => GatewayBindingSourceInput::AccountToken {
+            account_id: account_id.clone(),
+            provider_id: provider_id.clone(),
+            token_id: *token_id,
+            base_url: base_url.clone(),
+        },
+        GatewaySourceDto::IndependentKey { key_id } => {
+            GatewayBindingSourceInput::IndependentKey { key_id: *key_id }
+        }
     }
 }
