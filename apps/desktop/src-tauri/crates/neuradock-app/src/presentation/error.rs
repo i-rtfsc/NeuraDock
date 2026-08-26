@@ -112,7 +112,7 @@ mod tests {
         assert_eq!(cmd_err.code, 2001); // AccountNotFound code
         assert_eq!(cmd_err.message, "Account 123 not found");
         assert_eq!(cmd_err.severity, ErrorSeverity::Info);
-        assert_eq!(cmd_err.recoverable, false);
+        assert!(!cmd_err.recoverable);
     }
 
     #[test]

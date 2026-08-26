@@ -434,14 +434,16 @@ mod snapshot_tests {
         let dir = tempfile::tempdir().unwrap();
         let takeover = GatewayTakeover::new(dir.path());
 
-        let mut state = TakeoverState::default();
-        state.codex = Some(ClientSnapshot {
-            files: vec![SnapshotFile {
-                live_path: dir.path().join("config.toml"),
-                snapshot_name: Some("codex_config.toml".to_string()),
-                private: false,
-            }],
-        });
+        let state = TakeoverState {
+            codex: Some(ClientSnapshot {
+                files: vec![SnapshotFile {
+                    live_path: dir.path().join("config.toml"),
+                    snapshot_name: Some("codex_config.toml".to_string()),
+                    private: false,
+                }],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
         assert!(takeover.has_stale_takeover());
 
@@ -459,14 +461,16 @@ mod snapshot_tests {
         let live = dir.path().join("settings.json");
         fs::write(&live, "placeholder").unwrap();
 
-        let mut state = TakeoverState::default();
-        state.claude_code = Some(ClientSnapshot {
-            files: vec![SnapshotFile {
-                live_path: live.clone(),
-                snapshot_name: None,
-                private: true,
-            }],
-        });
+        let state = TakeoverState {
+            claude_code: Some(ClientSnapshot {
+                files: vec![SnapshotFile {
+                    live_path: live.clone(),
+                    snapshot_name: None,
+                    private: true,
+                }],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
 
         takeover.restore(GatewayClient::ClaudeCode).unwrap();
@@ -492,14 +496,16 @@ mod snapshot_tests {
         )
         .unwrap();
 
-        let mut state = TakeoverState::default();
-        state.codex = Some(ClientSnapshot {
-            files: vec![SnapshotFile {
-                live_path: live.clone(),
-                snapshot_name: Some("codex_config.toml".to_string()),
-                private: false,
-            }],
-        });
+        let state = TakeoverState {
+            codex: Some(ClientSnapshot {
+                files: vec![SnapshotFile {
+                    live_path: live.clone(),
+                    snapshot_name: Some("codex_config.toml".to_string()),
+                    private: false,
+                }],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
 
         takeover.restore(GatewayClient::Codex).unwrap();
@@ -529,14 +535,16 @@ mod snapshot_tests {
         )
         .unwrap();
 
-        let mut state = TakeoverState::default();
-        state.codex = Some(ClientSnapshot {
-            files: vec![SnapshotFile {
-                live_path: live.clone(),
-                snapshot_name: Some("codex_config.toml".to_string()),
-                private: false,
-            }],
-        });
+        let state = TakeoverState {
+            codex: Some(ClientSnapshot {
+                files: vec![SnapshotFile {
+                    live_path: live.clone(),
+                    snapshot_name: Some("codex_config.toml".to_string()),
+                    private: false,
+                }],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
 
         takeover.discard(GatewayClient::Codex).unwrap();
@@ -567,14 +575,16 @@ mod snapshot_tests {
         fs::write(&live, "model_provider = \"gateway\"\n").unwrap();
         fs::write(takeover.snapshot_dir.join("codex_config.toml"), "").unwrap();
 
-        let mut state = TakeoverState::default();
-        state.codex = Some(ClientSnapshot {
-            files: vec![SnapshotFile {
-                live_path: live.clone(),
-                snapshot_name: Some("codex_config.toml".to_string()),
-                private: false,
-            }],
-        });
+        let state = TakeoverState {
+            codex: Some(ClientSnapshot {
+                files: vec![SnapshotFile {
+                    live_path: live.clone(),
+                    snapshot_name: Some("codex_config.toml".to_string()),
+                    private: false,
+                }],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
 
         assert!(takeover.restore(GatewayClient::Codex).is_err());
@@ -605,21 +615,23 @@ mod snapshot_tests {
         )
         .unwrap();
 
-        let mut state = TakeoverState::default();
-        state.codex = Some(ClientSnapshot {
-            files: vec![
-                SnapshotFile {
-                    live_path: config.clone(),
-                    snapshot_name: Some("config.snapshot".to_string()),
-                    private: false,
-                },
-                SnapshotFile {
-                    live_path: auth.clone(),
-                    snapshot_name: Some("missing.snapshot".to_string()),
-                    private: true,
-                },
-            ],
-        });
+        let state = TakeoverState {
+            codex: Some(ClientSnapshot {
+                files: vec![
+                    SnapshotFile {
+                        live_path: config.clone(),
+                        snapshot_name: Some("config.snapshot".to_string()),
+                        private: false,
+                    },
+                    SnapshotFile {
+                        live_path: auth.clone(),
+                        snapshot_name: Some("missing.snapshot".to_string()),
+                        private: true,
+                    },
+                ],
+            }),
+            ..Default::default()
+        };
         takeover.save_state(&state).unwrap();
 
         assert!(takeover.restore(GatewayClient::Codex).is_err());
