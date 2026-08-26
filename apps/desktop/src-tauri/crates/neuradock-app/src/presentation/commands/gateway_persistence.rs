@@ -151,3 +151,53 @@ pub(super) async fn rollback_binding_change(
         log::error!("Failed to roll back agent access record: {}", error);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use neuradock_infrastructure::gateway::{GatewayClient, UpstreamKind};
+
+    fn upstream(id: &str) -> GatewayUpstream {
+        GatewayUpstream {
+            id: id.into(),
+            label: id.into(),
+            base_url: "https://relay.example/v1".into(),
+            api_key: "secret".into(),
+            kind: UpstreamKind::OpenAiResponses,
+            model: None,
+            impersonate: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn restoring_isolated_route_does_not_touch_default_route() {
+        let state = GatewayState::default();
+        let default_route = GatewayRoute::default(GatewayClient::Codex);
+        let isolated_route = GatewayRoute {
+            client: GatewayClient::Codex,
+            profile: "relay-a".into(),
+        };
+        state
+            .bindings
+            .write()
+            .await
+            .insert(default_route.clone(), upstream("default"));
+        state
+            .bindings
+            .write()
+            .await
+            .insert(isolated_route.clone(), upstream("new"));
+
+        restore_binding_memory(&state, isolated_route.clone(), Some(upstream("old")), None).await;
+
+        let bindings = state.bindings.read().await;
+        assert_eq!(
+            bindings.get(&default_route).map(|value| value.id.as_str()),
+            Some("default")
+        );
+        assert_eq!(
+            bindings.get(&isolated_route).map(|value| value.id.as_str()),
+            Some("old")
+        );
+    }
+}
