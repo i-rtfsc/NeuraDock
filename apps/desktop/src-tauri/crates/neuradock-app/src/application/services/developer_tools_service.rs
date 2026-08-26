@@ -226,7 +226,11 @@ impl DeveloperToolsService {
         {
             return Err(anyhow!("A connection service cannot be changed"));
         }
-        let encrypted_secret = match input.secret.as_deref().filter(|value| !value.is_empty()) {
+        let encrypted_secret = match input
+            .secret
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
             Some(secret) => Some(self.encryption.encrypt(secret)?),
             None => existing
                 .as_ref()
@@ -781,7 +785,7 @@ fn validate_connection(input: &SaveDeveloperToolConnectionInput) -> Result<()> {
         && input
             .secret
             .as_deref()
-            .is_some_and(|value| !value.is_empty())
+            .is_some_and(|value| !value.trim().is_empty())
     {
         return Err(anyhow!("Anonymous connections cannot include a secret"));
     }
@@ -1002,6 +1006,8 @@ mod tests {
 
         input.secret = None;
         assert!(validate_connection(&input).is_err());
+        input.secret = Some("   ".into());
+        assert!(validate_connection(&input).is_err());
         input.id = Some("existing".into());
         assert!(validate_connection(&input).is_ok());
 
@@ -1010,5 +1016,7 @@ mod tests {
         input.auth_method = "anonymous".into();
         input.secret = Some("unexpected".into());
         assert!(validate_connection(&input).is_err());
+        input.secret = Some("   ".into());
+        assert!(validate_connection(&input).is_ok());
     }
 }
