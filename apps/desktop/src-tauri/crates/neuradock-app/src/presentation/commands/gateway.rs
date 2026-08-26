@@ -1713,6 +1713,7 @@ pub async fn stop_gateway_server(
         .lock()
         .await
         .iter()
+        .filter(|(_, meta)| meta.enabled)
         .map(|(client, meta)| {
             (
                 client.client,
