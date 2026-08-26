@@ -353,6 +353,13 @@ async fn resolve_upstream(
     services: &Services,
     repositories: &Repositories,
 ) -> Result<(GatewayUpstream, String), CommandError> {
+    let context = GatewayResolveContext {
+        kind,
+        model,
+        impersonate,
+        services,
+        repositories,
+    };
     match source {
         GatewayBindingSourceInput::AccountToken {
             account_id,
@@ -365,42 +372,43 @@ async fn resolve_upstream(
                 provider_id,
                 *token_id,
                 base_url.as_deref(),
-                kind,
-                model,
-                impersonate,
-                services,
-                repositories,
+                &context,
             )
             .await
         }
         GatewayBindingSourceInput::IndependentKey { key_id } => {
-            resolve_independent_upstream(*key_id, kind, model, impersonate, repositories).await
+            resolve_independent_upstream(*key_id, &context).await
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+struct GatewayResolveContext<'a> {
+    kind: UpstreamKind,
+    model: Option<&'a str>,
+    impersonate: bool,
+    services: &'a Services,
+    repositories: &'a Repositories,
+}
+
 async fn resolve_account_upstream(
     account_id: &str,
     provider_id: &str,
     token_id: i64,
     base_url: Option<&str>,
-    kind: UpstreamKind,
-    model: Option<&str>,
-    impersonate: bool,
-    services: &Services,
-    repositories: &Repositories,
+    context: &GatewayResolveContext<'_>,
 ) -> Result<(GatewayUpstream, String), CommandError> {
     let upstream_id = format!("account:{account_id}:{token_id}");
     let account_id = AccountId::from_string(account_id);
     let token_id = neuradock_domain::token::TokenId::new(token_id);
-    let account = repositories
+    let account = context
+        .repositories
         .account
         .find_by_id(&account_id)
         .await
         .map_err(CommandError::from)?
         .ok_or_else(|| CommandError::not_found("Account not found"))?;
-    let tokens = services
+    let tokens = context
+        .services
         .token
         .get_cached_tokens(&account_id)
         .await
@@ -417,7 +425,8 @@ async fn resolve_account_upstream(
             "The selected provider does not belong to this account.",
         ));
     }
-    let provider = repositories
+    let provider = context
+        .repositories
         .provider
         .find_by_id(&provider_id)
         .await
@@ -440,9 +449,9 @@ async fn resolve_account_upstream(
             label: label.clone(),
             base_url,
             api_key: token.key().to_string(),
-            kind,
-            model: model.map(str::to_string),
-            impersonate,
+            kind: context.kind,
+            model: context.model.map(str::to_string),
+            impersonate: context.impersonate,
         },
         label,
     ))
@@ -450,13 +459,11 @@ async fn resolve_account_upstream(
 
 async fn resolve_independent_upstream(
     key_id: i64,
-    kind: UpstreamKind,
-    model: Option<&str>,
-    impersonate: bool,
-    repositories: &Repositories,
+    context: &GatewayResolveContext<'_>,
 ) -> Result<(GatewayUpstream, String), CommandError> {
     let id = IndependentKeyId::new(key_id);
-    let key = repositories
+    let key = context
+        .repositories
         .independent_key
         .find_by_id(&id)
         .await
@@ -473,9 +480,9 @@ async fn resolve_independent_upstream(
             label: key.name().to_string(),
             base_url: key.base_url().to_string(),
             api_key: key.api_key().to_string(),
-            kind,
-            model: model.map(str::to_string),
-            impersonate,
+            kind: context.kind,
+            model: context.model.map(str::to_string),
+            impersonate: context.impersonate,
         },
         key.name().to_string(),
     ))
