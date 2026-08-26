@@ -1622,10 +1622,11 @@ pub async fn start_gateway_server(
             .lock()
             .await
             .iter()
-            .filter(|(client, _)| {
-                access
-                    .get(GatewayClientDto::from(client.client).into())
-                    .is_none_or(|record| record.method == AccessMethodDto::Gateway)
+            .filter(|(client, meta)| {
+                meta.enabled
+                    && access
+                        .get(GatewayClientDto::from(client.client).into())
+                        .is_none_or(|record| record.method == AccessMethodDto::Gateway)
             })
             .map(|(client, meta)| {
                 (
