@@ -18,6 +18,7 @@ pub use nodes::*;
 mod models;
 pub use models::*;
 
+use crate::application::services::{ensure_token_usable, TokenUsabilityError};
 use crate::presentation::error::CommandError;
 use neuradock_domain::account::Account;
 use neuradock_domain::token::ApiToken;
@@ -29,17 +30,14 @@ pub(crate) fn ensure_account_token_usable(
     account: &Account,
     token: &ApiToken,
 ) -> Result<(), CommandError> {
-    if !account.is_enabled() {
-        return Err(CommandError::validation(
+    ensure_token_usable(account, token).map_err(|error| match error {
+        TokenUsabilityError::AccountDisabled => CommandError::validation(
             "Cannot configure a token from a disabled account. Enable the account first.",
-        ));
-    }
-    if !token.is_active() {
-        return Err(CommandError::validation(
+        ),
+        TokenUsabilityError::TokenInactive => CommandError::validation(
             "Cannot configure a disabled or expired token. Enable the token first.",
-        ));
-    }
-    Ok(())
+        ),
+    })
 }
 
 #[cfg(test)]

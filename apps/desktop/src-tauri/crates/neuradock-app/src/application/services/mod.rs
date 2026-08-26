@@ -15,6 +15,7 @@ pub mod reminder;
 mod reminder_settings_service;
 mod scheduler;
 pub mod token;
+mod token_policy;
 mod user_info_service;
 mod waf_cookie_manager;
 
@@ -35,3 +36,4 @@ pub use proxy_config_service::ProxyConfigService;
 pub use reminder_settings_service::ReminderSettingsService;
 pub use scheduler::{AutoCheckInScheduler, SchedulerDeps};
 pub use token::{ClaudeConfigService, CodexConfigService, GatewayTakeover, TokenService};
+pub use token_policy::{ensure_token_usable, TokenUsabilityError};
