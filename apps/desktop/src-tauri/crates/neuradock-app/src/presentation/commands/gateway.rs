@@ -289,11 +289,16 @@ pub async fn set_gateway_profile_enabled(
         profile,
     };
     if !enabled {
+        let old_upstream = state.bindings.read().await.get(&route).cloned();
+        let old_meta = state.meta.lock().await.get(&route).cloned();
         state.bindings.write().await.remove(&route);
         if let Some(meta) = state.meta.lock().await.get_mut(&route) {
             meta.enabled = false;
         }
-        write_bindings(&app, &state).await?;
+        if let Err(error) = write_bindings(&app, &state).await {
+            restore_binding_memory(&state, route, old_upstream, old_meta).await;
+            return Err(error);
+        }
     } else {
         let meta = state
             .meta
@@ -316,11 +321,16 @@ pub async fn set_gateway_profile_enabled(
             &repositories,
         )
         .await?;
+        let old_upstream = state.bindings.read().await.get(&route).cloned();
+        let old_meta = state.meta.lock().await.get(&route).cloned();
         state.bindings.write().await.insert(route.clone(), upstream);
         if let Some(saved) = state.meta.lock().await.get_mut(&route) {
             saved.enabled = true;
         }
-        write_bindings(&app, &state).await?;
+        if let Err(error) = write_bindings(&app, &state).await {
+            restore_binding_memory(&state, route, old_upstream, old_meta).await;
+            return Err(error);
+        }
         if state.server.lock().await.is_none() {
             start_gateway_server(app.clone(), state.clone(), access.clone()).await?;
         } else {
