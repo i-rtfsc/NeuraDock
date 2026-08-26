@@ -37,4 +37,42 @@ impl GatewayBindingService {
             isolated: config.isolated,
         })
     }
+
+    pub fn effective_model(model: Option<&str>) -> Option<String> {
+        model.map(str::to_string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context_requires_a_model() {
+        let result = GatewayBindingService::normalize_config(GatewayBindingConfigInput {
+            model: None,
+            context1m: true,
+            impersonate: None,
+            isolated: false,
+        });
+        assert!(matches!(
+            result,
+            Err(GatewayBindingConfigError::ContextRequiresModel)
+        ));
+    }
+
+    #[test]
+    fn normalization_applies_defaults_and_preserves_flags() {
+        let result = GatewayBindingService::normalize_config(GatewayBindingConfigInput {
+            model: Some("gpt-5".into()),
+            context1m: true,
+            impersonate: None,
+            isolated: true,
+        })
+        .unwrap();
+        assert_eq!(result.model.as_deref(), Some("gpt-5"));
+        assert!(result.context1m);
+        assert!(result.impersonate);
+        assert!(result.isolated);
+    }
 }

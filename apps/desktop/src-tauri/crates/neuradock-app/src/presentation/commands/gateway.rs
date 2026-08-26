@@ -87,19 +87,6 @@ pub enum UpstreamKindDto {
     Anthropic,
 }
 
-fn effective_gateway_model(
-    _client: GatewayClientDto,
-    model: Option<&str>,
-    _context1m: bool,
-) -> Option<String> {
-    // `[1m]` is a Claude Code configuration marker, not an upstream model id.
-    // The takeover layer adds it to Claude's local settings so Claude Code can
-    // emit the corresponding context beta header. The gateway binding itself
-    // must keep the real upstream model name, separate from local capability
-    // markers written into the tool configuration.
-    model.map(str::to_string)
-}
-
 impl From<UpstreamKindDto> for UpstreamKind {
     fn from(dto: UpstreamKindDto) -> Self {
         match dto {
@@ -317,8 +304,7 @@ pub async fn set_gateway_profile_enabled(
                     "This Profile has no saved Gateway binding; edit and save it first.",
                 )
             })?;
-        let effective_model =
-            effective_gateway_model(client, meta.model.as_deref(), meta.context1m);
+        let effective_model = GatewayBindingService::effective_model(meta.model.as_deref());
         let (upstream, _) = resolve_upstream(
             &meta.source,
             meta.kind.into(),
@@ -1266,7 +1252,7 @@ pub async fn set_gateway_binding(
     let context1m = normalized.context1m;
     let impersonate = normalized.impersonate;
     let isolated_requested = normalized.isolated;
-    let effective_model = effective_gateway_model(client, model.as_deref(), context1m);
+    let effective_model = GatewayBindingService::effective_model(model.as_deref());
     let (upstream, label) = resolve_upstream(
         &source,
         upstream_kind.into(),
@@ -1620,8 +1606,7 @@ pub async fn restore_gateway_bindings(
             );
             continue;
         }
-        let effective_model =
-            effective_gateway_model(binding.client, binding.model.as_deref(), binding.context1m);
+        let effective_model = GatewayBindingService::effective_model(binding.model.as_deref());
         match resolve_upstream(
             &binding.source,
             binding.kind.into(),
@@ -1867,11 +1852,11 @@ mod tests {
     #[test]
     fn gateway_upstream_model_never_carries_1m_suffix() {
         assert_eq!(
-            effective_gateway_model(GatewayClientDto::ClaudeCode, Some("claude-sonnet-4"), true),
+            GatewayBindingService::effective_model(Some("claude-sonnet-4")),
             Some("claude-sonnet-4".to_string())
         );
         assert_eq!(
-            effective_gateway_model(GatewayClientDto::Codex, Some("gpt-5"), true),
+            GatewayBindingService::effective_model(Some("gpt-5")),
             Some("gpt-5".to_string())
         );
     }
