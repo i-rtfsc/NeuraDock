@@ -31,7 +31,7 @@ use neuradock_infrastructure::gateway::{
 
 use crate::application::services::{
     ClaudeConfigService, CodexConfigService, GatewayBindingConfigInput, GatewayBindingService,
-    GatewayBindingSourceInput,
+    GatewayBindingSourceInput, GatewayUpstreamInput,
 };
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
@@ -444,15 +444,17 @@ async fn resolve_account_upstream(
     );
 
     Ok((
-        GatewayUpstream {
-            id: upstream_id,
-            label: label.clone(),
-            base_url,
-            api_key: token.key().to_string(),
-            kind: context.kind,
-            model: context.model.map(str::to_string),
-            impersonate: context.impersonate,
-        },
+        GatewayBindingService::build_upstream(
+            GatewayUpstreamInput {
+                id: upstream_id,
+                label: label.clone(),
+                base_url,
+                api_key: token.key().to_string(),
+                model: context.model.map(str::to_string),
+                impersonate: context.impersonate,
+            },
+            context.kind,
+        ),
         label,
     ))
 }
@@ -475,15 +477,17 @@ async fn resolve_independent_upstream(
         ));
     }
     Ok((
-        GatewayUpstream {
-            id: format!("independent:{key_id}"),
-            label: key.name().to_string(),
-            base_url: key.base_url().to_string(),
-            api_key: key.api_key().to_string(),
-            kind: context.kind,
-            model: context.model.map(str::to_string),
-            impersonate: context.impersonate,
-        },
+        GatewayBindingService::build_upstream(
+            GatewayUpstreamInput {
+                id: format!("independent:{key_id}"),
+                label: key.name().to_string(),
+                base_url: key.base_url().to_string(),
+                api_key: key.api_key().to_string(),
+                model: context.model.map(str::to_string),
+                impersonate: context.impersonate,
+            },
+            context.kind,
+        ),
         key.name().to_string(),
     ))
 }

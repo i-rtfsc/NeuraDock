@@ -27,6 +27,15 @@ pub struct NormalizedGatewayBindingConfig {
     pub isolated: bool,
 }
 
+pub struct GatewayUpstreamInput {
+    pub id: String,
+    pub label: String,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: Option<String>,
+    pub impersonate: bool,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum GatewayBindingConfigError {
     #[error("1M context requires selecting a model.")]
@@ -53,6 +62,21 @@ impl GatewayBindingService {
 
     pub fn effective_model(model: Option<&str>) -> Option<String> {
         model.map(str::to_string)
+    }
+
+    pub fn build_upstream(
+        input: GatewayUpstreamInput,
+        kind: neuradock_infrastructure::gateway::UpstreamKind,
+    ) -> neuradock_infrastructure::gateway::GatewayUpstream {
+        neuradock_infrastructure::gateway::GatewayUpstream {
+            id: input.id,
+            label: input.label,
+            base_url: input.base_url,
+            api_key: input.api_key,
+            kind,
+            model: input.model,
+            impersonate: input.impersonate,
+        }
     }
 }
 
