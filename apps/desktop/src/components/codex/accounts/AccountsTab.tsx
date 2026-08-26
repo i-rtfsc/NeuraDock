@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { open } from '@tauri-apps/plugin-shell';
+import { safeExternalUrl } from '@/lib/externalUrl';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -529,9 +530,10 @@ export function AccountsTab() {
         onGenerate={handleGeneratePaymentLink}
         onCopy={() => copyText(generatedPaymentLink?.url, 'codex.payment.linkCopied')}
         onOpenLink={async () => {
-          if (!generatedPaymentLink?.url) return;
+          const safeUrl = safeExternalUrl(generatedPaymentLink?.url);
+          if (!safeUrl) return;
           try {
-            await open(generatedPaymentLink.url);
+            await open(safeUrl);
           } catch (error) {
             toast.error(t('codex.payment.openFailed', { message: error instanceof Error ? error.message : String(error) }));
           }

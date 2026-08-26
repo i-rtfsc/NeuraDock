@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { extractErrorMessage } from '@/lib/errorHandling';
+import { safeExternalUrl } from '@/lib/externalUrl';
 import { commands, type CommandError, type DeveloperToolConnectionDto, type GerritChangeDto, type JiraIssueDto, type JiraMetadataDto, type SavedDeveloperToolQueryDto } from '@/lib/tauri';
 
 type Service = 'jira' | 'gerrit';
@@ -186,7 +187,8 @@ function ResultTable({ service, results }: { service: Service; results: (JiraIss
   </TableRow></TableHeader><TableBody>{results.map((item) => {
     const jira = service === 'jira' ? item as JiraIssue : null; const gerrit = service === 'gerrit' ? item as GerritChange : null;
     const url = jira?.url ?? gerrit?.url ?? '';
-    return <TableRow key={jira?.key ?? gerrit?.id}><TableCell className="font-mono text-xs">{jira?.key ?? gerrit?.id}</TableCell><TableCell className="max-w-lg truncate">{jira?.summary ?? gerrit?.subject}</TableCell><TableCell>{jira?.project ?? gerrit?.project}</TableCell><TableCell><Badge variant="outline">{jira?.status ?? gerrit?.status}</Badge></TableCell><TableCell>{jira?.assignee ?? gerrit?.owner}</TableCell><TableCell><Button variant="ghost" size="icon-sm" title="Open" onClick={() => open(url)}><ExternalLink className="h-3.5 w-3.5" /></Button></TableCell></TableRow>;
+    const safeUrl = safeExternalUrl(url);
+    return <TableRow key={jira?.key ?? gerrit?.id}><TableCell className="font-mono text-xs">{jira?.key ?? gerrit?.id}</TableCell><TableCell className="max-w-lg truncate">{jira?.summary ?? gerrit?.subject}</TableCell><TableCell>{jira?.project ?? gerrit?.project}</TableCell><TableCell><Badge variant="outline">{jira?.status ?? gerrit?.status}</Badge></TableCell><TableCell>{jira?.assignee ?? gerrit?.owner}</TableCell><TableCell>{safeUrl ? <Button variant="ghost" size="icon-sm" title="Open" onClick={() => open(safeUrl)}><ExternalLink className="h-3.5 w-3.5" /></Button> : null}</TableCell></TableRow>;
   })}</TableBody></Table></div>;
 }
 
