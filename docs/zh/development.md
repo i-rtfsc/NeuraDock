@@ -84,9 +84,8 @@ make package-all-macos
 ```
 
 生成：
-- `NeuraDock_0.5.0_aarch64.dmg` - Apple Silicon
-- `NeuraDock_0.5.0_x64.dmg` - Intel
-- `NeuraDock_0.5.0_universal.dmg` - Universal Binary
+- `NeuraDock_1.2.0_aarch64.dmg` - Apple Silicon
+- `NeuraDock_1.2.0_x64.dmg` - Intel
 
 #### 4. 指定架构
 
@@ -176,21 +175,20 @@ git push origin test-ci
 
 ```bash
 # 1. 更新版本号
-# 编辑以下文件中的 version:
-# - apps/desktop/src-tauri/tauri.conf.json
-# - apps/desktop/package.json
+# 同步项目元数据中的 version，并运行：
+make verify-version
 
 # 2. 提交版本更新
 git add .
-git commit -m "chore: bump version to v0.5.0"
+git commit -m "chore(release): bump version to 1.2.0"
 ```
 
 #### 2. 创建并推送 Tag
 
 ```bash
-git tag v0.5.0
+git tag v1.2.0
 git push origin main
-git push origin v0.5.0
+git push origin v1.2.0
 ```
 
 #### 3. 自动构建
@@ -214,7 +212,7 @@ GitHub Actions 会自动：
 1. 打开 **Actions** 标签
 2. 选择 **Release** workflow
 3. 点击 **Run workflow**
-4. 输入版本号（如 `v0.5.0`）
+4. 输入版本号（如 `v1.2.0`）
 5. 选择是否创建 Release
 6. 点击 **Run workflow**
 
@@ -224,29 +222,20 @@ GitHub Actions 会自动：
 
 ### macOS
 
-```
-NeuraDock_0.5.0_universal.dmg          (约 11MB)
-├─ 支持 Intel Mac (x86_64)
-└─ 支持 Apple Silicon Mac (aarch64)
-```
-
-**为什么选择 Universal Binary？**
-- ✅ 一个文件适配所有 Mac
-- ✅ 用户无需选择架构
-- ✅ 苹果官方推荐格式
+发布流程分别生成 Apple Silicon 与 Intel DMG，并附带 SHA-256 校验文件。
 
 ### Windows
 
 ```
-NeuraDock_0.5.0_x64_en-US.msi          (约 9MB)
+NeuraDock_1.2.0_x64_en-US.msi
 └─ 64 位安装程序
 ```
 
 ### Linux
 
 ```
-neuradock_0.5.0_amd64.deb              (约 10MB)  - Debian/Ubuntu
-neuradock_0.5.0_amd64.AppImage         (约 15MB)  - 通用格式（推荐）
+neuradock_1.2.0_amd64.deb              - Debian/Ubuntu
+neuradock_1.2.0_amd64.AppImage         - 通用格式
 ```
 
 **推荐 AppImage**：

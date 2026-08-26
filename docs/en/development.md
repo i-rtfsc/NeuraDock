@@ -155,16 +155,15 @@ yamllint .github/workflows
 ### Quick Release (5 minutes)
 
 \`\`\`bash
-# 1. Update version numbers in:
-#    - apps/desktop/src-tauri/tauri.conf.json
-#    - apps/desktop/package.json
+# 1. Synchronize version metadata, then verify it:
+make verify-version
 
 # 2. Create and push tag
 git add .
-git commit -m "chore: bump version to v0.5.0"
-git tag v0.5.0
+git commit -m "chore(release): bump version to 1.2.0"
+git tag v1.2.0
 git push origin main
-git push origin v0.5.0
+git push origin v1.2.0
 
 # 3. Wait ~20 minutes for GitHub Actions
 
