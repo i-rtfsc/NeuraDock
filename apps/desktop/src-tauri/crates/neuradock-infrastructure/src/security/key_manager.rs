@@ -245,6 +245,30 @@ mod tests {
     }
 
     #[test]
+    fn pending_master_key_survives_restart_and_promotes_atomically() {
+        let (manager, temp_dir) = create_test_manager();
+        manager.initialize().unwrap();
+        let key = manager.generate_migration_key().unwrap();
+        manager.save_pending_master_key(&key).unwrap();
+
+        let restarted = KeyManager::new(temp_dir.path().to_path_buf());
+        assert_eq!(restarted.load_pending_master_key().unwrap(), Some(key));
+        assert!(!restarted.master_key_path.exists());
+
+        restarted.promote_pending_master_key().unwrap();
+        assert_eq!(restarted.load_master_key().unwrap(), key);
+        assert!(!restarted.pending_master_key_path.exists());
+    }
+
+    #[test]
+    fn promoting_without_pending_key_is_a_noop() {
+        let (manager, _temp_dir) = create_test_manager();
+
+        manager.promote_pending_master_key().unwrap();
+        assert!(!manager.master_key_path.exists());
+    }
+
+    #[test]
     fn test_initialize_loads_existing_salt() {
         let (manager, _temp_dir) = create_test_manager();
 
