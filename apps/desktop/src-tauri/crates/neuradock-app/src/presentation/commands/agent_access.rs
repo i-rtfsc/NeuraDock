@@ -104,7 +104,18 @@ impl AgentAccessState {
         agent: AgentIdDto,
         isolated_slug: Option<&str>,
     ) -> RemovedProfileState {
-        let key = format!("{:?}:{}", agent, isolated_slug.unwrap_or("default"));
+        let key = profile_key(&AgentAccessDto {
+            agent,
+            method: AccessMethodDto::Gateway,
+            label: String::new(),
+            account_label: None,
+            model: None,
+            upstream_kind: None,
+            impersonate: None,
+            source: None,
+            context1m: None,
+            isolated_slug: isolated_slug.map(str::to_string),
+        });
         let previous_record = self.records.lock().unwrap().get(&agent).cloned();
         let previous_profile = self.profiles.lock().unwrap().remove(&key);
         if previous_record
@@ -405,5 +416,34 @@ mod tests {
                 .and_then(|record| record.isolated_slug),
             Some("relay-a".into())
         );
+    }
+
+    #[test]
+    fn removing_non_current_profile_preserves_current_summary() {
+        let state = AgentAccessState::default();
+        let default = record(None);
+        let isolated = record(Some("relay-a"));
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&default), default.clone());
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .insert(profile_key(&isolated), isolated);
+        state
+            .records
+            .lock()
+            .unwrap()
+            .insert(AgentIdDto::Codex, default);
+
+        state.remove_profile_from_memory(AgentIdDto::Codex, Some("relay-a"));
+
+        assert_eq!(state.list(AgentIdDto::Codex).len(), 1);
+        assert!(state
+            .get(AgentIdDto::Codex)
+            .is_some_and(|record| record.isolated_slug.is_none()));
     }
 }
