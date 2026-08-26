@@ -353,8 +353,25 @@ pub async fn set_gateway_profile_enabled(
                 .as_ref()
                 .ok_or_else(|| CommandError::infrastructure("Gateway stopped unexpectedly"))?;
             let profile_base = format!("{}/profiles/{}", handle.base_url(), route.profile);
+            let takeover = match takeover_for(&app) {
+                Ok(takeover) => takeover,
+                Err(error) => {
+                    drop(server);
+                    restore_binding_memory(
+                        &state,
+                        route.clone(),
+                        old_upstream.clone(),
+                        old_meta.clone(),
+                    )
+                    .await;
+                    if let Err(write_error) = write_bindings(&app, &state).await {
+                        log::error!("Failed to persist profile rollback: {}", write_error);
+                    }
+                    return Err(error);
+                }
+            };
             if let Err(error) = apply_gateway_config(
-                &takeover_for(&app)?,
+                &takeover,
                 route.client,
                 &profile_base,
                 handle.local_credential(),
