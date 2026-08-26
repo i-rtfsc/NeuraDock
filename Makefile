@@ -159,10 +159,10 @@ verify-version: ## Verify package, Tauri, Cargo, and README versions match
 verify-doc-commands: ## Verify documented make targets exist
 	@node scripts/verify-doc-commands.mjs
 
-check-backend: ## cargo fmt --check + clippy -D warnings
+check-backend: ## cargo fmt/check + Clippy for all workspace targets
 	@cd $(TAURI_DIR) && cargo fmt --all --check
 	@cd $(TAURI_DIR) && cargo check --workspace
-	@cd $(TAURI_DIR) && cargo clippy --workspace -- -D warnings
+	@cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
 check-frontend: ## TypeScript typecheck (tsc --noEmit)
 	@cd $(DESKTOP_DIR) && $(PNPM) exec tsc -p tsconfig.json --noEmit

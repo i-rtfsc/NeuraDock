@@ -74,7 +74,7 @@ async fn seed_builtin_providers_migrates_stale_provider_references() {
         .expect("save custom node");
 
     provider_models_repo
-        .save(stale_provider_id.as_str(), &vec!["model-a".to_string()])
+        .save(stale_provider_id.as_str(), &["model-a".to_string()])
         .await
         .expect("save provider models");
 

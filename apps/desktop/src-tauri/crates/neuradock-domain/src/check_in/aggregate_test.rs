@@ -70,7 +70,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Completed);
         assert!(job.result().is_some());
-        assert_eq!(job.result().unwrap().success, true);
+        assert!(job.result().unwrap().success);
     }
 
     #[test]
@@ -240,6 +240,6 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(job.status(), &CheckInStatus::Completed);
         assert!(job.result().is_some());
-        assert_eq!(job.result().unwrap().success, false);
+        assert!(!job.result().unwrap().success);
     }
 }

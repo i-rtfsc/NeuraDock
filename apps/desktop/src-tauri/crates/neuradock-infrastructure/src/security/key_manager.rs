@@ -285,7 +285,7 @@ mod tests {
 
         // Write invalid salt (wrong length)
         fs::create_dir_all(manager.salt_path().parent().unwrap()).unwrap();
-        fs::write(manager.salt_path(), &[0u8; 16]).unwrap(); // Only 16 bytes
+        fs::write(manager.salt_path(), [0u8; 16]).unwrap(); // Only 16 bytes
 
         let result = manager.initialize();
 

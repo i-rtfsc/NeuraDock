@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_decrypt_too_short_data_fails() {
         let service = create_test_service();
-        let short_data = general_purpose::STANDARD.encode(&[0u8; 10]);
+        let short_data = general_purpose::STANDARD.encode([0u8; 10]);
         let result = service.decrypt(&short_data);
 
         assert!(result.is_err());

@@ -84,7 +84,7 @@ Infrastructure repositories / HTTP / gateway / browser / encryption / migrations
 
 影响：IDE、贡献者和外部 CI 运行常规 `cargo check --workspace` 时得到误导性失败；同一源码可能被重复编译；配置路径重构风险高。
 
-解决：选择单一方案：将 Tauri package 放在 `apps/desktop/src-tauri` 根并让真实 app crate 成为唯一 package，或使用 build script 传递绝对/规范化配置路径并移除影子 package。最终验收要求 `cargo check --workspace`、`cargo test --workspace`、`cargo clippy --workspace -- -D warnings` 均可直接运行。
+解决：选择单一方案：将 Tauri package 放在 `apps/desktop/src-tauri` 根并让真实 app crate 成为唯一 package，或使用 build script 传递绝对/规范化配置路径并移除影子 package。最终验收要求 `cargo check --workspace`、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings` 均可直接运行。
 
 ### P1：IPC 类型安全未形成强制边界
 

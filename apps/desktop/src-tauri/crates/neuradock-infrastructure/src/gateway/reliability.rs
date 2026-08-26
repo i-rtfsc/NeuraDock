@@ -399,6 +399,14 @@ pub fn usage_from_json(value: &serde_json::Value) -> GatewayTokenUsage {
     }
 }
 
+pub(crate) fn circuit_failure_status(status: StatusCode) -> bool {
+    status.is_server_error()
+        || matches!(
+            status,
+            StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
+        )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -562,11 +570,4 @@ mod tests {
         assert_eq!(responses.output_tokens, 5);
         assert_eq!(responses.cache_read_tokens, 4);
     }
-}
-pub(crate) fn circuit_failure_status(status: StatusCode) -> bool {
-    status.is_server_error()
-        || matches!(
-            status,
-            StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
-        )
 }
