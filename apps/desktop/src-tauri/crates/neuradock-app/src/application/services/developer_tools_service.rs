@@ -763,7 +763,11 @@ fn validate_connection(input: &SaveDeveloperToolConnectionInput) -> Result<()> {
         _ => {}
     }
     let url = Url::parse(&input.base_url).context("Invalid base URL")?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || url.username() != ""
+        || url.password().is_some()
+    {
         return Err(anyhow!("Base URL must be HTTP or HTTPS"));
     }
     Ok(())
@@ -923,5 +927,22 @@ mod tests {
         assert!(
             validate_profile(r#"{"schema_version":1,"status_mappings":{"42":"invalid"}}"#).is_err()
         );
+    }
+
+    #[test]
+    fn connection_base_url_rejects_embedded_credentials() {
+        let input = SaveDeveloperToolConnectionInput {
+            id: None,
+            name: "Jira".into(),
+            service: "jira".into(),
+            base_url: "https://user:secret@example.com".into(),
+            deployment: "jira_cloud".into(),
+            auth_method: "api_token".into(),
+            username: None,
+            secret: None,
+            profile_json: None,
+        };
+
+        assert!(validate_connection(&input).is_err());
     }
 }
