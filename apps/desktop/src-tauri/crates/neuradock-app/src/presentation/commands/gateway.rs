@@ -5,7 +5,8 @@ use tauri::State;
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
 use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
 use super::gateway_mapping::{
-    access_source_of, binding_source_input, client_for_agent, source_from_access, upstream_kind_str,
+    access_source_of, binding_route, binding_source_input, client_for_agent, source_from_access,
+    upstream_kind_str,
 };
 use super::gateway_persistence::{
     app_data_dir, read_bindings, restore_binding_memory, rollback_binding_change, write_bindings,
@@ -1114,66 +1115,6 @@ async fn preview_direct(
     }
 }
 
-/* async fn restore_binding_memory_legacy(
-    state: &GatewayState,
-    route: GatewayRoute,
-    upstream: Option<GatewayUpstream>,
-    meta: Option<BindingMeta>,
-) {
-    let mut bindings = state.bindings.write().await;
-    match upstream {
-        Some(upstream) => {
-            bindings.insert(route.clone(), upstream);
-        }
-        None => {
-            bindings.remove(&route);
-        }
-    }
-    drop(bindings);
-
-    let mut metadata = state.meta.lock().await;
-    match meta {
-        Some(meta) => {
-            metadata.insert(route.clone(), meta);
-        }
-        None => {
-            metadata.remove(&route);
-        }
-    }
-}
-
-fn restore_access_record_legacy(
-    app: &tauri::AppHandle,
-    access: &AgentAccessState,
-    agent: AgentIdDto,
-    record: Option<AgentAccessDto>,
-) -> Result<(), CommandError> {
-    match record {
-        Some(record) => access.set(app, record),
-        None => access.remove(app, agent),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn rollback_binding_change_legacy(
-    app: &tauri::AppHandle,
-    state: &GatewayState,
-    access: &AgentAccessState,
-    client: GatewayClient,
-    agent: AgentIdDto,
-    old_upstream: Option<GatewayUpstream>,
-    old_meta: Option<BindingMeta>,
-    old_access: Option<AgentAccessDto>,
-) {
-    restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
-    if let Err(error) = write_bindings(app, state).await {
-        log::error!("Failed to roll back gateway bindings: {}", error);
-    }
-    if let Err(error) = restore_access_record(app, access, agent, old_access) {
-        log::error!("Failed to roll back agent access record: {}", error);
-    }
-} */
-
 /// Bind a client (Codex / Claude Code) to an upstream relay key. If the
 /// gateway is running, the client's tool config is (re)taken over immediately.
 #[tauri::command]
@@ -1231,13 +1172,10 @@ pub async fn set_gateway_binding(
             .map(|account| account.name().to_string()),
         AgentAccessSourceDto::IndependentKey { .. } => None,
     };
-    let route = GatewayRoute {
-        client: gateway_client,
-        profile: isolated
-            .as_ref()
-            .map(|target| target.slug.clone())
-            .unwrap_or_else(|| "default".to_string()),
-    };
+    let route = binding_route(
+        gateway_client,
+        isolated.as_ref().map(|target| target.slug.as_str()),
+    );
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
     let old_access = access.get(agent);
@@ -1353,13 +1291,12 @@ pub async fn clear_gateway_binding(
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
     let old_access = access.get(agent);
-    let route = GatewayRoute {
-        client: gateway_client,
-        profile: old_access
+    let route = binding_route(
+        gateway_client,
+        old_access
             .as_ref()
-            .and_then(|record| record.isolated_slug.clone())
-            .unwrap_or_else(|| "default".to_string()),
-    };
+            .and_then(|record| record.isolated_slug.as_deref()),
+    );
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
 
@@ -1554,12 +1491,10 @@ pub async fn restore_gateway_bindings(
             Ok((upstream, label)) => {
                 let client: GatewayClient = binding.client.into();
                 let access_source = access_source_of(&binding.source);
-                let profile = binding
-                    .isolated
-                    .as_ref()
-                    .map(|target| target.slug.clone())
-                    .unwrap_or_else(|| "default".to_string());
-                let route = GatewayRoute { client, profile };
+                let route = binding_route(
+                    client,
+                    binding.isolated.as_ref().map(|target| target.slug.as_str()),
+                );
                 if binding.enabled {
                     state.bindings.write().await.insert(route.clone(), upstream);
                 }

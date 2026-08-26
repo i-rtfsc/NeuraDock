@@ -1,6 +1,14 @@
 use super::agent_access::{AgentAccessSourceDto, AgentIdDto};
 use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
 use crate::application::services::GatewayBindingSourceInput;
+use neuradock_infrastructure::gateway::{GatewayClient, GatewayRoute};
+
+pub(super) fn binding_route(client: GatewayClient, isolated_slug: Option<&str>) -> GatewayRoute {
+    GatewayRoute {
+        client,
+        profile: isolated_slug.unwrap_or("default").to_string(),
+    }
+}
 
 pub(super) fn upstream_kind_str(kind: UpstreamKindDto) -> String {
     match kind {
@@ -72,5 +80,26 @@ pub(super) fn binding_source_input(source: &GatewaySourceDto) -> GatewayBindingS
         GatewaySourceDto::IndependentKey { key_id } => {
             GatewayBindingSourceInput::IndependentKey { key_id: *key_id }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn binding_route_defaults_to_standard_profile() {
+        assert_eq!(
+            binding_route(GatewayClient::Codex, None),
+            GatewayRoute::default(GatewayClient::Codex)
+        );
+    }
+
+    #[test]
+    fn binding_route_preserves_isolated_profile() {
+        let route = binding_route(GatewayClient::ClaudeCode, Some("relay-a"));
+
+        assert_eq!(route.client, GatewayClient::ClaudeCode);
+        assert_eq!(route.profile, "relay-a");
     }
 }
