@@ -1,0 +1,30 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/gateway_binding_service.rs
+  s_e9dd769d815b63::t_e70f83008f7532 12-20
+  s_e9dd769d815b63::t_4aca0b190d2e5f 10-11,21-22
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/mod.rs
+  s_e9dd769d815b63::t_e70f83008f7532 26-28
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_mapping.rs
+  s_e9dd769d815b63::t_2427860f73627b 3,58-60
+  s_e9dd769d815b63::t_e70f83008f7532 61-74
+  s_e9dd769d815b63::t_a313ec8fb1ce2e 75-76
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_e9dd769d815b63::t_709d05445eb08f 310,1258,1612
+  s_e9dd769d815b63::t_2427860f73627b 8,349,357,419
+  s_e9dd769d815b63::t_4aca0b190d2e5f 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "9f5e50df5731e08ce61f9072955461bcd33601c3",
+  "prompts": {},
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
