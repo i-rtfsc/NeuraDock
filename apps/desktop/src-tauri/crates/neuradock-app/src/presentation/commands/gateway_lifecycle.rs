@@ -41,3 +41,18 @@ pub(super) fn apply_gateway_config(
             .map_err(|e| CommandError::infrastructure(e.to_string())),
     }
 }
+
+pub(super) fn clear_gateway_config(
+    client: GatewayClient,
+    isolated: Option<&IsolatedTarget>,
+) -> Result<(), CommandError> {
+    let Some(target) = isolated else {
+        return Ok(());
+    };
+    match client {
+        GatewayClient::Codex => CodexConfigService::new().clear_isolated(&target.slug),
+        GatewayClient::ClaudeCode => ClaudeConfigService::new().clear_isolated(&target.slug),
+    }
+    .map(|_| ())
+    .map_err(CommandError::from)
+}

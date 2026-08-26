@@ -3,7 +3,7 @@ use std::fs;
 use tauri::State;
 
 use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
-use super::gateway_lifecycle::{apply_gateway_config, takeover_for};
+use super::gateway_lifecycle::{apply_gateway_config, clear_gateway_config, takeover_for};
 use super::gateway_mapping::{
     access_source_of, binding_route, binding_source_input, client_for_agent, source_from_access,
     upstream_kind_str,
@@ -1679,7 +1679,7 @@ pub async fn start_gateway_server(
     let local_credential = handle.local_credential().to_string();
     drop(server);
 
-    let mut taken_over = Vec::new();
+    let mut taken_over: Vec<(GatewayClient, Option<IsolatedTarget>)> = Vec::new();
     for (client, model, context1m, isolated) in takeover_configs {
         let profile = isolated
             .as_ref()
@@ -1694,8 +1694,16 @@ pub async fn start_gateway_server(
             context1m,
             isolated.as_ref(),
         ) {
-            for restored_client in taken_over.into_iter().rev() {
-                if let Err(restore_error) = takeover.restore(restored_client) {
+            for (restored_client, isolated) in taken_over.into_iter().rev() {
+                if let Some(target) = isolated.as_ref() {
+                    if let Err(clear_error) = clear_gateway_config(restored_client, Some(target)) {
+                        log::error!(
+                            "Failed to clear gateway startup profile for {}: {}",
+                            restored_client.display_name(),
+                            clear_error
+                        );
+                    }
+                } else if let Err(restore_error) = takeover.restore(restored_client) {
                     log::error!(
                         "Failed to roll back gateway startup for {}: {}",
                         restored_client.display_name(),
@@ -1703,12 +1711,15 @@ pub async fn start_gateway_server(
                     );
                 }
             }
+            if let Err(clear_error) = clear_gateway_config(client, isolated.as_ref()) {
+                log::error!("Failed to clear failed gateway profile: {}", clear_error);
+            }
             if let Some(handle) = state.server.lock().await.take() {
                 handle.shutdown().await;
             }
             return Err(CommandError::infrastructure(error.to_string()));
         }
-        taken_over.push(client);
+        taken_over.push((client, isolated));
     }
 
     Ok(status_of(&state).await)
@@ -1747,11 +1758,18 @@ pub async fn stop_gateway_server(
         })
         .collect();
     let mut restored = Vec::new();
-    for (client, _, _, _, _) in &configs {
-        if !takeover.is_active_for(*client) {
+    for (client, _, _, _, isolated) in &configs {
+        if isolated.is_none() && !takeover.is_active_for(*client) {
             continue;
         }
-        if let Err(error) = takeover.restore(*client) {
+        let restore_result = if isolated.is_some() {
+            clear_gateway_config(*client, isolated.as_ref())
+        } else {
+            takeover
+                .restore(*client)
+                .map_err(|error| CommandError::infrastructure(error.to_string()))
+        };
+        if let Err(error) = restore_result {
             if let Some((base_url, local_credential)) = &gateway {
                 for restored_client in restored.into_iter().rev() {
                     if let Some((_, profile, model, context1m, isolated)) = configs
@@ -1776,7 +1794,7 @@ pub async fn stop_gateway_server(
                     }
                 }
             }
-            return Err(CommandError::infrastructure(error.to_string()));
+            return Err(error);
         }
         restored.push(*client);
     }
