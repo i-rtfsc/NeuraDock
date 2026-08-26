@@ -1278,7 +1278,7 @@ pub async fn set_gateway_binding(
             &app,
             &state,
             &access,
-            gateway_client,
+            route.clone(),
             agent,
             old_upstream,
             old_meta,
@@ -1299,7 +1299,7 @@ pub async fn set_gateway_binding(
                     &app,
                     &state,
                     &access,
-                    gateway_client,
+                    route.clone(),
                     agent,
                     old_upstream,
                     old_meta,
@@ -1323,7 +1323,7 @@ pub async fn set_gateway_binding(
                 &app,
                 &state,
                 &access,
-                gateway_client,
+                route.clone(),
                 agent,
                 old_upstream,
                 old_meta,
@@ -1352,39 +1352,22 @@ pub async fn clear_gateway_binding(
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
-    let old_upstream = state
-        .bindings
-        .read()
-        .await
-        .get(&GatewayRoute::default(gateway_client))
-        .cloned();
-    let old_meta = state
-        .meta
-        .lock()
-        .await
-        .get(&GatewayRoute::default(gateway_client))
-        .cloned();
     let old_access = access.get(agent);
+    let route = GatewayRoute {
+        client: gateway_client,
+        profile: old_access
+            .as_ref()
+            .and_then(|record| record.isolated_slug.clone())
+            .unwrap_or_else(|| "default".to_string()),
+    };
+    let old_upstream = state.bindings.read().await.get(&route).cloned();
+    let old_meta = state.meta.lock().await.get(&route).cloned();
 
-    state
-        .bindings
-        .write()
-        .await
-        .remove(&GatewayRoute::default(gateway_client));
-    state
-        .meta
-        .lock()
-        .await
-        .remove(&GatewayRoute::default(gateway_client));
+    state.bindings.write().await.remove(&route);
+    state.meta.lock().await.remove(&route);
 
     if let Err(error) = write_bindings(&app, &state).await {
-        restore_binding_memory(
-            &state,
-            GatewayRoute::default(gateway_client),
-            old_upstream,
-            old_meta,
-        )
-        .await;
+        restore_binding_memory(&state, route.clone(), old_upstream, old_meta).await;
         return Err(error);
     }
     if let Err(error) = access.remove(&app, agent) {
@@ -1392,7 +1375,7 @@ pub async fn clear_gateway_binding(
             &app,
             &state,
             &access,
-            gateway_client,
+            route.clone(),
             agent,
             old_upstream,
             old_meta,
@@ -1419,7 +1402,7 @@ pub async fn clear_gateway_binding(
                     &app,
                     &state,
                     &access,
-                    gateway_client,
+                    route.clone(),
                     agent,
                     old_upstream,
                     old_meta,
@@ -1434,7 +1417,7 @@ pub async fn clear_gateway_binding(
                 &app,
                 &state,
                 &access,
-                gateway_client,
+                route,
                 agent,
                 old_upstream,
                 old_meta,

@@ -5,7 +5,7 @@ use super::gateway::{GatewayClientDto, GatewaySourceDto, UpstreamKindDto};
 use super::gateway_state::GatewayState;
 use crate::presentation::error::CommandError;
 use neuradock_infrastructure::fs_safe::atomic_write;
-use neuradock_infrastructure::gateway::{GatewayClient, GatewayRoute, GatewayUpstream};
+use neuradock_infrastructure::gateway::{GatewayRoute, GatewayUpstream};
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -137,13 +137,13 @@ pub(super) async fn rollback_binding_change(
     app: &tauri::AppHandle,
     state: &GatewayState,
     access: &AgentAccessState,
-    client: GatewayClient,
+    route: GatewayRoute,
     agent: AgentIdDto,
     old_upstream: Option<GatewayUpstream>,
     old_meta: Option<BindingMeta>,
     old_access: Option<AgentAccessDto>,
 ) {
-    restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
+    restore_binding_memory(state, route, old_upstream, old_meta).await;
     if let Err(error) = write_bindings(app, state).await {
         log::error!("Failed to roll back gateway bindings: {}", error);
     }
