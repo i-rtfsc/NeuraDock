@@ -360,91 +360,125 @@ async fn resolve_upstream(
             token_id,
             base_url,
         } => {
-            let upstream_id = format!("account:{account_id}:{token_id}");
-            let account_id = AccountId::from_string(account_id);
-            let token_id = neuradock_domain::token::TokenId::new(*token_id);
-            let account = repositories
-                .account
-                .find_by_id(&account_id)
-                .await
-                .map_err(CommandError::from)?
-                .ok_or_else(|| CommandError::not_found("Account not found"))?;
-            let tokens = services
-                .token
-                .get_cached_tokens(&account_id)
-                .await
-                .map_err(CommandError::from)?;
-            let token = tokens
-                .iter()
-                .find(|t| t.id() == &token_id)
-                .ok_or_else(|| CommandError::not_found("Token not found"))?;
-            ensure_account_token_usable(&account, token)?;
-
-            let provider_id = ProviderId::from_string(provider_id);
-            if account.provider_id() != &provider_id {
-                return Err(CommandError::validation(
-                    "The selected provider does not belong to this account.",
-                ));
-            }
-            let provider = repositories
-                .provider
-                .find_by_id(&provider_id)
-                .await
-                .map_err(CommandError::from)?
-                .ok_or_else(|| CommandError::not_found("Provider not found"))?;
-
-            let base_url = base_url
-                .clone()
-                .unwrap_or_else(|| provider.domain().to_string());
-            let label = format!(
-                "{} · {} · {}",
-                provider.name(),
-                account.name(),
-                token.name()
-            );
-
-            Ok((
-                GatewayUpstream {
-                    id: upstream_id,
-                    label: label.clone(),
-                    base_url,
-                    api_key: token.key().to_string(),
-                    kind,
-                    model: model.map(str::to_string),
-                    impersonate,
-                },
-                label,
-            ))
+            resolve_account_upstream(
+                account_id,
+                provider_id,
+                *token_id,
+                base_url.as_deref(),
+                kind,
+                model,
+                impersonate,
+                services,
+                repositories,
+            )
+            .await
         }
         GatewayBindingSourceInput::IndependentKey { key_id } => {
-            let id = IndependentKeyId::new(*key_id);
-            let key = repositories
-                .independent_key
-                .find_by_id(&id)
-                .await
-                .map_err(CommandError::from)?
-                .ok_or_else(|| {
-                    CommandError::not_found(format!("Key with ID {} not found", key_id))
-                })?;
-            if !key.is_active() {
-                return Err(CommandError::validation(
-                    "Cannot bind an inactive API key. Please enable it first.",
-                ));
-            }
-            Ok((
-                GatewayUpstream {
-                    id: format!("independent:{key_id}"),
-                    label: key.name().to_string(),
-                    base_url: key.base_url().to_string(),
-                    api_key: key.api_key().to_string(),
-                    kind,
-                    model: model.map(str::to_string),
-                    impersonate,
-                },
-                key.name().to_string(),
-            ))
+            resolve_independent_upstream(*key_id, kind, model, impersonate, repositories).await
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn resolve_account_upstream(
+    account_id: &str,
+    provider_id: &str,
+    token_id: i64,
+    base_url: Option<&str>,
+    kind: UpstreamKind,
+    model: Option<&str>,
+    impersonate: bool,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<(GatewayUpstream, String), CommandError> {
+    let upstream_id = format!("account:{account_id}:{token_id}");
+    let account_id = AccountId::from_string(account_id);
+    let token_id = neuradock_domain::token::TokenId::new(token_id);
+    let account = repositories
+        .account
+        .find_by_id(&account_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    let tokens = services
+        .token
+        .get_cached_tokens(&account_id)
+        .await
+        .map_err(CommandError::from)?;
+    let token = tokens
+        .iter()
+        .find(|t| t.id() == &token_id)
+        .ok_or_else(|| CommandError::not_found("Token not found"))?;
+    ensure_account_token_usable(&account, token)?;
+
+    let provider_id = ProviderId::from_string(provider_id);
+    if account.provider_id() != &provider_id {
+        return Err(CommandError::validation(
+            "The selected provider does not belong to this account.",
+        ));
+    }
+    let provider = repositories
+        .provider
+        .find_by_id(&provider_id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+
+    let base_url = base_url
+        .map(str::to_string)
+        .unwrap_or_else(|| provider.domain().to_string());
+    let label = format!(
+        "{} · {} · {}",
+        provider.name(),
+        account.name(),
+        token.name()
+    );
+
+    Ok((
+        GatewayUpstream {
+            id: upstream_id,
+            label: label.clone(),
+            base_url,
+            api_key: token.key().to_string(),
+            kind,
+            model: model.map(str::to_string),
+            impersonate,
+        },
+        label,
+    ))
+}
+
+async fn resolve_independent_upstream(
+    key_id: i64,
+    kind: UpstreamKind,
+    model: Option<&str>,
+    impersonate: bool,
+    repositories: &Repositories,
+) -> Result<(GatewayUpstream, String), CommandError> {
+    let id = IndependentKeyId::new(key_id);
+    let key = repositories
+        .independent_key
+        .find_by_id(&id)
+        .await
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError::not_found(format!("Key with ID {} not found", key_id)))?;
+    if !key.is_active() {
+        return Err(CommandError::validation(
+            "Cannot bind an inactive API key. Please enable it first.",
+        ));
+    }
+    Ok((
+        GatewayUpstream {
+            id: format!("independent:{key_id}"),
+            label: key.name().to_string(),
+            base_url: key.base_url().to_string(),
+            api_key: key.api_key().to_string(),
+            kind,
+            model: model.map(str::to_string),
+            impersonate,
+        },
+        key.name().to_string(),
+    ))
 }
 
 /// Derive the isolated-file identity (slug + display name) for a binding, so
