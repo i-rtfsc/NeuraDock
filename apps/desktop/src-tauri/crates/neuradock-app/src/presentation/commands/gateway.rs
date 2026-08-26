@@ -1530,10 +1530,11 @@ pub async fn restore_gateway_bindings(
     for binding in saved {
         // The user may have switched this agent to direct write since the
         // binding was saved; their choice wins over the stale binding.
-        if access
-            .get(binding.client.into())
-            .is_some_and(|record| record.method == AccessMethodDto::Direct)
-        {
+        let binding_slug = binding.isolated.as_ref().map(|target| target.slug.as_str());
+        if access.list(binding.client.into()).iter().any(|record| {
+            record.method == AccessMethodDto::Direct
+                && record.isolated_slug.as_deref() == binding_slug
+        }) {
             log::info!(
                 "Skipping saved gateway binding for {:?}: agent is set to direct access",
                 binding.client
