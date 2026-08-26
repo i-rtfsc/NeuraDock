@@ -29,7 +29,9 @@ use neuradock_infrastructure::gateway::{
     UpstreamKind,
 };
 
-use crate::application::services::{ClaudeConfigService, CodexConfigService};
+use crate::application::services::{
+    ClaudeConfigService, CodexConfigService, GatewayBindingService,
+};
 use crate::presentation::commands::agent_access::{
     AccessMethodDto, AgentAccessDto, AgentAccessSourceDto, AgentAccessState, AgentIdDto,
 };
@@ -1252,19 +1254,9 @@ pub async fn set_gateway_binding(
 ) -> Result<GatewayStatusDto, CommandError> {
     // Impersonation defaults on: the point of the gateway is to reach relays
     // that only admit recognised clients.
-    let GatewayBindingConfigDto {
-        upstream_kind,
-        model,
-        context_1m: context1m,
-        impersonate,
-        isolated,
-    } = config;
-    let impersonate = impersonate.unwrap_or(true);
-    if context1m && model.is_none() {
-        return Err(CommandError::validation(
-            "1M context requires selecting a model.",
-        ));
-    }
+    let upstream_kind = config.upstream_kind;
+    let (model, context1m, impersonate, isolated_requested) =
+        GatewayBindingService::normalize_config(client, config)?;
     let effective_model = effective_gateway_model(client, model.as_deref(), context1m);
     let (upstream, label) = resolve_upstream(
         &source,
@@ -1275,7 +1267,7 @@ pub async fn set_gateway_binding(
         &repositories,
     )
     .await?;
-    let isolated = if isolated {
+    let isolated = if isolated_requested {
         Some(isolated_target_for(client, &source, &repositories).await?)
     } else {
         None
