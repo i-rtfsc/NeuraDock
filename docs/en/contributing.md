@@ -108,7 +108,7 @@ make purge              # Deep clean (artifacts + deps + db)
 
 ```bash
 make check              # Check code format (rustfmt + clippy)
-make fix                # Auto-fix code format
+make fmt                # Auto-fix Rust code format
 ```
 
 #### 🔧 Tools and Information

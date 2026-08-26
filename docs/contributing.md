@@ -108,7 +108,7 @@ make purge              # 深度清理（构建产物 + 依赖 + db）
 
 ```bash
 make check              # 检查代码格式（rustfmt + clippy）
-make fix                # 自动修复代码格式
+make fmt                # 自动修复 Rust 代码格式
 ```
 
 #### 🔧 工具和信息

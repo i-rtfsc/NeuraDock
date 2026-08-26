@@ -128,9 +128,9 @@ Infrastructure repositories / HTTP / gateway / browser / encryption / migrations
 
 ### P2：开发文档和自动化入口存在漂移
 
-`docs/development.md` 仍提到 `make package-universal`，但 Makefile 当前没有该 target；文档中还有重复步骤和发布流程未说明 tag、版本同步、签名、公证、回滚策略。
+文档曾提到不存在的构建 target，且发布流程未说明 tag、版本同步、签名、公证、回滚策略；本轮已将构建命令统一为 Makefile 现有 target，并加入文档命令校验。
 
-解决：将 `make help` 作为命令单一来源；CI 校验文档中的命令；增加 release checklist、版本自动同步、签名/公证说明、数据库迁移兼容策略和回滚方案。
+解决：将 `make help` 作为命令单一来源；`make check` 校验文档中的命令；增加 release checklist、版本自动同步、签名/公证说明、数据库迁移兼容策略和回滚方案。
 
 ### P3：当前工作区存在大量未提交功能改动
 
@@ -178,7 +178,7 @@ frontend/
 
 - 将当前未提交改动按功能拆分并打标签。
 - 记录当前版本、数据库迁移版本、生成绑定版本。
-- 建立 `make verify`：格式、类型检查、定向 Cargo check、前后端测试。
+- 建立统一质量门禁：格式、类型检查、定向 Cargo check、前后端测试。
 - 修复所有 `cargo fmt` 差异，确保门禁可重复执行。
 
 验收：干净环境执行一次命令即可得到确定结果；失败输出包含明确阶段。

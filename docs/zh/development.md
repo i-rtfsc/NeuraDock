@@ -65,22 +65,17 @@ make package
 ```
 
 生成：
-- Apple Silicon Mac: `NeuraDock_0.5.0_aarch64.dmg`
-- Intel Mac: `NeuraDock_0.5.0_x64.dmg`
+- Apple Silicon Mac: `NeuraDock_1.2.0_aarch64.dmg`
+- Intel Mac: `NeuraDock_1.2.0_x64.dmg`
 
-#### 2. Universal Binary（推荐）⭐
+#### 2. 构建指定架构
 
 ```bash
-make package-universal
+make package-arch ARCH=aarch64-apple-darwin
+make package-arch ARCH=x86_64-apple-darwin
 ```
 
-生成：
-- `NeuraDock_0.5.0_universal.dmg` - 同时支持 Intel + Apple Silicon
-
-**优势**：
-- ✅ 一个安装包适配所有 Mac
-- ✅ 用户体验最佳
-- ✅ 推荐用于发布
+当前构建流程分别生成 Apple Silicon 和 Intel 安装包，不生成 Universal Binary。
 
 #### 3. 构建所有架构
 
@@ -278,7 +273,7 @@ make purge              # 深度清理（构建产物 + 依赖 + db）
 
 ```bash
 make package            # 构建当前架构
-make package-universal  # 构建 Universal Binary（推荐）
+make package-arch ARCH=aarch64-apple-darwin # 构建指定架构
 make package-all-macos  # 构建所有 macOS 架构
 ```
 

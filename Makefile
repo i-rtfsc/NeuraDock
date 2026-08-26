@@ -149,12 +149,15 @@ test-backend: ## Run backend workspace tests
 test-frontend: ## Run frontend tests (vitest run)
 	@$(PNPM_DESKTOP) run test:run
 
-check: check-backend check-frontend ## Run lint/type checks (backend + frontend)
+check: check-backend check-frontend verify-doc-commands ## Run lint/type checks (backend + frontend)
 	@$(MAKE) verify-version
 	@echo "✅ Checks passed"
 
 verify-version: ## Verify package, Tauri, Cargo, and README versions match
 	@node scripts/verify-version.mjs
+
+verify-doc-commands: ## Verify documented make targets exist
+	@node scripts/verify-doc-commands.mjs
 
 check-backend: ## cargo fmt --check + clippy -D warnings
 	@cd $(TAURI_DIR) && cargo fmt --all --check

@@ -58,13 +58,13 @@ make dev-warn     # Warning only
 
 ### macOS Build
 
-#### Universal Binary (Recommended) ⭐
+#### Build all macOS architectures
 
 \`\`\`bash
-make package-universal
+make package-all-macos
 \`\`\`
 
-Generates: \`NeuraDock_0.5.0_universal.dmg\` - **Supports both Intel + Apple Silicon**
+Generates separate Intel and Apple Silicon installers for the current `1.2.0` release.
 
 **Why Universal Binary?**
 - ✅ One installer for all Macs
@@ -179,7 +179,7 @@ git push origin v0.5.0
 make help               # Show all commands
 make dev                # Start dev server
 make doctor             # Check dev environment
-make package-universal  # Build Universal Binary (recommended)
+make package-all-macos   # Build Intel + Apple Silicon installers
 \`\`\`
 
 ---
