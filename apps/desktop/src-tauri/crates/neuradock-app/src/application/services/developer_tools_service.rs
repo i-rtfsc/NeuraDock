@@ -232,6 +232,9 @@ impl DeveloperToolsService {
                 .as_ref()
                 .and_then(|row| row.encrypted_secret.clone()),
         };
+        if input.auth_method != "anonymous" && encrypted_secret.is_none() {
+            return Err(anyhow!("This authentication method requires a secret"));
+        }
         if let Some(profile) = input
             .profile_json
             .as_deref()
