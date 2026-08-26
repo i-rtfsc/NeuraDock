@@ -1,0 +1,39 @@
+Makefile
+  s_e9dd769d815b63::t_f2bb0f02269e27 162
+  h_8b376749578497 165
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/gateway/reliability.rs
+  s_e9dd769d815b63::t_aa394f3e314675 403-409
+  h_8b376749578497 402
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/aggregate_test.rs
+  s_e9dd769d815b63::t_aa394f3e314675 243
+  h_8b376749578497 73
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/security/encryption.rs
+  h_8b376749578497 188
+docs/architecture-review-2026-08.md
+  h_8b376749578497 87
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/security/key_manager.rs
+  h_8b376749578497 288
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/seed_builtin_providers_integration.rs
+  h_8b376749578497 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0e62dd6e638db8f104228c8d8b9a717dda6e813c",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
