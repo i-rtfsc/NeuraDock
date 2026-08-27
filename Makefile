@@ -45,7 +45,7 @@ FRONTEND_CACHE_DIRS := \
 	package package-arch package-macos-apple-silicon package-macos-intel package-all-macos \
 	test test-frontend test-backend \
 	check check-frontend check-backend fmt \
-	verify-version \
+	verify-version verify-bindings \
 	clean clean-db purge \
 	migrate
 
@@ -149,12 +149,15 @@ test-backend: ## Run backend workspace tests
 test-frontend: ## Run frontend tests (vitest run)
 	@$(PNPM_DESKTOP) run test:run
 
-check: check-backend check-frontend verify-doc-commands ## Run lint/type checks (backend + frontend)
+check: check-backend check-frontend verify-bindings verify-doc-commands ## Run lint/type checks (backend + frontend)
 	@$(MAKE) verify-version
 	@echo "✅ Checks passed"
 
 verify-version: ## Verify package, Tauri, Cargo, and README versions match
 	@node scripts/verify-version.mjs
+
+verify-bindings: bindings ## Verify generated Tauri bindings are committed
+	@git diff --exit-code -- $(DESKTOP_DIR)/src/lib/tauri.ts || (echo "❌ Tauri bindings changed. Run 'make bindings' and commit the result." && exit 1)
 
 verify-doc-commands: ## Verify documented make targets exist
 	@node scripts/verify-doc-commands.mjs

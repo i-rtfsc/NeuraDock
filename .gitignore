@@ -382,8 +382,5 @@ apps/desktop/src-tauri/logs/
 apps/desktop/src-tauri/.cache/
 apps/desktop/src-tauri/*.log
 
-# tauri-specta 自动生成的 TypeScript 绑定
-apps/desktop/src/lib/tauri.ts
-
 # Archive and temporary documentation
 .archive/
