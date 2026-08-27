@@ -1445,14 +1445,15 @@ pub async fn drop_gateway_binding_for_direct(
     let route = binding_route(client, isolated_slug);
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
-    if old_upstream.is_none() && old_meta.is_none() {
-        return Ok(());
-    }
-    state.bindings.write().await.remove(&route);
-    state.meta.lock().await.remove(&route);
-    if let Err(error) = write_bindings(app, state).await {
-        restore_binding_memory(state, route.clone(), old_upstream, old_meta).await;
-        return Err(error);
+    let state_changed = old_upstream.is_some() || old_meta.is_some();
+    if state_changed {
+        state.bindings.write().await.remove(&route);
+        state.meta.lock().await.remove(&route);
+        if let Err(error) = write_bindings(app, state).await {
+            restore_binding_memory(state, route.clone(), old_upstream.clone(), old_meta.clone())
+                .await;
+            return Err(error);
+        }
     }
 
     // Retire the takeover record too. The caller has just written the user's
@@ -1466,12 +1467,16 @@ pub async fn drop_gateway_binding_for_direct(
         match takeover_for(app) {
             Ok(takeover) => {
                 if let Err(error) = takeover.discard(client) {
-                    restore_binding_memory(state, route.clone(), old_upstream, old_meta).await;
+                    if state_changed {
+                        restore_binding_memory(state, route.clone(), old_upstream, old_meta).await;
+                    }
                     return Err(CommandError::infrastructure(error.to_string()));
                 }
             }
             Err(error) => {
-                restore_binding_memory(state, route, old_upstream, old_meta).await;
+                if state_changed {
+                    restore_binding_memory(state, route, old_upstream, old_meta).await;
+                }
                 return Err(error);
             }
         }
