@@ -1,0 +1,36 @@
+docs/architecture-review-2026-08.md
+  h_8b376749578497 30
+Makefile
+  s_e9dd769d815b63::t_717afeb57f1e09 170-171
+  s_074453618aa42d::t_e34b9f62f9ef07 172
+  h_8b376749578497 47,152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d8915da8ebeda5a668840bb8eebe64fc80e2dbee",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_074453618aa42d": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0373f-3e16-7632-8f01-d49be85e592c",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
