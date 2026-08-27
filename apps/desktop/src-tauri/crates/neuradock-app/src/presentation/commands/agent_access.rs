@@ -99,6 +99,26 @@ fn profile_storage_key(agent: AgentIdDto, isolated_slug: Option<&str>) -> String
 }
 
 impl AgentAccessState {
+    fn refresh_summary(&self, agent: AgentIdDto) {
+        let replacement = self
+            .profiles
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, record)| record.agent == agent)
+            .min_by_key(|(key, _)| (!key.ends_with(":default"), key.to_ascii_lowercase()))
+            .map(|(_, record)| record.clone());
+        let mut records = self.records.lock().unwrap();
+        match replacement {
+            Some(record) => {
+                records.insert(agent, record);
+            }
+            None => {
+                records.remove(&agent);
+            }
+        }
+    }
+
     fn remove_profile_from_memory(
         &self,
         agent: AgentIdDto,
@@ -111,22 +131,7 @@ impl AgentAccessState {
             .as_ref()
             .is_some_and(|record| profile_key(record) == key)
         {
-            let replacement = self
-                .profiles
-                .lock()
-                .unwrap()
-                .values()
-                .find(|record| record.agent == agent)
-                .cloned();
-            let mut records = self.records.lock().unwrap();
-            match replacement {
-                Some(record) => {
-                    records.insert(agent, record);
-                }
-                None => {
-                    records.remove(&agent);
-                }
-            }
+            self.refresh_summary(agent);
         }
         RemovedProfileState {
             key,
@@ -176,11 +181,17 @@ impl AgentAccessState {
         };
         match serde_json::from_str::<Vec<AgentAccessDto>>(&content) {
             Ok(list) => {
-                let mut records = self.records.lock().unwrap();
+                self.records.lock().unwrap().clear();
                 let mut profiles = self.profiles.lock().unwrap();
+                profiles.clear();
                 for r in list {
                     profiles.insert(profile_key(&r), r.clone());
-                    records.insert(r.agent, r);
+                }
+                let agents: std::collections::HashSet<_> =
+                    profiles.values().map(|record| record.agent).collect();
+                drop(profiles);
+                for agent in agents {
+                    self.refresh_summary(agent);
                 }
             }
             Err(e) => log::warn!("Failed to parse agent access records: {}", e),
@@ -191,8 +202,9 @@ impl AgentAccessState {
     pub fn set(&self, app: &tauri::AppHandle, record: AgentAccessDto) -> Result<(), CommandError> {
         let agent = record.agent;
         let key = profile_key(&record);
-        let previous = self.records.lock().unwrap().insert(agent, record.clone());
+        let previous = self.records.lock().unwrap().get(&agent).cloned();
         let previous_profile = self.profiles.lock().unwrap().insert(key.clone(), record);
+        self.refresh_summary(agent);
         if let Err(error) = self.persist(app) {
             let mut records = self.records.lock().unwrap();
             let mut profiles = self.profiles.lock().unwrap();
@@ -212,6 +224,7 @@ impl AgentAccessState {
                     profiles.remove(&key);
                 }
             }
+            self.refresh_summary(agent);
             return Err(error);
         }
         Ok(())
