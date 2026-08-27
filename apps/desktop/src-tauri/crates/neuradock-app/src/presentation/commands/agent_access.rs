@@ -166,7 +166,9 @@ impl AgentAccessState {
         let path = Self::path(app)
             .ok_or_else(|| CommandError::infrastructure("Failed to get app data directory"))?;
         let profiles = self.profiles.lock().unwrap();
-        let list: Vec<&AgentAccessDto> = profiles.values().collect();
+        let mut list: Vec<(&String, &AgentAccessDto)> = profiles.iter().collect();
+        list.sort_by_key(|(left, _)| *left);
+        let list: Vec<&AgentAccessDto> = list.into_iter().map(|(_, record)| record).collect();
         let json = serde_json::to_string_pretty(&list)
             .map_err(|error| CommandError::infrastructure(error.to_string()))?;
         atomic_write(&path, &json, false)
@@ -244,13 +246,16 @@ impl AgentAccessState {
     }
 
     pub fn list(&self, agent: AgentIdDto) -> Vec<AgentAccessDto> {
-        self.profiles
+        let mut records: Vec<_> = self
+            .profiles
             .lock()
             .unwrap()
             .values()
             .filter(|record| record.agent == agent)
             .cloned()
-            .collect()
+            .collect();
+        records.sort_by_key(profile_key);
+        records
     }
 
     /// Remove a record.
