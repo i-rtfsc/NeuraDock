@@ -44,7 +44,7 @@ FRONTEND_CACHE_DIRS := \
 	build build-frontend build-backend \
 	package package-arch package-macos-apple-silicon package-macos-intel package-all-macos \
 	test test-frontend test-backend \
-	check check-frontend check-backend fmt \
+	check check-frontend check-backend check-tauri-dev fmt \
 	verify-version verify-bindings \
 	clean clean-db purge \
 	migrate
@@ -149,7 +149,7 @@ test-backend: ## Run backend workspace tests
 test-frontend: ## Run frontend tests (vitest run)
 	@$(PNPM_DESKTOP) run test:run
 
-check: check-backend check-frontend verify-bindings verify-doc-commands ## Run lint/type checks (backend + frontend)
+check: check-backend check-tauri-dev check-frontend verify-bindings verify-doc-commands ## Run lint/type checks (backend + frontend)
 	@$(MAKE) verify-version
 	@echo "✅ Checks passed"
 
@@ -166,6 +166,9 @@ check-backend: ## cargo fmt/check + Clippy for all workspace targets
 	@cd $(TAURI_DIR) && cargo fmt --all --check
 	@cd $(TAURI_DIR) && cargo check --workspace
 	@cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
+
+check-tauri-dev: ## Verify the exact Cargo feature combination used by tauri dev
+	@cd $(TAURI_DIR) && cargo check -p neuradock-app --no-default-features --features root-tauri-context --bin NeuraDock
 
 check-frontend: bindings ## Generate IPC bindings + TypeScript typecheck
 	@cd $(DESKTOP_DIR) && $(PNPM) exec tsc -p tsconfig.json --noEmit
