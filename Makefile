@@ -164,7 +164,7 @@ check-backend: ## cargo fmt/check + Clippy for all workspace targets
 	@cd $(TAURI_DIR) && cargo check --workspace
 	@cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
-check-frontend: ## TypeScript typecheck (tsc --noEmit)
+check-frontend: bindings ## Generate IPC bindings + TypeScript typecheck
 	@cd $(DESKTOP_DIR) && $(PNPM) exec tsc -p tsconfig.json --noEmit
 
 fmt: ## Format Rust (cargo fmt)
