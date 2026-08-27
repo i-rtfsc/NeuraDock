@@ -314,7 +314,13 @@ pub async fn record_agent_access(
     // later gateway start would take the tool config back over.
     if record.method == AccessMethodDto::Direct {
         let client = super::gateway_mapping::client_for_agent(record.agent);
-        super::gateway::drop_gateway_binding_for_direct(&app, &gateway, client.into()).await?;
+        super::gateway::drop_gateway_binding_for_direct(
+            &app,
+            &gateway,
+            client.into(),
+            record.isolated_slug.as_deref(),
+        )
+        .await?;
     }
     state.set(&app, record)?;
     Ok(list_records(&state))

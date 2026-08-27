@@ -1439,35 +1439,19 @@ pub async fn drop_gateway_binding_for_direct(
     app: &tauri::AppHandle,
     state: &GatewayState,
     client: GatewayClient,
+    isolated_slug: Option<&str>,
 ) -> Result<(), CommandError> {
     let _operation = state.operation_lock(client).lock().await;
-    let old_upstream = state
-        .bindings
-        .read()
-        .await
-        .get(&GatewayRoute::default(client))
-        .cloned();
-    let old_meta = state
-        .meta
-        .lock()
-        .await
-        .get(&GatewayRoute::default(client))
-        .cloned();
+    let route = binding_route(client, isolated_slug);
+    let old_upstream = state.bindings.read().await.get(&route).cloned();
+    let old_meta = state.meta.lock().await.get(&route).cloned();
     if old_upstream.is_none() && old_meta.is_none() {
         return Ok(());
     }
-    state
-        .bindings
-        .write()
-        .await
-        .remove(&GatewayRoute::default(client));
-    state
-        .meta
-        .lock()
-        .await
-        .remove(&GatewayRoute::default(client));
+    state.bindings.write().await.remove(&route);
+    state.meta.lock().await.remove(&route);
     if let Err(error) = write_bindings(app, state).await {
-        restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta).await;
+        restore_binding_memory(state, route.clone(), old_upstream, old_meta).await;
         return Err(error);
     }
 
@@ -1478,23 +1462,18 @@ pub async fn drop_gateway_binding_for_direct(
     // `stop_gateway_server` and the exit handler both walk it and would revert
     // the user's direct config on every shutdown, silently and with no error.
     // Discarding drops the snapshot without touching the live files.
-    match takeover_for(app) {
-        Ok(takeover) => {
-            if let Err(error) = takeover.discard(client) {
-                restore_binding_memory(
-                    state,
-                    GatewayRoute::default(client),
-                    old_upstream,
-                    old_meta,
-                )
-                .await;
-                return Err(CommandError::infrastructure(error.to_string()));
+    if isolated_slug.is_none() {
+        match takeover_for(app) {
+            Ok(takeover) => {
+                if let Err(error) = takeover.discard(client) {
+                    restore_binding_memory(state, route.clone(), old_upstream, old_meta).await;
+                    return Err(CommandError::infrastructure(error.to_string()));
+                }
             }
-        }
-        Err(error) => {
-            restore_binding_memory(state, GatewayRoute::default(client), old_upstream, old_meta)
-                .await;
-            return Err(error);
+            Err(error) => {
+                restore_binding_memory(state, route, old_upstream, old_meta).await;
+                return Err(error);
+            }
         }
     }
 
