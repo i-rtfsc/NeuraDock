@@ -236,10 +236,10 @@ async fn main() {
             Ok(())
         });
 
-    #[cfg(feature = "root-tauri-context")]
+    #[cfg(neuradock_root_package)]
     let app = builder.build(tauri::generate_context!());
 
-    #[cfg(not(feature = "root-tauri-context"))]
+    #[cfg(not(neuradock_root_package))]
     let app = builder.build(tauri::generate_context!("../../tauri.conf.json"));
 
     match app {

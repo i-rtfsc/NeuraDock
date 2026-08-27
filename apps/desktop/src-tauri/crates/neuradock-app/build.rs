@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(neuradock_root_package)");
     // tauri-build reads configuration from the build script's current directory.
     // Keep a single source of truth by always pointing codegen at src-tauri/
     // (where the canonical tauri.conf.json lives).
