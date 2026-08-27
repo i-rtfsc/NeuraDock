@@ -1749,8 +1749,9 @@ pub async fn stop_gateway_server(
             )
         })
         .collect();
-    let mut restored = Vec::new();
-    for (client, _, _, _, isolated) in &configs {
+    let mut restored: Vec<GatewayStopConfig> = Vec::new();
+    for config in &configs {
+        let (client, _, _, _, isolated) = config;
         if isolated.is_none() && !takeover.is_active_for(*client) {
             continue;
         }
@@ -1763,32 +1764,30 @@ pub async fn stop_gateway_server(
         };
         if let Err(error) = restore_result {
             if let Some((base_url, local_credential)) = &gateway {
-                for restored_client in restored.into_iter().rev() {
-                    if let Some((_, profile, model, context1m, isolated)) = configs
-                        .iter()
-                        .find(|(client, _, _, _, _)| *client == restored_client)
-                    {
-                        if let Err(takeover_error) = apply_gateway_config(
-                            &takeover,
-                            restored_client,
-                            &format!("{base_url}/profiles/{profile}"),
-                            local_credential,
-                            model.as_deref(),
-                            *context1m,
-                            isolated.as_ref(),
-                        ) {
-                            log::error!(
-                                "Failed to roll back gateway stop for {}: {}",
-                                restored_client.display_name(),
-                                takeover_error
-                            );
-                        }
+                for (restored_client, profile, model, context1m, isolated) in
+                    restored.into_iter().rev()
+                {
+                    if let Err(takeover_error) = apply_gateway_config(
+                        &takeover,
+                        restored_client,
+                        &format!("{base_url}/profiles/{profile}"),
+                        local_credential,
+                        model.as_deref(),
+                        context1m,
+                        isolated.as_ref(),
+                    ) {
+                        log::error!(
+                            "Failed to roll back gateway stop for {} profile {}: {}",
+                            restored_client.display_name(),
+                            profile,
+                            takeover_error
+                        );
                     }
                 }
             }
             return Err(error);
         }
-        restored.push(*client);
+        restored.push(config.clone());
     }
 
     if let Some(handle) = state.server.lock().await.take() {
