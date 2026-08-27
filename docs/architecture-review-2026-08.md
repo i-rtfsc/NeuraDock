@@ -24,6 +24,7 @@ NeuraDock 是一个 Tauri 2 + React/TypeScript + Rust + SQLite 的桌面应用�
 - **已完成**：生产前端 IPC 已收敛到生成的 typed client；裸字符串 `invoke` 已从业务代码移除。
 - **已完成**：Tauri bindings 已纳入版本控制；前端检查先生成绑定，CI 再校验生成结果无漂移。
 - **已完成**：Tauri capability 已移除 `fs:default`、`dialog:default`、`store:default`，外链仅允许无 credentials 的 HTTP(S) URL。
+- **已完成**：删除子 crate 下未被构建读取的重复 capability 文件，权限单一来源为根 `tauri.conf.json`。
 - **已完成**：Gateway 上游解析下沉到 application service，并补充账户 Token、独立 Key、多 Profile、持久化失败和 takeover 回滚测试。
 - **已完成**：`make dev` 的 Tauri context 路径已修复，并实际验证应用、Vite、数据库迁移和 AppState 可正常启动。
 - **部分完成**：Gateway 和 command 已拆出多个模块，但核心文件仍偏大，需要继续按生命周期和协议职责拆分。
