@@ -12,6 +12,24 @@ NeuraDock 是一个 Tauri 2 + React/TypeScript + Rust + SQLite 的桌面应用�
 
 综合评级：**B-（可持续演进，但不适合继续无治理地堆叠功能）**。
 
+### 1.1 整改进展（更新于 2026-08-27）
+
+本报告最初记录的是整改前基线。当前状态如下：
+
+- **已完成**：版本统一为 `1.2.0`，并由脚本校验 package、Tauri、Cargo、README 和 release metadata。
+- **已完成**：`make check` 已覆盖 rustfmt、workspace check、workspace 全 target Clippy、TypeScript 严格检查、文档命令和版本一致性。
+- **已完成**：CI 已覆盖前后端测试、依赖审计、cargo-audit、Gitleaks；Release 生成 SHA-256 校验文件。
+- **已完成**：新安装使用随机 256-bit master key；旧固定密码仅保留为存量数据迁移兼容路径，并具备 pending key 中断恢复测试。
+- **已完成**：Codex 敏感凭据数据库加密，DTO 不再返回密码明文。
+- **已完成**：生产前端 IPC 已收敛到生成的 typed client；裸字符串 `invoke` 已从业务代码移除。
+- **已完成**：Tauri capability 已移除 `fs:default`、`dialog:default`、`store:default`，外链仅允许无 credentials 的 HTTP(S) URL。
+- **已完成**：Gateway 上游解析下沉到 application service，并补充账户 Token、独立 Key、多 Profile、持久化失败和 takeover 回滚测试。
+- **已完成**：`make dev` 的 Tauri context 路径已修复，并实际验证应用、Vite、数据库迁移和 AppState 可正常启动。
+- **部分完成**：Gateway 和 command 已拆出多个模块，但核心文件仍偏大，需要继续按生命周期和协议职责拆分。
+- **部分完成**：根 Tauri 兼容 package 已可稳定构建，但影子 package 尚未彻底移除。
+- **待实施**：平台 Keychain/Credential Manager/Secret Service 接入，以及存量迁移完成后删除固定兼容密码。
+- **待实施**：三平台 UI smoke test、签名/公证、数据库降级策略和更完整的 release checklist。
+
 最高优先级事项：
 
 1. 移除源码内固定加密密码，改用操作系统密钥链/Keychain 或首次启动生成并安全保存的随机数据。
@@ -29,7 +47,7 @@ NeuraDock 是一个 Tauri 2 + React/TypeScript + Rust + SQLite 的桌面应用�
 - Rust：Cargo workspace，包含 `neuradock-domain`、`neuradock-application`（当前名为 app）、`neuradock-infrastructure`，另有根级 Tauri 兼容 package。
 - 持久化：SQLite + SQLx migrations + repository traits。
 - 通讯：Tauri IPC；部分能力还有本地 Axum gateway、Reqwest/Rquest、Chromiumoxide。
-- 安全：AES-GCM、Argon2、随机盐、文件权限控制；但启动装配仍使用硬编码密码。
+- 安全：AES-GCM、Argon2、随机盐、随机 master key、文件权限控制；固定密码仅用于旧安装迁移兼容。
 
 ### 2.2 当前分层
 
@@ -57,15 +75,15 @@ Infrastructure repositories / HTTP / gateway / browser / encryption / migrations
 
 - `pnpm -C apps/desktop exec tsc --noEmit`：通过。
 - `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml -p neuradock-domain -p neuradock-infrastructure -p neuradock-app`：通过。
-- `pnpm -C apps/desktop run test:run`：通过，5 个测试文件、19 个测试通过。
+- `pnpm -C apps/desktop run test:run`：通过，6 个测试文件、21 个测试通过。
 - 前端 `tsconfig.json` 已启用 `strict`、`noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`。
 - IPC 绑定生成流程已存在，说明项目具备收敛到强类型接口的基础。
 - 数据库迁移、仓储 trait、领域聚合和基础设施集成测试已形成可复用测试基础。
 
-### 3.2 当前门禁问题
+### 3.2 初始门禁问题（已整改）
 
-- `make check` 失败，原因是 `cargo fmt --all --check` 检出多处未格式化代码；这属于可自动修复的工程质量问题，但会阻断 CI。
-- 直接执行 `cargo check --workspace` 失败：根 Cargo manifest 的影子 package 会让 `generate_context!("../../tauri.conf.json")` 解析到不存在的路径。Makefile 已经通过显式 package 列表绕开，但标准 Cargo 入口仍不安全。
+- `make check` 初始因 rustfmt 差异失败；现已修复并升级为全 target Clippy 门禁。
+- 标准 workspace 和 `make dev` 曾因 Tauri context 路径失败；现已通过 package 专属 build cfg 修复。影子 package 本身仍是待清理的结构问题。
 - 测试命令会先生成 `src/lib/tauri.ts`，生成文件属于构建产物，却被 Makefile 的 clean 目标删除；应明确其是源码生成物还是缓存，并统一策略。
 
 ## 4. 主要发现
