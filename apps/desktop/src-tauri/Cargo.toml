@@ -197,7 +197,6 @@ log = { workspace = true }
 env_logger = "0.11"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-appender = { workspace = true }
 dirs = { workspace = true }
 
 # Utilities
@@ -220,9 +219,6 @@ toml_edit = { workspace = true }
 
 # Cron scheduling
 tokio-cron-scheduler = { workspace = true }
-
-# Email
-lettre = { workspace = true }
 
 [dev-dependencies]
 mockall = { workspace = true }
