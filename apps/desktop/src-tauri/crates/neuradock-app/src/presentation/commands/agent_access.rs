@@ -226,6 +226,8 @@ impl AgentAccessState {
                     profiles.remove(&key);
                 }
             }
+            drop(records);
+            drop(profiles);
             self.refresh_summary(agent);
             return Err(error);
         }
