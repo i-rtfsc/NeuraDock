@@ -1345,6 +1345,7 @@ pub async fn set_gateway_binding(
 #[specta::specta]
 pub async fn clear_gateway_binding(
     client: GatewayClientDto,
+    profile: Option<String>,
     app: tauri::AppHandle,
     state: State<'_, GatewayState>,
     access: State<'_, AgentAccessState>,
@@ -1353,13 +1354,9 @@ pub async fn clear_gateway_binding(
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
-    let old_access = access.get(agent);
-    let route = binding_route(
-        gateway_client,
-        old_access
-            .as_ref()
-            .and_then(|record| record.isolated_slug.as_deref()),
-    );
+    let isolated_slug = profile.as_deref().filter(|profile| *profile != "default");
+    let old_access = access.get_profile(agent, isolated_slug);
+    let route = binding_route(gateway_client, isolated_slug);
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
 
@@ -1370,7 +1367,7 @@ pub async fn clear_gateway_binding(
         restore_binding_memory(&state, route.clone(), old_upstream, old_meta).await;
         return Err(error);
     }
-    if let Err(error) = access.remove(&app, agent) {
+    if let Err(error) = access.remove_profile(&app, agent, isolated_slug) {
         rollback_binding_change(
             &app,
             &state,
@@ -1385,10 +1382,7 @@ pub async fn clear_gateway_binding(
         return Err(error);
     }
 
-    if let Some(slug) = old_access
-        .as_ref()
-        .and_then(|record| record.isolated_slug.as_deref())
-    {
+    if let Some(slug) = isolated_slug {
         match gateway_client {
             GatewayClient::Codex => services.codex_config.clear_isolated(slug),
             GatewayClient::ClaudeCode => services.claude_config.clear_isolated(slug),
