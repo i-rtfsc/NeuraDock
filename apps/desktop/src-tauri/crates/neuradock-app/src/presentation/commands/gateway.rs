@@ -1383,11 +1383,24 @@ pub async fn clear_gateway_binding(
     }
 
     if let Some(slug) = isolated_slug {
-        match gateway_client {
+        let clear_result = match gateway_client {
             GatewayClient::Codex => services.codex_config.clear_isolated(slug),
             GatewayClient::ClaudeCode => services.claude_config.clear_isolated(slug),
+        };
+        if let Err(error) = clear_result {
+            rollback_binding_change(
+                &app,
+                &state,
+                &access,
+                route,
+                agent,
+                old_upstream,
+                old_meta,
+                old_access,
+            )
+            .await;
+            return Err(CommandError::from(error));
         }
-        .map_err(CommandError::from)?;
     } else {
         let takeover = match takeover_for(&app) {
             Ok(takeover) => takeover,
