@@ -342,7 +342,9 @@ pub async fn get_agent_access(
 }
 
 fn list_records(state: &AgentAccessState) -> Vec<AgentAccessDto> {
-    state.profiles.lock().unwrap().values().cloned().collect()
+    let mut records: Vec<_> = state.profiles.lock().unwrap().values().cloned().collect();
+    records.sort_by_key(profile_key);
+    records
 }
 
 #[cfg(test)]
@@ -533,5 +535,28 @@ mod tests {
                 .and_then(|record| record.isolated_slug),
             Some("relay-a".into())
         );
+    }
+
+    #[test]
+    fn command_record_listing_is_sorted_by_profile_key() {
+        let state = AgentAccessState::default();
+        for value in [
+            record(Some("relay-b")),
+            record(None),
+            record(Some("relay-a")),
+        ] {
+            state
+                .profiles
+                .lock()
+                .unwrap()
+                .insert(profile_key(&value), value);
+        }
+
+        let records = list_records(&state);
+        let slugs: Vec<_> = records
+            .iter()
+            .map(|record| record.isolated_slug.as_deref().unwrap_or("default"))
+            .collect();
+        assert_eq!(slugs, vec!["default", "relay-a", "relay-b"]);
     }
 }
