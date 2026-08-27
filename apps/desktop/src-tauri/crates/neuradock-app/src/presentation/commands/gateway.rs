@@ -1241,7 +1241,8 @@ pub async fn set_gateway_binding(
     );
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
-    let old_access = access.get(agent);
+    let old_access =
+        access.get_profile(agent, isolated.as_ref().map(|target| target.slug.as_str()));
     let new_meta = BindingMeta {
         label: label.clone(),
         source,

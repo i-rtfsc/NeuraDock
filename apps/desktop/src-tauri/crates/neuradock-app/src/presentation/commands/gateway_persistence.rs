@@ -125,10 +125,11 @@ pub(super) fn restore_access_record(
     access: &AgentAccessState,
     agent: AgentIdDto,
     record: Option<AgentAccessDto>,
+    isolated_slug: Option<&str>,
 ) -> Result<(), CommandError> {
     match record {
         Some(value) => access.set(app, value),
-        None => access.remove(app, agent),
+        None => access.remove_profile(app, agent, isolated_slug),
     }
 }
 
@@ -143,11 +144,14 @@ pub(super) async fn rollback_binding_change(
     old_meta: Option<BindingMeta>,
     old_access: Option<AgentAccessDto>,
 ) {
+    let isolated_slug = (route.profile != "default").then_some(route.profile.clone());
     restore_binding_memory(state, route, old_upstream, old_meta).await;
     if let Err(error) = write_bindings(app, state).await {
         log::error!("Failed to roll back gateway bindings: {}", error);
     }
-    if let Err(error) = restore_access_record(app, access, agent, old_access) {
+    if let Err(error) =
+        restore_access_record(app, access, agent, old_access, isolated_slug.as_deref())
+    {
         log::error!("Failed to roll back agent access record: {}", error);
     }
 }
