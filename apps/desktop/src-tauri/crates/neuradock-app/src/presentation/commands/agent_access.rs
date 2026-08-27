@@ -497,4 +497,39 @@ mod tests {
             .get_profile(AgentIdDto::Codex, Some("missing"))
             .is_none());
     }
+
+    #[test]
+    fn summary_selection_is_stable_independent_of_insertion_order() {
+        let state = AgentAccessState::default();
+        let default = record(None);
+        let mut relay_b = record(Some("relay-b"));
+        relay_b.label = "B".into();
+        let mut relay_a = record(Some("relay-a"));
+        relay_a.label = "A".into();
+
+        for value in [relay_b, default.clone(), relay_a] {
+            state
+                .profiles
+                .lock()
+                .unwrap()
+                .insert(profile_key(&value), value);
+        }
+        state.refresh_summary(AgentIdDto::Codex);
+        assert!(state
+            .get(AgentIdDto::Codex)
+            .is_some_and(|record| record.isolated_slug.is_none()));
+
+        state
+            .profiles
+            .lock()
+            .unwrap()
+            .remove(&profile_key(&default));
+        state.refresh_summary(AgentIdDto::Codex);
+        assert_eq!(
+            state
+                .get(AgentIdDto::Codex)
+                .and_then(|record| record.isolated_slug),
+            Some("relay-a".into())
+        );
+    }
 }
