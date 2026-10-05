@@ -1,0 +1,36 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/mod.rs
+  h_8b376749578497 26-27
+  s_7e0fe33a35ea18::t_46bd4302cfc1fc 15
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/task_manager.rs
+  h_8b376749578497 83-110,112-113,129-131
+  s_7e0fe33a35ea18::t_46bd4302cfc1fc 1,70-71,111,114-118
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/task_spawner.rs
+  h_8b376749578497 1,8-14,16-49,55-84
+  s_7e0fe33a35ea18::t_46bd4302cfc1fc 50-54
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/types.rs
+  h_8b376749578497 6-7,25-32,38-43,52-56,68-79,82-83,99-136
+  s_7e0fe33a35ea18::t_46bd4302cfc1fc 33-37,44-51,57-67,80-81,84-98
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/bootstrap.rs
+  h_8b376749578497 277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "45fb3c70061c89d539a74c87deb5b2778ae70a87",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_7e0fe33a35ea18": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-45fb3c70061c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
