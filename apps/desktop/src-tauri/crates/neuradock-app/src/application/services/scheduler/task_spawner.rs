@@ -79,7 +79,10 @@ impl super::AutoCheckInScheduler {
             }
         });
 
-        self.tasks.lock().await.insert(account_id_for_storage, handle);
+        self.tasks
+            .lock()
+            .await
+            .insert(account_id_for_storage, handle);
     }
 
     pub(super) async fn spawn_check_in_task(&self, config: CheckInTaskConfig) {

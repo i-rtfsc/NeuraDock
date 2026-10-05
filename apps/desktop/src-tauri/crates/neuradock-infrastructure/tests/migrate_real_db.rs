@@ -88,7 +88,10 @@ async fn pending_migrations_apply_cleanly_to_a_real_database() {
          WHERE check_in_mode IS NULL OR check_in_day_offset_minutes IS NULL",
     )
     .await;
-    assert_eq!(unclassified, 0, "every provider needs a mode and a date offset");
+    assert_eq!(
+        unclassified, 0,
+        "every provider needs a mode and a date offset"
+    );
 
     // 5b. No phantom legacy days: a legacy row with no amount had no quota
     //     increase to infer a check-in from.

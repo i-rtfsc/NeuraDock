@@ -129,7 +129,12 @@ mod tests {
     #[test]
     fn a_page_visit_provider_still_gets_a_check_in_task() {
         assert_eq!(
-            scheduled_task_kind(&provider(Some("/signin"), true, false, CheckInMode::PageVisit)),
+            scheduled_task_kind(&provider(
+                Some("/signin"),
+                true,
+                false,
+                CheckInMode::PageVisit
+            )),
             ScheduledTaskKind::CheckIn
         );
     }
