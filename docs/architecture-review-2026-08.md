@@ -12,7 +12,7 @@ NeuraDock 是一个 Tauri 2 + React/TypeScript + Rust + SQLite 的桌面应用�
 
 综合评级：**B-（可持续演进，但不适合继续无治理地堆叠功能）**。
 
-### 1.1 整改进展（更新于 2026-08-27）
+### 1.1 整改进展（更新于 2026-09）
 
 本报告最初记录的是整改前基线。当前状态如下：
 
@@ -21,7 +21,8 @@ NeuraDock 是一个 Tauri 2 + React/TypeScript + Rust + SQLite 的桌面应用�
 - **已完成**：CI 已覆盖前后端测试、依赖审计、cargo-audit、Gitleaks；Release 生成 SHA-256 校验文件。
 - **已完成**：新安装使用随机 256-bit master key；旧固定密码仅保留为存量数据迁移兼容路径，并具备 pending key 中断恢复测试。
 - **已完成**：Codex 敏感凭据数据库加密，DTO 不再返回密码明文。
-- **已完成**：生产前端 IPC 已收敛到生成的 typed client；裸字符串 `invoke` 已从业务代码移除。
+- **部分完成**：生产前端 IPC 的业务组件已改用生成的 typed client，但**并未全量收敛**：手写的 `lib/tauri-commands.ts` 仍有 22 处裸字符串 `invoke`，`hooks/useBalance.ts` 4 处，另有 token/preferences/proxy/reminder 等若干处。`verify-bindings` 只校验生成物 `tauri.ts`，覆盖不到这些手写包装，因此该门禁无法阻止反弹。
+- **已完成**：签到模块按 ADR-007 重构为「证据账本 + 尝试履历 + provider quota day」：今日是否已签到由账本判定（不再用 24h 间隔近似），额度上涨在运行时即被推断为签到证据，`accounts.last_check_in` 的读写错位（其实是"上次余额快照"）已删除，并补齐签到历史、统计、运行中任务与取消。
 - **已完成**：Tauri bindings 已纳入版本控制；前端检查先生成绑定，CI 再校验生成结果无漂移。
 - **已完成**：Tauri capability 已移除 `fs:default`、`dialog:default`、`store:default`，外链仅允许无 credentials 的 HTTP(S) URL。
 - **已完成**：删除子 crate 下未被构建读取的重复 capability 文件，权限单一来源为根 `tauri.conf.json`。
