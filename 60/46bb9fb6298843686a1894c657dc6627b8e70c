@@ -1,0 +1,24 @@
+docs/architecture/adr/007-check-in-state-model.md
+  h_8b376749578497 182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "6046bb9fb6298843686a1894c657dc6627b8e70c",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_bb5500abec7f75": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-6046bb9fb629",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
