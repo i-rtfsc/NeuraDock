@@ -1,0 +1,67 @@
+apps/desktop/src/components/checkin/CheckInHistorySection.tsx
+  h_8b376749578497 1-7,23-27,31-36,46-55,77-81,103-173
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 8-22,28-30,37-45,56-76,82-102
+apps/desktop/src/components/checkin/CheckInOutcomeBadge.tsx
+  h_8b376749578497 1-8,22-34,48-57
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 9-21,35-47
+apps/desktop/src/components/checkin/CheckInStatsSection.tsx
+  h_8b376749578497 1-8,12-40,45-109,120-150
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 9-11,41-44,110-119
+apps/desktop/src/components/checkin/CheckInTodayStateCard.tsx
+  h_8b376749578497 6-32,36-40,49-55,80-87,105-113,125-148,161-170
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 1-5,33-35,41-48,56-79,88-104,114-124,149-160
+apps/desktop/src/hooks/useCheckInHistory.test.tsx
+  h_8b376749578497 14-43,50-87,95-154,161-176,184-195,201-257
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 1-13,44-49,88-94,155-160,177-183,196-200
+apps/desktop/src/hooks/useCheckInHistory.ts
+  h_8b376749578497 6-10,31-63,81-107
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 1-5,11-30,64-80
+apps/desktop/src/hooks/useCheckInToast.test.tsx
+  h_8b376749578497 16-19,22-39,48-55,62-78,90-105,137-157,180-199
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 1-15,20-21,40-47,56-61,79-89,106-136,158-179,200-222
+apps/desktop/src/i18n/locales/en-US.json
+  h_8b376749578497 498,500-501,531-542,550-585,591-596,600-602,613-628
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 543-549,586-590,597-599,603-612
+apps/desktop/src/i18n/locales/zh-CN.json
+  h_8b376749578497 538-545,577-602,604-621,626-628
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 498,500-501,531-537,546-576,603,622-625
+apps/desktop/src/lib/cacheInvalidators.test.ts
+  h_8b376749578497 10-33,41-49,51-67,74-81
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 1-9,34-40,50,68-73
+apps/desktop/src/lib/cacheInvalidators.ts
+  h_8b376749578497 31,37-39
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 32-33,36
+apps/desktop/src/lib/checkInOutcome.test.ts
+  h_8b376749578497 1-8,15-20,27-42,45-60,70-84
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 9-14,21-26,43-44,61-69,85-86
+apps/desktop/src/lib/checkInOutcome.ts
+  h_8b376749578497 1-10,19-48,59-61,63-113,120-134
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 11-18,49-58,62,114-119
+apps/desktop/src/lib/query-keys.ts
+  h_8b376749578497 37-43,47-53
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 44-46
+apps/desktop/src/pages/AccountActivityPage.tsx
+  h_8b376749578497 9,89-95,216-222
+  s_8fcd14e870e3f2::t_0e1c7e45f1f9a2 7-8,223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "77b87a53ecee0772bc4fd2bbc64f8f0096274b2a",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_8fcd14e870e3f2": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-77b87a53ecee",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
