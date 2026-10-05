@@ -3,10 +3,6 @@ mod provider;
 mod quota_day;
 mod repository;
 mod state;
-mod value_objects;
-
-#[cfg(test)]
-mod value_objects_test;
 
 pub use domain_service::CheckInDomainService;
 pub use provider::{CheckInMode, Provider, ProviderConfig};
@@ -16,6 +12,3 @@ pub use quota_day::{
 };
 pub use repository::ProviderRepository;
 pub use state::{evaluate_check_in_state, CheckInPolicy, CheckInState};
-pub use value_objects::Balance;
-#[allow(unused_imports)]
-pub use value_objects::{CheckInResult, CheckInStatus};

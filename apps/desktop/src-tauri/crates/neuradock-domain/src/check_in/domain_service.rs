@@ -62,25 +62,6 @@ impl CheckInDomainService {
             )),
         }
     }
-
-    /// Determine if session needs refresh based on business rules
-    pub fn should_refresh_session(account: &Account) -> bool {
-        // Session is invalid or will expire soon (within 1 hour)
-        !account.is_session_valid() || {
-            if let Some(expires_at) = account.session_expires_at() {
-                let now = chrono::Utc::now();
-                let one_hour_later = now + chrono::Duration::hours(1);
-                expires_at < one_hour_later
-            } else {
-                true
-            }
-        }
-    }
-
-    /// Determine if balance check is needed
-    pub fn should_check_balance(account: &Account, hours_threshold: i64) -> bool {
-        account.is_balance_stale(hours_threshold)
-    }
 }
 
 #[cfg(test)]
@@ -177,19 +158,5 @@ mod tests {
         let error = CheckInDomainService::validate_provider(&provider)
             .expect_err("an observe-only provider cannot be posted to");
         assert!(error.to_string().contains("web check-in"));
-    }
-
-    #[test]
-    fn test_should_refresh_session_invalid() {
-        let account = create_test_account();
-        // New account has no session
-        assert!(CheckInDomainService::should_refresh_session(&account));
-    }
-
-    #[test]
-    fn test_should_check_balance() {
-        let account = create_test_account();
-        // New account has stale balance
-        assert!(CheckInDomainService::should_check_balance(&account, 24));
     }
 }
