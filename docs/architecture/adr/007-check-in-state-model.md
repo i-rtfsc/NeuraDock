@@ -179,7 +179,7 @@ check_in_state(account, provider, evidence[day], attempts[day], now) -> State
 8. `current_streak`：最后证据日 `today-2` ⇒ 0；`today-1` ⇒ 保留；`today` ⇒ 累加。
 9. `check_in_rate` 分母 = 当月已过天数。
 10. 日桶/日期字符串只由后端 helper 产生；前端零处 `new Date('<YYYY-MM-DD>')`。
-11. `quota_adjustment` 的变化不产生推断证据。
+11. `quota_adjustment` 的变化不产生推断证据。**实现说明（已知限制）**：`balance_history.total_quota` 在写入时已经扣过校正，快照里不保存当时的校正值，所以「改大校正」在存量序列上表现为一次上涨。实际校正常见于分级（真实案例为 0.02），低于 `MIN_INFERRED_DELTA = 0.05` 的噪声下限而被过滤；若未来出现分级以上的校正，需要给快照增加一列记录当时校正值才能真正断言。此条因此是**部分成立**，测试覆盖的是噪声下限本身。
 12. 失败尝试落库且**不**产生证据；`skipped_guard` 不计入失败率分母。
 
 ## 迁移与兼容（每步可独立发布）
