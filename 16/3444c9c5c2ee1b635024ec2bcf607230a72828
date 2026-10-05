@@ -1,0 +1,28 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/migrations/20260911000004_drop_phantom_legacy_days.sql
+  h_8b376749578497 1-15,22-23
+  s_f8610338b05adc::t_160b5b8c7f0c20 16-21
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/migrate_real_db.rs
+  h_8b376749578497 91,97-101
+  s_f8610338b05adc::t_160b5b8c7f0c20 92-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "163444c9c5c2ee1b635024ec2bcf607230a72828",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_f8610338b05adc": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-163444c9c5c2",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
