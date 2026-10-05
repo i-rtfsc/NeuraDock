@@ -1,0 +1,35 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/security_migration.rs
+  s_3d206e84b0fd24::t_3becf181bb8fd8 99,120-121,165-167,169-171,175-177,204-206,210-214,223-225,227
+  s_3d206e84b0fd24::t_42cabcd980e276 1-6,48-58,71-98,115-119,126-134,162-164,168,178-182,188-191,195-203,207-209,215-222,226
+  h_8b376749578497 40-47,59-70,100-114,122-125,135-161,172-174,183-187,192-194,228-237
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/bootstrap.rs
+  s_3d206e84b0fd24::t_85a333cba064b6 48,114-118,125
+  h_8b376749578497 120-124
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/security/mod.rs
+  s_3d206e84b0fd24::t_85a333cba064b6 9
+  h_8b376749578497 8
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/security/key_migration.rs
+  s_3d206e84b0fd24::t_85a333cba064b6 42-49,65-68,102,119,128-134
+  h_8b376749578497 1,4-41,50-64,85-86,166-172,192-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2419fb68d853e17f3ea1669acee335ed8ec7234f",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_3d206e84b0fd24": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0812c-d687-76c2-97c9-c795cdc78a5f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
