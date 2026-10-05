@@ -28,10 +28,15 @@ export const cacheInvalidators = {
 
   /**
    * Invalidate every cache affected by a check-in for one account:
-   * its streak / calendar / trend / day-detail plus the aggregate streak list
-   * and the account's own record, balance and balance statistics.
+   * its today-state / history / stats / streak / calendar / trend / day-detail
+   * plus the aggregate streak list, the running-job list and the account's own
+   * record, balance and balance statistics.
    */
   invalidateCheckIn: (queryClient: QueryClient, accountId: string) => {
+    queryClient.invalidateQueries({ queryKey: checkInKeys.state(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.histories(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.stats(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.runningJobs() });
     queryClient.invalidateQueries({ queryKey: checkInKeys.streak(accountId) });
     queryClient.invalidateQueries({ queryKey: checkInKeys.calendars(accountId) });
     queryClient.invalidateQueries({ queryKey: checkInKeys.trends(accountId) });

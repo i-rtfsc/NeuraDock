@@ -34,6 +34,23 @@ export const checkInKeys = {
   dayDetails: (accountId: string) => [...checkInKeys.all, 'day-detail', accountId] as const,
   dayDetail: (accountId: string, date: string) =>
     [...checkInKeys.dayDetails(accountId), date] as const,
+  // Today's read-model state for one account. One key per account, so the key
+  // itself is also the invalidation prefix.
+  state: (accountId: string) => [...checkInKeys.all, 'state', accountId] as const,
+  // Attempt history, optionally across all accounts (`null`).
+  histories: (accountId: string | null) =>
+    [...checkInKeys.all, 'history', accountId ?? 'all'] as const,
+  history: (accountId: string | null, page: number, pageSize: number) =>
+    [...checkInKeys.histories(accountId), { page, pageSize }] as const,
+  // Aggregate stats for one account. With a period it is one query key; with
+  // just the account it is the prefix that invalidates every period — the same
+  // plural/singular trick as `calendars`/`calendar`.
+  stats: (accountId: string, periodDays?: number) =>
+    periodDays === undefined
+      ? ([...checkInKeys.all, 'stats', accountId] as const)
+      : ([...checkInKeys.all, 'stats', accountId, { periodDays }] as const),
+  // Not account-scoped: a running job is a global, in-memory fact.
+  runningJobs: () => [...checkInKeys.all, 'running-jobs'] as const,
 };
 
 export const notificationKeys = {

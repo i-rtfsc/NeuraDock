@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckInTrendChart } from '@/components/checkin/streak/CheckInTrendChart';
 import { CheckInCalendar } from '@/components/checkin/streak/CheckInCalendar';
 import { CheckInDayDetailDialog } from '@/components/checkin/streak/CheckInDayDetailDialog';
+import { CheckInTodayStateCard } from '@/components/checkin/CheckInTodayStateCard';
+import { CheckInHistorySection } from '@/components/checkin/CheckInHistorySection';
+import { CheckInStatsSection } from '@/components/checkin/CheckInStatsSection';
 import { ChevronLeft, Calendar, TrendingUp, Percent, Flame, Trophy, CalendarCheck } from 'lucide-react';
 import {
   useCheckInStreak,
@@ -82,6 +85,13 @@ export function AccountActivityPage() {
         </div>
       }
     >
+
+      {/* 今日状态：读模型直接回答「现在要不要签到」 */}
+      {accountId && (
+        <div className="mb-section-gap-sm">
+          <CheckInTodayStateCard accountId={accountId} />
+        </div>
+      )}
 
       {/* 统计概览卡片 */}
       <BentoGrid className="mb-section-gap-sm">
@@ -202,6 +212,14 @@ export function AccountActivityPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 历史与统计 */}
+      {accountId && (
+        <div className="mt-section-gap-sm space-y-card-gap">
+          <CheckInHistorySection accountId={accountId} />
+          <CheckInStatsSection accountId={accountId} />
+        </div>
+      )}
 
       {/* 日期详情弹窗 */}
       <CheckInDayDetailDialog
