@@ -1,0 +1,48 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/trend.rs
+  s_3d206e84b0fd24::t_db7820dc06e778 40,46,91,108
+  h_8b376749578497 39,102,124
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/bootstrap.rs
+  h_8b376749578497 456
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/streak_dto.rs
+  h_8b376749578497 21,57-58
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/streak.rs
+  h_8b376749578497 112
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/check_in.rs
+  s_3d206e84b0fd24::t_992afa1859e49c 20-25,27-29,35
+  s_3d206e84b0fd24::t_6c905a25a43a19 8,15-19,26,36-37
+  s_3d206e84b0fd24::t_9aced0cf0e122a 38
+  h_8b376749578497 11-14,30-34
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/state.rs
+  s_3d206e84b0fd24::t_992afa1859e49c 10
+  s_3d206e84b0fd24::t_6c905a25a43a19 53
+  h_8b376749578497 8-9
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/ipc.rs
+  h_8b376749578497 22
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/calendar.rs
+  s_3d206e84b0fd24::t_db7820dc06e778 116
+  h_8b376749578497 78,89,102
+apps/desktop/src/lib/tauri.ts
+  s_3d206e84b0fd24::t_8be51e2924d56e 1557
+  h_8b376749578497 120-130,1402
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0435fbd274952707fa8a0e8eb0b19a9cf4936a80",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_3d206e84b0fd24": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0812c-d687-76c2-97c9-c795cdc78a5f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
