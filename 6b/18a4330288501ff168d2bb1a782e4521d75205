@@ -1,0 +1,37 @@
+docs/architecture/adr/007-check-in-state-model.md
+  h_8b376749578497 225,245-247
+  s_1e4aacb3bdb5e1::t_77b6bc3603c955 241-244
+docs/en/user_guide/check_in_operations.md
+  h_8b376749578497 54-58,60-62,70-73,80,87-91,117
+  s_1e4aacb3bdb5e1::t_77b6bc3603c955 49,52,63-65,69
+docs/en/user_guide/check_in_streaks.md
+  h_8b376749578497 11-13,62-63,81,85,94-95,97-121,127-131,142-143,146-151,153,236-237,259-262,279,281
+  s_1e4aacb3bdb5e1::t_77b6bc3603c955 16-17,238-258
+docs/user_guide/check_in_operations.md
+  h_8b376749578497 52,54-58,60-65,69-73,80
+  s_1e4aacb3bdb5e1::t_77b6bc3603c955 49,87-91
+docs/user_guide/check_in_streaks.md
+  h_8b376749578497 81,97-121,142-143,153,236-249,257-261
+  s_1e4aacb3bdb5e1::t_77b6bc3603c955 11-13,16-17,62-63,85,94-96,127-131,146-151,250-256,262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "6b18a4330288501ff168d2bb1a782e4521d75205",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_1e4aacb3bdb5e1": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-6b18a4330288",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
