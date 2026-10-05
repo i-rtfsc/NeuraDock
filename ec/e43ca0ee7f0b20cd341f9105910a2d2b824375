@@ -1,0 +1,30 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/task_spawner.rs
+  h_8b376749578497 82,84-85
+  s_1899bf27ea00da::t_fd401b4dc31337 83
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/scheduler/types.rs
+  h_8b376749578497 132,135-137
+  s_1899bf27ea00da::t_fd401b4dc31337 133-134
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/migrate_real_db.rs
+  h_8b376749578497 91-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ece43ca0ee7f0b20cd341f9105910a2d2b824375",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_1899bf27ea00da": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-ece43ca0ee7f",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
