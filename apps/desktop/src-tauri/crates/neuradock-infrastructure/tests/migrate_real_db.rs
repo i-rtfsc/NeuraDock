@@ -88,7 +88,17 @@ async fn pending_migrations_apply_cleanly_to_a_real_database() {
          WHERE check_in_mode IS NULL OR check_in_day_offset_minutes IS NULL",
     )
     .await;
-    assert_eq!(unclassified, 0, "every provider needs a mode and an offset");
+    assert_eq!(unclassified, 0, "every provider needs a mode and a date offset");
+
+    // 5b. No phantom legacy days: a legacy row with no amount had no quota
+    //     increase to infer a check-in from.
+    let phantoms = count(
+        pool,
+        "SELECT COUNT(*) FROM check_in_records
+         WHERE source = 'legacy_estimate' AND reward_cents IS NULL",
+    )
+    .await;
+    assert_eq!(phantoms, 0, "an inference needs an increase to infer from");
 
     // 6. Attempts are append-only telemetry and must not have been touched.
     let attempts = count(pool, "SELECT COUNT(*) FROM check_in_attempts").await;
