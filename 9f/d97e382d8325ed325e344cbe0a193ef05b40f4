@@ -1,0 +1,25 @@
+docs/architecture-review-2026-08.md
+  h_8b376749578497 24-25
+  s_141a8bdba18a9f::t_743153fd628351 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "9fd97e382d8325ed325e344cbe0a193ef05b40f4",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_141a8bdba18a9f": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-9fd97e382d83",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
