@@ -118,6 +118,17 @@ async executeBatchCheckIn(accountIds: string[]) : Promise<Result<BatchCheckInRes
 }
 },
 /**
+ * Record the user's explicit confirmation of an externally completed check-in.
+ */
+async confirmCheckInReward(accountId: string, date: string) : Promise<Result<boolean, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("confirm_check_in_reward", { accountId, date }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
+/**
  * Stop a running check-in job
  */
 async stopCheckIn(jobId: string) : Promise<Result<boolean, CommandError>> {
@@ -1388,7 +1399,7 @@ export type BatchImportResult = { total: number; succeeded: number; failed: numb
 export type BatchUpdateResult = { total: number; updated: number; created: number; failed: number; results: UpdateItemResult[] }
 export type BrowserInfoDto = { available: boolean; path: string | null; message: string | null }
 export type CheckInCalendarDto = { account_id: string; year: number; month: number; days: CheckInDayDto[]; month_stats: MonthStatsDto }
-export type CheckInDayDto = { date: string; is_checked_in: boolean; income_increment: number | null; current_balance: number; daily_consumed: number; total_consumed: number; total_quota: number }
+export type CheckInDayDto = { date: string; is_checked_in: boolean; income_increment: number | null; reward_is_estimate: boolean; current_balance: number; daily_consumed: number; total_consumed: number; total_quota: number }
 export type CheckInHistoryDto = { job_id: string; account_id: string; account_name: string; provider_name: string; status: string; success: boolean; balance: BalanceDto | null; error: string | null; scheduled_at: string; executed_at: string | null }
 export type CheckInProgress = { account_id: string; progress: number; message: string }
 export type CheckInStatsDto = { total_checks: number; successful_checks: number; failed_checks: number; success_rate: number; average_balance: number | null }
@@ -1543,7 +1554,7 @@ export type SaveDeveloperToolConnectionInput = { id: string | null; name: string
 export type SavedDeveloperToolQueryDto = { id: string; connection_id: string; name: string; query: string }
 export type TestNotificationChannelResult = { success: boolean; message: string }
 export type TokenDto = { id: number; account_id: string; account_name: string; provider_name: string; name: string; key: string; masked_key: string; status: number; status_text: string; used_quota: number; remain_quota: number; unlimited_quota: boolean; usage_percentage: number; expired_time: number | null; expired_at: string | null; is_active: boolean; is_expired: boolean; model_limits_enabled: boolean; model_limits_allowed: string[]; model_limits_denied: string[]; fetched_at: string }
-export type TrendDataPoint = { date: string; total_quota: number; income_increment: number; current_balance: number; is_checked_in: boolean }
+export type TrendDataPoint = { date: string; total_quota: number; income_increment: number | null; reward_is_estimate: boolean; current_balance: number; is_checked_in: boolean }
 export type UpdateAccountInput = { account_id: string; name: string | null; provider_id: string | null; cookies: { [key in string]: string } | null; api_user: string | null; auto_checkin_enabled: boolean | null; auto_checkin_hour: number | null; auto_checkin_minute: number | null; check_in_interval_hours: number | null }
 /**
  * Input for updating an AI chat service

@@ -34,31 +34,19 @@ pub async fn get_trend(
     );
 
     let mut data_points = Vec::new();
-    let mut prev_income: Option<f64> = None;
 
     for row in rows {
-        let income_increment = if let Some(prev) = prev_income {
-            let diff = row.daily_total_quota() - prev;
-            if diff > 0.0 {
-                diff
-            } else {
-                0.0
-            }
-        } else {
-            row.daily_total_quota() // First day handle
-        };
-
-        let is_checked_in = income_increment > 0.0 || prev_income.is_none();
+        let income_increment = row.check_in_reward();
+        let is_checked_in = row.is_checked_in();
 
         data_points.push(TrendDataPoint {
             date: row.check_in_date().format("%Y-%m-%d").to_string(),
             total_quota: row.daily_total_quota(),
             income_increment,
+            reward_is_estimate: row.reward_is_estimate(),
             current_balance: row.daily_balance(),
             is_checked_in,
         });
-
-        prev_income = Some(row.daily_total_quota());
     }
 
     let dto = CheckInTrendDto {
@@ -100,14 +88,7 @@ pub async fn get_day_detail(
             None
         };
 
-        let income_increment = prev_summary.as_ref().and_then(|prev| {
-            let diff = row.daily_total_quota() - prev.daily_total_quota();
-            if diff > 0.0 {
-                Some(diff)
-            } else {
-                None
-            }
-        });
+        let income_increment = row.check_in_reward();
 
         let daily_consumed = prev_summary.as_ref().map_or(0.0, |prev| {
             let diff = row.daily_consumed() - prev.daily_consumed();
@@ -118,12 +99,13 @@ pub async fn get_day_detail(
             }
         });
 
-        let is_checked_in = income_increment.is_some() || prev_summary.is_none();
+        let is_checked_in = row.is_checked_in();
 
         Ok(CheckInDayDto {
             date: date.to_string(),
             is_checked_in,
             income_increment,
+            reward_is_estimate: row.reward_is_estimate(),
             current_balance: row.daily_balance(),
             daily_consumed,
             total_consumed: row.daily_consumed(),
@@ -139,6 +121,7 @@ pub async fn get_day_detail(
             date: date.to_string(),
             is_checked_in: false,
             income_increment: None,
+            reward_is_estimate: false,
             current_balance: 0.0,
             daily_consumed: 0.0,
             total_consumed: 0.0,

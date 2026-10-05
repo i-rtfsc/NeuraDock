@@ -5,8 +5,9 @@ use crate::application::queries::{
     AccountQueryService, BalanceStatisticsQueryService, CheckInStreakQueries,
 };
 use crate::application::services::{
-    BalanceService, ClaudeConfigService, CodexConfigService, ConfigService, DeveloperToolsService,
-    ProviderModelsQueryService, ProxyConfigService, ReminderSettingsService, TokenService,
+    BalanceHistoryService, BalanceService, ClaudeConfigService, CodexConfigService, ConfigService,
+    DeveloperToolsService, ProviderModelsQueryService, ProxyConfigService, ReminderSettingsService,
+    TokenService,
 };
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::ai_chat::AiChatServiceRepository;
@@ -49,6 +50,7 @@ pub struct Repositories {
 
 #[derive(Clone)]
 pub struct Services {
+    pub balance_history: Arc<BalanceHistoryService>,
     pub token: Arc<TokenService>,
     pub claude_config: Arc<ClaudeConfigService>,
     pub codex_config: Arc<CodexConfigService>,

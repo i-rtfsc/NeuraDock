@@ -453,6 +453,7 @@ pub async fn build_app_state(
             codex_account: codex_account_repo,
         },
         services: Services {
+            balance_history: balance_history_service,
             token: token_service,
             claude_config: claude_config_service,
             codex_config: codex_config_service,

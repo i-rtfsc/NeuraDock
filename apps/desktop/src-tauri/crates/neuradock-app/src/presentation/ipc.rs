@@ -19,6 +19,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             // Check-in commands
             execute_check_in,
             execute_batch_check_in,
+            confirm_check_in_reward,
             stop_check_in,
             // Balance commands
             fetch_account_balance,

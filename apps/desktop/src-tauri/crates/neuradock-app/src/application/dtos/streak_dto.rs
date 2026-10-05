@@ -18,6 +18,7 @@ pub struct CheckInDayDto {
     pub date: String, // YYYY-MM-DD
     pub is_checked_in: bool,
     pub income_increment: Option<f64>,
+    pub reward_is_estimate: bool,
     pub current_balance: f64,
     pub daily_consumed: f64,
     pub total_consumed: f64,
@@ -53,7 +54,8 @@ pub struct CheckInTrendDto {
 pub struct TrendDataPoint {
     pub date: String,
     pub total_quota: f64,
-    pub income_increment: f64,
+    pub income_increment: Option<f64>,
+    pub reward_is_estimate: bool,
     pub current_balance: f64,
     pub is_checked_in: bool,
 }

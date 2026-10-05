@@ -5,8 +5,36 @@ use crate::application::dtos::{
     RunningJobDto,
 };
 use crate::presentation::error::CommandError;
-use crate::presentation::state::{CommandHandlers, Queries};
+use crate::presentation::state::{CommandHandlers, Queries, Repositories, Services};
 use tauri::State;
+
+/// Record the user's explicit confirmation of an externally completed check-in.
+#[tauri::command]
+#[specta::specta]
+pub async fn confirm_check_in_reward(
+    account_id: String,
+    date: String,
+    repositories: State<'_, Repositories>,
+    services: State<'_, Services>,
+) -> Result<bool, CommandError> {
+    let account = repositories
+        .account
+        .find_by_id(&neuradock_domain::shared::AccountId::from_string(
+            &account_id,
+        ))
+        .await?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    let provider = repositories
+        .provider
+        .find_by_id(account.provider_id())
+        .await?
+        .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+    services
+        .balance_history
+        .confirm_fixed_check_in(&account_id, &date, &provider)
+        .await
+        .map_err(CommandError::from)
+}
 
 /// Execute check-in for a single account
 #[tauri::command]

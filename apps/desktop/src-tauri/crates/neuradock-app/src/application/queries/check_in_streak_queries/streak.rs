@@ -95,7 +95,6 @@ fn calculate_streak_stats(
     account_id: &str,
     rows: &[BalanceHistoryDailySummary],
 ) -> StreakComputation {
-    let mut prev_income: Option<f64> = None;
     let mut current_streak = 0u32;
     let mut longest_streak = 0u32;
     let mut total_check_in_days = 0u32;
@@ -110,7 +109,7 @@ fn calculate_streak_stats(
 
     for row in rows {
         let date = row.check_in_date();
-        let is_checked_in = prev_income.is_none_or(|prev| row.daily_total_quota() > prev);
+        let is_checked_in = row.is_checked_in();
 
         if is_checked_in {
             current_streak = match last_check_in_date {
@@ -132,8 +131,6 @@ fn calculate_streak_stats(
                 current_streak = 0;
             }
         }
-
-        prev_income = Some(row.daily_total_quota());
     }
 
     StreakComputation {

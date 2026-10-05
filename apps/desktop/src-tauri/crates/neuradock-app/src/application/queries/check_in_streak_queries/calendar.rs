@@ -63,7 +63,6 @@ pub async fn get_calendar(
 
     // Calculate income increments
     let mut days = Vec::new();
-    let mut prev_income: Option<f64> = None;
     let mut prev_consumed: Option<f64> = None;
     let mut checked_in_days = 0u32;
     let mut total_quota_increment = 0.0;
@@ -76,19 +75,7 @@ pub async fn get_calendar(
         let date_str = date.format("%Y-%m-%d").to_string();
 
         if let Some(row) = daily_map.get(&date_str) {
-            let income_increment = if let Some(prev) = prev_income {
-                let diff = row.daily_total_quota() - prev;
-                if diff > 0.0 {
-                    Some(diff)
-                } else {
-                    None
-                }
-            } else if row.daily_total_quota() > 0.0 {
-                // If this is the first day we have data for, treat the current quota as increment
-                Some(row.daily_total_quota())
-            } else {
-                None
-            };
+            let income_increment = row.check_in_reward();
 
             let daily_consumed = prev_consumed.map_or(0.0, |prev| {
                 let diff = row.daily_consumed() - prev;
@@ -99,7 +86,7 @@ pub async fn get_calendar(
                 }
             });
 
-            let is_checked_in = income_increment.is_some() || prev_income.is_none();
+            let is_checked_in = row.is_checked_in();
 
             if is_checked_in {
                 checked_in_days += 1;
@@ -112,13 +99,13 @@ pub async fn get_calendar(
                 date: date_str,
                 is_checked_in,
                 income_increment,
+                reward_is_estimate: row.reward_is_estimate(),
                 current_balance: row.daily_balance(),
                 daily_consumed,
                 total_consumed: row.daily_consumed(),
                 total_quota: row.daily_total_quota(),
             });
 
-            prev_income = Some(row.daily_total_quota());
             prev_consumed = Some(row.daily_consumed());
         } else {
             // No data for this day
@@ -126,6 +113,7 @@ pub async fn get_calendar(
                 date: date_str,
                 is_checked_in: false,
                 income_increment: None,
+                reward_is_estimate: false,
                 current_balance: 0.0,
                 daily_consumed: 0.0,
                 total_consumed: 0.0,
