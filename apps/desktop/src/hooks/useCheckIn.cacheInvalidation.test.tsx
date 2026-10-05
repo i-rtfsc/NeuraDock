@@ -64,6 +64,7 @@ function executeResult(accountId: string): ExecuteCheckInResult {
     balance: null,
     error: null,
     outcome: 'success',
+    error_code: null,
   };
 }
 

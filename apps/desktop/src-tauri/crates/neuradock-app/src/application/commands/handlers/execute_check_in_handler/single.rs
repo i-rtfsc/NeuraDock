@@ -163,6 +163,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
             message: result.message,
             balance: balance_dto,
             outcome: result.outcome,
+            error_code: result.error_code,
         })
     }
 }

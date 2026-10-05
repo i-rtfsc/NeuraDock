@@ -99,6 +99,9 @@ pub struct ExecuteCheckInResult {
     /// or `cancelled`. `success` alone cannot distinguish "checked in" from
     /// "today was already done".
     pub outcome: String,
+    /// Stable reason code when the run failed, so the UI can translate it
+    /// instead of showing a raw message.
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

@@ -27,15 +27,11 @@ const MIN_INFERRED_DELTA: f64 = 0.05;
 /// (attempts).
 pub struct BalanceHistoryService {
     repository: Arc<dyn BalanceHistoryRepository>,
-    policy: CheckInPolicy,
 }
 
 impl BalanceHistoryService {
     pub fn new(repository: Arc<dyn BalanceHistoryRepository>) -> Self {
-        Self {
-            repository,
-            policy: CheckInPolicy::default(),
-        }
+        Self { repository }
     }
 
     fn account(account_id: &str) -> AccountId {
@@ -241,11 +237,15 @@ impl BalanceHistoryService {
     }
 
     /// Whether today's check-in still needs an attempt, derived from the ledger.
+    ///
+    /// `policy` carries the account's retry throttle, so this stays a pure
+    /// question about facts with a caller-supplied pacing.
     pub async fn check_in_state(
         &self,
         account_id: &str,
         provider: &Provider,
         now: DateTime<Utc>,
+        policy: &CheckInPolicy,
     ) -> Result<CheckInState, DomainError> {
         let id = Self::account(account_id);
         let offset = provider.check_in_day_offset_minutes();
@@ -254,7 +254,7 @@ impl BalanceHistoryService {
         let evidence = self.repository.find_evidence(&id, quota_day).await?;
         let open_attempt = self
             .repository
-            .find_open_attempt(&id, quota_day, now - self.policy.attempt_lease)
+            .find_open_attempt(&id, quota_day, now - policy.attempt_lease)
             .await?;
         let attempts = self.repository.list_attempts_on_day(&id, quota_day).await?;
 
@@ -264,7 +264,7 @@ impl BalanceHistoryService {
             &attempts,
             now,
             next_quota_day_start(quota_day, offset),
-            &self.policy,
+            policy,
         ))
     }
 

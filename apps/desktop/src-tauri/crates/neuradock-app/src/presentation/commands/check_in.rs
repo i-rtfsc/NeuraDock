@@ -71,6 +71,7 @@ pub async fn execute_check_in(
             Some(result.message)
         },
         outcome: result.outcome.as_str().to_string(),
+        error_code: result.error_code,
     })
 }
 
@@ -101,6 +102,7 @@ pub async fn execute_batch_check_in(
             balance: r.balance,
             error: if r.success { None } else { Some(r.message) },
             outcome: r.outcome.as_str().to_string(),
+            error_code: r.error_code,
         })
         .collect();
 
@@ -181,9 +183,12 @@ pub async fn get_check_in_state(
     let now = chrono::Utc::now();
     let quota_day =
         neuradock_domain::check_in::today_quota_day(provider.check_in_day_offset_minutes(), now);
+    let policy = neuradock_domain::check_in::CheckInPolicy::from_account_min_interval(
+        account.check_in_interval_hours(),
+    );
     let state = services
         .balance_history
-        .check_in_state(&account_id, &provider, now)
+        .check_in_state(&account_id, &provider, now, &policy)
         .await
         .map_err(CommandError::from)?;
 

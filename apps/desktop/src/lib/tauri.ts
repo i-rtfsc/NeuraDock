@@ -1564,7 +1564,12 @@ export type ExecuteCheckInResult = { account_id: string; account_name: string; p
  * or `cancelled`. `success` alone cannot distinguish "checked in" from
  * "today was already done".
  */
-outcome: string }
+outcome: string; 
+/**
+ * Stable reason code when the run failed, so the UI can translate it
+ * instead of showing a raw message.
+ */
+error_code: string | null }
 export type ExportAccountsInput = { account_ids: string[]; include_credentials: boolean }
 export type GatewayBindingConfigDto = { upstreamKind: UpstreamKindDto; model: string | null; context1m?: boolean; impersonate: boolean | null; isolated?: boolean }
 export type GatewayBindingDto = { client: GatewayClientDto; profile: string; 

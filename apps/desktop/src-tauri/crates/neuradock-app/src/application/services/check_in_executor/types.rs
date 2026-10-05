@@ -11,6 +11,9 @@ pub struct AccountCheckInResult {
     /// What actually happened, so callers can tell "checked in" from "was
     /// already done" from "failed" without parsing a message.
     pub outcome: CheckInOutcome,
+    /// Stable reason code for a failure (`network`, `timeout`,
+    /// `http_status_client`, `waf_challenge`, ...), never a formatted error.
+    pub error_code: Option<String>,
 }
 
 impl AccountCheckInResult {
@@ -22,6 +25,7 @@ impl AccountCheckInResult {
             message: "Already checked in for this quota day".to_string(),
             user_info: None,
             outcome: CheckInOutcome::AlreadyConfirmed,
+            error_code: None,
         }
     }
 
@@ -33,6 +37,7 @@ impl AccountCheckInResult {
             message: message.into(),
             user_info: None,
             outcome: CheckInOutcome::SkippedGuard,
+            error_code: None,
         }
     }
 }

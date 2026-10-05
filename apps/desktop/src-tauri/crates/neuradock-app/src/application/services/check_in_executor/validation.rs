@@ -7,6 +7,7 @@ use neuradock_domain::{
     check_in::{CheckInDomainService, Provider},
     shared::AccountId,
 };
+use neuradock_infrastructure::http::check_in_codes;
 
 use super::types::AccountCheckInResult;
 
@@ -37,6 +38,7 @@ pub fn validate_check_in_eligibility(
             message: e.to_string(),
             user_info: None,
             outcome: CheckInOutcome::SkippedGuard,
+            error_code: None,
         });
     }
 
@@ -51,6 +53,7 @@ pub fn validate_check_in_eligibility(
             // A disabled or observation-only provider will not become available
             // by retrying today.
             outcome: CheckInOutcome::FailedPermanent,
+            error_code: Some(check_in_codes::NOT_SUPPORTED.to_string()),
         });
     }
 

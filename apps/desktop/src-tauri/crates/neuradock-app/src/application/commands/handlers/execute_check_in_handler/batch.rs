@@ -115,6 +115,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                     message: "Cancelled before this account was attempted".to_string(),
                     balance: None,
                     outcome: CheckInOutcome::Cancelled,
+                    error_code: None,
                 });
                 continue;
             }
@@ -138,6 +139,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: format!("Account not found: {}", account_id),
                         balance: None,
                         outcome: CheckInOutcome::FailedRetryable,
+                        error_code: None,
                     });
                     continue;
                 }
@@ -152,6 +154,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: format!("Failed to load account: {}", e),
                         balance: None,
                         outcome: CheckInOutcome::FailedRetryable,
+                        error_code: None,
                     });
                     continue;
                 }
@@ -173,6 +176,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: format!("Provider not found: {}", provider_id),
                         balance: None,
                         outcome: CheckInOutcome::FailedRetryable,
+                        error_code: None,
                     });
                     continue;
                 }
@@ -187,6 +191,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: format!("Failed to load provider {}: {}", provider_id, e),
                         balance: None,
                         outcome: CheckInOutcome::FailedRetryable,
+                        error_code: None,
                     });
                     continue;
                 }
@@ -268,6 +273,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: result.message,
                         balance: balance_dto,
                         outcome: result.outcome,
+                        error_code: result.error_code,
                     });
                 }
                 Err(e) => {
@@ -281,6 +287,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         message: format!("Check-in failed: {}", e),
                         balance: None,
                         outcome: CheckInOutcome::FailedRetryable,
+                        error_code: None,
                     });
                 }
             }

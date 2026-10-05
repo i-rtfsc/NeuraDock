@@ -7,7 +7,7 @@ use tracing::instrument;
 use neuradock_domain::balance_history::{
     AttemptCompletion, CheckInOutcome, CheckInSource, CheckInTrigger,
 };
-use neuradock_domain::check_in::{quota_day_of, CheckInMode, CheckInState};
+use neuradock_domain::check_in::{quota_day_of, CheckInMode, CheckInPolicy, CheckInState};
 use neuradock_domain::waf_cookies::WafCookiesRepository;
 use neuradock_domain::{account::AccountRepository, check_in::Provider, shared::AccountId};
 use neuradock_infrastructure::http::{
@@ -120,9 +120,14 @@ impl CheckInExecutor {
         // 3. Guard. Answering "is today already satisfied / in flight?" from the
         //    ledger replaces the old elapsed-time heuristic, which counted
         //    balance refreshes as check-ins and did nothing when the configured
-        //    interval was zero (the shipped default).
+        //    interval was zero (the shipped default). The account's interval is
+        //    now a throttle on repeated attempts, nothing more.
+        let policy = CheckInPolicy::from_account_min_interval(account.check_in_interval_hours());
         if let Some(service) = &self.balance_history_service {
-            match service.check_in_state(account_id, provider, now).await {
+            match service
+                .check_in_state(account_id, provider, now, &policy)
+                .await
+            {
                 Ok(CheckInState::Done { .. }) => {
                     info!("[{}] Today is already satisfied", account_name);
                     return Ok(AccountCheckInResult::already_done(account_name));
@@ -255,12 +260,14 @@ impl CheckInExecutor {
             }
         }
 
+        let error_code = check_in_result.error_code().map(str::to_string);
         Ok(AccountCheckInResult {
             account_name,
             success: check_in_result.success,
             message: check_in_result.message,
             user_info: final_user_info,
             outcome,
+            error_code,
         })
     }
 

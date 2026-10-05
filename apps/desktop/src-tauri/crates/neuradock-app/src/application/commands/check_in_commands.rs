@@ -22,6 +22,8 @@ pub struct CheckInCommandResult {
     /// What actually happened, so the UI can tell "checked in" from "already
     /// done today" from "failed" instead of inferring it from `success`.
     pub outcome: CheckInOutcome,
+    /// Stable reason code for a failure, for the UI to translate.
+    pub error_code: Option<String>,
 }
 
 /// Batch execute check-in command

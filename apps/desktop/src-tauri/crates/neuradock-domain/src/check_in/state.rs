@@ -69,6 +69,28 @@ impl Default for CheckInPolicy {
 }
 
 impl CheckInPolicy {
+    /// Pacing for an account, honouring its configured minimum interval.
+    ///
+    /// The interval throttles repeated *attempts*; it is not a guard. Whether
+    /// today is already done is decided by the ledger, which is the whole point
+    /// of this model: elapsed time could never answer that question. Zero keeps
+    /// the built-in default, which is what the legacy column's default meant.
+    pub fn from_account_min_interval(hours: u8) -> Self {
+        let base = Self::default();
+        if hours == 0 {
+            return base;
+        }
+
+        let configured = Duration::hours(i64::from(hours));
+        Self {
+            min_retry_interval: configured,
+            // The ceiling may not sit below the interval the user asked for, or
+            // the throttle would silently be shortened.
+            max_backoff: configured.max(base.max_backoff),
+            ..base
+        }
+    }
+
     /// Exponential backoff for N consecutive retryable failures in one day:
     /// 30m, 1h, 2h, 4h, then the 6h ceiling.
     pub fn backoff_for(&self, retryable_failures: u32) -> Duration {
@@ -267,6 +289,26 @@ mod tests {
         assert_eq!(policy.backoff_for(4), Duration::hours(4));
         assert_eq!(policy.backoff_for(5), Duration::hours(6));
         assert_eq!(policy.backoff_for(99), Duration::hours(6));
+    }
+
+    #[test]
+    fn a_zero_interval_keeps_the_built_in_throttle() {
+        let policy = CheckInPolicy::from_account_min_interval(0);
+        assert_eq!(policy.min_retry_interval, Duration::minutes(30));
+        assert_eq!(policy.max_backoff, Duration::hours(6));
+    }
+
+    #[test]
+    fn a_configured_interval_becomes_the_retry_throttle() {
+        let policy = CheckInPolicy::from_account_min_interval(24);
+        assert_eq!(policy.min_retry_interval, Duration::hours(24));
+        assert_eq!(
+            policy.max_backoff,
+            Duration::hours(24),
+            "the ceiling never drops below the interval the user asked for"
+        );
+        assert_eq!(policy.backoff_for(1), Duration::hours(24));
+        assert_eq!(policy.backoff_for(5), Duration::hours(24));
     }
 
     #[test]
