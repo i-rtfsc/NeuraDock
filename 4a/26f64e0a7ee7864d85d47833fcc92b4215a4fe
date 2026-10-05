@@ -1,0 +1,93 @@
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/handlers/execute_check_in_handler/batch.rs
+  h_8b376749578497 9,32-34,56,60-66,88-91,110-122
+  s_90286dcf6a2589::t_ed44b12232050d 10,106-109,294-295
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/check_in_dto.rs
+  h_8b376749578497 6-9,11-12,18-24,30-40,45-46,55-61,64-65,67,69-82,84-86
+  s_90286dcf6a2589::t_ed44b12232050d 16-17,25-29,47-53
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/streak_dto.rs
+  h_8b376749578497 13-15,43-46
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/calendar.rs
+  h_8b376749578497 1,7-15,21,41-44,47,71-79,137-147,155,170,173
+  s_90286dcf6a2589::t_ed44b12232050d 148
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/helpers.rs
+  h_8b376749578497 5,13-15,29-31,40-42,62-63,72-74
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/history.rs
+  h_8b376749578497 1-168,175-184,186-221
+  s_90286dcf6a2589::t_ed44b12232050d 169-174,185
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/mod.rs
+  h_8b376749578497 13,15-16,74-82,93-105
+  s_90286dcf6a2589::t_ed44b12232050d 70-73,83-84
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/streak.rs
+  h_8b376749578497 6-7,33-36,43-48,61,66-67,74-77
+  s_90286dcf6a2589::t_ed44b12232050d 1-2,12-16,25-26
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/tests.rs
+  h_8b376749578497 10-41,50-61,77-149,161-188,206-219,233-244,251-305,314-321,337-351,357-375,384-394
+  s_90286dcf6a2589::t_ed44b12232050d 1-9,42-49,62-76,150-160,189-205,220-232,245-250,306-313,322-336,352-356,376-383,395-396
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/trend.rs
+  h_8b376749578497 1-2,5-6,10-15,20,28-29,35-52,79,134,136-137
+  s_90286dcf6a2589::t_ed44b12232050d 53-68
+apps/desktop/src-tauri/crates/neuradock-app/src/application/queries/check_in_streak_queries/types.rs
+  h_8b376749578497 1-3
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/check_in_job_registry.rs
+  h_8b376749578497 1-11,13-24,27-31,33-41,45-46,49-52,54,56-58,61-73,75,78-81,85-96,100-118,120,128-138,151-152
+  s_90286dcf6a2589::t_ed44b12232050d 122-127,139-150
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/mod.rs
+  h_8b376749578497 4,26
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/bootstrap.rs
+  h_8b376749578497 256-258,419
+  s_90286dcf6a2589::t_ed44b12232050d 461
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/check_in.rs
+  h_8b376749578497 5,9,115-119,129,136-142,145,149-151,157-170,180-197,210,218-228
+  s_90286dcf6a2589::t_ed44b12232050d 4,122-126,153-156,171-179,198-209,211-217,234-237
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/ipc.rs
+  h_8b376749578497 40
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/state.rs
+  h_8b376749578497 8-10,54-55
+  s_90286dcf6a2589::t_ed44b12232050d 56
+apps/desktop/src-tauri/crates/neuradock-domain/src/balance_history/mod.rs
+  h_8b376749578497 8
+  s_90286dcf6a2589::t_ed44b12232050d 3
+apps/desktop/src-tauri/crates/neuradock-domain/src/balance_history/repository.rs
+  h_8b376749578497 123-125,134-144
+  s_90286dcf6a2589::t_ed44b12232050d 126-133
+apps/desktop/src-tauri/crates/neuradock-domain/src/balance_history/streak.rs
+  h_8b376749578497 7-14,35-42,53-57,67,69-72,78-81,88-93,97-110,114-120,124-135,139-149,153-163,178-188
+  s_90286dcf6a2589::t_ed44b12232050d 1-6,15-24,26-34,43-50,60-65,74-75,83-84,167-174
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/mod.rs
+  h_8b376749578497 17
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/repository.rs
+  h_8b376749578497 1-2,5-9
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/persistence/repositories/balance_history_repo.rs
+  h_8b376749578497 660-670,679-708,719-723
+  s_90286dcf6a2589::t_ed44b12232050d 671-678,709-718
+apps/desktop/src/lib/tauri-commands.ts
+  h_8b376749578497 80,96
+  s_90286dcf6a2589::t_ed44b12232050d 8
+apps/desktop/src/lib/tauri.ts
+  h_8b376749578497 132-136,270,272,281-292,296,1427-1437,1440-1441,1443-1458,1462-1478,1602-1608,1646
+  s_90286dcf6a2589::t_ed44b12232050d 294,1459-1461
+docs/architecture/adr/007-check-in-state-model.md
+  h_8b376749578497 4,221-237
+  s_90286dcf6a2589::t_ed44b12232050d 238-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4a26f64e0a7ee7864d85d47833fcc92b4215a4fe",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_90286dcf6a2589": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-4a26f64e0a7e",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
