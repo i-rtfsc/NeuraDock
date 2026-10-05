@@ -1,0 +1,55 @@
+apps/desktop/src/components/checkin/streak/CheckInDayDetailDialog.tsx
+  h_8b376749578497 16,48
+  s_b0560046cf3156::t_d9e62ad2760ac0 39
+apps/desktop/src/components/checkin/streak/CheckInTrendChart.tsx
+  h_8b376749578497 13,36
+  s_b0560046cf3156::t_d9e62ad2760ac0 35
+apps/desktop/src/hooks/useBalance.ts
+  h_8b376749578497 6,34,54,85
+  s_b0560046cf3156::t_d9e62ad2760ac0 106
+apps/desktop/src/hooks/useCheckIn.cacheInvalidation.test.tsx
+  h_8b376749578497 1-44,49-138,144-153,162-164,174-230,242-244,256-273
+  s_b0560046cf3156::t_d9e62ad2760ac0 45-48,139-143,154-161,165-173,231-241,245-255
+apps/desktop/src/hooks/useCheckIn.ts
+  h_8b376749578497 5,79,103-105
+  s_b0560046cf3156::t_d9e62ad2760ac0 101-102
+apps/desktop/src/hooks/useCheckInStreak.ts
+  h_8b376749578497 3,10,12,20,35,45,55
+  s_b0560046cf3156::t_d9e62ad2760ac0 11
+apps/desktop/src/lib/cacheInvalidators.ts
+  h_8b376749578497 29-34,37-46
+  s_b0560046cf3156::t_d9e62ad2760ac0 35-36,51
+apps/desktop/src/lib/checkInDate.test.ts
+  h_8b376749578497 9-13,23-32,38-73,85-96,106-117
+  s_b0560046cf3156::t_d9e62ad2760ac0 1-8,14-22,33-37,74-84,97-105
+apps/desktop/src/lib/checkInDate.ts
+  h_8b376749578497 1-15,20-37
+  s_b0560046cf3156::t_d9e62ad2760ac0 16-19
+apps/desktop/src/lib/query-keys.ts
+  h_8b376749578497 26-28,30-31,33-34
+  s_b0560046cf3156::t_d9e62ad2760ac0 35-36
+apps/desktop/src/pages/AccountOverviewPage.tsx
+  h_8b376749578497 5,71,83
+  s_b0560046cf3156::t_d9e62ad2760ac0 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ce51790f0b93c174f8f77cbb0beeef9e8e76cd43",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_b0560046cf3156": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-ce51790f0b93",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
