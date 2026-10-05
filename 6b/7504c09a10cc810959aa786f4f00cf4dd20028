@@ -1,0 +1,29 @@
+apps/desktop/src/i18n/locales/en-US.json
+  h_8b376749578497 670
+apps/desktop/src/i18n/locales/zh-CN.json
+  h_8b376749578497 670
+apps/desktop/src/pages/AccountActivityPage.tsx
+  h_8b376749578497 23,25,47,204
+  s_0c9a32ab9721a3::t_72e4347bc19346 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "6b7504c09a10cc810959aa786f4f00cf4dd20028",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_0c9a32ab9721a3": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-6b7504c09a10",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
