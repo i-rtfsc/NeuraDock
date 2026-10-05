@@ -46,40 +46,49 @@ Check in multiple accounts at once:
 1. Edit the account
 2. Toggle **Auto Check-In** to enabled
 3. Set the check-in time (hour and minute)
-4. Configure check-in interval (optional, default is no limit)
+4. Set the **minimum retry interval** as needed (optional; it only affects the retry pacing after a failure)
 5. Save the account
 
-### v0.5.0 Feature: Configurable Check-in Interval
+### What the Scheduler Does (Depending on the Provider)
 
-You can now set custom check-in intervals for each account to avoid rate limiting:
+| Provider type | What the app does |
+|---------------|-------------------|
+| Exposes a check-in API (e.g. AnyRouter) | Sends a check-in request at the time you configured |
+| Website-only check-in (e.g. AgentRouter) | **Sends no request**; instead it reads the balance once every 6 hours and records an Inferred check-in whenever it sees a quota increase |
+| Marked as unavailable | Generates no task and produces no daily failure log |
 
-- **Default interval**: 0 hours (no limit, executes only at scheduled time)
-- **Custom interval**: Can be set between 0-24 hours (0 means no time restriction)
-- **Use case**: Adapt to different provider requirements, e.g., set 24 hours to ensure check-in once per day
+### Minimum Retry Interval
+
+- **Default 0**: uses the built-in 30-minute throttle
+- **Configurable from 0-24 hours**: the shortest wait between attempts after a failure
+- It **no longer decides "can I check in today"**. Whether today is already done is decided by the check-in record: as long as the day already has a record, no request is repeated
+- Consecutive failures back off exponentially (30 minutes → 1 hour → 2 hours → 4 hours, capped at 6 hours) and never cross into the next check-in day
 
 ### How Auto Check-In Works
 
-- NeuraDock must be running for auto check-in to work
-- Check-ins execute according to configured interval (not fixed daily)
-- If the app is closed at scheduled time, check-in is skipped
-- Results are logged to check-in history, viewable in Check-in Streaks page
+- NeuraDock must be running for auto check-in to work (including balance polling)
+- Every attempt leaves a record: result, failure reason, and duration, viewable in History
+- If the app is closed at the scheduled time, that attempt is skipped; while the day is still incomplete, the next run catches up
+- Only one request runs at a time (a concurrent trigger is treated as "in flight" and skipped)
+- A batch check-in can be cancelled in the interface; cancellation is cooperative, so requests already in flight run to completion
 
 ### Recommended Settings
 
 | Setting | Recommendation |
 |---------|----------------|
 | Time | Early morning (6:00-9:00) to avoid peak hours |
-| Interval | Set to 24 hours to ensure check-in only once per day and avoid duplicate check-ins |
+| Minimum Retry Interval | Keep it at 0 (the default throttle); only raise it if you want to limit how often retries happen |
 | Spread | Different times for different accounts to avoid rate limiting |
 
 ## Check-In Status
 
 | Status | Meaning |
 |--------|---------|
-| ✅ Success | Check-in completed successfully |
-| ❌ Failed | Check-in failed (see error message) |
-| 🔄 In Progress | Check-in is currently running |
-| ⏳ Scheduled | Auto check-in is scheduled |
+| Due | No record for today yet, and no request is running |
+| Done | Today already has a record (from a provider confirmation, inference, or a manual entry) |
+| In flight | A check-in request for this account is currently running |
+| Backing off | The last attempt just failed and is waiting out the backoff; it will retry automatically when the wait expires |
+| Skipped | Stopped by a guard (for example today is already done, or a request is already running) |
 
 ## Common Check-In Errors
 
@@ -105,6 +114,6 @@ View past check-in records:
 The Check-in Streaks page now provides advanced analytics:
 
 - **Monthly Overview**: View current month's check-in status and earnings
-- **Trend Chart**: 30-day check-in and earnings trend visualization
+- **Trend Chart**: 30-day check-in and earnings trend on the account overview, 90-day on the account activity page
 - **Calendar Deep-linking**: Click on dates to jump to detailed records
 - **Missed Check-in Alerts**: Automatically identifies and marks missed check-ins

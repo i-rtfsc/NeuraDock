@@ -222,7 +222,7 @@ check_in_state(account, provider, evidence[day], attempts[day], now) -> State
 - **U2**：`check_in_jobs` 复活还是删除？**已解决**：该表早在 `20250202000001_drop_unused_tables.sql` 就被删除，`CheckInJob` 聚合 / `CheckInJobRepository` / 其 13 个测试描述的是不存在的存储，已整体删除；运行中任务改为内存 `CheckInJobRegistry`，历史改读 `check_in_attempts`。详见「实施记录」。
 - **U3**：推断证据是否允许用户「撤销该天」？**仍开放**。当前缓解是 `confidence='inferred'` 在 UI 可见（`reward_is_estimate`、账号表最后签到时间的 `*` 标记）。
 - **U4**：provider `check_in_day_offset_minutes` 的来源？**已解决**：DB 列（默认 480），迁移与内置种子共用 `CheckInMode::infer` 同一规则。
-- **U5**：`observe_only` 模式下是否需要**自动化**余额轮询？**仍开放**。运行时推断已上线，但触发点仍是一次余额观察（手动刷新、页面加载、签到流程）；调度器目前只跑签到任务。这决定「用户不打开 App 时网页签到能否被发现」。
+- **U5**：`observe_only` 模式下是否需要**自动化**余额轮询？**已解决（2026-09 后续落地）**：调度器现在按 provider 模式分派——`api`/`page_visit` 保留原定时签到任务，`observe_only` 改为**每 6 小时读一次余额**（启动时先读一次），`disabled` 不再生成任务。读余额走 `BalanceService`，因此会落快照并跑与手动刷新相同的推断链路。选 4 次/天而不是 1 次：单次日读经常落在 quota day 翻转之后，增量会被记到错误的日期。分派规则 `scheduled_task_kind` 是纯函数并带单测（任务循环本身需要活的 `AppHandle`，未做集成测试）。
 
 ## 实施记录（2026-09）
 
@@ -238,3 +238,10 @@ check_in_state(account, provider, evidence[day], attempts[day], now) -> State
 6. **补齐（D-7）落地形态**：`get_check_in_history`（服务端分页，返回尝试而非任务）、`get_check_in_stats`（按账号与周期：成功率分母只含已判定的尝试，skip 不稀释；含 confirmed/inferred 天数与奖励合计）、`get_check_in_state`（新命令，返回 `due/done/in_flight/backoff`）、`get_running_jobs` 与 `stop_check_in`（协作式取消：批量在账号之间检查标志，在途请求不中断）。前端历史/统计 UI 尚未消费这些命令。
 
 **验证**：`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all --check`、`tsc --noEmit`、`vitest run` 全绿；测试覆盖「不变式」一节的第 1–12 条（domain 的 `balance_history::streak` / `check_in::state` / `check_in::quota_day`，infra 的 `check_in_reward_integration`，app 的 `check_in_executor::tests` 与 `check_in_streak_queries::tests`）。
+
+### 后续落地（同日）
+
+- **真实数据演练**：新增 `crates/neuradock-infrastructure/tests/migrate_real_db.rs`（`#[ignore]` + `NEURADOCK_REHEARSAL_DB` 指向真实库的副本），用产线的 `sqlx::migrate!` 跑一遍并断言 6 条不变式（每天至多一行、confidence 与 source 一致、quota_day 可解析、账号缓存与账本一致、provider 已分类、attempts 未被改动）。在真实库副本上结果：1964 条证据 → **1947 条**（17 天因 UTC 桶换成 quota day 而撞桶，按优先级合并），81 条 provider 确认一条没丢，16 个账号的缓存全部仍可从账本推导。
+- **`check_in_interval_hours` 改造而非删除**：它曾经是守卫（默认 0 时等于没有守卫），现在成为真实的**最小重试间隔**（`CheckInPolicy::from_account_min_interval`），今天是否已完成仍由账本判定；0 表示内置 30 分钟，退避上限不低于用户设定值。这样既消除「UI 里有、实际不生效」的假象，也不丢用户设置。
+- **失败原因码透出到 DTO**：`ExecuteCheckInResult` 新增 `error_code`，前端可以翻译成文案，而不是直出服务商 message。
+
