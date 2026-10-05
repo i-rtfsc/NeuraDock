@@ -667,7 +667,7 @@
     "legendChecked": "Checked in",
     "legendUnchecked": "Not checked in",
     "legendToday": "Today",
-    "trendTitle": "Income Trend (Last 30 Days)",
+    "trendTitle": "Income Trend (Last {{days}} Days)",
     "trendDailyIncrement": "Check-in reward",
     "trendTotalQuota": "Total Quota",
     "trendBalance": "Current Balance",

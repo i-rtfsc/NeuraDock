@@ -667,7 +667,7 @@
     "legendChecked": "已签到",
     "legendUnchecked": "未签到",
     "legendToday": "今日",
-    "trendTitle": "收入趋势（最近30天）",
+    "trendTitle": "收入趋势（最近 {{days}} 天）",
     "trendDailyIncrement": "签到奖励",
     "trendTotalQuota": "累计额度",
     "trendBalance": "当前余额",

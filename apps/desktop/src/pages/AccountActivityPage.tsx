@@ -20,6 +20,9 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { BentoGrid } from '@/components/layout/CardGrid';
 import { buildTransitHubPath } from '@/lib/transitHub';
 
+/** The activity page shows a longer window than the overview page. */
+const TREND_DAYS = 90;
+
 export function AccountActivityPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -41,7 +44,7 @@ export function AccountActivityPage() {
     calendarDate.month,
     !!accountId
   );
-  const { data: trend } = useCheckInTrend(accountId ?? '', 90, !!accountId);
+  const { data: trend } = useCheckInTrend(accountId ?? '', TREND_DAYS, !!accountId);
 
   // 获取选中日期的详细数据
   const selectedDayData = selectedDate && calendar
@@ -198,7 +201,7 @@ export function AccountActivityPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{t('streaks.trendTitle')}</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{t('streaks.trendTitle', { days: TREND_DAYS })}</h3>
             </CardTitle>
           </CardHeader>
           <CardContent>
