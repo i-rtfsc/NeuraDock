@@ -45,6 +45,8 @@ async fn seed_builtin_providers_migrates_stale_provider_references() {
         bypass_method: None,
         supports_check_in: true,
         check_in_bugged: false,
+        check_in_day_offset_minutes: 480,
+        check_in_mode: neuradock_domain::check_in::CheckInMode::Api,
     });
     let stale_provider_id = stale_provider.id().clone();
     provider_repo

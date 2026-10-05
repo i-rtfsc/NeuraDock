@@ -2,9 +2,8 @@ use log::{error, info};
 use std::sync::Arc;
 
 use crate::application::dtos::BalanceDto;
-use crate::application::services::{
-    BalanceHistoryService, NotificationService, ProviderModelsService,
-};
+use crate::application::services::{NotificationService, ProviderModelsService};
+use neuradock_domain::balance_history::CheckInOutcome;
 use neuradock_domain::{
     account::{Account, AccountRepository},
     check_in::Provider,
@@ -12,18 +11,19 @@ use neuradock_domain::{
 };
 use neuradock_infrastructure::http::UserInfo;
 
-/// Update account balance cache and save to balance_history
-/// Also records the check-in time
+/// Refresh the account's balance cache after a check-in.
+///
+/// The balance *history* snapshot is written by the executor, which every
+/// caller goes through, so this only maintains the account row. The check-in
+/// timestamps are not touched: they are a cache of the ledger.
 pub async fn update_and_save_balance(
     account_repo: &Arc<dyn AccountRepository>,
-    balance_history_service: &Arc<BalanceHistoryService>,
     account_id: &str,
     mut account: Account,
     user_info: &UserInfo,
 ) -> Result<BalanceDto, DomainError> {
     // Compensate for quota the provider lost from its own books before the
-    // value is stored, so the correction lands in both the account row and the
-    // history row rather than only in one of them.
+    // value is stored, so the correction lands in the account row too.
     let adjusted_total_quota = account.adjusted_total_quota(user_info.total_quota);
 
     account.update_balance(
@@ -32,10 +32,6 @@ pub async fn update_and_save_balance(
         adjusted_total_quota,
     );
 
-    // Record successful check-in time
-    account.record_check_in();
-
-    // Save updated account with new balance and check-in time
     if let Err(e) = account_repo.save(&account).await {
         error!("Failed to save account balance after check-in: {}", e);
     } else {
@@ -45,22 +41,11 @@ pub async fn update_and_save_balance(
         );
     }
 
-    // Build balance DTO
-    let balance = BalanceDto {
+    Ok(BalanceDto {
         current_balance: user_info.current_balance,
         total_consumed: user_info.total_consumed,
         total_quota: adjusted_total_quota,
-    };
-
-    // Save to balance_history table
-    if let Err(e) = balance_history_service
-        .save_balance_history(account_id, &balance)
-        .await
-    {
-        error!("Failed to save balance history: {}", e);
-    }
-
-    Ok(balance)
+    })
 }
 
 /// Auto-fetch provider models if not exists in database
@@ -93,18 +78,32 @@ pub async fn auto_fetch_provider_models(
     }
 }
 
-/// Send check-in notification (success or failure)
+/// Send a check-in notification, when there is news to send.
+///
+/// A day that was already settled and a run the guard skipped are not news, so
+/// they stay silent; only a real attempt reports success or failure.
 pub async fn send_check_in_notification(
     notification_service: &Option<Arc<NotificationService>>,
-    success: bool,
+    outcome: CheckInOutcome,
     account_id: &str,
     account_name: &str,
     provider_name: &str,
     message: &str,
     balance: Option<(f64, f64, f64)>, // (current_balance, total_consumed, total_quota)
 ) {
+    if matches!(
+        outcome,
+        CheckInOutcome::AlreadyConfirmed | CheckInOutcome::SkippedGuard | CheckInOutcome::Cancelled
+    ) {
+        info!(
+            "Skipping the check-in notification for {} ({:?})",
+            account_id, outcome
+        );
+        return;
+    }
+
     if let Some(notification_service) = notification_service {
-        if success {
+        if outcome == CheckInOutcome::Success {
             // Send success notification
             if let Err(e) = notification_service
                 .send_check_in_success(account_id, account_name, provider_name, balance)

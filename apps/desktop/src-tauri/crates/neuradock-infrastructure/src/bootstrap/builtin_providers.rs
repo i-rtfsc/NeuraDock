@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use neuradock_domain::account::AccountRepository;
-use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
+use neuradock_domain::check_in::{
+    CheckInMode, Provider, ProviderConfig, ProviderRepository, DEFAULT_DAY_OFFSET_MINUTES,
+};
 use neuradock_domain::custom_node::{CustomProviderNode, CustomProviderNodeRepository};
 use neuradock_domain::provider_models::ProviderModelsRepository;
 use neuradock_domain::shared::{DomainError, ProviderId};
@@ -32,6 +34,8 @@ struct BuiltinProviderConfig {
     bypass_method: Option<String>,
     supports_check_in: Option<bool>,
     check_in_bugged: Option<bool>,
+    check_in_day_offset_minutes: Option<i32>,
+    check_in_mode: Option<String>,
 }
 
 fn builtin_provider_configs() -> Result<Vec<BuiltinProviderConfig>, DomainError> {
@@ -299,6 +303,17 @@ pub async fn seed_builtin_providers(
                     bypass_method: config.bypass_method.clone(),
                     supports_check_in: config.supports_check_in.unwrap_or(true),
                     check_in_bugged: config.check_in_bugged.unwrap_or(false),
+                    check_in_day_offset_minutes: config
+                        .check_in_day_offset_minutes
+                        .unwrap_or(DEFAULT_DAY_OFFSET_MINUTES),
+                    check_in_mode: match config.check_in_mode.as_deref() {
+                        Some(mode) => CheckInMode::parse(mode)?,
+                        None => CheckInMode::infer(
+                            config.sign_in_path.as_deref(),
+                            config.supports_check_in.unwrap_or(true),
+                            config.check_in_bugged.unwrap_or(false),
+                        ),
+                    },
                 },
             );
             provider_repo.save(&provider).await?;

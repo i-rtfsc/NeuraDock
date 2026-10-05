@@ -43,6 +43,11 @@ pub struct ExecuteCheckInResult {
     pub success: bool,
     pub balance: Option<BalanceDto>,
     pub error: Option<String>,
+    /// Stable token for what happened: `success`, `already_confirmed`,
+    /// `skipped_guard`, `failed_retryable`, `failed_permanent`, `waf_blocked`
+    /// or `cancelled`. `success` alone cannot distinguish "checked in" from
+    /// "today was already done".
+    pub outcome: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

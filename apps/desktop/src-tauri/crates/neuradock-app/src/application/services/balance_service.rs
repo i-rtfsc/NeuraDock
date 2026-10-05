@@ -111,9 +111,12 @@ impl BalanceService {
         );
         self.account_repo.save(&account).await?;
 
+        // Persist the observation. For a provider the app cannot check in for,
+        // this is also how a web check-in is detected: the quota increase over
+        // the previous quota day becomes inferred evidence.
         let _ = self
             .balance_history_service
-            .save_balance_history(account_id, &balance_dto)
+            .save_balance_history(account_id, &provider, &balance_dto)
             .await;
 
         Ok(balance_dto)

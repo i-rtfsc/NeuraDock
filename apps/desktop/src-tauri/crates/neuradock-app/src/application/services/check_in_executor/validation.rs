@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use log::warn;
 
+use neuradock_domain::balance_history::CheckInOutcome;
 use neuradock_domain::{
     account::{Account, AccountRepository},
     check_in::{CheckInDomainService, Provider},
@@ -35,6 +36,7 @@ pub fn validate_check_in_eligibility(
             success: false,
             message: e.to_string(),
             user_info: None,
+            outcome: CheckInOutcome::SkippedGuard,
         });
     }
 
@@ -46,6 +48,9 @@ pub fn validate_check_in_eligibility(
             success: false,
             message: e.to_string(),
             user_info: None,
+            // A disabled or observation-only provider will not become available
+            // by retrying today.
+            outcome: CheckInOutcome::FailedPermanent,
         });
     }
 

@@ -456,6 +456,8 @@ mod tests {
                 bypass_method: None,
                 supports_check_in: true,
                 check_in_bugged: false,
+                check_in_day_offset_minutes: 480,
+                check_in_mode: neuradock_domain::check_in::CheckInMode::ObserveOnly,
             },
             false,
             Utc::now(),

@@ -431,9 +431,12 @@ async deleteDeveloperToolQuery(queryId: string) : Promise<Result<null, CommandEr
 }
 },
 /**
- * Recalculate check-in streaks for all accounts
+ * Recompute every account's cached check-in state from the ledger.
+ * 
+ * The ledger is the source of truth, so this is a repair operation: it heals
+ * drift between the two and returns how many accounts were refreshed.
  */
-async recalculateCheckInStreaks() : Promise<Result<null, CommandError>> {
+async recalculateCheckInStreaks() : Promise<Result<number, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("recalculate_check_in_streaks") };
 } catch (e) {
@@ -1349,8 +1352,16 @@ export type AccessMethodDto =
  * Requests go through the local adaptation gateway.
  */
 "gateway"
-export type AccountDetailDto = { id: string; name: string; provider_id: string; provider_name: string; api_user: string; cookies: { [key in string]: string }; cookies_count: number; enabled: boolean; last_check_in: string | null; last_balance: BalanceDto | null; created_at: string; auto_checkin_enabled: boolean; auto_checkin_hour: number; auto_checkin_minute: number; check_in_interval_hours: number }
-export type AccountDto = { id: string; name: string; provider_id: string; provider_name: string; enabled: boolean; last_check_in: string | null; created_at: string; auto_checkin_enabled: boolean; auto_checkin_hour: number; auto_checkin_minute: number; check_in_interval_hours: number; last_balance_check_at: string | null; current_balance: number | null; total_consumed: number | null; total_quota: number | null; is_balance_stale: boolean; is_online: boolean; session_expires_at: string | null; session_expires_soon: boolean; session_days_remaining: number | null }
+export type AccountDetailDto = { id: string; name: string; provider_id: string; provider_name: string; api_user: string; cookies: { [key in string]: string }; cookies_count: number; enabled: boolean; last_confirmed_at: string | null; last_evidence_at: string | null; last_balance: BalanceDto | null; created_at: string; auto_checkin_enabled: boolean; auto_checkin_hour: number; auto_checkin_minute: number; check_in_interval_hours: number }
+export type AccountDto = { id: string; name: string; provider_id: string; provider_name: string; enabled: boolean; 
+/**
+ * Last confirmed check-in (provider response or manual confirmation).
+ */
+last_confirmed_at: string | null; 
+/**
+ * Last observed check-in, inferred ones included.
+ */
+last_evidence_at: string | null; created_at: string; auto_checkin_enabled: boolean; auto_checkin_hour: number; auto_checkin_minute: number; check_in_interval_hours: number; last_balance_check_at: string | null; current_balance: number | null; total_consumed: number | null; total_quota: number | null; is_balance_stale: boolean; is_online: boolean; session_expires_at: string | null; session_expires_soon: boolean; session_days_remaining: number | null }
 export type AddProviderInput = { name: string; domain: string; login_path: string; sign_in_path: string | null; user_info_path: string; api_user_key: string; bypass_method: string | null }
 /**
  * One agent's current access record. `upstream_kind` / `impersonate` only
@@ -1465,7 +1476,16 @@ export type CreateNotificationChannelInput = { channel_type: string; config: str
 /**
  * Create provider command
  */
-export type CreateProviderCommand = { name: string; domain: string; needs_waf_bypass: boolean; supports_check_in: boolean | null; check_in_bugged: boolean | null; login_path: string | null; sign_in_path: string | null; user_info_path: string | null; token_api_path: string | null; models_path: string | null; api_user_key: string | null }
+export type CreateProviderCommand = { name: string; domain: string; needs_waf_bypass: boolean; supports_check_in: boolean | null; check_in_bugged: boolean | null; 
+/**
+ * `api`, `page_visit`, `observe_only` or `disabled`. Inferred from the
+ * configuration when omitted.
+ */
+check_in_mode: string | null; 
+/**
+ * Minutes east of UTC at which the provider resets its daily quota.
+ */
+check_in_day_offset_minutes: number | null; login_path: string | null; sign_in_path: string | null; user_info_path: string | null; token_api_path: string | null; models_path: string | null; api_user_key: string | null }
 /**
  * Delete provider command
  */
@@ -1476,7 +1496,14 @@ export type DeveloperToolConnectionDto = { id: string; name: string; service: st
  * Error severity levels
  */
 export type ErrorSeverity = "Info" | "Warning" | "Error" | "Critical"
-export type ExecuteCheckInResult = { account_id: string; account_name: string; provider_id: string; success: boolean; balance: BalanceDto | null; error: string | null }
+export type ExecuteCheckInResult = { account_id: string; account_name: string; provider_id: string; success: boolean; balance: BalanceDto | null; error: string | null; 
+/**
+ * Stable token for what happened: `success`, `already_confirmed`,
+ * `skipped_guard`, `failed_retryable`, `failed_permanent`, `waf_blocked`
+ * or `cancelled`. `success` alone cannot distinguish "checked in" from
+ * "today was already done".
+ */
+outcome: string }
 export type ExportAccountsInput = { account_ids: string[]; include_credentials: boolean }
 export type GatewayBindingConfigDto = { upstreamKind: UpstreamKindDto; model: string | null; context1m?: boolean; impersonate: boolean | null; isolated?: boolean }
 export type GatewayBindingDto = { client: GatewayClientDto; profile: string; 
@@ -1566,7 +1593,7 @@ export type UpdateNotificationChannelInput = { channel_id: string; config: strin
 /**
  * Update provider command
  */
-export type UpdateProviderCommand = { provider_id: string; name: string | null; domain: string | null; needs_waf_bypass: boolean | null; supports_check_in: boolean | null; check_in_bugged: boolean | null; login_path: string | null; sign_in_path: string | null; user_info_path: string | null; token_api_path: string | null; models_path: string | null; api_user_key: string | null }
+export type UpdateProviderCommand = { provider_id: string; name: string | null; domain: string | null; needs_waf_bypass: boolean | null; supports_check_in: boolean | null; check_in_bugged: boolean | null; check_in_mode: string | null; check_in_day_offset_minutes: number | null; login_path: string | null; sign_in_path: string | null; user_info_path: string | null; token_api_path: string | null; models_path: string | null; api_user_key: string | null }
 /**
  * Input for updating proxy configuration
  */

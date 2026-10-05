@@ -61,6 +61,21 @@ export function AccountsTable({
     }
   };
 
+  /**
+   * The column shows the latest evidence. A day the app only inferred from a
+   * quota increase (which can also be a top-up) is marked with `*` so it is not
+   * mistaken for a provider-confirmed check-in.
+   */
+  const lastCheckInLabel = (account: Account) => {
+    if (account.last_confirmed_at) {
+      return formatLastCheckIn(account.last_confirmed_at);
+    }
+    if (account.last_evidence_at) {
+      return `${formatLastCheckIn(account.last_evidence_at)} *`;
+    }
+    return '-';
+  };
+
   const handleSort = (key: keyof Account) => {
     if (!onSortChange) return;
 
@@ -156,7 +171,7 @@ export function AccountsTable({
                 <SortableHeader label={t('management.totalConsumed', 'Historical Consumption')} columnKey="total_consumed" className="justify-end" />
               </th>
               <th className="px-4 py-2 font-semibold bg-muted/50 backdrop-blur-sm">
-                <SortableHeader label={t('management.lastCheckIn', 'Last Check-in')} columnKey="last_check_in" />
+                <SortableHeader label={t('management.lastCheckIn', 'Last Check-in')} columnKey="last_evidence_at" />
               </th>
               <th className="px-4 py-2 text-center font-semibold bg-muted/50 backdrop-blur-sm min-w-[150px]">
                 {t('management.session', 'Session')}
@@ -234,7 +249,7 @@ export function AccountsTable({
                   onClick={() => onAccountClick(account)}
                 >
                   <span className="text-xs text-muted-foreground font-mono">
-                    {formatLastCheckIn(account.last_check_in ?? undefined)}
+                    {lastCheckInLabel(account)}
                   </span>
                 </td>
                 <td

@@ -2,7 +2,7 @@ use log::{error, info, warn};
 use std::collections::HashMap;
 
 use neuradock_domain::{account::Account, check_in::Provider};
-use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult};
+use neuradock_infrastructure::http::{check_in_codes, CheckInResult, HttpClient, SetCookieResult};
 
 use super::execution::create_error_result;
 use crate::application::services::waf_cookie_manager::WafCookieManager;
@@ -36,7 +36,10 @@ pub async fn retry_check_in_after_waf_refresh(
                 account_name, refresh_err
             );
             return (
-                create_error_result(&format!("WAF refresh failed: {}", refresh_err)),
+                create_error_result(
+                    check_in_codes::WAF_CHALLENGE,
+                    &format!("WAF refresh failed: {}", refresh_err),
+                ),
                 SetCookieResult::default(),
             );
         }
@@ -60,7 +63,10 @@ pub async fn retry_check_in_after_waf_refresh(
         Err(retry_err) => {
             error!("[{}] Check-in retry failed: {}", account_name, retry_err);
             (
-                create_error_result(&format!("Check-in failed after WAF retry: {}", retry_err)),
+                create_error_result(
+                    check_in_codes::WAF_CHALLENGE,
+                    &format!("Check-in failed after WAF retry: {}", retry_err),
+                ),
                 SetCookieResult::default(),
             )
         }

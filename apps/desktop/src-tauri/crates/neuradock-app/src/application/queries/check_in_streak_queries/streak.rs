@@ -77,20 +77,6 @@ pub async fn get_all_streaks(
     Ok(results)
 }
 
-/// Recalculate all streaks from balance_history
-pub async fn recalculate_all_streaks(
-    balance_history_repo: &dyn BalanceHistoryRepository,
-) -> Result<(), DomainError> {
-    let account_ids = balance_history_repo.list_distinct_account_ids().await?;
-
-    info!(
-        "[streak] recalc_all_streaks requested accounts={} (derived on demand)",
-        account_ids.len()
-    );
-
-    Ok(())
-}
-
 fn calculate_streak_stats(
     account_id: &str,
     rows: &[BalanceHistoryDailySummary],
@@ -108,7 +94,7 @@ fn calculate_streak_stats(
     }
 
     for row in rows {
-        let date = row.check_in_date();
+        let date = row.quota_day();
         let is_checked_in = row.is_checked_in();
 
         if is_checked_in {

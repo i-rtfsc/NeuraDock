@@ -43,6 +43,28 @@ pub struct UserInfo {
     pub total_quota: f64,
 }
 
+/// Stable error codes attached to a check-in result. Kept in one place because
+/// the application layer maps them onto attempt outcomes, and because a code is
+/// never a formatted error: it must not carry an upstream body.
+pub mod check_in_codes {
+    /// The provider has no endpoint that can confirm a check-in.
+    pub const NOT_SUPPORTED: &str = "not_supported";
+    /// The provider answered that today's check-in already happened.
+    pub const ALREADY_CHECKED_IN: &str = "already_checked_in";
+    /// The response was not the shape we can confirm a reward from.
+    pub const INVALID_RESPONSE: &str = "invalid_response";
+    /// The provider served a challenge page. Kept as the literal prefix the
+    /// WAF retry path already keys on.
+    pub const WAF_CHALLENGE: &str = "WAF_CHALLENGE";
+    /// 4xx: the request itself is the problem, retrying today will not help.
+    pub const HTTP_CLIENT: &str = "http_status_client";
+    /// 5xx: the provider is having a bad time, retry later.
+    pub const HTTP_SERVER: &str = "http_status_server";
+    pub const NETWORK: &str = "network";
+    pub const TIMEOUT: &str = "timeout";
+    pub const CANCELLED: &str = "cancelled";
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckInResult {
     pub success: bool,
@@ -50,6 +72,47 @@ pub struct CheckInResult {
     /// Reward explicitly reported by the check-in response, in dollars.
     #[serde(default)]
     pub reward: Option<f64>,
+    /// Machine-readable classification. `None` means "no special case": the
+    /// message is a provider sentence and success says whether it worked.
+    #[serde(default)]
+    pub error_code: Option<String>,
+}
+
+impl CheckInResult {
+    /// A result the provider confirmed, with the reward when it was reported.
+    pub fn confirmed(message: impl Into<String>, reward: Option<f64>) -> Self {
+        Self {
+            success: true,
+            message: message.into(),
+            reward,
+            error_code: None,
+        }
+    }
+
+    /// The provider already considered this quota day done.
+    pub fn already_checked_in() -> Self {
+        Self {
+            success: true,
+            message: "The provider reports this check-in was already done".to_string(),
+            reward: None,
+            error_code: Some(check_in_codes::ALREADY_CHECKED_IN.to_string()),
+        }
+    }
+
+    /// A result that did not confirm a check-in. `code` must be a stable
+    /// token, never a formatted error or an upstream body.
+    pub fn failure(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            message: message.into(),
+            reward: None,
+            error_code: Some(code.to_string()),
+        }
+    }
+
+    pub fn error_code(&self) -> Option<&str> {
+        self.error_code.as_deref()
+    }
 }
 
 /// Extract domain from URL (including port if present)

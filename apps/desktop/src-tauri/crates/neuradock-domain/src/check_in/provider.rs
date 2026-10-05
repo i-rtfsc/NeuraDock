@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::shared::ProviderId;
+use crate::shared::{DomainError, ProviderId};
 
 /// Configuration for creating a Provider
 #[derive(Debug, Clone)]
@@ -18,6 +18,77 @@ pub struct ProviderConfig {
     pub bypass_method: Option<String>,
     pub supports_check_in: bool,
     pub check_in_bugged: bool,
+    pub check_in_day_offset_minutes: i32,
+    pub check_in_mode: CheckInMode,
+}
+
+/// How the app is allowed to check this provider in.
+///
+/// `ObserveOnly` is a first-class mode, not a failure: some providers only
+/// offer a web check-in, so the app never posts and instead detects the
+/// check-in from the next quota increase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum CheckInMode {
+    /// POST to an API endpoint.
+    Api,
+    /// Visit a page that performs the check-in as a side effect.
+    PageVisit,
+    /// Never post; detect the check-in from a balance observation.
+    ObserveOnly,
+    /// Not available at all (unsupported or temporarily disabled).
+    Disabled,
+}
+
+impl CheckInMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Api => "api",
+            Self::PageVisit => "page_visit",
+            Self::ObserveOnly => "observe_only",
+            Self::Disabled => "disabled",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self, DomainError> {
+        match value {
+            "api" => Ok(Self::Api),
+            "page_visit" => Ok(Self::PageVisit),
+            "observe_only" => Ok(Self::ObserveOnly),
+            "disabled" => Ok(Self::Disabled),
+            other => Err(DomainError::Validation(format!(
+                "Invalid check-in mode: {other}"
+            ))),
+        }
+    }
+
+    /// Whether an attempt may send a request (as opposed to waiting for an
+    /// observation to prove the check-in happened).
+    pub fn sends_a_request(&self) -> bool {
+        matches!(self, Self::Api | Self::PageVisit)
+    }
+
+    pub fn is_observe_only(&self) -> bool {
+        matches!(self, Self::ObserveOnly)
+    }
+
+    /// Infer the mode from provider configuration when none is stored.
+    ///
+    /// The order matters: a provider with no sign-in endpoint is
+    /// observation-only *permanently*, whereas `check_in_bugged` and
+    /// `supports_check_in` are temporary availability switches. Keeping the
+    /// two apart means re-enabling a bugged provider restores its real mode.
+    pub fn infer(
+        sign_in_path: Option<&str>,
+        supports_check_in: bool,
+        check_in_bugged: bool,
+    ) -> Self {
+        match sign_in_path {
+            None => Self::ObserveOnly,
+            Some(_) if !supports_check_in || check_in_bugged => Self::Disabled,
+            Some(path) if path.contains("/api/") => Self::Api,
+            Some(_) => Self::PageVisit,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -34,6 +105,8 @@ pub struct Provider {
     bypass_method: Option<String>,
     supports_check_in: bool,
     check_in_bugged: bool,
+    check_in_day_offset_minutes: i32,
+    check_in_mode: CheckInMode,
     is_builtin: bool,
     created_at: DateTime<Utc>,
 }
@@ -57,6 +130,8 @@ impl Provider {
             bypass_method: config.bypass_method,
             supports_check_in: config.supports_check_in,
             check_in_bugged: config.check_in_bugged,
+            check_in_day_offset_minutes: config.check_in_day_offset_minutes,
+            check_in_mode: config.check_in_mode,
             is_builtin: false,
             created_at: Utc::now(),
         }
@@ -76,6 +151,8 @@ impl Provider {
             bypass_method: config.bypass_method,
             supports_check_in: config.supports_check_in,
             check_in_bugged: config.check_in_bugged,
+            check_in_day_offset_minutes: config.check_in_day_offset_minutes,
+            check_in_mode: config.check_in_mode,
             is_builtin: true,
             created_at: Utc::now(),
         }
@@ -101,6 +178,8 @@ impl Provider {
             bypass_method: config.bypass_method,
             supports_check_in: config.supports_check_in,
             check_in_bugged: config.check_in_bugged,
+            check_in_day_offset_minutes: config.check_in_day_offset_minutes,
+            check_in_mode: config.check_in_mode,
             is_builtin,
             created_at,
         }
@@ -178,6 +257,20 @@ impl Provider {
 
     pub fn check_in_bugged(&self) -> bool {
         self.check_in_bugged
+    }
+
+    /// Minutes east of UTC at which this provider resets its daily quota.
+    pub fn check_in_day_offset_minutes(&self) -> i32 {
+        self.check_in_day_offset_minutes
+    }
+
+    pub fn check_in_mode(&self) -> CheckInMode {
+        self.check_in_mode
+    }
+
+    /// Whether the scheduler may send a request for this provider at all.
+    pub fn can_send_check_in_request(&self) -> bool {
+        self.supports_check_in && !self.check_in_bugged && self.check_in_mode.sends_a_request()
     }
 
     pub fn is_builtin(&self) -> bool {

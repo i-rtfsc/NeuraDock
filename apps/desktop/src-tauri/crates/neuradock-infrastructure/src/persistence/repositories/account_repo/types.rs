@@ -15,7 +15,8 @@ pub(super) struct AccountRow {
     pub cookies: String,
     pub api_user: String,
     pub enabled: bool,
-    pub last_check_in: Option<DateTime<Utc>>,
+    pub last_confirmed_at: Option<DateTime<Utc>>,
+    pub last_evidence_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub auto_checkin_enabled: bool,
     pub auto_checkin_hour: i64,
@@ -65,7 +66,8 @@ impl AccountRow {
             credentials,
         )
         .enabled(self.enabled)
-        .last_check_in(self.last_check_in)
+        .last_confirmed_at(self.last_confirmed_at)
+        .last_evidence_at(self.last_evidence_at)
         .created_at(self.created_at)
         .auto_checkin_enabled(self.auto_checkin_enabled)
         .auto_checkin_hour(self.auto_checkin_hour as u8)

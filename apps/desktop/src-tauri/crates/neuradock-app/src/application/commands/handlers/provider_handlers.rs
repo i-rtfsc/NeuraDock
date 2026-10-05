@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::commands::provider_commands::*;
-use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
+use neuradock_domain::check_in::{
+    CheckInMode, Provider, ProviderConfig, ProviderRepository, DEFAULT_DAY_OFFSET_MINUTES,
+};
 use neuradock_domain::shared::DomainError;
 
 /// Create provider command handler
@@ -37,13 +39,19 @@ impl CommandHandler<CreateProviderCommand> for CreateProviderCommandHandler {
 
         let supports_check_in = cmd.supports_check_in.unwrap_or(true);
         let check_in_bugged = cmd.check_in_bugged.unwrap_or(false);
+        let sign_in_path = cmd.sign_in_path.or(Some("/api/user/sign_in".to_string()));
+        let check_in_mode = match cmd.check_in_mode.as_deref() {
+            Some(mode) => CheckInMode::parse(mode)?,
+            // With no explicit mode, classify from the configuration.
+            None => CheckInMode::infer(sign_in_path.as_deref(), supports_check_in, check_in_bugged),
+        };
 
         // Use provided values or new-api defaults
         let provider = Provider::new(ProviderConfig {
             name: cmd.name.clone(),
             domain: cmd.domain.clone(),
             login_path: cmd.login_path.unwrap_or_else(|| "/login".to_string()),
-            sign_in_path: cmd.sign_in_path.or(Some("/api/user/sign_in".to_string())),
+            sign_in_path,
             user_info_path: cmd
                 .user_info_path
                 .unwrap_or_else(|| "/api/user/self".to_string()),
@@ -59,6 +67,10 @@ impl CommandHandler<CreateProviderCommand> for CreateProviderCommandHandler {
             },
             supports_check_in,
             check_in_bugged,
+            check_in_day_offset_minutes: cmd
+                .check_in_day_offset_minutes
+                .unwrap_or(DEFAULT_DAY_OFFSET_MINUTES),
+            check_in_mode,
         });
 
         let provider_id = provider.id().as_str().to_string();
@@ -141,8 +153,20 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
         let current_needs_waf = existing.needs_waf_bypass();
         let current_supports_check_in = existing.supports_check_in();
         let current_check_in_bugged = existing.check_in_bugged();
+        let current_check_in_day_offset_minutes = existing.check_in_day_offset_minutes();
+        let current_check_in_mode = existing.check_in_mode();
         let current_is_builtin = existing.is_builtin();
         let current_created_at = existing.created_at();
+
+        // An explicit mode wins; otherwise keep the stored one. Re-inferring
+        // would silently undo a classification the user made.
+        let check_in_mode = match cmd.check_in_mode.as_deref() {
+            Some(mode) => CheckInMode::parse(mode)?,
+            None => current_check_in_mode,
+        };
+        let check_in_day_offset_minutes = cmd
+            .check_in_day_offset_minutes
+            .unwrap_or(current_check_in_day_offset_minutes);
 
         // Create updated provider using provided values or existing values as fallback
         // IMPORTANT: Use restore() to preserve the existing provider ID, is_builtin, and created_at
@@ -164,6 +188,8 @@ impl CommandHandler<UpdateProviderCommand> for UpdateProviderCommandHandler {
                 },
                 supports_check_in: cmd.supports_check_in.unwrap_or(current_supports_check_in),
                 check_in_bugged: cmd.check_in_bugged.unwrap_or(current_check_in_bugged),
+                check_in_day_offset_minutes,
+                check_in_mode,
             },
             current_is_builtin,
             current_created_at,

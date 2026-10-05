@@ -69,6 +69,7 @@ pub async fn execute_check_in(
         } else {
             Some(result.message)
         },
+        outcome: result.outcome.as_str().to_string(),
     })
 }
 
@@ -98,6 +99,7 @@ pub async fn execute_batch_check_in(
             success: r.success,
             balance: r.balance,
             error: if r.success { None } else { Some(r.message) },
+            outcome: r.outcome.as_str().to_string(),
         })
         .collect();
 
@@ -220,13 +222,19 @@ pub async fn get_check_in_day_detail(
         .map_err(CommandError::from)
 }
 
-/// Recalculate check-in streaks for all accounts
+/// Recompute every account's cached check-in state from the ledger.
+///
+/// The ledger is the source of truth, so this is a repair operation: it heals
+/// drift between the two and returns how many accounts were refreshed.
 #[tauri::command]
 #[specta::specta]
-pub async fn recalculate_check_in_streaks(queries: State<'_, Queries>) -> Result<(), CommandError> {
-    queries
-        .streak
-        .recalculate_all_streaks()
+pub async fn recalculate_check_in_streaks(
+    services: State<'_, Services>,
+) -> Result<i32, CommandError> {
+    services
+        .balance_history
+        .refresh_all_check_in_caches()
         .await
+        .map(|count| count as i32)
         .map_err(CommandError::from)
 }

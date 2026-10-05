@@ -84,9 +84,4 @@ impl CheckInStreakQueries {
     ) -> Result<CheckInDayDto, DomainError> {
         trend::get_day_detail(self.balance_history_repo.as_ref(), account_id, date).await
     }
-
-    /// Recalculate all streaks from balance_history
-    pub async fn recalculate_all_streaks(&self) -> Result<(), DomainError> {
-        streak::recalculate_all_streaks(self.balance_history_repo.as_ref()).await
-    }
 }

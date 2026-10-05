@@ -21,7 +21,7 @@ impl SqliteAccountRepository {
     const SELECT_QUERY: &'static str = r#"
             SELECT
                 a.id, a.name, a.provider_id, a.cookies, a.api_user, a.enabled,
-                bh.latest_recorded_at as last_check_in, a.created_at, a.auto_checkin_enabled,
+                a.last_confirmed_at, a.last_evidence_at, a.created_at, a.auto_checkin_enabled,
                 a.auto_checkin_hour, a.auto_checkin_minute, a.check_in_interval_hours,
                 s.last_login_at, s.token as session_token, s.expires_at as session_expires_at,
                 b.last_checked_at as last_balance_check_at,
@@ -32,11 +32,6 @@ impl SqliteAccountRepository {
             FROM accounts a
             LEFT JOIN sessions s ON a.id = s.account_id
             LEFT JOIN balances b ON a.id = b.account_id
-            LEFT JOIN (
-                SELECT account_id, MAX(recorded_at) as latest_recorded_at
-                FROM balance_history
-                GROUP BY account_id
-            ) bh ON a.id = bh.account_id
         "#;
 
     pub fn new(pool: Arc<SqlitePool>, encryption: Arc<EncryptionService>) -> Self {

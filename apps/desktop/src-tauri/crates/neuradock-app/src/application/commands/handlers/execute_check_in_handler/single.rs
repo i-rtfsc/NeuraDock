@@ -9,6 +9,7 @@ use crate::application::services::{
 };
 use crate::application::ResultExt;
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::balance_history::CheckInTrigger;
 use neuradock_domain::check_in::ProviderRepository;
 use neuradock_domain::proxy_config::ProxyConfigRepository;
 use neuradock_domain::shared::{AccountId, DomainError};
@@ -103,48 +104,39 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
         // Execute check-in
         let result = executor
-            .execute_check_in(&cmd.account_id, &provider)
+            .execute_check_in(&cmd.account_id, &provider, CheckInTrigger::Manual)
             .await
             .to_infra_err()?;
 
         info!(
-            "Check-in completed for account {}: success={}",
-            cmd.account_id, result.success
+            "Check-in completed for account {}: success={} outcome={:?}",
+            cmd.account_id, result.success, result.outcome
         );
 
-        // Update account balance cache and save to balance_history if we have new balance data
-        let balance_dto = if result.success && result.user_info.is_some() {
-            let user_info = match result.user_info.as_ref() {
-                Some(info) => info,
-                None => {
-                    log::warn!("Check-in succeeded but no user_info returned");
-                    return Err(DomainError::Validation(
-                        "Check-in response missing user_info".to_string(),
-                    ));
-                }
-            };
+        // Refresh the account's balance cache when the run produced a reading.
+        // The history snapshot is the executor's job.
+        let balance_dto = match result.user_info.as_ref() {
+            Some(user_info) if result.success => {
+                let balance = shared::update_and_save_balance(
+                    &self.account_repo,
+                    &cmd.account_id,
+                    account,
+                    user_info,
+                )
+                .await?;
 
-            let balance = shared::update_and_save_balance(
-                &self.account_repo,
-                &self.balance_history_service,
-                &cmd.account_id,
-                account,
-                user_info,
-            )
-            .await?;
+                // Auto-fetch provider models if not exists in database
+                shared::auto_fetch_provider_models(
+                    &self.account_repo,
+                    &self.provider_models_service,
+                    &cmd.account_id,
+                    &provider,
+                )
+                .await;
 
-            // Auto-fetch provider models if not exists in database
-            shared::auto_fetch_provider_models(
-                &self.account_repo,
-                &self.provider_models_service,
-                &cmd.account_id,
-                &provider,
-            )
-            .await;
-
-            Some(balance)
-        } else {
-            None
+                Some(balance)
+            }
+            _ => None,
         };
 
         // Send notification if service is available
@@ -154,7 +146,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
 
         shared::send_check_in_notification(
             &self.notification_service,
-            result.success,
+            result.outcome,
             &cmd.account_id,
             &account_name,
             provider.name(),
@@ -170,6 +162,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
             success: result.success,
             message: result.message,
             balance: balance_dto,
+            outcome: result.outcome,
         })
     }
 }

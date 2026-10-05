@@ -1,52 +1,24 @@
 use crate::account::Account;
-use crate::check_in::Provider;
+use crate::check_in::{CheckInMode, Provider};
 use crate::shared::DomainError;
 
 /// Domain service for check-in business rules
 /// Contains pure domain logic without infrastructure dependencies
 pub struct CheckInDomainService;
 
-/// Slack allowed when comparing elapsed time against the configured interval.
-///
-/// A scheduled check-in fires at a fixed wall-clock time, but `last_check_in`
-/// is stamped *after* the HTTP round trip -- so it lands a few seconds past the
-/// hour. The next day's run is evaluated before any network IO, making the
-/// measured gap slightly under the configured interval (e.g. 23h59m54s for a
-/// 24h interval). Without slack the run is refused and daily check-in silently
-/// degrades to every other day. This is not a truncation artifact: exact
-/// arithmetic rejects it too, because the elapsed time genuinely is under the
-/// interval.
-const INTERVAL_GRACE: chrono::Duration = chrono::Duration::minutes(15);
-
 impl CheckInDomainService {
-    /// Validate if account can perform check-in
+    /// Whether this account may attempt a check-in at all.
+    ///
+    /// Retry pacing is deliberately not decided here. "Is today already
+    /// satisfied, in flight, or backing off?" is answered from the ledger by
+    /// [`evaluate_check_in_state`](crate::check_in::evaluate_check_in_state),
+    /// because elapsed time cannot tell a check-in from a balance refresh, and
+    /// a 24h interval cannot represent a provider's reset day.
     pub fn can_check_in(account: &Account) -> Result<(), DomainError> {
         if !account.is_enabled() {
             return Err(DomainError::Validation(
                 "Account is disabled and cannot perform check-in".to_string(),
             ));
-        }
-
-        // Check if check-in is too frequent (only if interval > 0)
-        let min_interval = account.check_in_interval_hours() as i64;
-
-        // If interval is 0, no time restriction
-        if min_interval > 0 {
-            if let Some(last_check_in) = account.last_check_in() {
-                let now = chrono::Utc::now();
-                let elapsed = now.signed_duration_since(last_check_in);
-                let required = chrono::Duration::hours(min_interval) - INTERVAL_GRACE;
-
-                if elapsed < required {
-                    let hours_remaining =
-                        (required - elapsed).num_minutes().div_euclid(60).max(0) + 1;
-                    return Err(DomainError::Validation(format!(
-                        "Check-in too frequent. Please wait {} hour(s) before next check-in. Last check-in: {}",
-                        hours_remaining,
-                        last_check_in.format("%Y-%m-%d %H:%M:%S UTC")
-                    )));
-                }
-            }
         }
 
         Ok(())
@@ -80,19 +52,14 @@ impl CheckInDomainService {
             ));
         }
 
-        Ok(())
-    }
-
-    /// Calculate check-in reward based on provider rules
-    pub fn calculate_reward(_provider: &Provider, is_consecutive: bool) -> f64 {
-        // Base reward logic - can be extended based on provider configuration
-        let base_reward = 1.0; // Default base reward
-
-        if is_consecutive {
-            // Bonus for consecutive check-ins
-            base_reward * 1.5
-        } else {
-            base_reward
+        match provider.check_in_mode() {
+            CheckInMode::Api | CheckInMode::PageVisit => Ok(()),
+            CheckInMode::ObserveOnly => Err(DomainError::Validation(
+                "This provider only supports a web check-in; record it manually or let the next balance refresh detect it".to_string(),
+            )),
+            CheckInMode::Disabled => Err(DomainError::Validation(
+                "This provider cannot be checked in by the app".to_string(),
+            )),
         }
     }
 
@@ -136,7 +103,7 @@ mod tests {
     }
 
     fn create_test_provider() -> Provider {
-        use crate::check_in::ProviderConfig;
+        use crate::check_in::{CheckInMode, ProviderConfig, DEFAULT_DAY_OFFSET_MINUTES};
 
         Provider::new(ProviderConfig {
             name: "Test Provider".to_string(),
@@ -150,6 +117,8 @@ mod tests {
             bypass_method: None,
             supports_check_in: true,
             check_in_bugged: false,
+            check_in_day_offset_minutes: DEFAULT_DAY_OFFSET_MINUTES,
+            check_in_mode: CheckInMode::Api,
         })
     }
 
@@ -175,129 +144,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_cannot_check_in_too_frequent() {
-        use crate::account::Credentials;
-        use crate::shared::{AccountId, ProviderId};
-        use chrono::{Duration, Utc};
-
-        let mut cookies = HashMap::new();
-        cookies.insert("session".to_string(), "test_session".to_string());
-
-        // Create account with recent check-in (2 hours ago)
-        let last_check_in = Utc::now() - Duration::hours(2);
-        let account = Account::builder(
-            AccountId::new(),
-            "Test Account".to_string(),
-            ProviderId::new(),
-            Credentials::new(cookies, "test@user".to_string()),
-        )
-        .check_in_interval_hours(24)
-        .last_check_in(Some(last_check_in))
-        .created_at(Utc::now() - Duration::days(1))
-        .build();
-
-        let result = CheckInDomainService::can_check_in(&account);
-        assert!(result.is_err());
-
-        match result {
-            Err(DomainError::Validation(msg)) => {
-                assert!(msg.contains("too frequent"));
-                assert!(msg.contains("22 hour")); // 24 - 2 = 22
-            }
-            _ => panic!("Expected Validation error for frequency check"),
-        }
-    }
-
-    /// The exact shape that turns daily automation into every-other-day: the
-    /// scheduler fires at the same wall-clock time each day, but the previous
-    /// run's timestamp was stamped a few seconds later (after the HTTP round
-    /// trip), so the measured gap is just under the configured interval.
-    #[test]
-    fn daily_schedule_is_not_refused_by_sub_minute_drift() {
-        use crate::account::Credentials;
-        use crate::shared::{AccountId, ProviderId};
-        use chrono::{Duration, Utc};
-
-        let mut cookies = HashMap::new();
-        cookies.insert("session".to_string(), "test_session".to_string());
-
-        for drift_secs in [6, 30, 120, 600] {
-            let last_check_in = Utc::now() - Duration::hours(24) + Duration::seconds(drift_secs);
-            let account = Account::builder(
-                AccountId::new(),
-                "Test Account".to_string(),
-                ProviderId::new(),
-                Credentials::new(cookies.clone(), "test@user".to_string()),
-            )
-            .check_in_interval_hours(24)
-            .last_check_in(Some(last_check_in))
-            .created_at(Utc::now() - Duration::days(2))
-            .build();
-
-            assert!(
-                CheckInDomainService::can_check_in(&account).is_ok(),
-                "a {drift_secs}s drift must not defer the daily check-in to the next day"
-            );
-        }
-    }
-
-    /// The grace window must stay narrow enough that a genuine double check-in
-    /// is still refused.
-    #[test]
-    fn interval_guard_still_blocks_a_real_repeat() {
-        use crate::account::Credentials;
-        use crate::shared::{AccountId, ProviderId};
-        use chrono::{Duration, Utc};
-
-        let mut cookies = HashMap::new();
-        cookies.insert("session".to_string(), "test_session".to_string());
-
-        for elapsed_hours in [0, 1, 12, 23] {
-            let account = Account::builder(
-                AccountId::new(),
-                "Test Account".to_string(),
-                ProviderId::new(),
-                Credentials::new(cookies.clone(), "test@user".to_string()),
-            )
-            .check_in_interval_hours(24)
-            .last_check_in(Some(Utc::now() - Duration::hours(elapsed_hours)))
-            .created_at(Utc::now() - Duration::days(2))
-            .build();
-
-            assert!(
-                CheckInDomainService::can_check_in(&account).is_err(),
-                "{elapsed_hours}h after the last check-in must still be refused"
-            );
-        }
-    }
-
-    #[test]
-    fn test_can_check_in_after_interval() {
-        use crate::account::Credentials;
-        use crate::shared::{AccountId, ProviderId};
-        use chrono::{Duration, Utc};
-
-        let mut cookies = HashMap::new();
-        cookies.insert("session".to_string(), "test_session".to_string());
-
-        // Create account with old check-in (24 hours ago - allowed)
-        let last_check_in = Utc::now() - Duration::hours(24);
-        let account = Account::builder(
-            AccountId::new(),
-            "Test Account".to_string(),
-            ProviderId::new(),
-            Credentials::new(cookies, "test@user".to_string()),
-        )
-        .check_in_interval_hours(24)
-        .last_check_in(Some(last_check_in))
-        .created_at(Utc::now() - Duration::days(1))
-        .build();
-
-        let result = CheckInDomainService::can_check_in(&account);
-        assert!(result.is_ok());
-    }
-
+    /// The exact shape that used to turn daily automation into every-other-day:
+    /// the scheduler fires at the same wall-clock time each day, but the
+    /// previous run's timestamp was stamped after the HTTP round trip. Retry
+    /// pacing now comes from `evaluate_check_in_state`, which is covered there.
     #[test]
     fn test_validate_provider() {
         let provider = create_test_provider();
@@ -305,14 +155,28 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_reward() {
-        let provider = create_test_provider();
+    fn observe_only_providers_are_refused_an_automated_check_in() {
+        use crate::check_in::{CheckInMode, ProviderConfig, DEFAULT_DAY_OFFSET_MINUTES};
 
-        let reward = CheckInDomainService::calculate_reward(&provider, false);
-        assert_eq!(reward, 1.0); // Default base reward
+        let provider = Provider::new(ProviderConfig {
+            name: "Web Only".to_string(),
+            domain: "https://example.com".to_string(),
+            login_path: "/login".to_string(),
+            sign_in_path: None,
+            user_info_path: "/userinfo".to_string(),
+            token_api_path: None,
+            models_path: None,
+            api_user_key: "user".to_string(),
+            bypass_method: None,
+            supports_check_in: true,
+            check_in_bugged: false,
+            check_in_day_offset_minutes: DEFAULT_DAY_OFFSET_MINUTES,
+            check_in_mode: CheckInMode::ObserveOnly,
+        });
 
-        let consecutive_reward = CheckInDomainService::calculate_reward(&provider, true);
-        assert_eq!(consecutive_reward, 1.5); // 1.0 * 1.5
+        let error = CheckInDomainService::validate_provider(&provider)
+            .expect_err("an observe-only provider cannot be posted to");
+        assert!(error.to_string().contains("web check-in"));
     }
 
     #[test]

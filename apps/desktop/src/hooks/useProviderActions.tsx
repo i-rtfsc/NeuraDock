@@ -21,6 +21,8 @@ export function useProviderActions() {
       needs_waf_bypass: boolean;
       supports_check_in?: boolean;
       check_in_bugged?: boolean;
+      check_in_mode?: string;
+      check_in_day_offset_minutes?: number;
       login_path?: string;
       sign_in_path?: string;
       user_info_path?: string;
@@ -32,6 +34,9 @@ export function useProviderActions() {
         ...input,
         supports_check_in: input.supports_check_in ?? null,
         check_in_bugged: input.check_in_bugged ?? null,
+        // Null lets the backend classify the mode from the configuration.
+        check_in_mode: input.check_in_mode ?? null,
+        check_in_day_offset_minutes: input.check_in_day_offset_minutes ?? null,
         login_path: input.login_path ?? null,
         sign_in_path: input.sign_in_path ?? null,
         user_info_path: input.user_info_path ?? null,
@@ -59,6 +64,8 @@ export function useProviderActions() {
       needs_waf_bypass?: boolean;
       supports_check_in?: boolean;
       check_in_bugged?: boolean;
+      check_in_mode?: string;
+      check_in_day_offset_minutes?: number;
       login_path?: string;
       sign_in_path?: string;
       user_info_path?: string;
@@ -73,6 +80,9 @@ export function useProviderActions() {
         needs_waf_bypass: input.needs_waf_bypass ?? null,
         supports_check_in: input.supports_check_in ?? null,
         check_in_bugged: input.check_in_bugged ?? null,
+        // Null keeps the stored classification.
+        check_in_mode: input.check_in_mode ?? null,
+        check_in_day_offset_minutes: input.check_in_day_offset_minutes ?? null,
         login_path: input.login_path ?? null,
         sign_in_path: input.sign_in_path ?? null,
         user_info_path: input.user_info_path ?? null,

@@ -1,6 +1,11 @@
 use super::*;
 use neuradock_domain::account::{Account, Credentials};
-use neuradock_domain::balance_history::BalanceHistoryRepository;
+use neuradock_domain::balance_history::{
+    BalanceHistoryRecord, BalanceHistoryRepository, CheckInOutcome, CheckInSource, CheckInTrigger,
+};
+use neuradock_domain::check_in::{
+    quota_day_of, today_quota_day, CheckInMode, ProviderConfig, DEFAULT_DAY_OFFSET_MINUTES,
+};
 use neuradock_domain::shared::ProviderId;
 use neuradock_infrastructure::persistence::repositories::{
     SqliteAccountRepository, SqliteBalanceHistoryRepository,
@@ -8,11 +13,14 @@ use neuradock_infrastructure::persistence::repositories::{
 use neuradock_infrastructure::persistence::Database;
 use neuradock_infrastructure::security::EncryptionService;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+const OFFSET_MINUTES: i32 = 480;
 
 fn test_provider(id: &str, domain: &str) -> Provider {
     Provider::builtin(
         id,
-        neuradock_domain::check_in::ProviderConfig {
+        ProviderConfig {
             name: id.to_string(),
             domain: domain.to_string(),
             login_path: "/login".to_string(),
@@ -24,6 +32,8 @@ fn test_provider(id: &str, domain: &str) -> Provider {
             bypass_method: None,
             supports_check_in: true,
             check_in_bugged: false,
+            check_in_day_offset_minutes: DEFAULT_DAY_OFFSET_MINUTES,
+            check_in_mode: CheckInMode::Api,
         },
     )
 }
@@ -70,14 +80,22 @@ impl RewardFixture {
     fn history_service(&self) -> Arc<BalanceHistoryService> {
         Arc::new(BalanceHistoryService::new(self.history_repo.clone()))
     }
+
+    fn today(&self) -> chrono::NaiveDate {
+        quota_day_of(chrono::Utc::now(), OFFSET_MINUTES)
+    }
 }
 
-async fn mock_provider(fail_balance: bool) -> (String, tokio::task::JoinHandle<()>) {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+/// A provider stub that counts POSTs, so a test can assert that no duplicate
+/// check-in was sent.
+async fn mock_provider(
+    fail_balance: bool,
+) -> (String, Arc<AtomicUsize>, tokio::task::JoinHandle<()>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());
     let posts = Arc::new(AtomicUsize::new(0));
+    let counter = posts.clone();
     let task = tokio::spawn(async move {
         loop {
             let (mut stream, _) = listener.accept().await.unwrap();
@@ -112,19 +130,21 @@ async fn mock_provider(fail_balance: bool) -> (String, tokio::task::JoinHandle<(
             });
         }
     });
-    (address, task)
+    (address, counter, task)
 }
 
 #[tokio::test]
 async fn rewards_remain_25_through_concurrent_check_ins_refresh_calendar_and_notification() {
     use chrono::Datelike;
-    use neuradock_domain::balance_history::BalanceHistoryRecord;
-    use neuradock_infrastructure::persistence::repositories::SqliteProviderRepository;
     let f = RewardFixture::new("test-provider").await;
-    let (address, server) = mock_provider(false).await;
+    let (address, posts, server) = mock_provider(false).await;
     let provider = test_provider("test-provider", &address);
     let id = f.account.id().as_str();
     let now = chrono::Utc::now();
+    let day = f.today();
+
+    // A baseline from the previous quota day, so the reward is not confused
+    // with cumulative quota.
     f.history_repo
         .save(
             &BalanceHistoryRecord::new(
@@ -139,42 +159,71 @@ async fn rewards_remain_25_through_concurrent_check_ins_refresh_calendar_and_not
         )
         .await
         .unwrap();
+
     let executor = CheckInExecutor::with_proxy(f.account_repo.clone(), true, None)
         .unwrap()
         .with_balance_history(f.history_service());
     let (first, second) = tokio::join!(
-        executor.execute_check_in(id, &provider),
-        executor.execute_check_in(id, &provider)
+        executor.execute_check_in(id, &provider, CheckInTrigger::Manual),
+        executor.execute_check_in(id, &provider, CheckInTrigger::Manual)
     );
     let first = first.unwrap();
     let second = second.unwrap();
-    assert!(first.success, "{}", first.message);
-    assert!(second.success, "{}", second.message);
+
+    // A concurrent duplicate must never produce a second reward row.
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM check_in_records WHERE account_id=?")
         .bind(id)
         .fetch_one(f.pool.as_ref())
         .await
         .unwrap();
     assert_eq!(count, 1);
+    assert!(posts.load(Ordering::SeqCst) >= 1);
+
+    // The lease makes the duplicate visible rather than silently doubling the
+    // request; when it wins the race the caller is told the run was skipped.
+    let outcomes = [first.outcome, second.outcome];
+    assert!(
+        outcomes.contains(&CheckInOutcome::Success),
+        "one of the concurrent runs must have checked in: {outcomes:?}"
+    );
+    for result in [&first, &second] {
+        assert!(
+            result.success || result.outcome == CheckInOutcome::SkippedGuard,
+            "unexpected outcome {:?}: {}",
+            result.outcome,
+            result.message
+        );
+    }
 
     let queries = crate::application::queries::CheckInStreakQueries::new(
         f.account_repo.clone(),
-        Arc::new(SqliteProviderRepository::new(f.pool.clone())),
+        Arc::new(
+            neuradock_infrastructure::persistence::repositories::SqliteProviderRepository::new(
+                f.pool.clone(),
+            ),
+        ),
         f.history_repo.clone(),
     );
-    let day = queries
-        .get_day_detail(id, &now.format("%Y-%m-%d").to_string())
+    let day_detail = queries
+        .get_day_detail(id, &day.format("%Y-%m-%d").to_string())
         .await
         .unwrap();
-    assert_eq!(day.income_increment, Some(25.0));
-    assert!(!day.reward_is_estimate);
+    assert_eq!(day_detail.income_increment, Some(25.0));
+    assert!(!day_detail.reward_is_estimate);
     assert_eq!(
-        queries.get_trend(id, 1).await.unwrap().data_points[0].income_increment,
+        queries
+            .get_trend(id, 1)
+            .await
+            .unwrap()
+            .data_points
+            .last()
+            .unwrap()
+            .income_increment,
         Some(25.0)
     );
     assert_eq!(
         queries
-            .get_calendar(id, now.year(), now.month())
+            .get_calendar(id, day.year(), day.month())
             .await
             .unwrap()
             .month_stats
@@ -212,10 +261,11 @@ async fn rewards_remain_25_through_concurrent_check_ins_refresh_calendar_and_not
         crate::application::services::i18n::t("notification.label.checkInReward")
     )));
 
-    // The first snapshot in a one-day chart is the reward, not lifetime quota.
+    // A later balance refresh must not change a confirmed reward.
     f.history_service()
         .save_balance_history(
             id,
+            &provider,
             &crate::application::dtos::BalanceDto {
                 current_balance: 900.0,
                 total_consumed: 400.0,
@@ -226,7 +276,7 @@ async fn rewards_remain_25_through_concurrent_check_ins_refresh_calendar_and_not
         .unwrap();
     assert_eq!(
         queries
-            .get_day_detail(id, &now.format("%Y-%m-%d").to_string())
+            .get_day_detail(id, &day.format("%Y-%m-%d").to_string())
             .await
             .unwrap()
             .income_increment,
@@ -237,25 +287,72 @@ async fn rewards_remain_25_through_concurrent_check_ins_refresh_calendar_and_not
 }
 
 #[tokio::test]
+async fn an_in_flight_attempt_prevents_a_second_request() {
+    let f = RewardFixture::new("test-provider").await;
+    let (address, posts, server) = mock_provider(false).await;
+    let provider = test_provider("test-provider", &address);
+    let service = f.history_service();
+    let day = f.today();
+
+    // Simulate a request that is already running, for example from the
+    // scheduler or another window.
+    service
+        .start_attempt(
+            f.account.id().as_str(),
+            &provider,
+            day,
+            CheckInTrigger::Scheduler,
+            chrono::Utc::now(),
+        )
+        .await
+        .unwrap();
+
+    let executor = CheckInExecutor::with_proxy(f.account_repo.clone(), true, None)
+        .unwrap()
+        .with_balance_history(service);
+    let result = executor
+        .execute_check_in(f.account.id().as_str(), &provider, CheckInTrigger::Manual)
+        .await
+        .unwrap();
+
+    assert!(!result.success);
+    assert_eq!(result.outcome, CheckInOutcome::SkippedGuard);
+    assert_eq!(posts.load(Ordering::SeqCst), 0, "nothing may be sent");
+    assert!(f
+        .history_repo
+        .find_evidence(f.account.id(), day)
+        .await
+        .unwrap()
+        .is_none());
+    server.abort();
+    f.pool.close().await;
+}
+
+#[tokio::test]
 async fn a_failed_post_check_in_balance_query_does_not_lose_the_reward_or_write_old_data() {
     let f = RewardFixture::new("test-provider").await;
-    let (address, server) = mock_provider(true).await;
+    let (address, _posts, server) = mock_provider(true).await;
     let provider = test_provider("test-provider", &address);
+    let day = f.today();
+
     let result = CheckInExecutor::with_proxy(f.account_repo.clone(), true, None)
         .unwrap()
         .with_balance_history(f.history_service())
-        .execute_check_in(f.account.id().as_str(), &provider)
+        .execute_check_in(f.account.id().as_str(), &provider, CheckInTrigger::Manual)
         .await
         .unwrap();
+
     assert!(result.success, "{}", result.message);
     assert!(result.user_info.is_none());
     let daily = f
         .history_repo
-        .find_daily_summary(f.account.id(), chrono::Utc::now().date_naive())
+        .find_daily_summary(f.account.id(), day)
         .await
         .unwrap()
         .unwrap();
     assert_eq!(daily.check_in_reward(), Some(25.0));
+    assert!(!daily.reward_is_estimate());
+    // No balance reading came back, so no snapshot may be invented.
     assert!(f
         .history_repo
         .find_latest_by_account_id(f.account.id())
@@ -271,8 +368,11 @@ async fn manual_confirmation_is_limited_to_known_rules_and_is_idempotent() {
     let f = RewardFixture::new("agentrouter").await;
     let service = f.history_service();
     let provider = test_provider("agentrouter", "https://agentrouter.org");
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let today = today_quota_day(OFFSET_MINUTES, chrono::Utc::now())
+        .format("%Y-%m-%d")
+        .to_string();
     let id = f.account.id().as_str();
+
     assert!(service
         .confirm_fixed_check_in(id, &today, &provider)
         .await
@@ -281,7 +381,23 @@ async fn manual_confirmation_is_limited_to_known_rules_and_is_idempotent() {
         .confirm_fixed_check_in(id, &today, &provider)
         .await
         .unwrap());
-    let future = (chrono::Utc::now() + chrono::Duration::days(1))
+
+    // The manual confirmation is auditable: it leaves an attempt behind.
+    let attempts = f
+        .history_repo
+        .list_attempts_on_day(
+            f.account.id(),
+            today_quota_day(OFFSET_MINUTES, chrono::Utc::now()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(attempts.len(), 1);
+    assert_eq!(
+        attempts[0].outcome(),
+        Some(CheckInOutcome::AlreadyConfirmed)
+    );
+
+    let future = (today_quota_day(OFFSET_MINUTES, chrono::Utc::now()) + chrono::Duration::days(1))
         .format("%Y-%m-%d")
         .to_string();
     assert!(service
@@ -297,42 +413,36 @@ async fn manual_confirmation_is_limited_to_known_rules_and_is_idempotent() {
 
 #[test]
 fn fixed_rules_do_not_override_explicit_rewards_or_apply_to_unknown_providers() {
-    let response = CheckInResult {
-        success: true,
-        message: "Confirmed".to_string(),
-        reward: None,
-    };
+    let response = CheckInResult::confirmed("Confirmed", None);
     assert_eq!(
         confirmed_reward(
             &test_provider("anyrouter", "https://anyrouter.top"),
             &response
         ),
-        (Some(25.0), "provider_rule")
+        (Some(25.0), CheckInSource::ProviderRule)
     );
     assert_eq!(
         confirmed_reward(
             &test_provider("agentrouter", "https://agentrouter.org"),
             &response
         ),
-        (Some(25.0), "provider_rule")
+        (Some(25.0), CheckInSource::ProviderRule)
     );
+    // The provider id alone is not enough: the host must match too.
     assert_eq!(
         confirmed_reward(
             &test_provider("anyrouter", "https://example.com"),
             &response
         ),
-        (None, "confirmed_unknown")
+        (None, CheckInSource::ConfirmedUnknown)
     );
-    let response = CheckInResult {
-        reward: Some(7.5),
-        ..response
-    };
+    let response = CheckInResult::confirmed("Confirmed", Some(7.5));
     assert_eq!(
         confirmed_reward(
             &test_provider("anyrouter", "https://anyrouter.top"),
             &response
         ),
-        (Some(7.5), "provider_response")
+        (Some(7.5), CheckInSource::ProviderResponse)
     );
 }
 
@@ -365,11 +475,12 @@ async fn scheduled_check_in_preserves_quota_corrections_in_history() {
         .execute(pool.as_ref())
         .await
         .unwrap();
-    let mut account = account_repo
+    let account = account_repo
         .find_by_id(account.id())
         .await
         .unwrap()
         .unwrap();
+    let provider = test_provider("test-provider", "https://example.com");
     let executor = CheckInExecutor::with_proxy(account_repo.clone(), true, None)
         .unwrap()
         .with_balance_history(Arc::new(BalanceHistoryService::new(history_repo.clone())));
@@ -379,11 +490,11 @@ async fn scheduled_check_in_preserves_quota_corrections_in_history() {
         total_quota: 99.98,
     };
 
-    // Repeated saves on the same day must preserve, rather than remove or
-    // double-apply, the adjustment. No provider request is made by this test.
+    // Repeated observations on the same day must preserve, rather than remove
+    // or double-apply, the adjustment, and must not pile up rows.
     for _ in 0..2 {
         executor
-            .record_check_in(&mut account, "Corrected account", Some(&user_info))
+            .record_balance_observation(&account, &provider, Some(&user_info))
             .await;
         let history = history_repo
             .find_latest_by_account_id(account.id())
@@ -394,12 +505,132 @@ async fn scheduled_check_in_preserves_quota_corrections_in_history() {
         assert_eq!(history.current_balance(), 40.0);
         assert_eq!(history.total_consumed(), 59.98);
     }
+
+    let snapshots: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM balance_history WHERE account_id = ?")
+            .bind(account.id().as_str())
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+    assert_eq!(snapshots, 1, "one snapshot per account per quota day");
+
     let saved = account_repo
         .find_by_id(account.id())
         .await
         .unwrap()
         .unwrap();
-    assert!(saved.last_check_in().is_some());
     assert_eq!(saved.quota_adjustment(), 0.02);
     pool.close().await;
+}
+
+/// The runtime half of "detect a web check-in from the balance": a quota
+/// increase over the previous quota day becomes inferred evidence, but only
+/// when there is a baseline to compare against.
+#[tokio::test]
+async fn a_balance_observation_infers_evidence_only_against_a_baseline() {
+    use crate::application::dtos::BalanceDto;
+
+    let f = RewardFixture::new("test-provider").await;
+    let service = f.history_service();
+    let provider = test_provider("test-provider", "https://example.com");
+    let id = f.account.id().as_str();
+    let now = chrono::Utc::now();
+    let day = f.today();
+
+    // No baseline: the first observation of an account proves nothing.
+    service
+        .save_balance_history(
+            id,
+            &provider,
+            &BalanceDto {
+                current_balance: 100.0,
+                total_consumed: 0.0,
+                total_quota: 100.0,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(f
+        .history_repo
+        .find_evidence(f.account.id(), day)
+        .await
+        .unwrap()
+        .is_none());
+
+    // A baseline from the previous quota day.
+    let previous = BalanceHistoryRecord::new(
+        "baseline".to_string(),
+        f.account.id().clone(),
+        100.0,
+        0.0,
+        100.0,
+        now - chrono::Duration::days(1),
+    )
+    .unwrap();
+    f.history_repo.save(&previous).await.unwrap();
+
+    // Rounding noise must not look like a reward.
+    service
+        .save_balance_history(
+            id,
+            &provider,
+            &BalanceDto {
+                current_balance: 100.01,
+                total_consumed: 0.0,
+                total_quota: 100.01,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(f
+        .history_repo
+        .find_evidence(f.account.id(), day)
+        .await
+        .unwrap()
+        .is_none());
+
+    // A real increase becomes inferred evidence for today.
+    service
+        .save_balance_history(
+            id,
+            &provider,
+            &BalanceDto {
+                current_balance: 125.0,
+                total_consumed: 0.0,
+                total_quota: 125.0,
+            },
+        )
+        .await
+        .unwrap();
+    let evidence = f
+        .history_repo
+        .find_evidence(f.account.id(), day)
+        .await
+        .unwrap()
+        .expect("a quota increase must become evidence");
+    assert_eq!(evidence.source(), CheckInSource::BalanceDelta);
+    assert!(evidence.reward_is_estimate());
+    assert_eq!(evidence.reward(), Some(25.0));
+
+    // A decrease never removes evidence that is already recorded.
+    service
+        .save_balance_history(
+            id,
+            &provider,
+            &BalanceDto {
+                current_balance: 50.0,
+                total_consumed: 0.0,
+                total_quota: 50.0,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(f
+        .history_repo
+        .find_evidence(f.account.id(), day)
+        .await
+        .unwrap()
+        .is_some());
+
+    f.pool.close().await;
 }

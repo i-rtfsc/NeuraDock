@@ -1,11 +1,18 @@
 use anyhow::{Context, Result};
-use log::info;
+use chrono::Utc;
+use log::{error, info, warn};
 use std::sync::Arc;
 use tracing::instrument;
 
+use neuradock_domain::balance_history::{
+    AttemptCompletion, CheckInOutcome, CheckInSource, CheckInTrigger,
+};
+use neuradock_domain::check_in::{quota_day_of, CheckInMode, CheckInState};
 use neuradock_domain::waf_cookies::WafCookiesRepository;
 use neuradock_domain::{account::AccountRepository, check_in::Provider, shared::AccountId};
-use neuradock_infrastructure::http::{CheckInResult, HttpClient, SetCookieResult, UserInfo};
+use neuradock_infrastructure::http::{
+    check_in_codes, CheckInResult, HttpClient, SetCookieResult, UserInfo,
+};
 
 use crate::application::services::balance_history_service::BalanceHistoryService;
 use crate::application::services::user_info_service::UserInfoService;
@@ -79,38 +86,97 @@ impl CheckInExecutor {
         UserInfoService::new(&self.http_client, &self.waf_manager)
     }
 
-    /// Execute check-in for a single account
+    /// Execute check-in for a single account.
+    ///
+    /// `trigger` decides how much of the guard applies: a scheduled run respects
+    /// backoff, while a user who insists on trying now only respects "today is
+    /// already done" and "a request is already in flight".
     #[instrument(skip(self, provider), fields(account_id = %account_id, provider_id = %provider.id()))]
     pub async fn execute_check_in(
         &self,
         account_id: &str,
         provider: &Provider,
+        trigger: CheckInTrigger,
     ) -> Result<AccountCheckInResult> {
         let account_id_obj = AccountId::from_string(account_id);
 
         // 1. Load and validate account
-        let mut account =
+        let account =
             validation::load_and_validate_account(&*self.account_repo, &account_id_obj).await?;
         let account_name = account.name().to_string();
 
         info!("[{}] Starting check-in process", account_name);
 
-        // 2. Validate using domain service
+        // 2. Validate using domain service (account enabled, provider mode)
         if let Some(error_result) =
             validation::validate_check_in_eligibility(&account, provider, &account_name)
         {
             return Ok(error_result);
         }
 
-        // 3. Prepare cookies and fetch user info with WAF handling
+        let now = Utc::now();
+        let quota_day = quota_day_of(now, provider.check_in_day_offset_minutes());
+
+        // 3. Guard. Answering "is today already satisfied / in flight?" from the
+        //    ledger replaces the old elapsed-time heuristic, which counted
+        //    balance refreshes as check-ins and did nothing when the configured
+        //    interval was zero (the shipped default).
+        if let Some(service) = &self.balance_history_service {
+            match service.check_in_state(account_id, provider, now).await {
+                Ok(CheckInState::Done { .. }) => {
+                    info!("[{}] Today is already satisfied", account_name);
+                    return Ok(AccountCheckInResult::already_done(account_name));
+                }
+                Ok(CheckInState::InFlight { .. }) => {
+                    return Ok(AccountCheckInResult::skipped(
+                        account_name,
+                        "A check-in is already in flight for today",
+                    ));
+                }
+                Ok(CheckInState::Backoff { until, .. }) if trigger == CheckInTrigger::Scheduler => {
+                    return Ok(AccountCheckInResult::skipped(
+                        account_name,
+                        format!("Waiting until {} before retrying today", until.to_rfc3339()),
+                    ));
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    // Fail open: reading the ledger failed, and refusing to try
+                    // would silently drop the day.
+                    warn!(
+                        "[{}] Could not read the check-in state: {}",
+                        account_name, e
+                    );
+                }
+            }
+        }
+
+        // 4. Open an attempt so a concurrent caller sees a request in flight.
+        let attempt_id = match &self.balance_history_service {
+            Some(service) => match service
+                .start_attempt(account_id, provider, quota_day, trigger, now)
+                .await
+            {
+                Ok(id) => Some(id),
+                Err(e) => {
+                    warn!(
+                        "[{}] Could not open a check-in attempt: {}",
+                        account_name, e
+                    );
+                    None
+                }
+            },
+            None => None,
+        };
+
+        // 5. Prepare cookies and fetch user info with WAF handling
         let (mut cookies, user_info, info_set_cookies) = self
             .prepare_cookies_and_fetch_user_info(&account, provider, &account_name)
             .await?;
 
-        // Collect all Set-Cookie results for later persistence
         let mut all_set_cookies = info_set_cookies;
 
-        // 4. Execute check-in request
+        // 6. Execute check-in request
         let (check_in_result, checkin_set_cookies) = self
             .perform_check_in_request(&account, provider, &account_name, &mut cookies)
             .await;
@@ -119,19 +185,28 @@ impl CheckInExecutor {
             all_set_cookies.session_expires_at = checkin_set_cookies.session_expires_at;
         }
 
-        // Commit the confirmed reward before waiting for any balance request.
-        // Agent usage, stale snapshots and refreshes cannot change this ledger.
-        if check_in_result.success {
-            if let Some(service) = &self.balance_history_service {
-                let (reward, source) = confirmed_reward(provider, &check_in_result);
-                service
-                    .save_check_in_reward(account_id, chrono::Utc::now(), reward, source)
-                    .await
-                    .context("Check-in succeeded, but saving its reward failed")?;
+        // 7. Commit the confirmed reward before waiting for any balance request.
+        //    Agent usage, stale snapshots and refreshes cannot change this
+        //    ledger, and a bookkeeping failure must not turn a check-in the
+        //    provider accepted into a reported failure.
+        let confirmed = check_in_result
+            .success
+            .then(|| confirmed_reward(provider, &check_in_result));
+
+        if let (Some(service), Some((reward, source))) = (&self.balance_history_service, confirmed)
+        {
+            if let Err(e) = service
+                .save_check_in_reward(account_id, provider, Utc::now(), reward, source, attempt_id)
+                .await
+            {
+                error!(
+                    "[{}] Check-in succeeded but recording the reward failed: {}",
+                    account_name, e
+                );
             }
         }
 
-        // 5. Fetch updated balance after successful check-in
+        // 8. Fetch updated balance after successful check-in
         let user_info_service = self.create_user_info_service();
         let (final_user_info, balance_set_cookies) = balance::fetch_updated_balance_after_check_in(
             &user_info_service,
@@ -148,21 +223,36 @@ impl CheckInExecutor {
             all_set_cookies.session_expires_at = balance_set_cookies.session_expires_at;
         }
 
-        // 6. Persist updated cookies and session expiration
+        // 9. Persist updated cookies and session expiration
+        let mut account = account;
         if !all_set_cookies.is_empty() || all_set_cookies.session_expires_at.is_some() {
             self.persist_updated_cookies(&mut account, &all_set_cookies, &account_name)
                 .await;
         }
 
-        // 7. Record the check-in itself. Done here rather than in the command
-        //    handler so the scheduler -- which calls this executor directly --
-        //    also gets recorded. Without this, automated check-ins left
-        //    `last_check_in` unset, which both hid them from the UI and
-        //    permanently disabled the interval guard (it reads that field), so
-        //    the same account could be checked in repeatedly.
-        if check_in_result.success {
-            self.record_check_in(&mut account, &account_name, final_user_info.as_ref())
-                .await;
+        // 10. Record the observation. The scheduler calls this executor
+        //     directly, so without it automated runs would leave the calendar
+        //     and trend empty.
+        self.record_balance_observation(&account, provider, final_user_info.as_ref())
+            .await;
+
+        // 11. Close the attempt with what actually happened.
+        let outcome = outcome_for(&check_in_result);
+        if let (Some(service), Some(attempt_id)) = (&self.balance_history_service, attempt_id) {
+            let completion = AttemptCompletion {
+                outcome,
+                finished_at: Utc::now(),
+                error_code: check_in_result.error_code().map(str::to_string),
+                http_status: None,
+                reward: confirmed.and_then(|(reward, _)| reward),
+                source: confirmed.map(|(_, source)| source),
+            };
+            if let Err(e) = service.finish_attempt(attempt_id, &completion).await {
+                error!(
+                    "[{}] Could not close the check-in attempt: {}",
+                    account_name, e
+                );
+            }
         }
 
         Ok(AccountCheckInResult {
@@ -170,25 +260,22 @@ impl CheckInExecutor {
             success: check_in_result.success,
             message: check_in_result.message,
             user_info: final_user_info,
+            outcome,
         })
     }
 
-    /// Stamp the check-in on the account and append a history row.
+    /// Append the post-check-in balance observation to the ledger.
     ///
-    /// Best-effort: a bookkeeping failure must not turn a check-in that the
-    /// provider already accepted into a reported failure, so errors are logged
-    /// rather than propagated.
-    async fn record_check_in(
+    /// Best-effort: the check-in already happened, so failing to store a
+    /// snapshot must not turn it into a reported failure. The account row's
+    /// check-in timestamps are not written here -- they are a cache of the
+    /// ledger and are refreshed by the repository when evidence changes.
+    async fn record_balance_observation(
         &self,
-        account: &mut neuradock_domain::account::Account,
-        account_name: &str,
+        account: &neuradock_domain::account::Account,
+        provider: &Provider,
         user_info: Option<&UserInfo>,
     ) {
-        account.record_check_in();
-        if let Err(e) = self.account_repo.save(account).await {
-            log::error!("[{}] Failed to record check-in time: {}", account_name, e);
-        }
-
         let (Some(service), Some(user_info)) = (&self.balance_history_service, user_info) else {
             return;
         };
@@ -201,10 +288,14 @@ impl CheckInExecutor {
             total_quota: account.adjusted_total_quota(user_info.total_quota),
         };
         if let Err(e) = service
-            .save_balance_history(account.id().as_str(), &balance)
+            .save_balance_history(account.id().as_str(), provider, &balance)
             .await
         {
-            log::error!("[{}] Failed to save balance history: {}", account_name, e);
+            error!(
+                "[{}] Failed to save the balance observation: {}",
+                account.name(),
+                e
+            );
         }
     }
 
@@ -282,7 +373,12 @@ impl CheckInExecutor {
             .await
     }
 
-    /// Perform check-in request (page visit or API call) with WAF retry logic
+    /// Perform the check-in request the provider's mode calls for.
+    ///
+    /// The mode is stored configuration, not a guess about the URL: an
+    /// observation-only provider must never be posted to, and a provider whose
+    /// mode says API but whose path is missing is a configuration error rather
+    /// than a silent success.
     async fn perform_check_in_request(
         &self,
         account: &neuradock_domain::account::Account,
@@ -292,19 +388,35 @@ impl CheckInExecutor {
     ) -> (CheckInResult, SetCookieResult) {
         let api_user = account.credentials().api_user();
 
-        // Check if provider requires explicit check-in
-        let Some(sign_in_url) = provider.sign_in_url() else {
+        let mode = provider.check_in_mode();
+        if !mode.sends_a_request() {
             info!(
-                "[{}] Provider {} does not require an explicit check-in request, skipping API call",
+                "[{}] Provider {} is {:?}; the check-in is detected from the balance instead",
                 account_name,
-                provider.name()
+                provider.name(),
+                mode
             );
             return (
-                CheckInResult {
-                    success: false,
-                    message: "Provider has no endpoint that confirms check-in".to_string(),
-                    reward: None,
-                },
+                CheckInResult::failure(
+                    check_in_codes::NOT_SUPPORTED,
+                    "This provider has no endpoint that confirms a check-in",
+                ),
+                SetCookieResult::default(),
+            );
+        }
+
+        let Some(sign_in_url) = provider.sign_in_url() else {
+            warn!(
+                "[{}] Provider {} is configured as {:?} but has no sign-in path",
+                account_name,
+                provider.name(),
+                mode
+            );
+            return (
+                CheckInResult::failure(
+                    check_in_codes::NOT_SUPPORTED,
+                    "This provider has no sign-in path configured",
+                ),
                 SetCookieResult::default(),
             );
         };
@@ -314,28 +426,28 @@ impl CheckInExecutor {
             account_name, sign_in_url
         );
 
-        // Determine if this is a page visit or API call
-        // Page URLs typically don't contain /api/
-        let is_page_visit = !sign_in_url.contains("/api/");
-
-        if is_page_visit {
-            execution::execute_page_visit_check_in(
-                &self.http_client,
-                account_name,
-                &sign_in_url,
-                cookies,
-            )
-            .await
-        } else {
-            self.execute_api_check_in_with_retry(
-                account,
-                provider,
-                account_name,
-                &sign_in_url,
-                cookies,
-                api_user,
-            )
-            .await
+        match mode {
+            CheckInMode::Api => {
+                self.execute_api_check_in_with_retry(
+                    account,
+                    provider,
+                    account_name,
+                    &sign_in_url,
+                    cookies,
+                    api_user,
+                )
+                .await
+            }
+            CheckInMode::PageVisit => {
+                execution::execute_page_visit_check_in(
+                    &self.http_client,
+                    account_name,
+                    &sign_in_url,
+                    cookies,
+                )
+                .await
+            }
+            CheckInMode::ObserveOnly | CheckInMode::Disabled => unreachable!("handled above"),
         }
     }
 
@@ -375,9 +487,10 @@ impl CheckInExecutor {
                 .await
             }
             Err(e) => {
-                log::error!("[{}] Check-in request error: {}", account_name, e);
+                let code = error_code_for(&e);
+                error!("[{}] Check-in request error: {}", account_name, e);
                 (
-                    execution::create_error_result(&format!("Request failed: {}", e)),
+                    execution::create_error_result(code, "The check-in request failed"),
                     SetCookieResult::default(),
                 )
             }
@@ -428,13 +541,50 @@ impl CheckInExecutor {
     }
 }
 
-fn confirmed_reward(provider: &Provider, result: &CheckInResult) -> (Option<f64>, &'static str) {
+fn confirmed_reward(provider: &Provider, result: &CheckInResult) -> (Option<f64>, CheckInSource) {
     if let Some(reward) = result.reward {
-        return (Some(reward), "provider_response");
+        return (Some(reward), CheckInSource::ProviderResponse);
     }
     match fixed_reward(provider) {
-        Some(reward) => (Some(reward), "provider_rule"),
-        None => (None, "confirmed_unknown"),
+        Some(reward) => (Some(reward), CheckInSource::ProviderRule),
+        None => (None, CheckInSource::ConfirmedUnknown),
+    }
+}
+
+/// Map a provider result onto the attempt outcome.
+///
+/// Unknown failures are retryable on purpose: retrying costs one request,
+/// whereas calling them permanent silently drops the day.
+fn outcome_for(result: &CheckInResult) -> CheckInOutcome {
+    if result.success {
+        return CheckInOutcome::Success;
+    }
+    match result.error_code() {
+        Some(check_in_codes::ALREADY_CHECKED_IN) => CheckInOutcome::AlreadyConfirmed,
+        Some(check_in_codes::HTTP_CLIENT) | Some(check_in_codes::NOT_SUPPORTED) => {
+            CheckInOutcome::FailedPermanent
+        }
+        Some(check_in_codes::WAF_CHALLENGE) => CheckInOutcome::WafBlocked,
+        Some(check_in_codes::CANCELLED) => CheckInOutcome::Cancelled,
+        _ => CheckInOutcome::FailedRetryable,
+    }
+}
+
+/// Stable code for a request error raised by the HTTP layer. The layer encodes
+/// the class in the message prefix, which is the same contract the WAF retry
+/// path already relies on.
+fn error_code_for(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string();
+    if message.starts_with(check_in_codes::WAF_CHALLENGE) {
+        check_in_codes::WAF_CHALLENGE
+    } else if message.starts_with(check_in_codes::HTTP_CLIENT) {
+        check_in_codes::HTTP_CLIENT
+    } else if message.starts_with(check_in_codes::HTTP_SERVER) {
+        check_in_codes::HTTP_SERVER
+    } else if message.contains("timed out") || message.contains("timeout") {
+        check_in_codes::TIMEOUT
+    } else {
+        check_in_codes::NETWORK
     }
 }
 

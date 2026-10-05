@@ -12,7 +12,13 @@ pub struct Account {
     provider_id: ProviderId,
     credentials: Credentials,
     enabled: bool,
-    last_check_in: Option<DateTime<Utc>>,
+    /// Last check-in the provider (or the user) confirmed.
+    ///
+    /// A cache of the check-in ledger so account lists stay one query; the
+    /// ledger is the source of truth and the repository heals this cache.
+    last_confirmed_at: Option<DateTime<Utc>>,
+    /// Last check-in the app observed, inferred ones included.
+    last_evidence_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
     auto_checkin_enabled: bool,
     auto_checkin_hour: u8,
@@ -63,7 +69,8 @@ impl Account {
             provider_id,
             credentials,
             enabled: true,
-            last_check_in: None,
+            last_confirmed_at: None,
+            last_evidence_at: None,
             created_at: Utc::now(),
             auto_checkin_enabled: false,
             auto_checkin_hour: 9,
@@ -93,7 +100,8 @@ impl Account {
             provider_id,
             credentials,
             enabled: true,
-            last_check_in: None,
+            last_confirmed_at: None,
+            last_evidence_at: None,
             created_at: Utc::now(),
             auto_checkin_enabled: false,
             auto_checkin_hour: 9,
@@ -129,8 +137,12 @@ impl Account {
         self.enabled
     }
 
-    pub fn last_check_in(&self) -> Option<DateTime<Utc>> {
-        self.last_check_in
+    pub fn last_confirmed_at(&self) -> Option<DateTime<Utc>> {
+        self.last_confirmed_at
+    }
+
+    pub fn last_evidence_at(&self) -> Option<DateTime<Utc>> {
+        self.last_evidence_at
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
@@ -163,10 +175,6 @@ impl Account {
 
     pub fn toggle(&mut self, enabled: bool) {
         self.enabled = enabled;
-    }
-
-    pub fn record_check_in(&mut self) {
-        self.last_check_in = Some(Utc::now());
     }
 
     pub fn auto_checkin_enabled(&self) -> bool {
@@ -311,7 +319,8 @@ pub struct AccountBuilder {
     provider_id: ProviderId,
     credentials: Credentials,
     enabled: bool,
-    last_check_in: Option<DateTime<Utc>>,
+    last_confirmed_at: Option<DateTime<Utc>>,
+    last_evidence_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
     auto_checkin_enabled: bool,
     auto_checkin_hour: u8,
@@ -333,8 +342,13 @@ impl AccountBuilder {
         self
     }
 
-    pub fn last_check_in(mut self, last_check_in: Option<DateTime<Utc>>) -> Self {
-        self.last_check_in = last_check_in;
+    pub fn last_confirmed_at(mut self, last_confirmed_at: Option<DateTime<Utc>>) -> Self {
+        self.last_confirmed_at = last_confirmed_at;
+        self
+    }
+
+    pub fn last_evidence_at(mut self, last_evidence_at: Option<DateTime<Utc>>) -> Self {
+        self.last_evidence_at = last_evidence_at;
         self
     }
 
@@ -411,7 +425,8 @@ impl AccountBuilder {
             provider_id: self.provider_id,
             credentials: self.credentials,
             enabled: self.enabled,
-            last_check_in: self.last_check_in,
+            last_confirmed_at: self.last_confirmed_at,
+            last_evidence_at: self.last_evidence_at,
             created_at: self.created_at,
             auto_checkin_enabled: self.auto_checkin_enabled,
             auto_checkin_hour: self.auto_checkin_hour,

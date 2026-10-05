@@ -10,6 +10,7 @@ use crate::application::services::{
 };
 use crate::application::ResultExt;
 use neuradock_domain::account::AccountRepository;
+use neuradock_domain::balance_history::{CheckInOutcome, CheckInTrigger};
 use neuradock_domain::check_in::ProviderRepository;
 use neuradock_domain::proxy_config::ProxyConfigRepository;
 use neuradock_domain::shared::{AccountId, DomainError};
@@ -103,6 +104,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: false,
                         message: format!("Account not found: {}", account_id),
                         balance: None,
+                        outcome: CheckInOutcome::FailedRetryable,
                     });
                     continue;
                 }
@@ -116,6 +118,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: false,
                         message: format!("Failed to load account: {}", e),
                         balance: None,
+                        outcome: CheckInOutcome::FailedRetryable,
                     });
                     continue;
                 }
@@ -136,6 +139,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: false,
                         message: format!("Provider not found: {}", provider_id),
                         balance: None,
+                        outcome: CheckInOutcome::FailedRetryable,
                     });
                     continue;
                 }
@@ -149,19 +153,23 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: false,
                         message: format!("Failed to load provider {}: {}", provider_id, e),
                         balance: None,
+                        outcome: CheckInOutcome::FailedRetryable,
                     });
                     continue;
                 }
             };
 
-            match executor.execute_check_in(&account_id, &provider).await {
+            match executor
+                .execute_check_in(&account_id, &provider, CheckInTrigger::Batch)
+                .await
+            {
                 Ok(result) => {
-                    // Update account balance cache and save to balance_history if we have new balance data
+                    // Refresh the account's balance cache when the run produced
+                    // a reading; the history snapshot is the executor's job.
                     let balance_dto = if result.success {
                         match result.user_info.as_ref() {
                             Some(user_info) => match shared::update_and_save_balance(
                                 &self.account_repo,
-                                &self.balance_history_service,
                                 &account_id,
                                 account,
                                 user_info,
@@ -205,7 +213,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
 
                     shared::send_check_in_notification(
                         &self.notification_service,
-                        result.success,
+                        result.outcome,
                         &account_id,
                         &result.account_name,
                         provider.name(),
@@ -226,6 +234,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: result.success,
                         message: result.message,
                         balance: balance_dto,
+                        outcome: result.outcome,
                     });
                 }
                 Err(e) => {
@@ -238,6 +247,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         success: false,
                         message: format!("Check-in failed: {}", e),
                         balance: None,
+                        outcome: CheckInOutcome::FailedRetryable,
                     });
                 }
             }

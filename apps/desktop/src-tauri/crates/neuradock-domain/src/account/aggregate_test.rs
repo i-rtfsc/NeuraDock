@@ -151,24 +151,17 @@ mod tests {
     }
 
     #[test]
-    fn test_record_check_in() {
+    fn test_check_in_timestamps_start_unset() {
         let credentials = create_test_credentials();
-        let mut account = Account::new(
+        let account = Account::new(
             "Test Account".to_string(),
             ProviderId::from_string("anyrouter"),
             credentials,
         )
         .unwrap();
 
-        assert!(account.last_check_in().is_none());
-
-        let before = Utc::now();
-        account.record_check_in();
-        let after = Utc::now();
-
-        assert!(account.last_check_in().is_some());
-        let last_check_in = account.last_check_in().unwrap();
-        assert!(last_check_in >= before && last_check_in <= after);
+        assert!(account.last_confirmed_at().is_none());
+        assert!(account.last_evidence_at().is_none());
     }
 
     #[test]

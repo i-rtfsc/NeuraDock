@@ -1,5 +1,6 @@
 use super::types::{CheckInTaskConfig, TaskMetadata};
 use chrono::Local;
+use neuradock_domain::balance_history::{CheckInOutcome, CheckInTrigger};
 use std::sync::Arc;
 use tokio::time::Duration;
 use tracing::{error, info, warn};
@@ -136,11 +137,15 @@ impl super::AutoCheckInScheduler {
                             .with_balance_history(deps.balance_history.clone())
                             .with_waf_cookies_repo(deps.waf_cookies.clone());
                         match executor
-                            .execute_check_in(account_id.as_str(), &provider)
+                            .execute_check_in(
+                                account_id.as_str(),
+                                &provider,
+                                CheckInTrigger::Scheduler,
+                            )
                             .await
                         {
-                            Ok(result) => {
-                                if result.success {
+                            Ok(result) => match result.outcome {
+                                CheckInOutcome::Success => {
                                     info!(
                                         "✅ [AUTO CHECK-IN] Success for {}: {}",
                                         account_name, result.message
@@ -160,13 +165,20 @@ impl super::AutoCheckInScheduler {
                                             e
                                         );
                                     }
-                                } else {
-                                    error!(
-                                        "❌ [AUTO CHECK-IN] Failed for {}: {}",
-                                        account_name, result.message
-                                    );
                                 }
-                            }
+                                CheckInOutcome::AlreadyConfirmed => info!(
+                                    "[AUTO CHECK-IN] {} was already checked in today",
+                                    account_name
+                                ),
+                                CheckInOutcome::SkippedGuard => info!(
+                                    "[AUTO CHECK-IN] Skipped {}: {}",
+                                    account_name, result.message
+                                ),
+                                _ => error!(
+                                    "❌ [AUTO CHECK-IN] Failed for {}: {}",
+                                    account_name, result.message
+                                ),
+                            },
                             Err(e) => {
                                 error!("❌ [AUTO CHECK-IN] Error for {}: {}", account_name, e);
                             }

@@ -17,21 +17,22 @@ impl super::SqliteAccountRepository {
             .await
             .map_err(|e| RepositoryErrorMapper::map_sqlx_error(e, "Begin transaction"))?;
 
-        // 1. Save/Update account (without balance/session fields)
+        // 1. Save/Update account (without balance/session fields).
+        //    `last_confirmed_at` / `last_evidence_at` are deliberately absent:
+        //    they are a cache of the check-in ledger, which owns them.
         let account_query = r#"
-            INSERT INTO accounts (id, name, provider_id, cookies, api_user, enabled, last_check_in, created_at, auto_checkin_enabled, auto_checkin_hour, auto_checkin_minute, check_in_interval_hours)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            INSERT INTO accounts (id, name, provider_id, cookies, api_user, enabled, created_at, auto_checkin_enabled, auto_checkin_hour, auto_checkin_minute, check_in_interval_hours)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
             ON CONFLICT(id) DO UPDATE SET
                 name = ?2,
                 provider_id = ?3,
                 cookies = ?4,
                 api_user = ?5,
                 enabled = ?6,
-                last_check_in = ?7,
-                auto_checkin_enabled = ?9,
-                auto_checkin_hour = ?10,
-                auto_checkin_minute = ?11,
-                check_in_interval_hours = ?12
+                auto_checkin_enabled = ?8,
+                auto_checkin_hour = ?9,
+                auto_checkin_minute = ?10,
+                check_in_interval_hours = ?11
         "#;
 
         // Encrypt cookies JSON
@@ -57,7 +58,6 @@ impl super::SqliteAccountRepository {
             .bind(encrypted_cookies)
             .bind(encrypted_api_user)
             .bind(account.is_enabled())
-            .bind(account.last_check_in())
             .bind(account.created_at())
             .bind(account.auto_checkin_enabled())
             .bind(account.auto_checkin_hour() as i64)

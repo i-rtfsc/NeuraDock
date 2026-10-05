@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, SqlitePool};
 use std::sync::Arc;
 
-use neuradock_domain::check_in::{Provider, ProviderConfig, ProviderRepository};
+use neuradock_domain::check_in::{CheckInMode, Provider, ProviderConfig, ProviderRepository};
 use neuradock_domain::shared::{DomainError, ProviderId};
 
 use crate::persistence::unit_of_work::RepositoryErrorMapper;
@@ -23,6 +23,8 @@ struct ProviderRow {
     bypass_method: Option<String>,
     supports_check_in: bool,
     check_in_bugged: bool,
+    check_in_day_offset_minutes: i32,
+    check_in_mode: String,
     is_builtin: bool,
     created_at: String,
 }
@@ -55,6 +57,8 @@ impl SqliteProviderRepository {
             bypass_method: row.bypass_method,
             supports_check_in: row.supports_check_in,
             check_in_bugged: row.check_in_bugged,
+            check_in_day_offset_minutes: row.check_in_day_offset_minutes,
+            check_in_mode: CheckInMode::parse(&row.check_in_mode)?,
         };
 
         let provider = Provider::restore(
@@ -79,9 +83,10 @@ impl ProviderRepository for SqliteProviderRepository {
                 id, name, domain, login_path, sign_in_path, user_info_path,
                 token_api_path, models_path, api_user_key, bypass_method,
                 supports_check_in, check_in_bugged,
+                check_in_day_offset_minutes, check_in_mode,
                 is_builtin, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 domain = excluded.domain,
@@ -93,7 +98,9 @@ impl ProviderRepository for SqliteProviderRepository {
                 api_user_key = excluded.api_user_key,
                 bypass_method = excluded.bypass_method,
                 supports_check_in = excluded.supports_check_in,
-                check_in_bugged = excluded.check_in_bugged
+                check_in_bugged = excluded.check_in_bugged,
+                check_in_day_offset_minutes = excluded.check_in_day_offset_minutes,
+                check_in_mode = excluded.check_in_mode
             "#,
         )
         .bind(provider.id().as_str())
@@ -131,6 +138,8 @@ impl ProviderRepository for SqliteProviderRepository {
         })
         .bind(provider.supports_check_in())
         .bind(provider.check_in_bugged())
+        .bind(provider.check_in_day_offset_minutes())
+        .bind(provider.check_in_mode().as_str())
         .bind(provider.is_builtin())
         .bind(created_at)
         .execute(self.base.pool())
@@ -146,6 +155,7 @@ impl ProviderRepository for SqliteProviderRepository {
             SELECT id, name, domain, login_path, sign_in_path, user_info_path,
                    token_api_path, models_path, api_user_key, bypass_method,
                    supports_check_in, check_in_bugged,
+                   check_in_day_offset_minutes, check_in_mode,
                    is_builtin, created_at
             FROM providers
             WHERE id = ?
@@ -168,6 +178,7 @@ impl ProviderRepository for SqliteProviderRepository {
             SELECT id, name, domain, login_path, sign_in_path, user_info_path,
                    token_api_path, models_path, api_user_key, bypass_method,
                    supports_check_in, check_in_bugged,
+                   check_in_day_offset_minutes, check_in_mode,
                    is_builtin, created_at
             FROM providers
             ORDER BY is_builtin DESC, created_at ASC

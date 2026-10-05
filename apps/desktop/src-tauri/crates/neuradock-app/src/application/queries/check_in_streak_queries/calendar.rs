@@ -58,7 +58,7 @@ pub async fn get_calendar(
     // Build a map for quick lookup
     let mut daily_map: HashMap<String, BalanceHistoryDailySummary> = HashMap::new();
     for row in rows {
-        daily_map.insert(row.check_in_date().format("%Y-%m-%d").to_string(), row);
+        daily_map.insert(row.quota_day().format("%Y-%m-%d").to_string(), row);
     }
 
     // Calculate income increments

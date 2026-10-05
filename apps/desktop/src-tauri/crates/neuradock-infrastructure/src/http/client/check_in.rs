@@ -119,21 +119,28 @@ impl super::HttpClient {
                 .unwrap_or_else(|_| "Unable to read response".to_string());
             // Check if this is a WAF challenge
             if error_text.contains("acw_sc__v2") || error_text.contains("<script>var arg1=") {
-                anyhow::bail!(
-                    "WAF_CHALLENGE: {}",
-                    crate::logging::log_utils::truncate_for_log(&error_text, 500)
+                // The body is logged in truncated form for diagnosis only; the
+                // error that reaches callers and the UI carries no body.
+                log::warn!(
+                    "Check-in hit a WAF challenge page ({} bytes)",
+                    error_text.len()
                 );
+                anyhow::bail!("WAF_CHALLENGE: the provider returned a challenge page");
             }
             log::error!(
                 "Check-in request failed with status {}: {}",
                 status,
-                error_text
+                crate::logging::log_utils::truncate_for_log(&error_text, 200)
             );
-            anyhow::bail!(
-                "Check-in request failed with status {}: {}",
-                status,
-                error_text
-            );
+            // A truncated body still echoes account-identifying fields and
+            // provider HTML, so callers get a status class only. The class
+            // decides whether retrying today can help.
+            let code = if status.is_client_error() {
+                crate::http::client::types::check_in_codes::HTTP_CLIENT
+            } else {
+                crate::http::client::types::check_in_codes::HTTP_SERVER
+            };
+            anyhow::bail!("{code}: check-in request was rejected with {status}");
         }
 
         // Parse response
@@ -145,13 +152,10 @@ impl super::HttpClient {
             || text.contains("<script>var arg1=")
         {
             log::warn!(
-                "Received WAF challenge page instead of JSON in check-in: {}",
-                crate::logging::log_utils::truncate_for_log(&text, 200)
+                "Received WAF challenge page instead of JSON in check-in ({} bytes)",
+                text.len()
             );
-            anyhow::bail!(
-                "WAF_CHALLENGE: Received HTML instead of JSON - {}",
-                crate::logging::log_utils::truncate_for_log(&text, 500)
-            );
+            anyhow::bail!("WAF_CHALLENGE: the provider returned an HTML challenge instead of JSON");
         }
 
         // Body is not logged: check-in responses echo account-identifying
@@ -193,31 +197,61 @@ impl super::HttpClient {
             };
 
             let reward = if success { parse_reward(&data) } else { None };
-            Ok((
-                CheckInResult {
-                    success,
-                    message,
-                    reward,
-                },
-                set_cookie_result,
-            ))
+
+            if !success {
+                // "You already checked in today" is not a failure: it is the
+                // provider confirming the day is satisfied. Recording it beats
+                // guessing from a quota delta, and it keeps a duplicate request
+                // from looking like an error.
+                if already_checked_in(&message) {
+                    log::info!("Provider reports the check-in was already done");
+                    return Ok((CheckInResult::already_checked_in(), set_cookie_result));
+                }
+                log::warn!("Check-in rejected by the provider");
+                return Ok((
+                    CheckInResult::failure(
+                        crate::http::client::types::check_in_codes::INVALID_RESPONSE,
+                        message,
+                    ),
+                    set_cookie_result,
+                ));
+            }
+
+            Ok((CheckInResult::confirmed(message, reward), set_cookie_result))
         } else {
-            log::warn!("Failed to parse as JSON, raw response: {}", text);
+            // No body in the log: check-in responses echo account-identifying
+            // fields.
+            log::warn!("Check-in response was not JSON ({} bytes)", text.len());
 
             // A page containing the word "success" is not a confirmed reward.
-            let success = false;
-            let message = "Check-in could not be confirmed: invalid response format".to_string();
-
             Ok((
-                CheckInResult {
-                    success,
-                    message,
-                    reward: None,
-                },
+                CheckInResult::failure(
+                    crate::http::client::types::check_in_codes::INVALID_RESPONSE,
+                    "Check-in could not be confirmed: invalid response format",
+                ),
                 set_cookie_result,
             ))
         }
     }
+}
+
+/// Provider sentences that mean "this quota day is already done".
+///
+/// Kept deliberately narrow and explicit. A false positive here invents a
+/// check-in, which is worse than a false negative: the balance-delta inference
+/// still has a chance to catch the day.
+fn already_checked_in(message: &str) -> bool {
+    let lowered = message.to_lowercase();
+    [
+        "已经签到",
+        "已签到",
+        "重复签到",
+        "今日已签",
+        "already checked in",
+        "already signed in",
+    ]
+    .iter()
+    .any(|needle| lowered.contains(&needle.to_lowercase()))
 }
 
 fn confirmed_success(data: &serde_json::Value) -> bool {

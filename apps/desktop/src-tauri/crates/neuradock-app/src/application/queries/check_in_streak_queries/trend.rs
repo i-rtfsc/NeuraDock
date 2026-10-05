@@ -40,7 +40,7 @@ pub async fn get_trend(
         let is_checked_in = row.is_checked_in();
 
         data_points.push(TrendDataPoint {
-            date: row.check_in_date().format("%Y-%m-%d").to_string(),
+            date: row.quota_day().format("%Y-%m-%d").to_string(),
             total_quota: row.daily_total_quota(),
             income_increment,
             reward_is_estimate: row.reward_is_estimate(),

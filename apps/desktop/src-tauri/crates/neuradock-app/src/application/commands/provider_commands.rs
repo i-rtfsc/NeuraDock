@@ -10,6 +10,11 @@ pub struct CreateProviderCommand {
     pub needs_waf_bypass: bool,
     pub supports_check_in: Option<bool>,
     pub check_in_bugged: Option<bool>,
+    /// `api`, `page_visit`, `observe_only` or `disabled`. Inferred from the
+    /// configuration when omitted.
+    pub check_in_mode: Option<String>,
+    /// Minutes east of UTC at which the provider resets its daily quota.
+    pub check_in_day_offset_minutes: Option<i32>,
     // Optional API paths (with defaults)
     pub login_path: Option<String>,
     pub sign_in_path: Option<String>,
@@ -36,6 +41,8 @@ pub struct UpdateProviderCommand {
     pub needs_waf_bypass: Option<bool>,
     pub supports_check_in: Option<bool>,
     pub check_in_bugged: Option<bool>,
+    pub check_in_mode: Option<String>,
+    pub check_in_day_offset_minutes: Option<i32>,
     // Optional API paths
     pub login_path: Option<String>,
     pub sign_in_path: Option<String>,

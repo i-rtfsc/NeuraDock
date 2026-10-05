@@ -1,5 +1,6 @@
 use crate::application::commands::command_handler::Command;
 use crate::application::dtos::BalanceDto;
+use neuradock_domain::balance_history::CheckInOutcome;
 
 /// Execute check-in command
 #[derive(Debug, Clone)]
@@ -18,6 +19,9 @@ pub struct CheckInCommandResult {
     pub success: bool,
     pub message: String,
     pub balance: Option<BalanceDto>,
+    /// What actually happened, so the UI can tell "checked in" from "already
+    /// done today" from "failed" instead of inferring it from `success`.
+    pub outcome: CheckInOutcome,
 }
 
 /// Batch execute check-in command
