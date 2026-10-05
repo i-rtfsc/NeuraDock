@@ -1,0 +1,25 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/test_helpers.rs
+  h_8b376749578497 29-30,33-35
+  s_e5696eb9034764::t_2068ec8bdcad2d 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f7270da7d8044d5359c610233830757a595231a4",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_e5696eb9034764": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-f7270da7d804",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
