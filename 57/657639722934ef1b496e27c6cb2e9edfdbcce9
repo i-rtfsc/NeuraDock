@@ -1,0 +1,54 @@
+apps/desktop/src-tauri/crates/neuradock-domain/src/check_in/state.rs
+  h_8b376749578497 72-80,82-83,294-313
+  s_9c241d3a72319a::t_4e463344338483 81,84-93
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/balance_history_service.rs
+  h_8b376749578497 34,240-242,257,267
+  s_9c241d3a72319a::t_4e463344338483 248
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/handlers/execute_check_in_handler/batch.rs
+  h_8b376749578497 118,142,157,179,194,276,290
+apps/desktop/src-tauri/crates/neuradock-app/src/application/dtos/check_in_dto.rs
+  s_9c241d3a72319a::t_4e463344338483 102
+  h_8b376749578497 103-104
+apps/desktop/src/lib/tauri.ts
+  s_9c241d3a72319a::t_4e463344338483 1568-1569
+  h_8b376749578497 1567,1570-1572
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/check_in.rs
+  h_8b376749578497 74,105,188,191
+  s_9c241d3a72319a::t_4e463344338483 186-187
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/check_in_executor/types.rs
+  h_8b376749578497 16,28,40
+  s_9c241d3a72319a::t_4e463344338483 14-15
+apps/desktop/src/hooks/useCheckIn.cacheInvalidation.test.tsx
+  h_8b376749578497 67
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/check_in_executor/validation.rs
+  h_8b376749578497 10,56
+  s_9c241d3a72319a::t_4e463344338483 41
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/check_in_executor/mod.rs
+  s_9c241d3a72319a::t_4e463344338483 127-129,270
+  h_8b376749578497 10,123-125,130,263
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/handlers/execute_check_in_handler/single.rs
+  h_8b376749578497 166
+apps/desktop/src-tauri/crates/neuradock-app/src/application/commands/check_in_commands.rs
+  h_8b376749578497 25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "57657639722934ef1b496e27c6cb2e9edfdbcce9",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_9c241d3a72319a": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-ec386b1511d9",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
