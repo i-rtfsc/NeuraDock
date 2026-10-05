@@ -1,0 +1,25 @@
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/migrate_real_db.rs
+  h_8b376749578497 1-13,19-35,45-84,98-118,124-136
+  s_c9cd37718b67b9::t_316cf72f9939a6 14-18,36-44,85-97,119-123,137-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "1995b6f06122001fc9bd8a35920deabd2421c037",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_c9cd37718b67b9": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-1995b6f06122",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
