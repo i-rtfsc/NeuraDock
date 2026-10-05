@@ -1,0 +1,46 @@
+apps/desktop/src/components/checkin/streak/CheckInDayDetailDialog.tsx
+  s_3d206e84b0fd24::t_0241f2351a01cf 21-23,35-36,125-137
+  s_3d206e84b0fd24::t_8be8cc59953a10 4,72-73
+  h_8b376749578497 14-15,30-32,38-39,52,71,77-88,151
+apps/desktop/src/components/checkin/streak/CheckInTrendChart.tsx
+  s_3d206e84b0fd24::t_0241f2351a01cf 38
+  h_8b376749578497 139-141,143
+apps/desktop/src/i18n/locales/zh-CN.json
+  s_3d206e84b0fd24::t_992afa1859e49c 592-596
+  h_8b376749578497 574,589-591
+apps/desktop/src/hooks/useCheckInStreak.ts
+  s_3d206e84b0fd24::t_0241f2351a01cf 14-18
+  h_8b376749578497 4-13
+apps/desktop/src/components/checkin/streak/CheckInDayDetailDialog.test.tsx
+  s_3d206e84b0fd24::t_0371b8af26dac8 12-21,24-33
+  h_8b376749578497 1-11,22-23,34-41
+apps/desktop/src/lib/tauri-commands.ts
+  s_3d206e84b0fd24::t_0241f2351a01cf 70-72
+apps/desktop/src/pages/AccountActivityPage.tsx
+  s_3d206e84b0fd24::t_0241f2351a01cf 12,211-215
+  h_8b376749578497 25
+apps/desktop/src/i18n/locales/en-US.json
+  s_3d206e84b0fd24::t_992afa1859e49c 574,594-596
+  h_8b376749578497 589-593
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "612201c24a12f1631b91800114e39a912490bfe7",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_3d206e84b0fd24": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0812c-d687-76c2-97c9-c795cdc78a5f",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
