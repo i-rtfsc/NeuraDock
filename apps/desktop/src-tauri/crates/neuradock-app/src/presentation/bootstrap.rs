@@ -274,6 +274,7 @@ pub async fn build_app_state(
     let scheduler = Arc::new(
         AutoCheckInScheduler::new(SchedulerDeps {
             balance_history: balance_history_service.clone(),
+            balance: balance_service.clone(),
             proxy_config: proxy_config_repo.clone(),
             waf_cookies: waf_cookies_repo.clone(),
         })

@@ -1,11 +1,87 @@
-use super::types::{CheckInTaskConfig, TaskMetadata};
+use super::types::{BalanceObservationTaskConfig, CheckInTaskConfig, TaskMetadata};
 use chrono::Local;
 use neuradock_domain::balance_history::{CheckInOutcome, CheckInTrigger};
 use std::sync::Arc;
 use tokio::time::Duration;
 use tracing::{error, info, warn};
 
+/// How often a provider the app cannot post to is checked.
+///
+/// One reading a day would regularly land after the quota day rolled over, and
+/// the increase would then be attributed to the wrong day. Four readings keep
+/// the worst-case attribution error inside the day for a normal sleep schedule.
+pub(super) const BALANCE_OBSERVATION_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+
 impl super::AutoCheckInScheduler {
+    /// Watch an observation-only provider by reading its balance.
+    ///
+    /// The read goes through `BalanceService`, so it stores a snapshot and runs
+    /// the same quota-delta inference a manual refresh does. That is what turns
+    /// a check-in done on the provider's website into a recorded day without
+    /// the user opening the app.
+    pub(super) async fn spawn_balance_observation_task(
+        &self,
+        config: BalanceObservationTaskConfig,
+    ) {
+        let BalanceObservationTaskConfig {
+            account_id,
+            account_name,
+            balance_service,
+        } = config;
+
+        info!(
+            "➕ Spawning balance observation for '{}' every {}h (provider is observation-only)",
+            account_name,
+            BALANCE_OBSERVATION_INTERVAL.as_secs() / 3600
+        );
+
+        let account_id_for_storage = account_id.clone();
+        let account_name_clone = account_name.clone();
+        let task_metadata = Arc::clone(&self.task_metadata);
+
+        {
+            let mut metadata = task_metadata.lock().await;
+            metadata.insert(
+                account_id_for_storage.clone(),
+                TaskMetadata {
+                    account_name: account_name_clone.clone(),
+                    last_execution: None,
+                },
+            );
+        }
+
+        let handle = tokio::spawn(async move {
+            loop {
+                // A force refresh on purpose: the schedule is the intent, and
+                // the cached reading may predate a check-in.
+                match balance_service
+                    .fetch_account_balance(account_id.as_str(), true)
+                    .await
+                {
+                    Ok(balance) => info!(
+                        "[OBSERVE] '{}' balance read: ${:.2}",
+                        account_name, balance.current_balance
+                    ),
+                    Err(e) => warn!(
+                        "[OBSERVE] '{}' could not read the balance: {}",
+                        account_name, e
+                    ),
+                }
+
+                {
+                    let mut metadata = task_metadata.lock().await;
+                    if let Some(meta) = metadata.get_mut(&account_id) {
+                        meta.last_execution = Some(chrono::Utc::now());
+                    }
+                }
+
+                tokio::time::sleep(BALANCE_OBSERVATION_INTERVAL).await;
+            }
+        });
+
+        self.tasks.lock().await.insert(account_id_for_storage, handle);
+    }
+
     pub(super) async fn spawn_check_in_task(&self, config: CheckInTaskConfig) {
         // Destructure config for easier use
         let CheckInTaskConfig {

@@ -1,4 +1,4 @@
-use super::types::CheckInTaskConfig;
+use super::types::{BalanceObservationTaskConfig, CheckInTaskConfig};
 use chrono::Local;
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::check_in::Provider;
@@ -67,6 +67,8 @@ impl super::AutoCheckInScheduler {
         info!("Found {} enabled accounts", accounts.len());
 
         let mut scheduled_count = 0;
+        let mut observing_count = 0;
+        let mut skipped_count = 0;
         for account in accounts {
             debug!(
                 "Account: {} - enabled: {}, auto_checkin: {}",
@@ -78,17 +80,42 @@ impl super::AutoCheckInScheduler {
             if account.auto_checkin_enabled() {
                 let provider_id = account.provider_id().as_str();
                 if let Some(provider) = providers.get(provider_id) {
-                    self.spawn_check_in_task(CheckInTaskConfig {
-                        account_id: account.id().clone(),
-                        account_name: account.name().to_string(),
-                        hour: account.auto_checkin_hour(),
-                        minute: account.auto_checkin_minute(),
-                        provider: provider.clone(),
-                        account_repo: account_repo.clone(),
-                        app_handle: app_handle.clone(),
-                    })
-                    .await;
-                    scheduled_count += 1;
+                    // A provider the app cannot post to is still worth watching:
+                    // an observation-only provider is one the user checks in for
+                    // by hand, and the balance read is how that reaches the ledger.
+                    match super::types::scheduled_task_kind(provider) {
+                        super::types::ScheduledTaskKind::CheckIn => {
+                            self.spawn_check_in_task(CheckInTaskConfig {
+                                account_id: account.id().clone(),
+                                account_name: account.name().to_string(),
+                                hour: account.auto_checkin_hour(),
+                                minute: account.auto_checkin_minute(),
+                                provider: provider.clone(),
+                                account_repo: account_repo.clone(),
+                                app_handle: app_handle.clone(),
+                            })
+                            .await;
+                            scheduled_count += 1;
+                        }
+                        super::types::ScheduledTaskKind::ObserveBalance => {
+                            self.spawn_balance_observation_task(BalanceObservationTaskConfig {
+                                account_id: account.id().clone(),
+                                account_name: account.name().to_string(),
+                                balance_service: self.deps.balance.clone(),
+                            })
+                            .await;
+                            observing_count += 1;
+                        }
+                        super::types::ScheduledTaskKind::None => {
+                            skipped_count += 1;
+                            info!(
+                                "Skipping '{}': provider '{}' is {:?} and cannot be automated",
+                                account.name(),
+                                provider_id,
+                                provider.check_in_mode()
+                            );
+                        }
+                    }
                 } else {
                     warn!(
                         "Provider '{}' not found for account {}",
@@ -99,7 +126,9 @@ impl super::AutoCheckInScheduler {
             }
         }
 
-        info!("✅ Scheduled {} auto check-in jobs", scheduled_count);
+        info!(
+            "✅ Scheduled {scheduled_count} auto check-in and {observing_count} balance observation job(s), skipped {skipped_count}"
+        );
 
         Ok(())
     }

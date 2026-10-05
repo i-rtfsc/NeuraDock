@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::info;
 
-use crate::application::services::BalanceHistoryService;
+use crate::application::services::{BalanceHistoryService, BalanceService};
 use types::TaskMetadata;
 
 /// Dependencies the scheduler hands to each check-in it runs.
@@ -23,6 +23,8 @@ use types::TaskMetadata;
 #[derive(Clone)]
 pub struct SchedulerDeps {
     pub balance_history: Arc<BalanceHistoryService>,
+    /// Used to observe providers the app cannot post to.
+    pub balance: Arc<BalanceService>,
     pub proxy_config: Arc<dyn ProxyConfigRepository>,
     pub waf_cookies: Arc<dyn WafCookiesRepository>,
 }
