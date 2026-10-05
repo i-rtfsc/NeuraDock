@@ -1,0 +1,25 @@
+docs/architecture/adr/007-check-in-state-model.md
+  h_8b376749578497 1-15,37-76,87-91,95-140,147-158,169-200,206-225
+  s_a604144dbfddad::t_b7fbb5bab4c082 16-36,77-86,92-94,141-146,159-168,201-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a91d7dd0a4dc254240b92332ae6f91868550bd15",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_a604144dbfddad": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-a91d7dd0a4dc",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
