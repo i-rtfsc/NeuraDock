@@ -1,0 +1,37 @@
+apps/desktop/src-tauri/tauri.conf.json
+  s_c546603ea0dbbd::t_0623629b378443 33
+apps/desktop/src-tauri/crates/neuradock-app/src/main.rs
+  s_3d206e84b0fd24::t_37e7166327ebf7 74,79-82
+  s_3d206e84b0fd24::t_34e4142ff5c642 75
+  s_3d206e84b0fd24::t_839c6ad5d2f63a 76-78
+  h_8b376749578497 15,68-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ad429d4885513307759f51c67c8b1b2b25c72c57",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_3d206e84b0fd24": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a0812c-d687-76c2-97c9-c795cdc78a5f",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_c546603ea0dbbd": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a06f43-355e-7e70-82e2-807487d5c66c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
