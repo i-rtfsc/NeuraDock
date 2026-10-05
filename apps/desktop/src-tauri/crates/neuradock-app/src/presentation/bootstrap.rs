@@ -45,8 +45,7 @@ use neuradock_infrastructure::persistence::{
     Database,
 };
 use neuradock_infrastructure::security::{
-    encrypt_codex_credentials, encryption_key_migration_complete, reencrypt_legacy_records,
-    EncryptionService, KeyManager,
+    encrypt_codex_credentials, initialize_database_encryption, KeyManager,
 };
 
 pub async fn build_app_state(
@@ -94,33 +93,6 @@ pub async fn build_app_state(
 
     info!("Database path: {}", db_path_str);
 
-    // Initialize encryption
-    info!("🔐 Initializing encryption...");
-    let started_at = Instant::now();
-    let key_manager = KeyManager::new(app_data_dir.clone());
-    let master_key = key_manager
-        .initialize_master_key()
-        .map_err(|e| format!("Failed to initialize encryption master key: {}", e))?;
-    let is_legacy_installation = master_key.is_none();
-    let mut encryption_service = Arc::new(
-        match master_key {
-            Some(master_key) => EncryptionService::from_key(&master_key),
-            None => {
-                let salt = key_manager
-                    .initialize()
-                    .map_err(|e| format!("Failed to initialize encryption salt: {}", e))?;
-                // Existing installations are kept readable until an explicit
-                // record-by-record re-encryption migration is completed.
-                EncryptionService::from_password("neuradock_default_password_2024", &salt)
-            }
-        }
-        .map_err(|e| format!("Failed to create encryption service: {}", e))?,
-    );
-    info!(
-        "✓ Encryption initialized ({}ms)",
-        started_at.elapsed().as_millis()
-    );
-
     info!("🔌 Connecting to database...");
     let started_at = Instant::now();
     let database = Database::new(db_path_str).await?;
@@ -139,50 +111,18 @@ pub async fn build_app_state(
 
     let pool = Arc::new(database.pool().clone());
 
-    let pending_key = key_manager
-        .load_pending_master_key()
-        .map_err(|e| format!("Failed to inspect pending encryption key: {}", e))?;
-    let recover_completed_migration = pending_key.is_some()
-        && encryption_key_migration_complete(&pool)
+    info!("🔐 Initializing database encryption...");
+    let started_at = Instant::now();
+    let key_manager = KeyManager::new(app_data_dir.clone());
+    let encryption_service = Arc::new(
+        initialize_database_encryption(&pool, &key_manager)
             .await
-            .map_err(|e| format!("Failed to inspect encryption migration state: {}", e))?;
-
-    if recover_completed_migration {
-        let pending_key = pending_key.ok_or("Missing pending encryption key")?;
-        key_manager
-            .promote_pending_master_key()
-            .map_err(|e| format!("Failed to recover encryption key migration: {}", e))?;
-        encryption_service = Arc::new(
-            EncryptionService::from_key(&pending_key)
-                .map_err(|e| format!("Failed to load recovered encryption key: {}", e))?,
-        );
-        info!("✓ Recovered completed encryption key migration");
-    } else if is_legacy_installation {
-        let salt = key_manager
-            .initialize()
-            .map_err(|e| format!("Failed to initialize legacy encryption salt: {}", e))?;
-        let legacy = EncryptionService::from_password("neuradock_default_password_2024", &salt)
-            .map_err(|e| format!("Failed to create legacy encryption service: {}", e))?;
-        let new_key = key_manager
-            .generate_migration_key()
-            .map_err(|e| format!("Failed to generate encryption migration key: {}", e))?;
-        key_manager
-            .save_pending_master_key(&new_key)
-            .map_err(|e| format!("Failed to stage encryption migration key: {}", e))?;
-        let current = EncryptionService::from_key(&new_key)
-            .map_err(|e| format!("Failed to create migrated encryption service: {}", e))?;
-        let migrated = reencrypt_legacy_records(&pool, &legacy, &current)
-            .await
-            .map_err(|e| format!("Failed to migrate encrypted records: {}", e))?;
-        key_manager
-            .promote_pending_master_key()
-            .map_err(|e| format!("Failed to save encryption migration key: {}", e))?;
-        encryption_service = Arc::new(current);
-        info!(
-            "✓ Migrated {} encrypted records to a random master key",
-            migrated
-        );
-    }
+            .map_err(|e| format!("Failed to initialize database encryption: {:#}", e))?,
+    );
+    info!(
+        "✓ Encryption initialized ({}ms)",
+        started_at.elapsed().as_millis()
+    );
 
     let encrypted_codex_fields = encrypt_codex_credentials(&pool, &encryption_service)
         .await
