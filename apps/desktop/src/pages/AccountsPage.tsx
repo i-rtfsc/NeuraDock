@@ -53,7 +53,10 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { HeaderActions, HeaderActionsSeparator } from '@/components/layout/HeaderActions';
 import { Account } from '@/lib/tauri-commands';
 import { cn } from '@/lib/utils';
-import { useCheckIn, useBatchCheckIn } from '@/hooks/useCheckIn';
+import { useCheckIn, useBatchCheckIn, type CheckInResult } from '@/hooks/useCheckIn';
+import { useRunningJobs, useStopCheckIn } from '@/hooks/useCheckInHistory';
+import { BatchCheckInResultsDialog } from '@/components/checkin/BatchCheckInResultsDialog';
+import { RunningCheckInJobPanel } from '@/components/checkin/RunningCheckInJobPanel';
 import { useRefreshAccountBalance, useRefreshAllBalances } from '@/hooks/useBalance';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { motion, type Variants } from 'framer-motion';
@@ -89,8 +92,14 @@ export function AccountsPage({
     handleDialogClose,
   } = useAccountActions();
 
+  const [batchResults, setBatchResults] = useState<CheckInResult[] | null>(null);
+  const [pendingBatchIds, setPendingBatchIds] = useState<string[]>([]);
+
   const checkInMutation = useCheckIn();
-  const batchCheckInMutation = useBatchCheckIn();
+  const batchCheckInMutation = useBatchCheckIn({ onViewDetails: setBatchResults });
+  // Poll the job registry only while a batch started from this page runs.
+  const { data: runningJobs } = useRunningJobs(batchCheckInMutation.isPending);
+  const stopCheckInMutation = useStopCheckIn();
   const refreshBalanceMutation = useRefreshAccountBalance();
   const refreshAllBalancesMutation = useRefreshAllBalances();
   const toggleMutation = useToggleAccount();
@@ -231,8 +240,30 @@ export function AccountsPage({
       return;
     }
 
-    batchCheckInMutation.mutate(enabledIds);
+    setPendingBatchIds(enabledIds);
+    batchCheckInMutation.mutate(enabledIds, {
+      onSettled: () => setPendingBatchIds([]),
+    });
   };
+
+  // Match the running-job registry entry to the batch this page started.
+  // Matching is heuristic: the exact account set wins, then the same size, and
+  // when neither matches (the registry is polled, so a job can be invisible for
+  // a moment) the panel degrades to a bare "in progress".
+  const activeBatchJob = useMemo(() => {
+    if (!batchCheckInMutation.isPending || pendingBatchIds.length === 0 || !runningJobs?.length) {
+      return null;
+    }
+    const wanted = new Set(pendingBatchIds);
+    const sameAccounts = runningJobs.find(
+      (job) =>
+        job.account_ids.length === wanted.size && job.account_ids.every((id) => wanted.has(id))
+    );
+    if (sameAccounts) {
+      return sameAccounts;
+    }
+    return runningJobs.find((job) => job.total === pendingBatchIds.length) ?? null;
+  }, [batchCheckInMutation.isPending, pendingBatchIds, runningJobs]);
 
   const handleBatchRefresh = () => {
     const enabledIds = filteredAccounts
@@ -371,6 +402,15 @@ export function AccountsPage({
 
   const pageBody = (
     <div className="flex-1 flex flex-col gap-6 overflow-visible pt-2">
+        {/* Batch check-in in progress: live progress + cooperative cancel */}
+        {batchCheckInMutation.isPending && (
+          <RunningCheckInJobPanel
+            job={activeBatchJob}
+            isCancelling={stopCheckInMutation.isPending}
+            onCancel={(jobId) => stopCheckInMutation.mutate(jobId)}
+          />
+        )}
+
         {/* Statistics Cards */}
         {filteredStatistics && (
           <motion.div
@@ -527,6 +567,12 @@ export function AccountsPage({
       <JsonImportDialog open={jsonImportDialogOpen} onOpenChange={setJsonImportDialogOpen} />
 
       <BatchUpdateDialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen} />
+
+      <BatchCheckInResultsDialog
+        open={batchResults !== null}
+        onOpenChange={(open) => !open && setBatchResults(null)}
+        results={batchResults ?? []}
+      />
     </>
   );
 
