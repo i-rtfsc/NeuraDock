@@ -1,0 +1,37 @@
+apps/desktop/src/components/checkin/BatchCheckInResultsDialog.test.tsx
+  h_8b376749578497 1-48,64-70,74-84
+  s_7f850474ee88bd::t_9dd117a0cff0a0 49-63,71-73
+apps/desktop/src/components/checkin/BatchCheckInResultsDialog.tsx
+  h_8b376749578497 1-68,73-88,100-132
+  s_7f850474ee88bd::t_9dd117a0cff0a0 69-72,89-99,133-135
+apps/desktop/src/components/checkin/RunningCheckInJobPanel.tsx
+  h_8b376749578497 11-28,32-42,44-53
+  s_7f850474ee88bd::t_9dd117a0cff0a0 1-10,29-31,43,54-63
+apps/desktop/src/hooks/useCheckIn.ts
+  h_8b376749578497 1,8-12,16-29,42-45,83-90,97-98,100-104,129-136,138,158-171,173-179
+  s_7f850474ee88bd::t_9dd117a0cff0a0 105-111,141-145,151-153
+apps/desktop/src/pages/AccountsPage.tsx
+  h_8b376749578497 95-97,99-100,102,243-246,259-267,405-413
+  s_7f850474ee88bd::t_9dd117a0cff0a0 56-59,101,249-258,570-575
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "381a7950a5c4d9d34170865a8b8d8325de7d5b3c",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_7f850474ee88bd": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "session-381a7950a5c4",
+        "model": "auto"
+      },
+      "human_author": null
+    }
+  }
+}
