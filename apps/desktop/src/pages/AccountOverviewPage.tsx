@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { commands } from '@/lib/tauri';
+import { accountKeys } from '@/lib/query-keys';
 const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -67,7 +68,7 @@ export function AccountOverviewPage() {
 
   // Fetch account details
   const { data: account, isLoading } = useQuery<Account>({
-    queryKey: ['account', accountId],
+    queryKey: accountKeys.detail(accountId!),
     queryFn: async () => {
       const accounts = await commands.getAllAccounts(false).then(unwrap);
       const found = accounts.find(a => a.id === accountId);
@@ -79,7 +80,7 @@ export function AccountOverviewPage() {
 
   // Fetch tokens
   const { data: tokens = [], isLoading: tokensLoading } = useQuery<TokenDto[]>({
-    queryKey: ['tokens', accountId],
+    queryKey: accountKeys.tokens(accountId!),
     queryFn: () =>
       commands.fetchAccountTokens(accountId!, false).then(unwrap),
     enabled: !!accountId,
@@ -141,7 +142,7 @@ export function AccountOverviewPage() {
       commands.fetchAccountBalance(accountId!, true).then(unwrap),
     onSuccess: () => {
       toast.success(t('accountCard.balanceRefreshed'));
-      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: accountKeys.detail(accountId!) });
     },
     onError: (error: Error) => {
       toast.error(error.message);

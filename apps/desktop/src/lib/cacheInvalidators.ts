@@ -27,12 +27,28 @@ export const cacheInvalidators = {
   },
 
   /**
+   * Invalidate every cache affected by a check-in for one account:
+   * its streak / calendar / trend / day-detail plus the aggregate streak list
+   * and the account's own record, balance and balance statistics.
+   */
+  invalidateCheckIn: (queryClient: QueryClient, accountId: string) => {
+    queryClient.invalidateQueries({ queryKey: checkInKeys.streak(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.calendars(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.trends(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.dayDetails(accountId) });
+    queryClient.invalidateQueries({ queryKey: checkInKeys.streaks() });
+
+    queryClient.invalidateQueries({ queryKey: accountKeys.detail(accountId) });
+    queryClient.invalidateQueries({ queryKey: accountKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: accountKeys.balance(accountId) });
+    queryClient.invalidateQueries({ queryKey: accountKeys.balanceStatistics() });
+  },
+
+  /**
    * Invalidate caches after check-in operation
    */
   invalidateAfterCheckIn: (queryClient: QueryClient, accountId: string) => {
-    cacheInvalidators.invalidateAccount(queryClient, accountId);
-    cacheInvalidators.invalidateAllAccounts(queryClient);
-    queryClient.invalidateQueries({ queryKey: checkInKeys.all });
+    cacheInvalidators.invalidateCheckIn(queryClient, accountId);
   },
 
   /**

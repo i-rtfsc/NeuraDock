@@ -13,6 +13,7 @@ import type { CheckInDayDto } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatDay, localDayString } from '@/lib/checkInDate';
 
 interface CheckInDayDetailDialogProps {
   open: boolean;
@@ -35,17 +36,8 @@ export function CheckInDayDetailDialog({
   const [confirmed, setConfirmed] = useState(false);
   useEffect(() => setConfirmed(false), [open, dayData?.date]);
   if (!dayData) return null;
-  const canConfirm = onConfirmReward && dayData.date <= new Date().toISOString().slice(0, 10)
+  const canConfirm = onConfirmReward && dayData.date <= localDayString()
     && (!dayData.is_checked_in || dayData.reward_is_estimate || dayData.income_increment === null);
-
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(i18n.language, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,7 +45,7 @@ export function CheckInDayDetailDialog({
         <DialogHeader className="p-6 pb-4">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
-              {formatDate(dayData.date)}
+              {formatDay(dayData.date, i18n.language)}
             </span>
             {dayData.is_checked_in ? (
               <Badge className="bg-success-soft text-success border-0 font-black px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider">

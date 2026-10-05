@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
+import { accountKeys } from '@/lib/query-keys';
 import { extractErrorMessage } from '@/lib/errorHandling';
 
 export interface BalanceDto {
@@ -30,7 +31,7 @@ export interface BalanceStatisticsDto {
 // Query: Fetch account balance
 export function useFetchAccountBalance(accountId: string, enabled = true) {
   return useQuery({
-    queryKey: ['balance', accountId],
+    queryKey: accountKeys.balance(accountId),
     queryFn: () => invoke<BalanceDto>('fetch_account_balance', { accountId, forceRefresh: false }),
     enabled: enabled && !!accountId,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
@@ -50,7 +51,7 @@ export function useRefreshAccountBalance() {
     mutationFn: (accountId: string) =>
       invoke<BalanceDto>('fetch_account_balance', { accountId, forceRefresh: true }),
     onSuccess: (data, accountId) => {
-      queryClient.setQueryData(['balance', accountId], data);
+      queryClient.setQueryData(accountKeys.balance(accountId), data);
       cacheInvalidators.invalidateAccount(queryClient, accountId);
       cacheInvalidators.invalidateAllAccounts(queryClient);
       toast.success(t('accountCard.balanceRefreshed', '余额已刷新'));
@@ -81,7 +82,7 @@ export function useRefreshAllBalances() {
     onSuccess: (data) => {
       Object.entries(data).forEach(([accountId, balance]) => {
         if (balance) {
-          queryClient.setQueryData(['balance', accountId], balance);
+          queryClient.setQueryData(accountKeys.balance(accountId), balance);
         }
       });
       cacheInvalidators.invalidateAllAccounts(queryClient);
@@ -99,19 +100,10 @@ export function useRefreshAllBalances() {
   });
 }
 
-// Query: Fetch multiple account balances
-export function useFetchAccountsBalances(accountIds: string[]) {
-  return useQuery({
-    queryKey: ['balances', accountIds],
-    queryFn: () => invoke<Record<string, BalanceDto | null>>('fetch_accounts_balances', { accountIds, forceRefresh: false }),
-    enabled: accountIds.length > 0,
-  });
-}
-
 // Query: Get balance statistics
 export function useBalanceStatistics() {
   return useQuery({
-    queryKey: ['balance-statistics'],
+    queryKey: accountKeys.balanceStatistics(),
     queryFn: () => invoke<BalanceStatisticsDto>('get_balance_statistics'),
   });
 }

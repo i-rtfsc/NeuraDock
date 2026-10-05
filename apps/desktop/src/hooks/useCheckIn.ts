@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cacheInvalidators } from '@/lib/cacheInvalidators';
+import { accountKeys } from '@/lib/query-keys';
 import { commands } from '@/lib/tauri';
 
 const unwrap = <T,>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T => { if (r.status === 'error') throw new Error(r.error.message); return r.data; };
@@ -75,7 +76,7 @@ export function useCheckIn() {
     onError: (error: unknown, accountId) => {
       console.error('Check-in error:', error);
       if (accountId) {
-        queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+        queryClient.invalidateQueries({ queryKey: accountKeys.detail(accountId) });
       }
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast.error(
@@ -97,7 +98,11 @@ export function useBatchCheckIn() {
     mutationFn: executeBatchCheckIn,
     onSuccess: (data) => {
       cacheInvalidators.invalidateAllAccounts(queryClient);
-      queryClient.invalidateQueries({ queryKey: ['check-in-streak'] });
+      // Invalidate the check-in caches (streak/calendar/trend/day-detail, plus
+      // the aggregate streak list) for every account involved in the batch.
+      for (const accountId of new Set(data.results.map((item) => item.account_id))) {
+        cacheInvalidators.invalidateCheckIn(queryClient, accountId);
+      }
 
       if (data.succeeded > 0) {
         toast.success(

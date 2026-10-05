@@ -23,10 +23,17 @@ export const checkInKeys = {
   all: ['check-in'] as const,
   streak: (accountId: string) => [...checkInKeys.all, 'streak', accountId] as const,
   streaks: () => [...checkInKeys.all, 'streaks'] as const,
+  // Account-scoped prefixes, so cache invalidation can target one account's
+  // calendar/trend/day-detail queries without knowing their parameters.
+  calendars: (accountId: string) => [...checkInKeys.all, 'calendar', accountId] as const,
   calendar: (accountId: string, year: number, month: number) => 
-    [...checkInKeys.all, 'calendar', accountId, { year, month }] as const,
+    [...checkInKeys.calendars(accountId), { year, month }] as const,
+  trends: (accountId: string) => [...checkInKeys.all, 'trend', accountId] as const,
   trend: (accountId: string, days: number) => 
-    [...checkInKeys.all, 'trend', accountId, { days }] as const,
+    [...checkInKeys.trends(accountId), { days }] as const,
+  dayDetails: (accountId: string) => [...checkInKeys.all, 'day-detail', accountId] as const,
+  dayDetail: (accountId: string, date: string) =>
+    [...checkInKeys.dayDetails(accountId), date] as const,
 };
 
 export const notificationKeys = {

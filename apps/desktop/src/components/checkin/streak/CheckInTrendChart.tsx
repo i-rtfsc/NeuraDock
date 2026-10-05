@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import type { TrendDataPoint } from '@/lib/tauri-commands';
 import { useTranslation } from 'react-i18next';
+import { formatDay, parseDayString } from '@/lib/checkInDate';
 import { cn } from '@/lib/utils';
 
 interface CheckInTrendChartProps {
@@ -31,8 +32,8 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
   });
 
   const chartData = data.map((point) => ({
-    date: dateFormatter.format(new Date(point.date)),
-    fullDate: new Date(point.date).toLocaleDateString(),
+    date: dateFormatter.format(parseDayString(point.date)),
+    fullDate: formatDay(point.date, i18n.language),
     total: point.total_quota,
     reward: point.income_increment,
     rewardEstimate: point.reward_is_estimate,
