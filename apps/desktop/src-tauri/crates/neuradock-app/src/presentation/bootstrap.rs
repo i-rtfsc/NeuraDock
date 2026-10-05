@@ -253,6 +253,9 @@ pub async fn build_app_state(
     )?);
     let balance_history_service =
         Arc::new(BalanceHistoryService::new(balance_history_repo.clone()));
+    // One registry for the whole app: the batch handler registers runs in it and
+    // the command layer lists or cancels them.
+    let check_in_jobs = Arc::new(crate::application::services::CheckInJobRegistry::new());
     let balance_service = Arc::new(BalanceService::new(
         account_repo.clone(),
         provider_repo.clone(),
@@ -413,6 +416,7 @@ pub async fn build_app_state(
                 waf_cookies_repo.clone(),
                 true, // headless_browser
             )
+            .with_job_registry(check_in_jobs.clone())
             .with_notification_service(notification_service.clone()),
         ),
         create_notification_channel: Arc::new(CreateNotificationChannelHandler::new(
@@ -454,6 +458,7 @@ pub async fn build_app_state(
         },
         services: Services {
             balance_history: balance_history_service,
+            jobs: check_in_jobs,
             token: token_service,
             claude_config: claude_config_service,
             codex_config: codex_config_service,

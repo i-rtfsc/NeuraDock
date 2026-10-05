@@ -120,6 +120,28 @@ pub trait BalanceHistoryRepository: Send + Sync {
         quota_day: NaiveDate,
     ) -> Result<Vec<CheckInAttempt>, DomainError>;
 
+    /// List attempts newest first, optionally narrowed to one account, with
+    /// pagination. Backs the check-in history view.
+    async fn list_attempts(
+        &self,
+        account_id: Option<&AccountId>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CheckInAttempt>, DomainError>;
+
+    /// Count attempts, optionally narrowed to one account, so the history view
+    /// can page without loading everything.
+    async fn count_attempts(&self, account_id: Option<&AccountId>) -> Result<i64, DomainError>;
+
+    /// List attempts whose quota day falls in a range, oldest first. Backs the
+    /// statistics view, which aggregates by day.
+    async fn list_attempts_in_range(
+        &self,
+        account_id: &AccountId,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<Vec<CheckInAttempt>, DomainError>;
+
     /// Recompute the account's cached check-in timestamps from the ledger.
     /// Used when evidence is written outside the observation path, and by the
     /// repair command that heals drift.

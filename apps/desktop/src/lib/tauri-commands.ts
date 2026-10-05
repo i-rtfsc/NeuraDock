@@ -5,7 +5,7 @@ import type {
   AccountDto,
   BatchCheckInResult,
   BatchImportResult,
-  CheckInHistoryDto,
+  CheckInHistoryPageDto,
   CheckInCalendarDto,
   CheckInDayDto,
   CheckInStreakDto,
@@ -77,7 +77,7 @@ export const checkInCommands = {
     invoke<BatchCheckInResult>('execute_batch_check_in', { accountIds }),
 
   getHistory: (accountId: string, page: number, pageSize: number) =>
-    invoke<CheckInHistoryDto[]>('get_check_in_history', { accountId, page, pageSize }),
+    invoke<CheckInHistoryPageDto>('get_check_in_history', { accountId, page, pageSize }),
 
   getStreak: (accountId: string) =>
     invoke<CheckInStreakDto>('get_check_in_streak', { accountId }),
@@ -93,7 +93,7 @@ export const checkInCommands = {
   getDayDetail: (accountId: string, date: string) =>
     invoke<CheckInDayDto>('get_check_in_day_detail', { accountId, date }),
 
-  recalculateStreaks: () => invoke<void>('recalculate_check_in_streaks'),
+  recalculateStreaks: () => invoke<number>('recalculate_check_in_streaks'),
 };
 
 // Legacy Migration Commands

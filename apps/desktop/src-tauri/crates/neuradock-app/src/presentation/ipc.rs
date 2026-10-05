@@ -37,6 +37,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_account_detail,
             get_check_in_history,
             get_check_in_stats,
+            get_check_in_state,
             get_running_jobs,
             // Check-in Streak commands
             get_check_in_streak,

@@ -129,7 +129,11 @@ async confirmCheckInReward(accountId: string, date: string) : Promise<Result<boo
 }
 },
 /**
- * Stop a running check-in job
+ * Ask a running batch check-in to stop.
+ * 
+ * Cancellation is cooperative: the batch checks between accounts, so a request
+ * already in flight finishes. Returns false when the job is unknown, which is
+ * what an already-finished run looks like.
  */
 async stopCheckIn(jobId: string) : Promise<Result<boolean, CommandError>> {
     try {
@@ -263,9 +267,9 @@ async getAccountDetail(accountId: string) : Promise<Result<AccountDetailDto, Com
 }
 },
 /**
- * Get check-in history for an account
+ * Get check-in history (attempts, newest first)
  */
-async getCheckInHistory(accountId: string | null, page: number, pageSize: number) : Promise<Result<CheckInHistoryDto[], CommandError>> {
+async getCheckInHistory(accountId: string | null, page: number, pageSize: number) : Promise<Result<CheckInHistoryPageDto, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_check_in_history", { accountId, page, pageSize }) };
 } catch (e) {
@@ -274,11 +278,22 @@ async getCheckInHistory(accountId: string | null, page: number, pageSize: number
 }
 },
 /**
- * Get check-in statistics for an account
+ * Get check-in statistics for one account over the last N quota days
  */
-async getCheckInStats(accountId: string | null, period: string) : Promise<Result<CheckInStatsDto, CommandError>> {
+async getCheckInStats(accountId: string, periodDays: number) : Promise<Result<CheckInStatsDto, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_check_in_stats", { accountId, period }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_check_in_stats", { accountId, periodDays }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
+/**
+ * Get today's check-in state for one account
+ */
+async getCheckInState(accountId: string) : Promise<Result<CheckInStateDto, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_check_in_state", { accountId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: __coerceCommandError(e) };
@@ -1409,12 +1424,58 @@ export type BatchCheckInResult = { total: number; succeeded: number; failed: num
 export type BatchImportResult = { total: number; succeeded: number; failed: number; results: ImportItemResult[] }
 export type BatchUpdateResult = { total: number; updated: number; created: number; failed: number; results: UpdateItemResult[] }
 export type BrowserInfoDto = { available: boolean; path: string | null; message: string | null }
+/**
+ * One check-in attempt, as shown in the history view.
+ * 
+ * Attempts are operational records, so a failed or skipped run appears here
+ * even though it produced no evidence.
+ */
+export type CheckInAttemptDto = { id: number; account_id: string; account_name: string; provider_name: string; 
+/**
+ * The provider's reset day this attempt belonged to (YYYY-MM-DD).
+ */
+quota_day: string; trigger: string; outcome: string | null; error_code: string | null; http_status: number | null; started_at: string; finished_at: string | null; duration_ms: number | null; reward: number | null; source: string | null }
 export type CheckInCalendarDto = { account_id: string; year: number; month: number; days: CheckInDayDto[]; month_stats: MonthStatsDto }
 export type CheckInDayDto = { date: string; is_checked_in: boolean; income_increment: number | null; reward_is_estimate: boolean; current_balance: number; daily_consumed: number; total_consumed: number; total_quota: number }
-export type CheckInHistoryDto = { job_id: string; account_id: string; account_name: string; provider_name: string; status: string; success: boolean; balance: BalanceDto | null; error: string | null; scheduled_at: string; executed_at: string | null }
+export type CheckInFailureDto = { error_code: string; count: number }
+export type CheckInHistoryPageDto = { total: number; page: number; page_size: number; attempts: CheckInAttemptDto[] }
 export type CheckInProgress = { account_id: string; progress: number; message: string }
-export type CheckInStatsDto = { total_checks: number; successful_checks: number; failed_checks: number; success_rate: number; average_balance: number | null }
-export type CheckInStreakDto = { account_id: string; account_name: string; provider_id: string; provider_name: string; current_streak: number; longest_streak: number; total_check_in_days: number; last_check_in_date: string | null }
+/**
+ * Today's check-in state, so the UI can render the right affordance instead of
+ * guessing from a timestamp.
+ */
+export type CheckInStateDto = { account_id: string; quota_day: string; 
+/**
+ * `due`, `done`, `in_flight` or `backoff`.
+ */
+state: string; 
+/**
+ * Present when `state` is `done`.
+ */
+confidence: string | null; 
+/**
+ * Present when `state` is `backoff`.
+ */
+until: string | null; retryable_failures: number }
+export type CheckInStatsDto = { account_id: string; period_days: number; start_date: string; end_date: string; attempts: number; succeeded: number; failed: number; 
+/**
+ * Runs the guard refused: not failures, but worth surfacing.
+ */
+skipped: number; success_rate: number; average_duration_ms: number | null; 
+/**
+ * Days with confirmed evidence in the period.
+ */
+confirmed_days: number; 
+/**
+ * Days whose evidence was inferred from a quota increase.
+ */
+inferred_days: number; total_reward: number; failures_by_code: CheckInFailureDto[] }
+export type CheckInStreakDto = { account_id: string; account_name: string; provider_id: string; provider_name: string; current_streak: number; longest_streak: number; total_check_in_days: number; 
+/**
+ * How many of `total_check_in_days` were inferred from a quota increase
+ * rather than confirmed, so the UI can qualify the number.
+ */
+inferred_days: number; last_check_in_date: string | null }
 export type CheckInTrendDto = { account_id: string; start_date: string; end_date: string; data_points: TrendDataPoint[] }
 export type CircuitStateDto = "closed" | "open" | "half_open"
 /**
@@ -1538,7 +1599,13 @@ export type JiraMetadataDto = { fields: JiraFieldDto[]; statuses: JiraStatusDto[
 export type JiraStatusDto = { id: string; name: string; category: string }
 export type LegacyImportFilesDto = { production_db: boolean; development_db: boolean; encryption_salt: boolean }
 export type LegacyImportResultDto = { legacy_dir: string; new_dir: string; staged: boolean; already_staged: boolean; files: LegacyImportFilesDto; requires_restart: boolean }
-export type MonthStatsDto = { total_days: number; checked_in_days: number; check_in_rate: number; total_quota_increment: number }
+export type MonthStatsDto = { total_days: number; 
+/**
+ * Days of the month that have already started, which is what the rate is
+ * measured against. Using the whole month made the current month look
+ * worse than it is.
+ */
+elapsed_days: number; checked_in_days: number; check_in_rate: number; total_quota_increment: number }
 export type NotificationChannelDto = { id: string; channel_type: string; config: string; enabled: boolean; created_at: string }
 export type ProviderBalanceDto = { provider_id: string; provider_name: string; current_balance: number; total_consumed: number; total_quota: number; account_count: number }
 export type ProviderDto = { id: string; name: string; domain: string; is_builtin: boolean; account_count: number; supports_check_in: boolean; check_in_bugged: boolean; login_path: string; sign_in_path: string | null; user_info_path: string; token_api_path: string | null; models_path: string | null; api_user_key: string; needs_waf_bypass: boolean }
@@ -1576,7 +1643,7 @@ export type ReorderAiChatServicesInput = {
  * List of service IDs in the desired order
  */
 service_ids: string[] }
-export type RunningJobDto = { job_id: string; account_id: string; account_name: string; status: string; started_at: string }
+export type RunningJobDto = { id: string; account_ids: string[]; started_at: string; processed: number; total: number; cancelled: boolean }
 export type SaveDeveloperToolConnectionInput = { id: string | null; name: string; service: string; base_url: string; deployment: string; auth_method: string; username: string | null; secret: string | null; profile_json: string | null }
 export type SavedDeveloperToolQueryDto = { id: string; connection_id: string; name: string; query: string }
 export type TestNotificationChannelResult = { success: boolean; message: string }

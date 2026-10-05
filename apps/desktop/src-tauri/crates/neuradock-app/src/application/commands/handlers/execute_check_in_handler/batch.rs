@@ -6,7 +6,8 @@ use crate::application::commands::check_in_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::dtos::BalanceDto;
 use crate::application::services::{
-    BalanceHistoryService, CheckInExecutor, NotificationService, ProviderModelsService,
+    BalanceHistoryService, CheckInExecutor, CheckInJobRegistry, NotificationService,
+    ProviderModelsService,
 };
 use crate::application::ResultExt;
 use neuradock_domain::account::AccountRepository;
@@ -28,6 +29,9 @@ pub struct BatchExecuteCheckInCommandHandler {
     balance_history_service: Arc<BalanceHistoryService>,
     waf_cookies_repo: Arc<dyn WafCookiesRepository>,
     headless_browser: bool,
+    /// Shared with the command layer so a run in progress can be listed and
+    /// asked to stop.
+    jobs: Arc<CheckInJobRegistry>,
 }
 
 impl BatchExecuteCheckInCommandHandler {
@@ -49,7 +53,15 @@ impl BatchExecuteCheckInCommandHandler {
             balance_history_service,
             waf_cookies_repo,
             headless_browser,
+            jobs: Arc::new(CheckInJobRegistry::new()),
         }
+    }
+
+    /// Share the application's job registry, so `get_running_jobs` and
+    /// `stop_check_in` can see this handler's runs.
+    pub fn with_job_registry(mut self, jobs: Arc<CheckInJobRegistry>) -> Self {
+        self.jobs = jobs;
+        self
     }
 
     pub fn with_notification_service(mut self, service: Arc<NotificationService>) -> Self {
@@ -73,6 +85,10 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
         let mut failed = 0;
         let mut results = Vec::new();
 
+        // Register the run so it can be listed and cancelled while it works.
+        let job = self.jobs.start(cmd.account_ids.clone());
+        info!("Batch check-in {} started for {} accounts", job.id(), total);
+
         // Get proxy configuration
         let proxy_config = self.proxy_config_repo.get().await?;
         let proxy_url = proxy_config.proxy_url();
@@ -87,6 +103,23 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
         .with_waf_cookies_repo(self.waf_cookies_repo.clone());
 
         for account_id in cmd.account_ids {
+            // Cooperative cancellation: checked between accounts, so an
+            // in-flight request finishes rather than being interrupted.
+            if job.is_cancelled() {
+                failed += 1;
+                results.push(CheckInCommandResult {
+                    account_id: account_id.clone(),
+                    account_name: String::new(),
+                    provider_id: String::new(),
+                    success: false,
+                    message: "Cancelled before this account was attempted".to_string(),
+                    balance: None,
+                    outcome: CheckInOutcome::Cancelled,
+                });
+                continue;
+            }
+            job.mark_processed();
+
             // Load account to get provider_id
             let account = match self
                 .account_repo
@@ -257,6 +290,8 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             "Batch check-in completed: total={}, succeeded={}, failed={}",
             total, succeeded, failed
         );
+
+        self.jobs.finish(&job);
 
         Ok(BatchCheckInCommandResult {
             total,

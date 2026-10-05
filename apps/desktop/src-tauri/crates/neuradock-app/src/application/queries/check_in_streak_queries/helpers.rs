@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use neuradock_domain::account::AccountRepository;
 use neuradock_domain::balance_history::{BalanceHistoryDailySummary, BalanceHistoryRepository};
-use neuradock_domain::check_in::{Provider, ProviderRepository};
+use neuradock_domain::check_in::{Provider, ProviderRepository, DEFAULT_DAY_OFFSET_MINUTES};
 use neuradock_domain::shared::{AccountId, DomainError};
 
 pub struct AccountInfo {
@@ -10,6 +10,9 @@ pub struct AccountInfo {
     pub name: String,
     pub provider_id: String,
     pub provider_name: String,
+    /// Minutes east of UTC at which the provider resets its quota day. Needed
+    /// wherever "today" is compared against an evidence day.
+    pub provider_day_offset_minutes: i32,
 }
 
 /// Get account metadata (name + provider)
@@ -23,9 +26,9 @@ pub async fn get_account_info(
         .await?
         .ok_or_else(|| DomainError::AccountNotFound(account_id.to_string()))?;
 
-    let provider_name = provider_repo
-        .find_by_id(account.provider_id())
-        .await?
+    let provider = provider_repo.find_by_id(account.provider_id()).await?;
+    let provider_name = provider
+        .as_ref()
         .map(|p| p.name().to_string())
         .unwrap_or_else(|| account.provider_id().as_str().to_string());
 
@@ -34,6 +37,9 @@ pub async fn get_account_info(
         name: account.name().to_string(),
         provider_id: account.provider_id().as_str().to_string(),
         provider_name,
+        provider_day_offset_minutes: provider
+            .map(|p| p.check_in_day_offset_minutes())
+            .unwrap_or(DEFAULT_DAY_OFFSET_MINUTES),
     })
 }
 
@@ -53,8 +59,8 @@ pub async fn get_all_account_infos(
         .into_iter()
         .map(|account| {
             let provider_id = account.provider_id().as_str().to_string();
-            let provider_name = provider_map
-                .get(&provider_id)
+            let provider = provider_map.get(&provider_id);
+            let provider_name = provider
                 .map(|p| p.name().to_string())
                 .unwrap_or_else(|| provider_id.clone());
 
@@ -63,6 +69,9 @@ pub async fn get_all_account_infos(
                 name: account.name().to_string(),
                 provider_id,
                 provider_name,
+                provider_day_offset_minutes: provider
+                    .map(|p| p.check_in_day_offset_minutes())
+                    .unwrap_or(DEFAULT_DAY_OFFSET_MINUTES),
             }
         })
         .collect::<Vec<_>>();

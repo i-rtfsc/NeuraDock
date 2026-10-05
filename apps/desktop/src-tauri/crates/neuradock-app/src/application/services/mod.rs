@@ -1,6 +1,7 @@
 mod balance_history_service;
 mod balance_service;
 mod check_in_executor;
+mod check_in_job_registry;
 mod config_service;
 mod developer_tools_service;
 mod gateway_binding_service;
@@ -22,6 +23,7 @@ mod waf_cookie_manager;
 pub use balance_history_service::BalanceHistoryService;
 pub use balance_service::BalanceService;
 pub use check_in_executor::CheckInExecutor;
+pub use check_in_job_registry::CheckInJobRegistry;
 pub use config_service::{ConfigService, LogLevel};
 pub use developer_tools_service::*;
 pub use gateway_binding_service::{

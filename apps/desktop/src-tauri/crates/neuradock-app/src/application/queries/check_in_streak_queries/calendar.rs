@@ -1,17 +1,24 @@
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, Utc};
 use log::{info, warn};
 use std::collections::HashMap;
 
 use crate::application::dtos::{CheckInCalendarDto, CheckInDayDto, MonthStatsDto};
 use neuradock_domain::balance_history::{BalanceHistoryDailySummary, BalanceHistoryRepository};
-use neuradock_domain::shared::DomainError;
+use neuradock_domain::check_in::today_quota_day;
+use neuradock_domain::shared::{AccountId, DomainError};
 
-/// Get check-in calendar for a specific month
+/// Get check-in calendar for a specific month.
+///
+/// `provider_day_offset_minutes` decides where "today" is, which matters twice:
+/// the sign-in rate is measured against the days that have already started, and
+/// the first day of the month needs the previous day as its consumption
+/// baseline.
 pub async fn get_calendar(
     balance_history_repo: &dyn BalanceHistoryRepository,
     account_id: &str,
     year: i32,
     month: u32,
+    provider_day_offset_minutes: i32,
 ) -> Result<CheckInCalendarDto, DomainError> {
     // Validate inputs
     if !(1..=12).contains(&month) {
@@ -31,13 +38,13 @@ pub async fn get_calendar(
         .and_then(|d| d.pred_opt())
         .ok_or_else(|| DomainError::Validation("Invalid date".to_string()))?;
 
+    let account = AccountId::from_string(account_id);
+    let today = today_quota_day(provider_day_offset_minutes, Utc::now());
+    let total_days = last_day.day();
+
     // Query daily summaries for this month
     let rows = balance_history_repo
-        .list_daily_summaries_in_range(
-            &neuradock_domain::shared::AccountId::from_string(account_id),
-            first_day,
-            last_day,
-        )
+        .list_daily_summaries_in_range(&account, first_day, last_day)
         .await?;
 
     if rows.is_empty() {
@@ -61,13 +68,18 @@ pub async fn get_calendar(
         daily_map.insert(row.quota_day().format("%Y-%m-%d").to_string(), row);
     }
 
-    // Calculate income increments
+    // Without this, the first day of the month always reported a zero delta.
+    let mut prev_consumed: Option<f64> = match first_day.pred_opt() {
+        Some(previous_day) => balance_history_repo
+            .find_daily_summary(&account, previous_day)
+            .await?
+            .map(|summary| summary.daily_consumed()),
+        None => None,
+    };
+
     let mut days = Vec::new();
-    let mut prev_consumed: Option<f64> = None;
     let mut checked_in_days = 0u32;
     let mut total_quota_increment = 0.0;
-
-    let total_days = last_day.day();
 
     for day in 1..=total_days {
         let date = NaiveDate::from_ymd_opt(year, month, day)
@@ -122,14 +134,25 @@ pub async fn get_calendar(
         }
     }
 
-    let check_in_rate = if total_days > 0 {
-        (checked_in_days as f64 / total_days as f64) * 100.0
+    // The rate is measured against the days that have already started: a past
+    // month has all of them, a future month none.
+    let current_month = (today.year(), today.month());
+    let viewed_month = (year, month);
+    let elapsed_days = match viewed_month.cmp(&current_month) {
+        std::cmp::Ordering::Less => total_days,
+        std::cmp::Ordering::Greater => 0,
+        std::cmp::Ordering::Equal => today.day().min(total_days),
+    };
+
+    let check_in_rate = if elapsed_days > 0 {
+        (checked_in_days as f64 / elapsed_days as f64) * 100.0
     } else {
         0.0
     };
 
     let month_stats = MonthStatsDto {
         total_days,
+        elapsed_days,
         checked_in_days,
         check_in_rate,
         total_quota_increment,
@@ -144,9 +167,10 @@ pub async fn get_calendar(
     };
 
     info!(
-        "[streak] calendar result account_id={} checked_days={} rate={:.2}% income_delta={:.2}",
+        "[streak] calendar result account_id={} checked_days={} elapsed_days={} rate={:.2}% income_delta={:.2}",
         dto.account_id,
         dto.month_stats.checked_in_days,
+        dto.month_stats.elapsed_days,
         dto.month_stats.check_in_rate,
         dto.month_stats.total_quota_increment
     );

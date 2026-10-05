@@ -1,15 +1,12 @@
-use super::{CheckInJob, Provider};
-use crate::shared::{AccountId, DomainError, JobId, ProviderId};
+use super::Provider;
+use crate::shared::{DomainError, ProviderId};
 use async_trait::async_trait;
 
-#[async_trait]
-pub trait CheckInJobRepository: Send + Sync {
-    async fn save(&self, job: &CheckInJob) -> Result<(), DomainError>;
-    async fn find_by_id(&self, id: &JobId) -> Result<Option<CheckInJob>, DomainError>;
-    async fn find_by_account(&self, account_id: &AccountId)
-        -> Result<Vec<CheckInJob>, DomainError>;
-    async fn find_running(&self) -> Result<Vec<CheckInJob>, DomainError>;
-}
+// The `CheckInJob` aggregate and its repository used to live here. Their table
+// was dropped in 20250202000001_drop_unused_tables and nothing ever read it
+// again, so the model and its 13 tests were describing a thing that no longer
+// existed. Running jobs are now an in-memory concern (see `CheckInJobRegistry`)
+// and history comes from `check_in_attempts`.
 
 #[async_trait]
 pub trait ProviderRepository: Send + Sync {

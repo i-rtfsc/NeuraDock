@@ -657,4 +657,68 @@ impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
 
         refresh_cache(&mut conn, account_id.as_str()).await
     }
+
+    async fn list_attempts(
+        &self,
+        account_id: Option<&AccountId>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CheckInAttempt>, DomainError> {
+        let query = format!(
+            "SELECT {ATTEMPT_COLUMNS} FROM check_in_attempts \
+             WHERE (?1 IS NULL OR account_id = ?1) \
+             ORDER BY started_at DESC, id DESC LIMIT ?2 OFFSET ?3"
+        );
+
+        let rows: Vec<AttemptRow> = self
+            .base
+            .fetch_all(
+                sqlx::query_as(&query)
+                    .bind(account_id.map(|id| id.as_str()))
+                    .bind(limit)
+                    .bind(offset),
+                "List check-in attempts",
+            )
+            .await?;
+
+        rows.into_iter().map(AttemptRow::try_into_attempt).collect()
+    }
+
+    async fn count_attempts(&self, account_id: Option<&AccountId>) -> Result<i64, DomainError> {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM check_in_attempts WHERE (?1 IS NULL OR account_id = ?1)",
+        )
+        .bind(account_id.map(|id| id.as_str()))
+        .fetch_one(self.base.pool())
+        .await
+        .map_err(|e| DomainError::Repository(format!("Count check-in attempts: {e}")))?;
+
+        Ok(count)
+    }
+
+    async fn list_attempts_in_range(
+        &self,
+        account_id: &AccountId,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<Vec<CheckInAttempt>, DomainError> {
+        let query = format!(
+            "SELECT {ATTEMPT_COLUMNS} FROM check_in_attempts \
+             WHERE account_id = ?1 AND quota_day >= ?2 AND quota_day <= ?3 \
+             ORDER BY started_at ASC, id ASC"
+        );
+
+        let rows: Vec<AttemptRow> = self
+            .base
+            .fetch_all(
+                sqlx::query_as(&query)
+                    .bind(account_id.as_str())
+                    .bind(start_date.format("%Y-%m-%d").to_string())
+                    .bind(end_date.format("%Y-%m-%d").to_string()),
+                "List check-in attempts in range",
+            )
+            .await?;
+
+        rows.into_iter().map(AttemptRow::try_into_attempt).collect()
+    }
 }

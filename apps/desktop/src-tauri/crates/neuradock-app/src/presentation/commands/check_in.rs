@@ -1,11 +1,12 @@
 use crate::application::commands::check_in_commands::*;
 use crate::application::commands::command_handler::CommandHandler;
 use crate::application::dtos::{
-    self, BatchCheckInResult, CheckInHistoryDto, CheckInStatsDto, ExecuteCheckInResult,
-    RunningJobDto,
+    self, BatchCheckInResult, CheckInHistoryPageDto, CheckInStateDto, CheckInStatsDto,
+    ExecuteCheckInResult, RunningJobDto,
 };
 use crate::presentation::error::CommandError;
 use crate::presentation::state::{CommandHandlers, Queries, Repositories, Services};
+use neuradock_domain::check_in::CheckInState;
 use tauri::State;
 
 /// Record the user's explicit confirmation of an externally completed check-in.
@@ -111,42 +112,129 @@ pub async fn execute_batch_check_in(
     })
 }
 
-/// Stop a running check-in job
+/// Ask a running batch check-in to stop.
+///
+/// Cancellation is cooperative: the batch checks between accounts, so a request
+/// already in flight finishes. Returns false when the job is unknown, which is
+/// what an already-finished run looks like.
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_check_in(job_id: String) -> Result<bool, CommandError> {
-    let _ = job_id;
-    Err(CommandError::infrastructure("Not implemented yet"))
+pub async fn stop_check_in(
+    job_id: String,
+    services: State<'_, Services>,
+) -> Result<bool, CommandError> {
+    Ok(services.jobs.cancel(&job_id))
 }
 
-/// Get check-in history for an account
+/// Get check-in history (attempts, newest first)
 #[tauri::command]
 #[specta::specta]
 pub async fn get_check_in_history(
     account_id: Option<String>,
     page: i32,
     page_size: i32,
-) -> Result<Vec<CheckInHistoryDto>, CommandError> {
-    let _ = (account_id, page, page_size);
-    Err(CommandError::infrastructure("Not implemented yet"))
+    queries: State<'_, Queries>,
+) -> Result<CheckInHistoryPageDto, CommandError> {
+    queries
+        .streak
+        .get_history(account_id.as_deref(), page, page_size)
+        .await
+        .map_err(CommandError::from)
 }
 
-/// Get check-in statistics for an account
+/// Get check-in statistics for one account over the last N quota days
 #[tauri::command]
 #[specta::specta]
 pub async fn get_check_in_stats(
-    account_id: Option<String>,
-    period: String,
+    account_id: String,
+    period_days: u32,
+    queries: State<'_, Queries>,
 ) -> Result<CheckInStatsDto, CommandError> {
-    let _ = (account_id, period);
-    Err(CommandError::infrastructure("Not implemented yet"))
+    queries
+        .streak
+        .get_stats(&account_id, period_days)
+        .await
+        .map_err(CommandError::from)
+}
+
+/// Get today's check-in state for one account
+#[tauri::command]
+#[specta::specta]
+pub async fn get_check_in_state(
+    account_id: String,
+    repositories: State<'_, Repositories>,
+    services: State<'_, Services>,
+) -> Result<CheckInStateDto, CommandError> {
+    let account = repositories
+        .account
+        .find_by_id(&neuradock_domain::shared::AccountId::from_string(
+            &account_id,
+        ))
+        .await?
+        .ok_or_else(|| CommandError::not_found("Account not found"))?;
+    let provider = repositories
+        .provider
+        .find_by_id(account.provider_id())
+        .await?
+        .ok_or_else(|| CommandError::not_found("Provider not found"))?;
+
+    let now = chrono::Utc::now();
+    let quota_day =
+        neuradock_domain::check_in::today_quota_day(provider.check_in_day_offset_minutes(), now);
+    let state = services
+        .balance_history
+        .check_in_state(&account_id, &provider, now)
+        .await
+        .map_err(CommandError::from)?;
+
+    let dto = match state {
+        CheckInState::Done { confidence } => CheckInStateDto {
+            account_id,
+            quota_day: quota_day.to_string(),
+            state: "done".to_string(),
+            confidence: Some(confidence.as_str().to_string()),
+            until: None,
+            retryable_failures: 0,
+        },
+        CheckInState::InFlight { .. } => CheckInStateDto {
+            account_id,
+            quota_day: quota_day.to_string(),
+            state: "in_flight".to_string(),
+            confidence: None,
+            until: None,
+            retryable_failures: 0,
+        },
+        CheckInState::Backoff {
+            until,
+            retryable_failures,
+        } => CheckInStateDto {
+            account_id,
+            quota_day: quota_day.to_string(),
+            state: "backoff".to_string(),
+            confidence: None,
+            until: Some(until.to_rfc3339()),
+            retryable_failures,
+        },
+        CheckInState::Due => CheckInStateDto {
+            account_id,
+            quota_day: quota_day.to_string(),
+            state: "due".to_string(),
+            confidence: None,
+            until: None,
+            retryable_failures: 0,
+        },
+    };
+
+    Ok(dto)
 }
 
 /// Get currently running check-in jobs
 #[tauri::command]
 #[specta::specta]
-pub async fn get_running_jobs() -> Result<Vec<RunningJobDto>, CommandError> {
-    Err(CommandError::infrastructure("Not implemented yet"))
+pub async fn get_running_jobs(
+    services: State<'_, Services>,
+) -> Result<Vec<RunningJobDto>, CommandError> {
+    Ok(services.jobs.list())
 }
 
 /// Get check-in streak statistics for an account

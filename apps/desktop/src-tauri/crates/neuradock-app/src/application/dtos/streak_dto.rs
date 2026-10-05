@@ -10,6 +10,9 @@ pub struct CheckInStreakDto {
     pub current_streak: u32,
     pub longest_streak: u32,
     pub total_check_in_days: u32,
+    /// How many of `total_check_in_days` were inferred from a quota increase
+    /// rather than confirmed, so the UI can qualify the number.
+    pub inferred_days: u32,
     pub last_check_in_date: Option<String>, // ISO 8601 date (YYYY-MM-DD)
 }
 
@@ -37,6 +40,10 @@ pub struct CheckInCalendarDto {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct MonthStatsDto {
     pub total_days: u32,
+    /// Days of the month that have already started, which is what the rate is
+    /// measured against. Using the whole month made the current month look
+    /// worse than it is.
+    pub elapsed_days: u32,
     pub checked_in_days: u32,
     pub check_in_rate: f64, // 签到率百分比 (0.0 - 100.0)
     pub total_quota_increment: f64,

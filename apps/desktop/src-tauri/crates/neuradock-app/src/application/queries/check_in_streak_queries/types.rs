@@ -1,8 +1,3 @@
-use chrono::NaiveDate;
-
-pub struct StreakComputation {
-    pub current_streak: u32,
-    pub longest_streak: u32,
-    pub total_check_in_days: u32,
-    pub last_check_in_date: Option<NaiveDate>,
-}
+// The streak arithmetic lives in the domain
+// (`neuradock_domain::balance_history::compute_streak`) so it can be unit
+// tested without a database. This module keeps only what the DTOs need.

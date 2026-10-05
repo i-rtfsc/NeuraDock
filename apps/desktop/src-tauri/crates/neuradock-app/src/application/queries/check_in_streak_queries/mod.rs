@@ -10,7 +10,10 @@ use neuradock_domain::shared::DomainError;
 
 mod calendar;
 mod helpers;
+mod history;
 mod streak;
+#[cfg(test)]
+mod tests;
 mod trend;
 mod types;
 
@@ -64,7 +67,21 @@ impl CheckInStreakQueries {
         year: i32,
         month: u32,
     ) -> Result<CheckInCalendarDto, DomainError> {
-        calendar::get_calendar(self.balance_history_repo.as_ref(), account_id, year, month).await
+        // The provider's reset offset decides where "today" is.
+        let account_info = helpers::get_account_info(
+            self.account_repo.as_ref(),
+            self.provider_repo.as_ref(),
+            account_id,
+        )
+        .await?;
+        calendar::get_calendar(
+            self.balance_history_repo.as_ref(),
+            account_id,
+            year,
+            month,
+            account_info.provider_day_offset_minutes,
+        )
+        .await
     }
 
     /// Get check-in trend data (last N days)
@@ -73,7 +90,19 @@ impl CheckInStreakQueries {
         account_id: &str,
         days: u32,
     ) -> Result<CheckInTrendDto, DomainError> {
-        trend::get_trend(self.balance_history_repo.as_ref(), account_id, days).await
+        let account_info = helpers::get_account_info(
+            self.account_repo.as_ref(),
+            self.provider_repo.as_ref(),
+            account_id,
+        )
+        .await?;
+        trend::get_trend(
+            self.balance_history_repo.as_ref(),
+            account_id,
+            days,
+            account_info.provider_day_offset_minutes,
+        )
+        .await
     }
 
     /// Get details for a specific day

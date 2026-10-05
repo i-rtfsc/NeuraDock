@@ -1,7 +1,7 @@
 # ADR-007: 签到状态模型（证据账本 + 尝试履历 + quota day）
 
 ## 状态
-草稿（待评审）。前置决策来自产品方 2026-09 的口头确认，见「背景 / 产品约束」。
+已采纳并实施（2026-09）。D-1…D-7 全部落地；实施中与原稿的偏差、以及未决项的收敛见文末「实施记录」。
 
 ## 背景
 
@@ -218,8 +218,23 @@ check_in_state(account, provider, evidence[day], attempts[day], now) -> State
 - 迁移 M2 需在真实旧库上 dry-run（现有测试用 `include_str!` 手工重放迁移，绕过 `sqlx::migrate!`，`test_helpers.rs` 按 `;` 朴素切分，**无法**验证真实升级路径）。
 
 ## 未决问题
-- **U1（原 Q6）**：`manual` 是否应无条件覆盖 `provider_response`？现状 `manual` 在 UPSERT 中胜出（`balance_history_repo.rs:112`），但补记入口有前置检查（`balance_history_service.rs:41-45`）。建议：**保留 manual 最高**，但覆盖时写审计（attempt + 前后值）。
-- **U2**：`check_in_jobs` 复活（i）还是删除并改用内存读模型（ii）？取决于「运行中任务是否需要跨重启可见」。
-- **U3**：推断证据是否允许用户「撤销该天」？建议允许（一次点击的误报修正，胜过静默污染连续记录）。
-- **U4**：provider `check_in_day_offset_minutes` 的来源：DB 列 + 内置常量表双写，还是仅内置常量？
-- **U5**：`observe_only` 模式下是否需要**自动化**余额轮询（当前调度器只跑签到任务，无余额轮询任务；`should_check_balance` 是死代码）——这决定网页签到能否在用户不打开 App 时被发现。
+- **U1（原 Q6）**：`manual` 是否应无条件覆盖 `provider_response`？现状 `manual` 在 UPSERT 中胜出，但补记入口有前置检查：已结算（confirmed/manual 且有金额）的一天不会被覆盖，而覆盖推断值时会写一条 attempt 作为审计。**已按建议实现。**
+- **U2**：`check_in_jobs` 复活还是删除？**已解决**：该表早在 `20250202000001_drop_unused_tables.sql` 就被删除，`CheckInJob` 聚合 / `CheckInJobRepository` / 其 13 个测试描述的是不存在的存储，已整体删除；运行中任务改为内存 `CheckInJobRegistry`，历史改读 `check_in_attempts`。详见「实施记录」。
+- **U3**：推断证据是否允许用户「撤销该天」？**仍开放**。当前缓解是 `confidence='inferred'` 在 UI 可见（`reward_is_estimate`、账号表最后签到时间的 `*` 标记）。
+- **U4**：provider `check_in_day_offset_minutes` 的来源？**已解决**：DB 列（默认 480），迁移与内置种子共用 `CheckInMode::infer` 同一规则。
+- **U5**：`observe_only` 模式下是否需要**自动化**余额轮询？**仍开放**。运行时推断已上线，但触发点仍是一次余额观察（手动刷新、页面加载、签到流程）；调度器目前只跑签到任务。这决定「用户不打开 App 时网页签到能否被发现」。
+
+## 实施记录（2026-09）
+
+**迁移编号与本文的 M 编号不同**，按依赖顺序落地为：
+`20260911000001_add_check_in_attempts` → `20260911000002_add_provider_check_in_config`（providers 的 offset/mode + accounts 的两个缓存列）→ `20260911000003_rebuild_check_in_evidence`（重建证据表：`confidence`、`quota_day`、`balance_delta`，按 offset 重分桶并按优先级去重）。00002 必须在前，因为重分桶要读 provider 的 offset；SQLite 无法修改 CHECK 约束，所以「让 `source` 接纳 `balance_delta`」只能靠重建表，重建顺带完成去重与重分桶。
+
+**与原稿的偏差（实施中发现的更优解）**：
+1. **`confidence` 由 `source` 派生**，写入端不单独传：`CheckInSource::confidence()` 是唯一映射，运行时 UPSERT 与重建迁移共用同一张优先级表，三者不可能互相矛盾。
+2. **推断不做二次扣减**：`balance_history.total_quota` 在写入时**已经**扣过 `quota_adjustment`，所以运行时推断直接比较相邻 quota day 的存量值；再减一次会重复扣减。另加 `MIN_INFERRED_DELTA = 0.05` 作为舍入噪声下限（`total_quota` 由两个已舍入值推导，而真实奖励是整美元）。
+3. **「已签到」响应成为一等证据**：provider 回「今天已签到 / 重复签到」不再算失败，而是 `already_checked_in` → 写一条 `confirmed_unknown` 证据。这比额度差分更可靠，也让重复请求不再显示为错误。
+4. **HTTP 失败改为稳定错误码**：`check_in_codes`（`not_supported` / `http_status_client` / `http_status_server` / `waf_challenge` / `network` / `timeout` / `cancelled`）随结果返回，尝试结果由码映射，不再解析人类可读文案；上游响应体也不再进入错误消息与日志（只以截断形式进日志）。
+5. **破坏性字段替换**：`accounts.last_check_in` 与其 DTO 字段被删除，改为 `last_confirmed_at` / `last_evidence_at`；前端账号表优先显示 confirmed，仅有推断时以 `*` 标记来源。
+6. **补齐（D-7）落地形态**：`get_check_in_history`（服务端分页，返回尝试而非任务）、`get_check_in_stats`（按账号与周期：成功率分母只含已判定的尝试，skip 不稀释；含 confirmed/inferred 天数与奖励合计）、`get_check_in_state`（新命令，返回 `due/done/in_flight/backoff`）、`get_running_jobs` 与 `stop_check_in`（协作式取消：批量在账号之间检查标志，在途请求不中断）。前端历史/统计 UI 尚未消费这些命令。
+
+**验证**：`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all --check`、`tsc --noEmit`、`vitest run` 全绿；测试覆盖「不变式」一节的第 1–12 条（domain 的 `balance_history::streak` / `check_in::state` / `check_in::quota_day`，infra 的 `check_in_reward_integration`，app 的 `check_in_executor::tests` 与 `check_in_streak_queries::tests`）。
