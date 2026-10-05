@@ -571,7 +571,7 @@
     "legendUnchecked": "未签到",
     "legendToday": "今日",
     "trendTitle": "收入趋势（最近30天）",
-    "trendDailyIncrement": "当日增长",
+    "trendDailyIncrement": "签到奖励",
     "trendTotalQuota": "累计额度",
     "trendBalance": "当前余额",
     "trendNoData": "暂无数据",
@@ -586,7 +586,14 @@
     "incrementPositivePrefix": "💰 当日收入增长",
     "incrementPositiveSuffix": "，签到成功！",
     "incrementZero": "⚠️ 当日收入未增长，未计入签到。",
-    "dayDetailTitle": "{{date}} 签到详情"
+    "dayDetailTitle": "{{date}} 签到详情",
+    "rewardTitle": "签到奖励",
+    "rewardEstimate": "历史估算",
+    "rewardEstimateHint": "旧记录根据余额快照推算，可能包含充值、消费结算等变化。",
+    "rewardUnknown": "奖励金额待确认",
+    "manualConfirm": "我确认已在中转站完成这一天的签到",
+    "manualRecord": "补记签到奖励 $25",
+    "manualRecordHint": "用于补记你已在中转站完成的签到，奖励按 $25 记录。"
   },
   "settings": {
     "title": "设置",

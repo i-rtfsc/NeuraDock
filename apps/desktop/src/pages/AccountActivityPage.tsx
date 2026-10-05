@@ -9,6 +9,7 @@ import {
   useCheckInStreak,
   useCheckInCalendar,
   useCheckInTrend,
+  useConfirmCheckInReward,
 } from '@/hooks/useCheckInStreak';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,7 @@ export function AccountActivityPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { data: accounts } = useAccounts();
+  const confirmReward = useConfirmCheckInReward(accountId ?? '');
   
   const [calendarDate, setCalendarDate] = useState(() => {
     const now = new Date();
@@ -206,6 +208,11 @@ export function AccountActivityPage() {
         open={!!selectedDate}
         onOpenChange={(open) => !open && setSelectedDate(null)}
         dayData={selectedDayData ?? null}
+        onConfirmReward={['anyrouter', 'agentrouter'].includes(account.provider_id) ? () => {
+          if (selectedDate) confirmReward.mutate(selectedDate, { onSuccess: () => setSelectedDate(null) });
+        } : undefined}
+        isSavingReward={confirmReward.isPending}
+        rewardError={confirmReward.error?.message}
       />
     </PageContainer>
   );

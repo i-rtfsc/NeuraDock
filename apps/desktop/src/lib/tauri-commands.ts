@@ -67,6 +67,9 @@ export const accountCommands = {
 
 // Check-in Commands (placeholder for future implementation)
 export const checkInCommands = {
+  confirmReward: (accountId: string, date: string) =>
+    invoke<boolean>('confirm_check_in_reward', { accountId, date }),
+
   execute: (accountId: string) =>
     invoke<ExecuteCheckInResult>('execute_check_in', { accountId }),
 

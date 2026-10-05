@@ -571,7 +571,7 @@
     "legendUnchecked": "Not checked in",
     "legendToday": "Today",
     "trendTitle": "Income Trend (Last 30 Days)",
-    "trendDailyIncrement": "Daily Increment",
+    "trendDailyIncrement": "Check-in reward",
     "trendTotalQuota": "Total Quota",
     "trendBalance": "Current Balance",
     "trendNoData": "No data",
@@ -586,7 +586,14 @@
     "incrementPositivePrefix": "💰 Income increased today",
     "incrementPositiveSuffix": "Check-in recorded!",
     "incrementZero": "⚠️ No income increase today, so the check-in was not counted.",
-    "dayDetailTitle": "Check-in details for {{date}}"
+    "dayDetailTitle": "Check-in details for {{date}}",
+    "rewardTitle": "Check-in reward",
+    "rewardEstimate": "Historical estimate",
+    "rewardEstimateHint": "Older rewards were estimated from balance snapshots and may include top-ups or usage settlement.",
+    "rewardUnknown": "Reward amount unconfirmed",
+    "manualConfirm": "I confirm that I completed this day’s check-in with the provider",
+    "manualRecord": "Record completed check-in ($25)",
+    "manualRecordHint": "Record a check-in you already completed with the provider, using its fixed $25 reward."
   },
   "settings": {
     "title": "Settings",

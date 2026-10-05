@@ -35,6 +35,7 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
     fullDate: new Date(point.date).toLocaleDateString(),
     total: point.total_quota,
     reward: point.income_increment,
+    rewardEstimate: point.reward_is_estimate,
     balance: point.current_balance,
     checkedIn: point.is_checked_in,
   }));
@@ -135,8 +136,11 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
                             "text-xs font-black tracking-tight",
                             item.reward > 0 ? "text-success" : "text-muted-foreground/50"
                           )}>
-                            {item.reward > 0 ? `+${detailedCurrencyFormatter.format(item.reward)}` : '-'}
+                            {item.reward != null
+                              ? `${item.rewardEstimate ? '≈' : '+'}${detailedCurrencyFormatter.format(item.reward)}`
+                              : item.checkedIn ? t('streaks.rewardUnknown') : '-'}
                           </span>
+                          {item.rewardEstimate && <span className="text-[9px] text-muted-foreground">{t('streaks.rewardEstimate')}</span>}
                         </div>
                         <div className="flex flex-col">
                           <span className="text-[9px] text-muted-foreground font-bold uppercase">{t('streaks.trendBalance')}</span>
@@ -186,4 +190,3 @@ export function CheckInTrendChart({ data, className }: CheckInTrendChartProps) {
     </div>
   );
 }
-
