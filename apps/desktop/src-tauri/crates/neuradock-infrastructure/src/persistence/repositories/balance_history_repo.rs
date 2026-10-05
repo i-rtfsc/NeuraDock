@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::persistence::SqliteRepositoryBase;
 use neuradock_domain::balance_history::{
-    BalanceHistoryDailySummary, BalanceHistoryRecord, BalanceHistoryRepository,
+    BalanceHistoryDailySummary, BalanceHistoryRecord, BalanceHistoryRepository, CheckInRecord,
 };
 use neuradock_domain::shared::{AccountId, DomainError};
 
@@ -38,6 +38,8 @@ struct DailySummaryRow {
     daily_total_quota: f64,
     daily_balance: f64,
     daily_consumed: f64,
+    check_in_reward: Option<f64>,
+    check_in_source: Option<String>,
 }
 
 impl DailySummaryRow {
@@ -54,9 +56,33 @@ impl DailySummaryRow {
             self.daily_total_quota,
             self.daily_balance,
             self.daily_consumed,
-        ))
+        )
+        .with_check_in(self.check_in_reward, self.check_in_source))
     }
 }
+
+// Read all balance fields from the same snapshot. A reward also remains
+// visible when the post-check-in balance request failed or was delayed.
+const DAILY_SUMMARY_QUERY: &str = r#"
+    WITH days AS (
+        SELECT DATE(recorded_at) AS day FROM balance_history WHERE account_id = ?1
+        UNION
+        SELECT check_in_date AS day FROM check_in_records WHERE account_id = ?1
+    )
+    SELECT days.day AS check_in_date,
+           COALESCE(b.total_quota, 0.0) AS daily_total_quota,
+           COALESCE(b.current_balance, 0.0) AS daily_balance,
+           COALESCE(b.total_consumed, 0.0) AS daily_consumed,
+           c.reward_cents / 100.0 AS check_in_reward,
+           c.source AS check_in_source
+    FROM days
+    LEFT JOIN balance_history b ON b.id = (
+        SELECT id FROM balance_history
+        WHERE account_id = ?1 AND DATE(recorded_at) <= days.day
+        ORDER BY recorded_at DESC, id DESC LIMIT 1
+    )
+    LEFT JOIN check_in_records c ON c.account_id = ?1 AND c.check_in_date = days.day
+"#;
 
 pub struct SqliteBalanceHistoryRepository {
     base: SqliteRepositoryBase,
@@ -72,6 +98,30 @@ impl SqliteBalanceHistoryRepository {
 
 #[async_trait]
 impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
+    async fn save_check_in(&self, record: &CheckInRecord) -> Result<bool, DomainError> {
+        let result = sqlx::query(r#"
+            INSERT INTO check_in_records (account_id, check_in_date, reward_cents, source, recorded_at)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(account_id, check_in_date) DO UPDATE SET
+                reward_cents = excluded.reward_cents,
+                source = excluded.source,
+                recorded_at = excluded.recorded_at
+            WHERE (check_in_records.source = 'legacy_estimate' AND excluded.source != 'legacy_estimate')
+               OR (check_in_records.source = 'confirmed_unknown' AND excluded.reward_cents IS NOT NULL)
+               OR (check_in_records.source = 'provider_rule' AND excluded.source = 'provider_response')
+               OR excluded.source = 'manual'
+        "#)
+        .bind(record.account_id.as_str())
+        .bind(record.check_in_date.format("%Y-%m-%d").to_string())
+        .bind(record.reward_cents)
+        .bind(&record.source)
+        .bind(record.recorded_at)
+        .execute(self.base.pool())
+        .await
+        .map_err(|e| DomainError::Infrastructure(format!("Save check-in reward: {e}")))?;
+        Ok(result.rows_affected() > 0)
+    }
+
     async fn save(&self, record: &BalanceHistoryRecord) -> Result<(), DomainError> {
         let query = r#"
             INSERT OR REPLACE INTO balance_history (
@@ -165,22 +215,12 @@ impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
         &self,
         account_id: &AccountId,
     ) -> Result<Vec<BalanceHistoryDailySummary>, DomainError> {
-        let query = r#"
-            SELECT
-                DATE(recorded_at) AS check_in_date,
-                MAX(total_quota) AS daily_total_quota,
-                MAX(current_balance) AS daily_balance,
-                MAX(total_consumed) AS daily_consumed
-            FROM balance_history
-            WHERE account_id = ?1
-            GROUP BY DATE(recorded_at)
-            ORDER BY check_in_date ASC
-        "#;
+        let query = format!("{DAILY_SUMMARY_QUERY} ORDER BY days.day ASC");
 
         let rows: Vec<DailySummaryRow> = self
             .base
             .fetch_all(
-                sqlx::query_as(query).bind(account_id.as_str()),
+                sqlx::query_as(&query).bind(account_id.as_str()),
                 "List all daily summaries",
             )
             .await?;
@@ -194,32 +234,14 @@ impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
         start_date: NaiveDate,
         end_date: NaiveDate,
     ) -> Result<Vec<BalanceHistoryDailySummary>, DomainError> {
-        let query = r#"
-            WITH daily_summary AS (
-                SELECT
-                    DATE(recorded_at) AS check_in_date,
-                    MAX(total_quota) AS daily_total_quota,
-                    MAX(current_balance) AS daily_balance,
-                    MAX(total_consumed) AS daily_consumed
-                FROM balance_history
-                WHERE account_id = ?1
-                GROUP BY DATE(recorded_at)
-            )
-            SELECT
-                check_in_date,
-                daily_total_quota,
-                daily_balance,
-                daily_consumed
-            FROM daily_summary
-            WHERE check_in_date >= ?2
-              AND check_in_date <= ?3
-            ORDER BY check_in_date ASC
-        "#;
+        let query = format!(
+            "{DAILY_SUMMARY_QUERY} WHERE days.day >= ?2 AND days.day <= ?3 ORDER BY days.day ASC"
+        );
 
         let rows: Vec<DailySummaryRow> = self
             .base
             .fetch_all(
-                sqlx::query_as(query)
+                sqlx::query_as(&query)
                     .bind(account_id.as_str())
                     .bind(start_date.format("%Y-%m-%d").to_string())
                     .bind(end_date.format("%Y-%m-%d").to_string()),
@@ -235,31 +257,12 @@ impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
         account_id: &AccountId,
         date: NaiveDate,
     ) -> Result<Option<BalanceHistoryDailySummary>, DomainError> {
-        let query = r#"
-            WITH daily_summary AS (
-                SELECT
-                    DATE(recorded_at) AS check_in_date,
-                    MAX(total_quota) AS daily_total_quota,
-                    MAX(current_balance) AS daily_balance,
-                    MAX(total_consumed) AS daily_consumed
-                FROM balance_history
-                WHERE account_id = ?1
-                GROUP BY DATE(recorded_at)
-            )
-            SELECT
-                check_in_date,
-                daily_total_quota,
-                daily_balance,
-                daily_consumed
-            FROM daily_summary
-            WHERE check_in_date = ?2
-            LIMIT 1
-        "#;
+        let query = format!("{DAILY_SUMMARY_QUERY} WHERE days.day = ?2 LIMIT 1");
 
         let row: Option<DailySummaryRow> = self
             .base
             .fetch_optional(
-                sqlx::query_as(query)
+                sqlx::query_as(&query)
                     .bind(account_id.as_str())
                     .bind(date.format("%Y-%m-%d").to_string()),
                 "Find daily summary",
@@ -270,7 +273,8 @@ impl BalanceHistoryRepository for SqliteBalanceHistoryRepository {
     }
 
     async fn list_distinct_account_ids(&self) -> Result<Vec<AccountId>, DomainError> {
-        let query = "SELECT DISTINCT account_id FROM balance_history";
+        let query =
+            "SELECT account_id FROM balance_history UNION SELECT account_id FROM check_in_records";
         let ids: Vec<String> = sqlx::query_scalar(query)
             .fetch_all(self.base.pool())
             .await

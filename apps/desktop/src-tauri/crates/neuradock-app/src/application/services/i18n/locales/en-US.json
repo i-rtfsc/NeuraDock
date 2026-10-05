@@ -19,7 +19,9 @@
       "currentBalance": "Current Balance",
       "totalConsumed": "Total Consumed",
       "totalQuota": "Total Quota",
-      "error": "Error"
+      "error": "Error",
+      "checkInReward": "Check-in reward",
+      "rewardUnknown": "Amount unconfirmed"
     }
   }
 }

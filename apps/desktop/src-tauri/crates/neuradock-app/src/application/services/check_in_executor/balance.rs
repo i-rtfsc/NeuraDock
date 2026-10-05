@@ -23,6 +23,6 @@ pub async fn fetch_updated_balance_after_check_in(
     let api_user = account.credentials().api_user();
 
     user_info_service
-        .fetch_updated_balance(account_name, provider, cookies, api_user, initial_user_info)
+        .fetch_updated_balance(account_name, provider, cookies, api_user)
         .await
 }

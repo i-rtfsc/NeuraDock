@@ -19,7 +19,9 @@
       "currentBalance": "当前余额",
       "totalConsumed": "历史消耗",
       "totalQuota": "总额度",
-      "error": "错误信息"
+      "error": "错误信息",
+      "checkInReward": "签到奖励",
+      "rewardUnknown": "金额待确认"
     }
   }
 }

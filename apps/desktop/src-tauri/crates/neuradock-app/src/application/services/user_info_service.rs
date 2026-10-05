@@ -114,7 +114,6 @@ impl<'a> UserInfoService<'a> {
         provider: &Provider,
         cookies: &HashMap<String, String>,
         api_user: &str,
-        initial_user_info: Option<UserInfo>,
     ) -> (Option<UserInfo>, SetCookieResult) {
         info!(
             "[{}] Fetching updated balance after check-in...",
@@ -143,10 +142,10 @@ impl<'a> UserInfoService<'a> {
             }
             Err(e) => {
                 warn!(
-                    "[{}] Failed to get updated balance: {}, using pre-check-in balance",
+                    "[{}] Failed to get updated balance: {}; keeping the confirmed reward without writing a stale snapshot",
                     account_name, e
                 );
-                (initial_user_info, SetCookieResult::default())
+                (None, SetCookieResult::default())
             }
         }
     }

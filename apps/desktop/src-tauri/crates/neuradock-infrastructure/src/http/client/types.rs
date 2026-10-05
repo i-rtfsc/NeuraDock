@@ -47,6 +47,9 @@ pub struct UserInfo {
 pub struct CheckInResult {
     pub success: bool,
     pub message: String,
+    /// Reward explicitly reported by the check-in response, in dollars.
+    #[serde(default)]
+    pub reward: Option<f64>,
 }
 
 /// Extract domain from URL (including port if present)

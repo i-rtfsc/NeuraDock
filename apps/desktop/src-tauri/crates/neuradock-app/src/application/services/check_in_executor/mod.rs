@@ -17,6 +17,9 @@ mod types;
 mod validation;
 mod waf_handler;
 
+#[cfg(test)]
+mod tests;
+
 pub use types::AccountCheckInResult;
 
 /// Check-in executor service
@@ -116,6 +119,18 @@ impl CheckInExecutor {
             all_set_cookies.session_expires_at = checkin_set_cookies.session_expires_at;
         }
 
+        // Commit the confirmed reward before waiting for any balance request.
+        // Agent usage, stale snapshots and refreshes cannot change this ledger.
+        if check_in_result.success {
+            if let Some(service) = &self.balance_history_service {
+                let (reward, source) = confirmed_reward(provider, &check_in_result);
+                service
+                    .save_check_in_reward(account_id, chrono::Utc::now(), reward, source)
+                    .await
+                    .context("Check-in succeeded, but saving its reward failed")?;
+            }
+        }
+
         // 5. Fetch updated balance after successful check-in
         let user_info_service = self.create_user_info_service();
         let (final_user_info, balance_set_cookies) = balance::fetch_updated_balance_after_check_in(
@@ -181,7 +196,9 @@ impl CheckInExecutor {
         let balance = crate::application::dtos::BalanceDto {
             current_balance: user_info.current_balance,
             total_consumed: user_info.total_consumed,
-            total_quota: user_info.total_quota,
+            // The scheduler calls this path directly, so it must apply the
+            // same correction as manual check-ins and balance refreshes.
+            total_quota: account.adjusted_total_quota(user_info.total_quota),
         };
         if let Err(e) = service
             .save_balance_history(account.id().as_str(), &balance)
@@ -284,8 +301,9 @@ impl CheckInExecutor {
             );
             return (
                 CheckInResult {
-                    success: true,
-                    message: "Provider does not require explicit check-in".to_string(),
+                    success: false,
+                    message: "Provider has no endpoint that confirms check-in".to_string(),
+                    reward: None,
                 },
                 SetCookieResult::default(),
             );
@@ -407,5 +425,31 @@ impl CheckInExecutor {
                 e
             );
         }
+    }
+}
+
+fn confirmed_reward(provider: &Provider, result: &CheckInResult) -> (Option<f64>, &'static str) {
+    if let Some(reward) = result.reward {
+        return (Some(reward), "provider_response");
+    }
+    match fixed_reward(provider) {
+        Some(reward) => (Some(reward), "provider_rule"),
+        None => (None, "confirmed_unknown"),
+    }
+}
+
+pub(super) fn fixed_reward(provider: &Provider) -> Option<f64> {
+    // These two providers' fixed daily grant was confirmed by the user.
+    // Match both identity and host; custom providers are not assumed to pay 25.
+    let host = url::Url::parse(provider.domain())
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned));
+    if matches!(
+        (provider.id().as_str(), host.as_deref()),
+        ("anyrouter", Some("anyrouter.top")) | ("agentrouter", Some("agentrouter.org"))
+    ) {
+        Some(25.0)
+    } else {
+        None
     }
 }

@@ -98,6 +98,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
             proxy_url,
         )
         .to_infra_err()?
+        .with_balance_history(self.balance_history_service.clone())
         .with_waf_cookies_repo(self.waf_cookies_repo.clone());
 
         // Execute check-in
@@ -147,8 +148,7 @@ impl CommandHandler<ExecuteCheckInCommand> for ExecuteCheckInCommandHandler {
         };
 
         // Send notification if service is available
-        let balance_tuple = result
-            .user_info
+        let balance_tuple = balance_dto
             .as_ref()
             .map(|info| (info.current_balance, info.total_consumed, info.total_quota));
 

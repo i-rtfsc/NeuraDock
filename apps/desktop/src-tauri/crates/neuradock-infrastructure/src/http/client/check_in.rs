@@ -173,10 +173,7 @@ impl super::HttpClient {
             );
 
             // Updated success check to handle more cases
-            let success = ret_value == Some(1)
-                || code_value == Some(0)
-                || code_value == Some(200)
-                || success_value == Some(true);
+            let success = confirmed_success(&data);
 
             let message = if success {
                 data["msg"]
@@ -195,22 +192,88 @@ impl super::HttpClient {
                 error_msg.to_string()
             };
 
-            Ok((CheckInResult { success, message }, set_cookie_result))
+            let reward = if success { parse_reward(&data) } else { None };
+            Ok((
+                CheckInResult {
+                    success,
+                    message,
+                    reward,
+                },
+                set_cookie_result,
+            ))
         } else {
             log::warn!("Failed to parse as JSON, raw response: {}", text);
 
-            // If not JSON, check if response contains "success"
-            let success = text.to_lowercase().contains("success");
-            let message = if success {
-                "Check-in successful".to_string()
-            } else {
-                format!(
-                    "Check-in failed: Invalid response format. Response: {}",
-                    crate::logging::log_utils::truncate_for_log(&text, 100)
-                )
-            };
+            // A page containing the word "success" is not a confirmed reward.
+            let success = false;
+            let message = "Check-in could not be confirmed: invalid response format".to_string();
 
-            Ok((CheckInResult { success, message }, set_cookie_result))
+            Ok((
+                CheckInResult {
+                    success,
+                    message,
+                    reward: None,
+                },
+                set_cookie_result,
+            ))
         }
+    }
+}
+
+fn confirmed_success(data: &serde_json::Value) -> bool {
+    if let Some(success) = data["success"].as_bool() {
+        return success;
+    }
+    if let Some(ret) = data["ret"].as_i64() {
+        return ret == 1;
+    }
+    matches!(data["code"].as_i64(), Some(0 | 200))
+}
+
+fn parse_reward(data: &serde_json::Value) -> Option<f64> {
+    let dollars = data
+        .pointer("/data/reward_dollars")
+        .or_else(|| data.get("reward_dollars"))
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| {
+            data.pointer("/data/quota_awarded")
+                .or_else(|| data.get("quota_awarded"))
+                .and_then(serde_json::Value::as_f64)
+                .map(|units| units / 500_000.0)
+        })?;
+    (dollars.is_finite() && (0.0..=1e12).contains(&dollars))
+        .then_some((dollars * 100.0).round() / 100.0)
+}
+
+#[cfg(test)]
+mod reward_tests {
+    use super::{confirmed_success, parse_reward};
+    use serde_json::json;
+
+    #[test]
+    fn an_explicit_failure_is_not_overridden_by_a_success_shaped_status_code() {
+        assert!(!confirmed_success(&json!({"success":false,"code":200})));
+        assert!(!confirmed_success(&json!({"ret":0,"code":0})));
+        assert!(!confirmed_success(&json!({"message":"success"})));
+        assert!(confirmed_success(&json!({"success":true})));
+        assert!(confirmed_success(&json!({"ret":1})));
+    }
+
+    #[test]
+    fn parses_explicit_rewards_without_mistaking_account_balance_for_reward() {
+        assert_eq!(
+            parse_reward(&json!({"data":{"quota_awarded":12_500_000}})),
+            Some(25.0)
+        );
+        assert_eq!(
+            parse_reward(&json!({"data":{"reward_dollars":2.5}})),
+            Some(2.5)
+        );
+        assert_eq!(
+            parse_reward(&json!({"data":{"quota":12_500_000,"used_quota":42}})),
+            None
+        );
+        assert_eq!(parse_reward(&json!({"data":{"quota_awarded":-1}})), None);
+        assert_eq!(parse_reward(&json!({"message":"success"})), None);
     }
 }

@@ -160,8 +160,21 @@ impl NotificationService {
         account_id: &str,
         account_name: &str,
         provider_name: &str,
-        balance: Option<(f64, f64, f64)>, // (current_balance, total_consumed, total_quota)
+        balance: Option<(f64, f64, f64)>,
     ) -> Result<()> {
+        let message = self
+            .build_check_in_success_message(account_id, account_name, provider_name, balance)
+            .await?;
+        self.send_to_all(&message).await
+    }
+
+    pub async fn build_check_in_success_message(
+        &self,
+        account_id: &str,
+        account_name: &str,
+        provider_name: &str,
+        balance: Option<(f64, f64, f64)>, // (current_balance, total_consumed, total_quota)
+    ) -> Result<NotificationMessage> {
         let yesterday_balance = self.get_yesterday_balance(account_id).await;
         let now = chrono::Local::now();
         let time_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -265,9 +278,25 @@ impl NotificationService {
             )
         };
 
-        let message = NotificationMessage::new(t("notification.checkIn.success.title"), content);
-
-        self.send_to_all(&message).await
+        let today = self
+            .balance_history_repo
+            .find_daily_summary(&AccountId::from_string(account_id), Utc::now().date_naive())
+            .await?;
+        let reward = today
+            .filter(|day| day.is_checked_in() && !day.reward_is_estimate())
+            .and_then(|day| day.check_in_reward());
+        let reward_text = reward
+            .map(|value| format!("${value:.2}"))
+            .unwrap_or_else(|| t("notification.label.rewardUnknown"));
+        Ok(NotificationMessage::new(
+            t("notification.checkIn.success.title"),
+            format!(
+                "{}: {}\n\n{}",
+                t("notification.label.checkInReward"),
+                reward_text,
+                content
+            ),
+        ))
     }
 
     /// Send check-in failure notification

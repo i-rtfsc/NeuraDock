@@ -3,6 +3,49 @@ use serde::{Deserialize, Serialize};
 
 use crate::shared::{AccountId, DomainError};
 
+#[derive(Debug, Clone)]
+pub struct CheckInRecord {
+    pub account_id: AccountId,
+    pub check_in_date: NaiveDate,
+    pub reward_cents: Option<i64>,
+    pub source: String,
+    pub recorded_at: DateTime<Utc>,
+}
+
+impl CheckInRecord {
+    pub fn new(
+        account_id: AccountId,
+        recorded_at: DateTime<Utc>,
+        reward: Option<f64>,
+        source: &str,
+    ) -> Result<Self, DomainError> {
+        if reward.is_some_and(|value| !value.is_finite() || !(0.0..=1e12).contains(&value)) {
+            return Err(DomainError::Validation(
+                "Invalid check-in reward".to_string(),
+            ));
+        }
+        if !matches!(
+            source,
+            "provider_response"
+                | "provider_rule"
+                | "confirmed_unknown"
+                | "legacy_estimate"
+                | "manual"
+        ) {
+            return Err(DomainError::Validation(
+                "Invalid check-in reward source".to_string(),
+            ));
+        }
+        Ok(Self {
+            account_id,
+            check_in_date: recorded_at.date_naive(),
+            reward_cents: reward.map(|value| (value * 100.0).round() as i64),
+            source: source.to_string(),
+            recorded_at,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BalanceHistoryRecord {
     id: String,
@@ -102,6 +145,8 @@ pub struct BalanceHistoryDailySummary {
     daily_total_quota: f64,
     daily_balance: f64,
     daily_consumed: f64,
+    check_in_reward: Option<f64>,
+    check_in_source: Option<String>,
 }
 
 impl BalanceHistoryDailySummary {
@@ -132,6 +177,8 @@ impl BalanceHistoryDailySummary {
             daily_total_quota,
             daily_balance,
             daily_consumed,
+            check_in_reward: None,
+            check_in_source: None,
         })
     }
 
@@ -146,7 +193,27 @@ impl BalanceHistoryDailySummary {
             daily_total_quota,
             daily_balance,
             daily_consumed,
+            check_in_reward: None,
+            check_in_source: None,
         }
+    }
+
+    pub fn with_check_in(mut self, reward: Option<f64>, source: Option<String>) -> Self {
+        self.check_in_reward = reward;
+        self.check_in_source = source;
+        self
+    }
+
+    pub fn is_checked_in(&self) -> bool {
+        self.check_in_source.is_some()
+    }
+
+    pub fn check_in_reward(&self) -> Option<f64> {
+        self.check_in_reward
+    }
+
+    pub fn reward_is_estimate(&self) -> bool {
+        self.check_in_source.as_deref() == Some("legacy_estimate")
     }
 
     pub fn check_in_date(&self) -> NaiveDate {

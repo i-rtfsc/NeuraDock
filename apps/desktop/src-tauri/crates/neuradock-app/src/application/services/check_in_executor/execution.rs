@@ -17,8 +17,10 @@ pub async fn execute_page_visit_check_in(
             info!("[{}] Check-in page visited successfully!", account_name);
             (
                 CheckInResult {
-                    success: true,
-                    message: "Check-in page visited successfully".to_string(),
+                    success: false,
+                    message: "Page visited, but the provider has not confirmed check-in"
+                        .to_string(),
+                    reward: None,
                 },
                 set_cookies,
             )
@@ -60,6 +62,7 @@ pub fn create_error_result(message: &str) -> CheckInResult {
     CheckInResult {
         success: false,
         message: message.to_string(),
+        reward: None,
     }
 }
 

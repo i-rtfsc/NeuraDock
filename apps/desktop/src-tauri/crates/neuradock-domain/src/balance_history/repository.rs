@@ -1,11 +1,15 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 
-use super::{BalanceHistoryDailySummary, BalanceHistoryRecord};
+use super::{BalanceHistoryDailySummary, BalanceHistoryRecord, CheckInRecord};
 use crate::shared::{AccountId, DomainError};
 
 #[async_trait]
 pub trait BalanceHistoryRepository: Send + Sync {
+    /// Persist a confirmed reward independently of balance refreshes.
+    /// Returns true when inserted or when a legacy/unknown record was upgraded.
+    async fn save_check_in(&self, record: &CheckInRecord) -> Result<bool, DomainError>;
+
     /// Save (upsert) a balance history record.
     ///
     /// Callers can enforce domain rules such as "one record per day" by

@@ -82,6 +82,7 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
             proxy_url,
         )
         .to_infra_err()?
+        .with_balance_history(self.balance_history_service.clone())
         .with_waf_cookies_repo(self.waf_cookies_repo.clone());
 
         for account_id in cmd.account_ids {
@@ -193,13 +194,12 @@ impl CommandHandler<BatchExecuteCheckInCommand> for BatchExecuteCheckInCommandHa
                         result.user_info.as_ref().map(|info| BalanceDto {
                             current_balance: info.current_balance,
                             total_consumed: info.total_consumed,
-                            total_quota: info.total_quota,
+                            total_quota: account.adjusted_total_quota(info.total_quota),
                         })
                     };
 
                     // Send notification if service is available
-                    let balance_tuple = result
-                        .user_info
+                    let balance_tuple = balance_dto
                         .as_ref()
                         .map(|info| (info.current_balance, info.total_consumed, info.total_quota));
 
