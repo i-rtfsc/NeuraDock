@@ -26,18 +26,13 @@ pub async fn setup_in_memory_db() -> (SqlitePool, Arc<EncryptionService>) {
         let path = entry.path();
         if path.is_file() {
             let sql = fs::read_to_string(&path).expect("read migration file");
-            // Execute SQL content (may contain multiple statements)
-            // Split by ';' and execute non-empty statements to avoid driver issues
-            for stmt in sql.split(';') {
-                let s = stmt.trim();
-                if s.is_empty() {
-                    continue;
-                }
-                sqlx::query(s)
-                    .execute(&pool)
-                    .await
-                    .expect("apply migration stmt");
-            }
+            // Run the whole file the way `sqlx::migrate!` does. Splitting on ';'
+            // broke as soon as a comment or a string literal contained a
+            // semicolon, which is a trap for migration authors.
+            sqlx::raw_sql(&sql)
+                .execute(&pool)
+                .await
+                .unwrap_or_else(|e| panic!("apply migration {}: {e}", path.display()));
         }
     }
 
