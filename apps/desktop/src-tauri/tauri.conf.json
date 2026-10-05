@@ -30,6 +30,7 @@
           "permissions": [
             "core:default",
             "core:app:allow-set-app-theme",
+            "core:window:allow-show",
             "core:window:allow-set-theme",
             "core:window:allow-start-dragging",
             "notification:default",

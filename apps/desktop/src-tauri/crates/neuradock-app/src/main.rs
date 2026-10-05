@@ -12,7 +12,7 @@ use presentation::commands::gateway::GatewayState;
 use presentation::ipc;
 use presentation::state::{AppState, CommandHandlers, Queries, Repositories, Services};
 use std::time::Instant;
-use tauri::{LogicalSize, Manager, Size, WindowEvent};
+use tauri::{webview::PageLoadEvent, LogicalSize, Manager, Size, WindowEvent};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 const DEFAULT_WIDTH: f64 = 1200.0;
@@ -65,6 +65,21 @@ async fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {
+                // Hidden WKWebViews can pause requestAnimationFrame, so the native
+                // page-load event must reveal the window without waiting for a paint.
+                if let Err(error) = webview.window().show() {
+                    tracing::error!("Failed to show the main window: {}", error);
+                } else {
+                    // On macOS, showing a window alone does not activate its app.
+                    if let Err(error) = webview.window().set_focus() {
+                        tracing::warn!("Failed to focus the main window: {}", error);
+                    }
+                    tracing::info!("Main window shown after page load");
+                }
+            }
+        })
         .on_window_event(|window, event| match event {
             WindowEvent::Resized(size) => {
                 let width = size.width as f64;
