@@ -55,6 +55,9 @@ fn build_commands(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<String> {
+    if let Some(model) = model {
+        super::helpers::validate_codex_model(model)?;
+    }
     let mut config = toml_edit::DocumentMut::new();
     apply_provider_config(
         &mut config,
@@ -64,6 +67,7 @@ fn build_commands(
         model,
         context_1m,
     );
+    super::helpers::apply_bearer_token(&mut config, api_key);
     let auth = serde_json::to_string_pretty(&json!({
         "OPENAI_API_KEY": ensure_sk_prefix(api_key),
     }))?;

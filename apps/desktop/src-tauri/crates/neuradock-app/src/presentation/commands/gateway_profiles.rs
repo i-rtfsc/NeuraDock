@@ -153,12 +153,16 @@ pub(super) fn list_claude_profiles() -> Result<Vec<AgentProfileDto>, CommandErro
         })? {
             let entry = entry.map_err(|e| CommandError::infrastructure(e.to_string()))?;
             let name = entry.file_name().to_string_lossy().into_owned();
-            if let Some(slug) = name
-                .strip_prefix("settings-")
-                .and_then(|v| v.strip_suffix(".json"))
-            {
+            if let Some(stem) = name.strip_suffix(".json") {
+                let slug = stem.strip_prefix("settings-").unwrap_or(stem);
                 if !slug.is_empty() && entry.path().is_file() {
-                    paths.push(("isolated".into(), Some(slug.into()), entry.path()));
+                    let path = service.isolated_path(slug).map_err(CommandError::from)?;
+                    if !paths
+                        .iter()
+                        .any(|(_, existing, _)| existing.as_deref() == Some(slug))
+                    {
+                        paths.push(("isolated".into(), Some(slug.into()), path));
+                    }
                 }
             }
         }
@@ -186,6 +190,8 @@ pub(super) fn list_claude_profiles() -> Result<Vec<AgentProfileDto>, CommandErro
                 credential_present: fp.credential_present,
                 managed: false,
                 account_label: None,
+                provider_label: None,
+                models: Vec::new(),
                 gateway_enabled: false,
                 method: None,
             })

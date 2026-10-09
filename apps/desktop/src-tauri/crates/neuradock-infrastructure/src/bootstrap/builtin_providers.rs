@@ -24,6 +24,7 @@ struct BuiltinProviderConfig {
     name: String,
     domain: String,
     default_nodes: Option<Vec<BuiltinProviderNodeConfig>>,
+    retired_nodes: Option<Vec<String>>,
     legacy_ids: Option<Vec<String>>,
     login_path: String,
     sign_in_path: Option<String>,
@@ -279,10 +280,25 @@ pub async fn seed_builtin_providers(
     if has_default_nodes {
         let existing_nodes = custom_node_repo.find_all().await?;
         for node in existing_nodes {
+            if configs.iter().any(|config| {
+                config.id == node.provider_id().as_str()
+                    && config.retired_nodes.as_ref().is_some_and(|urls| {
+                        urls.iter()
+                            .any(|url| normalize_domain(url) == normalize_domain(node.base_url()))
+                    })
+            }) {
+                custom_node_repo.delete(node.id()).await?;
+                info!(
+                    "Removed retired node for {}: {}",
+                    node.provider_id(),
+                    node.base_url()
+                );
+                continue;
+            }
             base_urls_by_provider
                 .entry(node.provider_id().clone())
                 .or_default()
-                .insert(node.base_url().to_string());
+                .insert(normalize_domain(node.base_url()));
         }
     }
 
@@ -332,10 +348,10 @@ pub async fn seed_builtin_providers(
                 .or_default();
 
             for node in default_nodes.iter() {
-                if node.base_url == config.domain {
+                if normalize_domain(&node.base_url) == normalize_domain(&config.domain) {
                     continue;
                 }
-                if !base_urls.insert(node.base_url.clone()) {
+                if !base_urls.insert(normalize_domain(&node.base_url)) {
                     continue;
                 }
 

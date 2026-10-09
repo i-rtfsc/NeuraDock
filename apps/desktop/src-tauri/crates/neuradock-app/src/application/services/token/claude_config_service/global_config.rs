@@ -155,6 +155,7 @@ pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
         ));
     }
     fs::remove_file(&path).with_context(|| format!("Failed to remove {}", path.display()))?;
+    remove_backup(&path)?;
     Ok(format!(
         "Removed isolated Claude Code config: {}",
         path.display()

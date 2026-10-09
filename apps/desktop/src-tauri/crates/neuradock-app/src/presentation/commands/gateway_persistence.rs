@@ -28,6 +28,10 @@ pub(super) struct BindingMeta {
 pub(super) struct IsolatedTarget {
     pub(super) slug: String,
     pub(super) display: String,
+    #[serde(default)]
+    pub(super) models: Vec<String>,
+    #[serde(default)]
+    pub(super) restore_direct: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -18,6 +18,23 @@ pub(super) const GENERIC_PROVIDER_NAME: &str = "OpenAI Compatible API";
 /// Fallback model written only when neither the caller nor the existing
 /// config supplies one, so Codex never points at a provider without a model.
 pub(super) const DEFAULT_MODEL: &str = "gpt-5";
+pub(super) const RELAY_PROVIDER_ID: &str = "3rd";
+
+pub(super) fn validate_codex_model(model: &str) -> Result<()> {
+    let normalized = model.trim().to_ascii_lowercase();
+    let alias = normalized.rsplit(['/', ':']).next().unwrap_or(&normalized);
+    let claude_alias = ["sonnet", "opus", "haiku"].iter().any(|prefix| {
+        alias == *prefix
+            || alias
+                .strip_prefix(prefix)
+                .is_some_and(|tail| tail.starts_with(['-', '_', '.']))
+    });
+    anyhow::ensure!(
+        !normalized.contains("claude") && !claude_alias,
+        "Claude models use the Anthropic protocol and cannot be configured for Codex"
+    );
+    Ok(())
+}
 
 pub(super) fn get_codex_dir() -> Result<PathBuf> {
     let home = dirs::home_dir().context("Cannot find home directory")?;
@@ -45,7 +62,7 @@ pub(super) fn sanitize_provider_slug(provider_id: &str) -> String {
     provider_id
         .chars()
         .map(|c| {
-            if c.is_ascii_alphanumeric() {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
                 c.to_ascii_lowercase()
             } else {
                 '_'
@@ -61,6 +78,12 @@ pub(super) fn ensure_v1_base_url(base_url: &str) -> String {
     } else {
         format!("{}/v1", trimmed)
     }
+}
+
+pub(super) fn apply_bearer_token(doc: &mut toml_edit::DocumentMut, api_key: &str) {
+    let provider = &mut doc["model_providers"][RELAY_PROVIDER_ID];
+    provider["requires_openai_auth"] = toml_edit::value(false);
+    provider["experimental_bearer_token"] = toml_edit::value(ensure_sk_prefix(api_key));
 }
 
 /// Context window advertised to Codex when the 1M option is on.
@@ -88,7 +111,9 @@ pub(super) fn apply_provider_config(
             }
         }
     }
-    doc["model_provider"] = value(provider_slug);
+    // A shared provider identity keeps relay sessions available across profiles.
+    let _ = provider_slug;
+    doc["model_provider"] = value(RELAY_PROVIDER_ID);
     doc["preferred_auth_method"] = value("apikey");
 
     // model_context_window is a managed key: set on, removed when off, so a
@@ -109,7 +134,7 @@ pub(super) fn apply_provider_config(
     providers.set_implicit(true);
 
     let entry = providers
-        .entry(provider_slug)
+        .entry(RELAY_PROVIDER_ID)
         .or_insert(Item::Table(Table::new()));
     if !entry.is_table() {
         *entry = Item::Table(Table::new());
@@ -153,7 +178,7 @@ wire_api = "responses"
         assert!(out.contains("approval_policy = \"on-request\""));
         assert!(out.contains("[mcp_servers.docs]"));
         assert!(out.contains("[model_providers.other]"));
-        assert!(out.contains("model_provider = \"relay\""));
+        assert!(out.contains("model_provider = \"3rd\""));
         assert!(out.contains("base_url = \"https://relay.example/v1\""));
     }
 

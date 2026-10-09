@@ -3,7 +3,9 @@ use std::path::PathBuf;
 
 use super::helpers::{
     apply_provider_config, ensure_sk_prefix, get_codex_dir, sanitize_provider_slug,
+    RELAY_PROVIDER_ID,
 };
+use super::model_catalog::build_catalog;
 use neuradock_domain::token::ApiToken;
 use neuradock_infrastructure::fs_safe::{
     atomic_write, backup_file, backup_path_for, remove_backup,
@@ -14,6 +16,121 @@ pub(super) fn isolated_config_path(provider_slug: &str) -> Result<PathBuf> {
     Ok(get_codex_dir()?
         .join("profiles.d")
         .join(format!("{}.config.toml", provider_slug)))
+}
+
+pub(super) fn model_catalog_path(slug: &str) -> Result<PathBuf> {
+    Ok(get_codex_dir()?
+        .join("profiles.d")
+        .join(format!("{slug}.models.json")))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn preview_named_profile(
+    slug: &str,
+    display: &str,
+    key: &str,
+    base_url: &str,
+    model: &str,
+    models: &[String],
+) -> Result<Vec<(PathBuf, &'static str, String, String)>> {
+    let catalog_path = model_catalog_path(slug)?;
+    let catalog = build_catalog(models, model)?;
+    let mut config: toml_edit::DocumentMut =
+        build_isolated_config(slug, display, base_url, Some(model), false, key)?.parse()?;
+    config["model_catalog_json"] = toml_edit::value(catalog_path.to_string_lossy().as_ref());
+    let parsed: serde_json::Value = serde_json::from_str(&catalog)?;
+    let default_effort = parsed["models"]
+        .as_array()
+        .and_then(|models| {
+            models
+                .iter()
+                .find(|entry| entry["slug"].as_str() == Some(model))
+        })
+        .and_then(|entry| entry["default_reasoning_level"].as_str())
+        .unwrap_or("none");
+    config["model_reasoning_effort"] = toml_edit::value(default_effort);
+    // Let each catalog entry define its own reasoning/context behavior.
+    config.remove("model_context_window");
+    let config_path = isolated_config_path(slug)?;
+    let existing_path = if config_path.exists() {
+        config_path.clone()
+    } else {
+        isolated_alias_path(slug)?
+    };
+    let read = |path: &std::path::Path| -> Result<String> {
+        match std::fs::read_to_string(path) {
+            Ok(content) => Ok(content),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+            Err(error) => Err(error.into()),
+        }
+    };
+    Ok(vec![
+        (
+            config_path,
+            "toml",
+            read(&existing_path)?,
+            format!("# Managed by NeuraDock\n{}", config),
+        ),
+        (catalog_path.clone(), "json", read(&catalog_path)?, catalog),
+    ])
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn configure_named_profile(
+    slug: &str,
+    display: &str,
+    key: &str,
+    base_url: &str,
+    model: &str,
+    models: &[String],
+    snapshot_direct: bool,
+) -> Result<String> {
+    let files = preview_named_profile(slug, display, key, base_url, model, models)?;
+    let (config_path, alias_path) = prepare_isolated_paths(slug)?;
+    write_named_profile_files(&files, snapshot_direct)?;
+    Ok(format!(
+        "Profile command: codex -p {slug}\nConfig: {}\nModels: {}\nAlias: {}",
+        config_path.display(),
+        files[1].0.display(),
+        alias_path.display()
+    ))
+}
+
+fn write_named_profile_files(
+    files: &[(PathBuf, &'static str, String, String)],
+    snapshot_direct: bool,
+) -> Result<()> {
+    if snapshot_direct || !files[0].2.starts_with("# Managed by NeuraDock") {
+        for (path, _, _, _) in files {
+            if !backup_path_for(path)?.exists() {
+                backup_file(path)?;
+            }
+        }
+    }
+    let catalog = &files[1];
+    atomic_write(&catalog.0, &catalog.3, false)?;
+    if let Err(error) = atomic_write(&files[0].0, &files[0].3, true) {
+        if catalog.2.is_empty() {
+            let _ = std::fs::remove_file(&catalog.0);
+        } else {
+            let _ = atomic_write(&catalog.0, &catalog.2, false);
+        }
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub(super) fn discard_named_gateway_snapshot(slug: &str) -> Result<()> {
+    let config_path = isolated_config_path(slug)?;
+    let backup = backup_path_for(&config_path)?;
+    if std::fs::read_to_string(&backup)
+        .ok()
+        .is_some_and(|content| content.starts_with("# Managed by NeuraDock"))
+    {
+        remove_backup(&config_path)?;
+        remove_backup(&model_catalog_path(slug)?)?;
+    }
+    Ok(())
 }
 
 /// Codex `-p <slug>` only discovers `$CODEX_HOME/<slug>.config.toml`.
@@ -129,6 +246,12 @@ pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
     };
     let (config_path, _) = prepare_isolated_paths(&slug)?;
     let legacy_key_path = isolated_key_path(&slug)?;
+    let catalog_path = model_catalog_path(&slug)?;
+    let owns_catalog = std::fs::read_to_string(&config_path)
+        .ok()
+        .and_then(|content| content.parse::<toml_edit::DocumentMut>().ok())
+        .and_then(|doc| doc.get("model_catalog_json")?.as_str().map(str::to_string))
+        .is_some_and(|path| PathBuf::from(path) == catalog_path);
     let mut removed = Vec::new();
 
     let backup_path = backup_path_for(&config_path)?;
@@ -167,6 +290,17 @@ pub(super) fn clear_isolated_impl(slug_hint: &str) -> Result<String> {
         }
     }
 
+    let catalog_backup = backup_path_for(&catalog_path)?;
+    if owns_catalog && catalog_backup.exists() {
+        let original = std::fs::read_to_string(&catalog_backup)?;
+        serde_json::from_str::<serde_json::Value>(&original)?;
+        atomic_write(&catalog_path, &original, false)?;
+        remove_backup(&catalog_path)?;
+    } else if owns_catalog && catalog_path.exists() {
+        std::fs::remove_file(&catalog_path)?;
+        removed.push(catalog_path.display().to_string());
+    }
+
     if removed.is_empty() {
         Ok(format!("No isolated Codex config found for {slug}"))
     } else {
@@ -185,6 +319,9 @@ fn build_isolated_config(
     context_1m: bool,
     api_key: &str,
 ) -> Result<String> {
+    if let Some(model) = model {
+        super::helpers::validate_codex_model(model)?;
+    }
     let mut doc = toml_edit::DocumentMut::new();
     apply_provider_config(
         &mut doc,
@@ -204,7 +341,7 @@ fn build_isolated_config(
             .and_then(|i| i.as_table_mut())
             .context("model_providers table missing")?;
         let entry = providers
-            .get_mut(provider_slug)
+            .get_mut(RELAY_PROVIDER_ID)
             .and_then(|i| i.as_table_mut())
             .context("provider table missing")?;
 
@@ -440,12 +577,12 @@ mod tests {
         let doc: toml_edit::DocumentMut = toml.parse().unwrap();
         // Top-level uses the API key authentication method.
         assert_eq!(doc["model"].as_str(), Some("gpt-5.6-sol"));
-        assert_eq!(doc["model_provider"].as_str(), Some("agentrouter"));
+        assert_eq!(doc["model_provider"].as_str(), Some("3rd"));
         assert_eq!(doc["preferred_auth_method"].as_str(), Some("apikey"));
         assert!(doc.get("requires_openai_auth").is_none());
 
         // Provider table carries the credential directly and has no auth command.
-        let provider = doc["model_providers"]["agentrouter"].as_table().unwrap();
+        let provider = doc["model_providers"]["3rd"].as_table().unwrap();
         assert_eq!(
             provider["base_url"].as_str(),
             Some("https://relay.example/v1")
@@ -462,5 +599,66 @@ mod tests {
     fn isolated_config_uses_profiles_directory() {
         let path = isolated_config_path("agentrouter").unwrap();
         assert!(path.ends_with(".codex/profiles.d/agentrouter.config.toml"));
+    }
+
+    #[test]
+    fn gateway_snapshot_preserves_both_direct_files_across_repeated_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("any-qq.config.toml");
+        let catalog = dir.path().join("any-qq.models.json");
+        let direct = "# Managed by NeuraDock\nmodel = \"direct-model\"\n";
+        let direct_models = r#"{"models":[{"slug":"direct-model"}]}"#;
+        atomic_write(&config, direct, true).unwrap();
+        atomic_write(&catalog, direct_models, false).unwrap();
+        let files = vec![
+            (
+                config.clone(),
+                "toml",
+                direct.into(),
+                "# Managed by NeuraDock\nmodel = \"gateway-model\"\n".into(),
+            ),
+            (
+                catalog.clone(),
+                "json",
+                direct_models.into(),
+                r#"{"models":[{"slug":"gateway-model"}]}"#.into(),
+            ),
+        ];
+        write_named_profile_files(&files, true).unwrap();
+        write_named_profile_files(&files, true).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(backup_path_for(&config).unwrap()).unwrap(),
+            direct
+        );
+        assert_eq!(
+            std::fs::read_to_string(backup_path_for(&catalog).unwrap()).unwrap(),
+            direct_models
+        );
+    }
+
+    #[test]
+    fn failed_toml_write_restores_the_previous_model_catalog() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("blocked.config.toml");
+        std::fs::create_dir(&config).unwrap();
+        let catalog = dir.path().join("any-qq.models.json");
+        let previous = r#"{"models":[{"slug":"previous"}]}"#;
+        atomic_write(&catalog, previous, false).unwrap();
+        let files = vec![
+            (
+                config,
+                "toml",
+                "# Managed by NeuraDock".into(),
+                "new config".into(),
+            ),
+            (
+                catalog.clone(),
+                "json",
+                previous.into(),
+                "new catalog".into(),
+            ),
+        ];
+        assert!(write_named_profile_files(&files, false).is_err());
+        assert_eq!(std::fs::read_to_string(catalog).unwrap(), previous);
     }
 }

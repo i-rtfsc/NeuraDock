@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::State;
 
-use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
+use super::gateway_fingerprint::{
+    attach_catalog_fingerprint, catalog_path, claude_fingerprint, codex_fingerprint,
+    AgentConfigFingerprint,
+};
 use super::gateway_lifecycle::{apply_gateway_config, clear_gateway_config, takeover_for};
 use super::gateway_mapping::{
     access_source_of, binding_route, binding_source_input, client_for_agent, source_from_access,
@@ -194,6 +197,12 @@ pub struct AgentConfigPreviewRequestDto {
     pub context_1m: bool,
     #[serde(default)]
     pub isolated: bool,
+    #[serde(default)]
+    pub profile_slug: Option<String>,
+    #[serde(default)]
+    pub models: Vec<String>,
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -248,6 +257,8 @@ pub struct AgentProfileDto {
     pub credential_present: bool,
     pub managed: bool,
     pub account_label: Option<String>,
+    pub provider_label: Option<String>,
+    pub models: Vec<String>,
     pub gateway_enabled: bool,
     pub method: Option<AccessMethodDto>,
 }
@@ -277,6 +288,12 @@ pub struct GatewayBindingConfigDto {
     pub impersonate: Option<bool>,
     #[serde(default)]
     pub isolated: bool,
+    #[serde(default)]
+    pub profile_slug: Option<String>,
+    #[serde(default)]
+    pub models: Vec<String>,
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 #[tauri::command]
@@ -321,7 +338,15 @@ pub async fn set_gateway_profile_enabled(
                     "This Profile has no saved Gateway binding; edit and save it first.",
                 )
             })?;
-        let effective_model = GatewayBindingService::effective_model(meta.model.as_deref());
+        let effective_model = if meta
+            .isolated
+            .as_ref()
+            .is_some_and(|target| target.models.len() > 1)
+        {
+            None
+        } else {
+            GatewayBindingService::effective_model(meta.model.as_deref())
+        };
         let (upstream, _) = resolve_upstream(
             &binding_source_input(&meta.source),
             meta.kind.into(),
@@ -493,6 +518,8 @@ async fn isolated_target_for(
                     provider_id.clone()
                 },
                 display,
+                models: Vec::new(),
+                restore_direct: false,
             })
         }
         GatewaySourceDto::IndependentKey { key_id } => {
@@ -510,9 +537,302 @@ async fn isolated_target_for(
             Ok(IsolatedTarget {
                 slug,
                 display: key.name().to_string(),
+                models: Vec::new(),
+                restore_direct: false,
             })
         }
     }
+}
+
+fn validate_named_target(
+    slug: &str,
+    models: &[String],
+    model: Option<&str>,
+) -> Result<Vec<String>, CommandError> {
+    CodexConfigService::validate_profile_slug(slug).map_err(CommandError::from)?;
+    CodexConfigService::validate_profile_models(
+        models,
+        model.ok_or_else(|| CommandError::validation("Please select a default model"))?,
+    )
+    .map_err(CommandError::from)
+}
+
+async fn validate_named_model_permissions(
+    source: &GatewaySourceDto,
+    models: &[String],
+    services: &Services,
+) -> Result<(), CommandError> {
+    if let GatewaySourceDto::AccountToken {
+        account_id,
+        token_id,
+        ..
+    } = source
+    {
+        let tokens = services
+            .token
+            .get_cached_tokens(&AccountId::from_string(account_id))
+            .await
+            .map_err(CommandError::from)?;
+        let token = tokens
+            .iter()
+            .find(|token| token.id().value() == *token_id)
+            .ok_or_else(|| CommandError::not_found("Token not found"))?;
+        if token.model_limits_enabled() {
+            if let Some(limits) = token.model_limits() {
+                if models.iter().any(|model| {
+                    limits.denied.contains(model)
+                        || (!limits.allowed.is_empty() && !limits.allowed.contains(model))
+                }) {
+                    return Err(CommandError::validation(
+                        "The selected key does not allow all selected models",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn ensure_profile_available(
+    client: GatewayClientDto,
+    slug: &str,
+    overwrite: bool,
+    access: &AgentAccessState,
+) -> Result<(), CommandError> {
+    let path = match client {
+        GatewayClientDto::Codex => CodexConfigService::isolated_path(slug),
+        GatewayClientDto::ClaudeCode => ClaudeConfigService::new().isolated_path(slug),
+    }
+    .map_err(CommandError::from)?;
+    let alias = path
+        .parent()
+        .and_then(|parent| parent.parent())
+        .unwrap_or(&path)
+        .join(format!("{slug}.config.toml"));
+    let record = access.get_profile(client.into(), Some(slug));
+    if !overwrite
+        && (record.is_some()
+            || path.exists()
+            || (client == GatewayClientDto::Codex && std::fs::symlink_metadata(&alias).is_ok()))
+    {
+        return Err(CommandError::validation(
+            "This profile name already exists. Please use a different account suffix.",
+        ));
+    }
+    Ok(())
+}
+
+async fn preview_codex_named(
+    source: &GatewaySourceDto,
+    slug: &str,
+    model: &str,
+    models: &[String],
+    gateway: Option<(&str, &str)>,
+    services: &Services,
+    repositories: &Repositories,
+) -> Result<Vec<RawPreviewFile>, CommandError> {
+    let target = isolated_target_for(GatewayClientDto::Codex, source, repositories).await?;
+    let (upstream, _) = resolve_upstream(
+        &binding_source_input(source),
+        UpstreamKind::OpenAiResponses,
+        None,
+        false,
+        services,
+        repositories,
+    )
+    .await?;
+    let (base_url, key) = gateway.unwrap_or((&upstream.base_url, &upstream.api_key));
+    services
+        .codex_config
+        .preview_named_profile(slug, &target.display, key, base_url, model, models)
+        .map_err(CommandError::from)
+}
+
+/// Save a named Codex profile and its account association together.
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_codex_profile(
+    request: AgentConfigPreviewRequestDto,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    if request.client != GatewayClientDto::Codex {
+        return Err(CommandError::validation("Expected a Codex profile"));
+    }
+    configure_named_agent_profile(request, app, state, access, services, repositories).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_claude_profile(
+    request: AgentConfigPreviewRequestDto,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    if request.client != GatewayClientDto::ClaudeCode {
+        return Err(CommandError::validation("Expected a Claude Code profile"));
+    }
+    configure_named_agent_profile(request, app, state, access, services, repositories).await
+}
+
+async fn configure_named_agent_profile(
+    request: AgentConfigPreviewRequestDto,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+    repositories: State<'_, Repositories>,
+) -> Result<String, CommandError> {
+    if !request.isolated || request.method != AccessMethodDto::Direct {
+        return Err(CommandError::validation(
+            "This command requires a direct named profile",
+        ));
+    }
+    let slug = request
+        .profile_slug
+        .as_deref()
+        .ok_or_else(|| CommandError::validation("A profile name is required"))?;
+    let client = request.client;
+    let gateway_client: GatewayClient = client.into();
+    CodexConfigService::validate_profile_slug(slug).map_err(CommandError::from)?;
+    let models = if client == GatewayClientDto::Codex {
+        validate_named_target(slug, &request.models, request.model.as_deref())?
+    } else {
+        if request.context_1m && request.model.is_none() {
+            return Err(CommandError::validation("1M context requires a model"));
+        }
+        request.model.iter().cloned().collect()
+    };
+    validate_named_model_permissions(&request.source, &models, &services).await?;
+    let _operation = state.operation_lock(gateway_client).lock().await;
+    ensure_profile_available(client, slug, request.overwrite, &access)?;
+    let target = isolated_target_for(request.client, &request.source, &repositories).await?;
+    let (upstream, label) = resolve_upstream(
+        &binding_source_input(&request.source),
+        UpstreamKind::OpenAiResponses,
+        None,
+        false,
+        &services,
+        &repositories,
+    )
+    .await?;
+    let account_label = match &request.source {
+        GatewaySourceDto::AccountToken { account_id, .. } => repositories
+            .account
+            .find_by_id(&AccountId::from_string(account_id))
+            .await
+            .map_err(CommandError::from)?
+            .map(|account| account.name().to_string()),
+        _ => None,
+    };
+    let (preview, result) = if client == GatewayClientDto::Codex {
+        let model = request.model.as_deref().unwrap();
+        let preview = services
+            .codex_config
+            .preview_named_profile(
+                slug,
+                &target.display,
+                &upstream.api_key,
+                &upstream.base_url,
+                model,
+                &models,
+            )
+            .map_err(CommandError::from)?;
+        let result = services
+            .codex_config
+            .configure_named_profile(
+                slug,
+                &target.display,
+                &upstream.api_key,
+                &upstream.base_url,
+                model,
+                &models,
+                false,
+            )
+            .map_err(CommandError::from)?;
+        (preview, result)
+    } else {
+        let (path, previous, next) = services
+            .claude_config
+            .preview_isolated_with_key(
+                slug,
+                &upstream.api_key,
+                &upstream.base_url,
+                request.model.as_deref(),
+                request.context_1m,
+            )
+            .map_err(CommandError::from)?;
+        let result = services
+            .claude_config
+            .configure_isolated_with_key(
+                slug,
+                &upstream.api_key,
+                &upstream.base_url,
+                request.model.as_deref(),
+                request.context_1m,
+            )
+            .map_err(CommandError::from)?;
+        (vec![(path, "json", previous, next)], result)
+    };
+    let route = binding_route(gateway_client, Some(slug));
+    let old_upstream = state.bindings.read().await.get(&route).cloned();
+    let old_meta = state.meta.lock().await.get(&route).cloned();
+    let saved = drop_gateway_binding_for_direct_locked(&app, &state, gateway_client, Some(slug))
+        .await
+        .and_then(|_| {
+            access.set(
+                &app,
+                AgentAccessDto {
+                    agent: client.into(),
+                    method: AccessMethodDto::Direct,
+                    label,
+                    account_label,
+                    provider_label: Some(target.display),
+                    models,
+                    model: request.model,
+                    upstream_kind: None,
+                    impersonate: None,
+                    source: Some(access_source_of(&request.source)),
+                    context1m: Some(client == GatewayClientDto::ClaudeCode && request.context_1m),
+                    isolated_slug: Some(slug.to_string()),
+                },
+            )
+        });
+    if let Err(error) = saved {
+        restore_binding_memory(&state, route, old_upstream, old_meta).await;
+        let _ = write_bindings(&app, &state).await;
+        if !request.overwrite {
+            match client {
+                GatewayClientDto::Codex => {
+                    let _ = services.codex_config.clear_isolated(slug);
+                }
+                GatewayClientDto::ClaudeCode => {
+                    let _ = services.claude_config.clear_isolated(slug);
+                }
+            }
+        } else {
+            for (path, _, previous, _) in preview {
+                if previous.is_empty() {
+                    let _ = fs::remove_file(path);
+                } else {
+                    let _ = neuradock_infrastructure::fs_safe::atomic_write(&path, &previous, true);
+                }
+            }
+        }
+        return Err(error);
+    }
+    if client == GatewayClientDto::Codex {
+        if let Err(error) = services.codex_config.discard_named_gateway_snapshot(slug) {
+            log::warn!("Failed to remove retired Codex gateway snapshot for {slug}: {error}");
+        }
+    }
+    Ok(result)
 }
 
 /// Read the config a tool is actually running with. `isolated_slug` selects the
@@ -550,7 +870,7 @@ pub(super) fn read_agent_fingerprint(
             )
         }
         GatewayClientDto::Codex => {
-            let (config_path, auth_path) = if let Some(slug) = isolated_slug {
+            let (mut config_path, auth_path) = if let Some(slug) = isolated_slug {
                 (
                     CodexConfigService::isolated_path(slug).map_err(CommandError::from)?,
                     None,
@@ -560,6 +880,16 @@ pub(super) fn read_agent_fingerprint(
                     CodexConfigService::managed_paths().map_err(CommandError::from)?;
                 (config_path, Some(auth_path))
             };
+            if let Some(slug) = isolated_slug {
+                if !config_path.exists() {
+                    if let Some(dir) = config_path.parent().and_then(|parent| parent.parent()) {
+                        let alias = dir.join(format!("{slug}.config.toml"));
+                        if alias.exists() {
+                            config_path = alias;
+                        }
+                    }
+                }
+            }
             let config_content = if config_path.exists() {
                 fs::read_to_string(&config_path).map_err(|error| {
                     CommandError::infrastructure(format!(
@@ -584,15 +914,17 @@ pub(super) fn read_agent_fingerprint(
                 paths.push(path);
             }
             let fallback_paths = paths.clone();
-            Ok(
-                codex_fingerprint(&config_content, &auth_content, paths).unwrap_or_else(|_| {
-                    AgentConfigFingerprint {
-                        parse_ok: false,
-                        paths: fallback_paths,
-                        ..Default::default()
-                    }
-                }),
-            )
+            let mut fingerprint = codex_fingerprint(&config_content, &auth_content, paths)
+                .unwrap_or_else(|_| AgentConfigFingerprint {
+                    parse_ok: false,
+                    paths: fallback_paths,
+                    ..Default::default()
+                });
+            if let Some(path) = catalog_path(&config_content) {
+                let content = fs::read_to_string(&path).ok();
+                attach_catalog_fingerprint(&mut fingerprint, path, content.as_deref());
+            }
+            Ok(fingerprint)
         }
     }
 }
@@ -631,6 +963,62 @@ async fn expected_fingerprint(
     let client = client_for_agent(record.agent);
     let context1m = record.context1m.unwrap_or(false);
     let isolated_slug = record.isolated_slug.as_deref();
+    if client == GatewayClientDto::ClaudeCode && record.method == AccessMethodDto::Direct {
+        if let Some(slug) = isolated_slug {
+            let source = record
+                .source
+                .as_ref()
+                .ok_or_else(|| CommandError::validation("Access source is missing"))?;
+            let (upstream, _) = resolve_upstream(
+                &binding_source_input(&source_from_access(source)),
+                UpstreamKind::Anthropic,
+                None,
+                false,
+                services,
+                repositories,
+            )
+            .await?;
+            let (path, current, next) = services
+                .claude_config
+                .preview_isolated_with_key(
+                    slug,
+                    &upstream.api_key,
+                    &upstream.base_url,
+                    record.model.as_deref(),
+                    context1m,
+                )
+                .map_err(CommandError::from)?;
+            return fingerprint_from_preview(client, &[(path, "json", current, next)]).map(Some);
+        }
+    }
+    if client == GatewayClientDto::Codex && isolated_slug.is_some() && !record.models.is_empty() {
+        let source = record
+            .source
+            .as_ref()
+            .ok_or_else(|| CommandError::validation("Access source is missing"))?;
+        let gateway = if record.method == AccessMethodDto::Gateway {
+            let (Some(base_url), Some(key)) = (gateway_base_url, gateway_credential) else {
+                return Ok(None);
+            };
+            Some((base_url, key))
+        } else {
+            None
+        };
+        let files = preview_codex_named(
+            &source_from_access(source),
+            isolated_slug.unwrap(),
+            record
+                .model
+                .as_deref()
+                .ok_or_else(|| CommandError::validation("Default model is missing"))?,
+            &record.models,
+            gateway,
+            services,
+            repositories,
+        )
+        .await?;
+        return fingerprint_from_preview(client, &files).map(Some);
+    }
     let files = match record.method {
         AccessMethodDto::Gateway => {
             let (Some(base_url), Some(credential)) = (gateway_base_url, gateway_credential) else {
@@ -833,6 +1221,12 @@ pub async fn get_agent_configuration_states(
                     context1m: item.context1m,
                     credential_present: item.credential_present,
                     managed: true,
+                    provider_label: None,
+                    models: item
+                        .slug
+                        .as_deref()
+                        .and_then(|slug| CodexConfigService::profile_models(slug).ok())
+                        .unwrap_or_default(),
                     account_label: profile_records
                         .iter()
                         .find(|record| {
@@ -900,6 +1294,30 @@ pub async fn get_agent_configuration_states(
         };
         let mut profiles = profiles;
         for profile in &mut profiles {
+            if let Some(record) = profile_records
+                .iter()
+                .find(|record| record.isolated_slug == profile.slug)
+            {
+                profile.provider_label = record.provider_label.clone();
+                if profile.models.is_empty() {
+                    profile.models = record.models.clone();
+                }
+            }
+            if profile.provider_label.is_none() {
+                if let Some(AgentAccessSourceDto::AccountToken { provider_id, .. }) =
+                    profile_records
+                        .iter()
+                        .find(|record| record.isolated_slug == profile.slug)
+                        .and_then(|record| record.source.as_ref())
+                {
+                    profile.provider_label = repositories
+                        .provider
+                        .find_by_id(&ProviderId::from_string(provider_id))
+                        .await
+                        .map_err(CommandError::from)?
+                        .map(|provider| provider.name().to_string());
+                }
+            }
             if profile.account_label.is_none() && profile.exists && profile.parse_ok {
                 profile.account_label =
                     match_profile_account(client, profile, &services, &repositories).await?;
@@ -954,37 +1372,115 @@ pub async fn get_agent_config_preview(
         .map(|handle| (handle.base_url(), handle.local_credential().to_string()));
     let gateway_running = gateway.is_some();
 
-    let raw_files = match request.method {
-        AccessMethodDto::Gateway => {
-            let preview_base_url = gateway
+    let raw_files = if request.client == GatewayClientDto::ClaudeCode
+        && request.isolated
+        && request.profile_slug.is_some()
+    {
+        let slug = request.profile_slug.as_deref().unwrap();
+        CodexConfigService::validate_profile_slug(slug).map_err(CommandError::from)?;
+        let (upstream, _) = resolve_upstream(
+            &binding_source_input(&request.source),
+            UpstreamKind::Anthropic,
+            None,
+            false,
+            &services,
+            &repositories,
+        )
+        .await?;
+        let url = format!(
+            "{}/profiles/{slug}",
+            gateway
                 .as_ref()
-                .map(|(base_url, _)| base_url.as_str())
-                .unwrap_or("http://127.0.0.1:<port>");
-            let preview_credential = gateway
-                .as_ref()
-                .map(|(_, credential)| credential.as_str())
-                .unwrap_or("sk-ndg-preview-credential");
-            preview_with_key(
-                request.client,
-                preview_credential,
-                preview_base_url,
-                request.model.as_deref(),
-                request.context_1m,
-                request.isolated,
-                &services,
-            )?
-        }
-        AccessMethodDto::Direct => {
-            preview_direct(
-                request.client,
-                &request.source,
-                request.model.as_deref(),
-                request.context_1m,
-                request.isolated,
-                &services,
-                &repositories,
+                .map(|(url, _)| url.as_str())
+                .unwrap_or("http://127.0.0.1:<port>")
+        );
+        let (base_url, key) = if request.method == AccessMethodDto::Gateway {
+            (
+                url.as_str(),
+                gateway
+                    .as_ref()
+                    .map(|(_, key)| key.as_str())
+                    .unwrap_or("sk-ndg-preview-credential"),
             )
-            .await?
+        } else {
+            (upstream.base_url.as_str(), upstream.api_key.as_str())
+        };
+        let (path, current, next) = services
+            .claude_config
+            .preview_isolated_with_key(
+                slug,
+                key,
+                base_url,
+                request.model.as_deref(),
+                request.context_1m,
+            )
+            .map_err(CommandError::from)?;
+        vec![(path, "json", current, next)]
+    } else if request.client == GatewayClientDto::Codex
+        && request.isolated
+        && request.profile_slug.is_some()
+    {
+        let slug = request
+            .profile_slug
+            .as_deref()
+            .ok_or_else(|| CommandError::validation("A profile name is required"))?;
+        let models = validate_named_target(slug, &request.models, request.model.as_deref())?;
+        let preview_url = format!(
+            "{}/profiles/{slug}",
+            gateway
+                .as_ref()
+                .map(|(url, _)| url.as_str())
+                .unwrap_or("http://127.0.0.1:<port>")
+        );
+        let credential = gateway
+            .as_ref()
+            .map(|(_, key)| key.as_str())
+            .unwrap_or("sk-ndg-preview-credential");
+        let gateway_target = (request.method == AccessMethodDto::Gateway)
+            .then_some((preview_url.as_str(), credential));
+        preview_codex_named(
+            &request.source,
+            slug,
+            request.model.as_deref().unwrap(),
+            &models,
+            gateway_target,
+            &services,
+            &repositories,
+        )
+        .await?
+    } else {
+        match request.method {
+            AccessMethodDto::Gateway => {
+                let preview_base_url = gateway
+                    .as_ref()
+                    .map(|(base_url, _)| base_url.as_str())
+                    .unwrap_or("http://127.0.0.1:<port>");
+                let preview_credential = gateway
+                    .as_ref()
+                    .map(|(_, credential)| credential.as_str())
+                    .unwrap_or("sk-ndg-preview-credential");
+                preview_with_key(
+                    request.client,
+                    preview_credential,
+                    preview_base_url,
+                    request.model.as_deref(),
+                    request.context_1m,
+                    request.isolated,
+                    &services,
+                )?
+            }
+            AccessMethodDto::Direct => {
+                preview_direct(
+                    request.client,
+                    &request.source,
+                    request.model.as_deref(),
+                    request.context_1m,
+                    request.isolated,
+                    &services,
+                    &repositories,
+                )
+                .await?
+            }
         }
     };
 
@@ -1196,7 +1692,26 @@ pub async fn set_gateway_binding(
     // Impersonation defaults on: the point of the gateway is to reach relays
     // that only admit recognised clients.
     let upstream_kind = config.upstream_kind;
+    if client == GatewayClientDto::Codex {
+        for model in config.model.iter().chain(config.models.iter()) {
+            CodexConfigService::validate_model(model).map_err(CommandError::from)?;
+        }
+    }
+    if let Some(slug) = config.profile_slug.as_deref().filter(|_| config.isolated) {
+        CodexConfigService::validate_profile_slug(slug).map_err(CommandError::from)?;
+    }
+    let named_models =
+        if client == GatewayClientDto::Codex && config.isolated && config.profile_slug.is_some() {
+            let slug = config
+                .profile_slug
+                .as_deref()
+                .ok_or_else(|| CommandError::validation("A profile name is required"))?;
+            validate_named_target(slug, &config.models, config.model.as_deref())?
+        } else {
+            Vec::new()
+        };
     let normalized = GatewayBindingService::normalize_config(GatewayBindingConfigInput {
+        // Multi-model catalogs are validated against the selected key below.
         model: config.model,
         context1m: config.context_1m,
         impersonate: config.impersonate,
@@ -1207,7 +1722,14 @@ pub async fn set_gateway_binding(
     let context1m = normalized.context1m;
     let impersonate = normalized.impersonate;
     let isolated_requested = normalized.isolated;
-    let effective_model = GatewayBindingService::effective_model(model.as_deref());
+    if !named_models.is_empty() {
+        validate_named_model_permissions(&source, &named_models, &services).await?;
+    }
+    let effective_model = if named_models.len() > 1 {
+        None
+    } else {
+        GatewayBindingService::effective_model(model.as_deref())
+    };
     let (upstream, label) = resolve_upstream(
         &binding_source_input(&source),
         upstream_kind.into(),
@@ -1217,14 +1739,30 @@ pub async fn set_gateway_binding(
         &repositories,
     )
     .await?;
-    let isolated = if isolated_requested {
-        Some(isolated_target_for(client, &source, &repositories).await?)
+    let mut isolated = if isolated_requested {
+        let mut target = isolated_target_for(client, &source, &repositories).await?;
+        if let Some(slug) = config.profile_slug.as_ref() {
+            target.slug = slug.clone();
+        }
+        if !named_models.is_empty() {
+            target.slug = config.profile_slug.clone().unwrap();
+            target.models = named_models.clone();
+        }
+        Some(target)
     } else {
         None
     };
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
     let _operation = state.operation_lock(gateway_client).lock().await;
+    if config.isolated && config.profile_slug.is_some() {
+        ensure_profile_available(
+            client,
+            &isolated.as_ref().unwrap().slug,
+            config.overwrite,
+            &access,
+        )?;
+    }
     let access_source = access_source_of(&source);
     let account_label = match &access_source {
         AgentAccessSourceDto::AccountToken { account_id, .. } => repositories
@@ -1243,6 +1781,15 @@ pub async fn set_gateway_binding(
     let old_meta = state.meta.lock().await.get(&route).cloned();
     let old_access =
         access.get_profile(agent, isolated.as_ref().map(|target| target.slug.as_str()));
+    if let Some(target) = isolated.as_mut() {
+        target.restore_direct = old_access
+            .as_ref()
+            .is_some_and(|record| record.method == AccessMethodDto::Direct)
+            || old_meta
+                .as_ref()
+                .and_then(|meta| meta.isolated.as_ref())
+                .is_some_and(|target| target.restore_direct);
+    }
     let new_meta = BindingMeta {
         label: label.clone(),
         source,
@@ -1258,6 +1805,8 @@ pub async fn set_gateway_binding(
         method: AccessMethodDto::Gateway,
         label,
         account_label,
+        provider_label: isolated.as_ref().map(|target| target.display.clone()),
+        models: named_models,
         model: model.clone(),
         upstream_kind: Some(upstream_kind_str(upstream_kind)),
         impersonate: Some(impersonate),
@@ -1341,6 +1890,103 @@ pub async fn set_gateway_binding(
     Ok(status_of(&state).await)
 }
 
+/// Delete one profile's files and records, without clearing the other profiles.
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_agent_profile(
+    client: GatewayClientDto,
+    profile: Option<String>,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+) -> Result<(), CommandError> {
+    let gateway_client: GatewayClient = client.into();
+    let _operation = state.operation_lock(gateway_client).lock().await;
+    let Some(slug) = profile.as_deref() else {
+        clear_gateway_binding_locked(client, None, app, state.clone(), access, services.clone())
+            .await?;
+        match client {
+            GatewayClientDto::Codex => services.codex_config.clear_global(),
+            GatewayClientDto::ClaudeCode => services.claude_config.clear_global(),
+        }
+        .map_err(CommandError::from)?;
+        return Ok(());
+    };
+    if slug.is_empty()
+        || slug == "."
+        || slug == ".."
+        || slug == "default"
+        || slug.len() > 255
+        || !slug
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    {
+        return Err(CommandError::validation("Invalid profile name"));
+    }
+    let mut paths = match client {
+        GatewayClientDto::Codex => {
+            let directory =
+                CodexConfigService::isolated_path("profile").map_err(CommandError::from)?;
+            let directory = directory
+                .parent()
+                .ok_or_else(|| CommandError::infrastructure("Codex profile directory missing"))?;
+            let home = directory
+                .parent()
+                .ok_or_else(|| CommandError::infrastructure("Codex directory missing"))?;
+            vec![
+                directory.join(format!("{slug}.config.toml")),
+                home.join(format!("{slug}.config.toml")),
+                directory.join(format!("{slug}.models.json")),
+                home.join("secrets")
+                    .join("providers")
+                    .join(slug)
+                    .join("api-key.json"),
+            ]
+        }
+        GatewayClientDto::ClaudeCode => {
+            let path = services
+                .claude_config
+                .isolated_path(slug)
+                .map_err(CommandError::from)?;
+            let directory = path
+                .parent()
+                .ok_or_else(|| CommandError::infrastructure("Claude profile directory missing"))?;
+            vec![
+                directory.join(format!("{slug}.json")),
+                directory.join(format!("settings-{slug}.json")),
+            ]
+        }
+    };
+    for path in paths.clone() {
+        paths.push(
+            neuradock_infrastructure::fs_safe::backup_path_for(&path)
+                .map_err(CommandError::from)?,
+        );
+    }
+    let removal =
+        super::profile_deletion::StagedProfileRemoval::stage(paths).map_err(CommandError::from)?;
+    let agent: AgentIdDto = client.into();
+    let route = binding_route(gateway_client, Some(slug));
+    let old_upstream = state.bindings.read().await.get(&route).cloned();
+    let old_meta = state.meta.lock().await.get(&route).cloned();
+    state.bindings.write().await.remove(&route);
+    state.meta.lock().await.remove(&route);
+    if let Err(error) = write_bindings(&app, &state).await {
+        restore_binding_memory(&state, route, old_upstream, old_meta).await;
+        return Err(error);
+    }
+    if let Err(error) = access.remove_profile(&app, agent, Some(slug)) {
+        restore_binding_memory(&state, route, old_upstream, old_meta).await;
+        if let Err(rollback) = write_bindings(&app, &state).await {
+            log::error!("Failed to roll back profile deletion: {rollback}");
+        }
+        return Err(error);
+    }
+    removal.commit().map_err(CommandError::from)?;
+    Ok(())
+}
+
 /// Remove a client's binding; restores its tool config if taken over.
 #[tauri::command]
 #[specta::specta]
@@ -1352,9 +1998,20 @@ pub async fn clear_gateway_binding(
     access: State<'_, AgentAccessState>,
     services: State<'_, Services>,
 ) -> Result<GatewayStatusDto, CommandError> {
+    let _operation = state.operation_lock(client.into()).lock().await;
+    clear_gateway_binding_locked(client, profile, app, state.clone(), access, services).await
+}
+
+async fn clear_gateway_binding_locked(
+    client: GatewayClientDto,
+    profile: Option<String>,
+    app: tauri::AppHandle,
+    state: State<'_, GatewayState>,
+    access: State<'_, AgentAccessState>,
+    services: State<'_, Services>,
+) -> Result<GatewayStatusDto, CommandError> {
     let gateway_client: GatewayClient = client.into();
     let agent: AgentIdDto = client.into();
-    let _operation = state.operation_lock(gateway_client).lock().await;
     let isolated_slug = profile.as_deref().filter(|profile| *profile != "default");
     let old_access = access.get_profile(agent, isolated_slug);
     let route = binding_route(gateway_client, isolated_slug);
@@ -1450,6 +2107,15 @@ pub async fn drop_gateway_binding_for_direct(
     isolated_slug: Option<&str>,
 ) -> Result<(), CommandError> {
     let _operation = state.operation_lock(client).lock().await;
+    drop_gateway_binding_for_direct_locked(app, state, client, isolated_slug).await
+}
+
+async fn drop_gateway_binding_for_direct_locked(
+    app: &tauri::AppHandle,
+    state: &GatewayState,
+    client: GatewayClient,
+    isolated_slug: Option<&str>,
+) -> Result<(), CommandError> {
     let route = binding_route(client, isolated_slug);
     let old_upstream = state.bindings.read().await.get(&route).cloned();
     let old_meta = state.meta.lock().await.get(&route).cloned();
@@ -1533,7 +2199,15 @@ pub async fn restore_gateway_bindings(
             );
             continue;
         }
-        let effective_model = GatewayBindingService::effective_model(binding.model.as_deref());
+        let effective_model = if binding
+            .isolated
+            .as_ref()
+            .is_some_and(|target| target.models.len() > 1)
+        {
+            None
+        } else {
+            GatewayBindingService::effective_model(binding.model.as_deref())
+        };
         match resolve_upstream(
             &binding_source_input(&binding.source),
             binding.kind.into(),
@@ -1586,6 +2260,15 @@ pub async fn restore_gateway_bindings(
                         method: AccessMethodDto::Gateway,
                         label,
                         account_label: None,
+                        provider_label: binding
+                            .isolated
+                            .as_ref()
+                            .map(|target| target.display.clone()),
+                        models: binding
+                            .isolated
+                            .as_ref()
+                            .map(|target| target.models.clone())
+                            .unwrap_or_default(),
                         model: binding.model,
                         upstream_kind: Some(upstream_kind_str(binding.kind)),
                         impersonate: Some(binding.impersonate),

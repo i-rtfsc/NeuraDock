@@ -7,12 +7,9 @@
       {
         "name": "cn-shanghai.fcapp.run",
         "base_url": "https://a-ocnfniawgw.cn-shanghai.fcapp.run"
-      },
-      {
-        "name": "cn-nb1.rainapp.top",
-        "base_url": "https://pmpjfbhq.cn-nb1.rainapp.top"
       }
     ],
+    "retired_nodes": ["https://pmpjfbhq.cn-nb1.rainapp.top"],
     "login_path": "/login",
     "sign_in_path": "/api/user/sign_in",
     "user_info_path": "/api/user/self",
@@ -27,6 +24,9 @@
     "id": "agentrouter",
     "name": "AgentRouter",
     "domain": "https://agentrouter.org",
+    "default_nodes": [
+      { "name": "ps.air-outer.com", "base_url": "https://ps.air-outer.com" }
+    ],
     "login_path": "/login",
     "sign_in_path": null,
     "user_info_path": "/api/user/self",

@@ -22,6 +22,7 @@ pub(crate) mod gateway_status;
 pub mod independent_key;
 pub mod migration;
 pub mod notification;
+pub(crate) mod profile_deletion;
 pub mod provider;
 pub mod proxy_config;
 pub mod reminder;

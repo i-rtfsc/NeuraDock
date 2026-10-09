@@ -21,6 +21,20 @@ pub(super) fn apply_gateway_config(
     isolated: Option<&IsolatedTarget>,
 ) -> Result<(), CommandError> {
     match isolated {
+        Some(target) if client == GatewayClient::Codex && !target.models.is_empty() => {
+            CodexConfigService::new()
+                .configure_named_profile(
+                    &target.slug,
+                    &target.display,
+                    local_credential,
+                    base_url,
+                    model.ok_or_else(|| CommandError::validation("A default model is required"))?,
+                    &target.models,
+                    target.restore_direct,
+                )
+                .map(|_| ())
+                .map_err(CommandError::from)
+        }
         Some(target) if client == GatewayClient::Codex => CodexConfigService::new()
             .configure_isolated_gateway(
                 &target.slug,

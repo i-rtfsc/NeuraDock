@@ -78,6 +78,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             generate_claude_temp_commands,
             configure_codex_global,
             configure_codex_isolated,
+            configure_codex_profile,
+            configure_claude_profile,
+            delete_agent_profile,
             clear_codex_isolated,
             generate_codex_temp_commands,
             check_model_compatibility,
@@ -91,6 +94,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_cached_provider_models,
             // Independent API Key commands
             get_all_independent_keys,
+            fetch_independent_key_models,
             get_independent_key_by_id,
             create_independent_key,
             update_independent_key,

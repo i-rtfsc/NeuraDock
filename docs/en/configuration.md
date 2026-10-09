@@ -107,7 +107,7 @@ NeuraDock can configure tokens for AI development tools, supporting:
 | Tool | Config File | Description |
 |------|-------------|-------------|
 | **Claude Code** | `~/.claude/settings.json` | Anthropic Claude CLI tool |
-| **Codex** | `~/.codex/auth.json` | AI code assistant |
+| **Codex** | `~/.codex/config.toml` or `~/.codex/profiles.d/<profile>.config.toml` | Default and named profiles |
 
 ### Configuring Tokens
 
@@ -116,6 +116,24 @@ NeuraDock can configure tokens for AI development tools, supporting:
 3. Click **Configure** button next to the token
 4. Select AI tool and node
 5. Click **Apply Configuration**
+
+### Codex Accounts and Model Catalogs
+
+Open **Agent Configuration → Codex → Add profile**, choose a relay, account, key and node, use an isolated configuration, select multiple models, and choose one default model.
+
+Profile names combine the relay abbreviation and the account's email domain prefix: `any-qq` for an AnyRouter QQ email account, or `agent-gmail` for an AgentRouter Gmail account. Duplicate names receive a numeric suffix. Enter a domain prefix manually if the account name does not contain an email. Existing names are preserved when editing.
+
+Each profile writes `~/.codex/profiles.d/any-qq.config.toml` and `any-qq.models.json`, with a symbolic link at `~/.codex/any-qq.config.toml`. Launch it with `codex -p any-qq`. Relay profiles use the shared provider ID `3rd` and the same Codex home directory.
+
+Claude Code uses the same account naming: `~/.claude/profiles.d/any-qq.json`, launched with `claude --settings ~/.claude/profiles.d/any-qq.json`. Existing `settings-*.json` profiles retain their original paths.
+
+Choose models from the server-provided list. Use “Refresh models” if it is empty or fails to load; model names cannot be added manually. Independent keys fetch the list from their configured model endpoint.
+
+The list is filtered by the agent's protocol: Codex does not offer Claude models, and the backend rejects them as well. Use “More actions → Delete profile” to remove one named profile, its catalog, symbolic link and binding record. The default profile offers “Clear access configuration” while preserving other settings.
+
+AgentRouter offers `https://agentrouter.org` and `https://ps.air-outer.com` as request nodes. AnyRouter retains its Shanghai node; saved records for its retired rainapp node are removed when the updated application starts.
+
+DeepSeek V4 Flash and Pro use the supplied model templates. Other models receive the fields needed for a valid catalog. Each model entry defines its context and reasoning capabilities. Restart the corresponding Codex session after changing its catalog.
 
 ### Custom Nodes
 

@@ -107,7 +107,7 @@ NeuraDock 可以为 AI 开发工具配置 Token，支持：
 | 工具 | 配置文件 | 说明 |
 |-----|---------|------|
 | **Claude Code** | `~/.claude/settings.json` | Anthropic Claude CLI 工具 |
-| **Codex** | `~/.codex/auth.json` | AI 代码助手 |
+| **Codex** | `~/.codex/config.toml` 或 `~/.codex/profiles.d/<配置名>.config.toml` | 支持默认配置和命名配置 |
 
 ### 配置 Token
 
@@ -116,6 +116,24 @@ NeuraDock 可以为 AI 开发工具配置 Token，支持：
 3. 点击 Token 旁的 **配置** 按钮
 4. 选择 AI 工具和节点
 5. 点击 **应用配置**
+
+### Codex 多账号和多模型配置
+
+在 **Agent 配置 → Codex → 添加配置** 中选择中转站、账号、Key 和节点，使用独立配置文件，勾选多个模型并指定一个默认模型。
+
+配置名采用“中转站简称－账号邮箱域名前缀”，例如 AnyRouter 的 `user@qq.com` 对应 `any-qq`，AgentRouter 的 Gmail 账号对应 `agent-gmail`。同名配置自动添加数字后缀；账号名称不含邮箱时，可手动填写域名前缀。编辑已有配置时保留其名称。
+
+每份配置生成 `~/.codex/profiles.d/any-qq.config.toml` 和 `any-qq.models.json`，并在 `~/.codex/any-qq.config.toml` 建立软链接。复制启动命令 `codex -p any-qq` 即可使用。所有中转站的 provider ID 固定为 `3rd`，使用同一个 Codex 主目录。
+
+Claude Code 也采用相同的账号命名：保存到 `~/.claude/profiles.d/any-qq.json`，通过 `claude --settings ~/.claude/profiles.d/any-qq.json` 启动。旧版 `settings-*.json` 继续识别，并保留原文件路径。
+
+模型只能从服务端提供的列表选择；列表为空或获取失败时使用“刷新模型列表”，不支持手动添加名称。独立 Key 从其配置的模型接口读取列表。
+
+模型列表还会按 Agent 协议过滤：Codex 配置不提供 Claude 模型，后台也会拒绝保存此类配置。通过配置列表的“更多 → 删除配置”可移除单个命名配置及其模型目录、软链接和绑定记录；默认配置使用“清除接入配置”，保留其他设置。
+
+AgentRouter 提供 `https://agentrouter.org` 和 `https://ps.air-outer.com` 两个请求节点。AnyRouter 保留上海节点，rainapp 节点已停用，启动新版应用时会清理已保存的 rainapp 节点记录。
+
+DeepSeek V4 Flash、Pro 使用随应用提供的模型模板；其他模型自动补齐目录所需字段。上下文和推理能力由各自模型条目配置。修改模型目录后，需要重新启动对应的 Codex 会话。
 
 ### 自定义节点
 

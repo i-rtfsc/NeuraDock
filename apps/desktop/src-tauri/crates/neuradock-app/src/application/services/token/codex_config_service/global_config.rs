@@ -84,7 +84,7 @@ fn configure(
 
     // config.toml: read-modify-write, preserving unrelated keys.
     backup_file(&config_path)?;
-    atomic_write(&config_path, &doc.to_string(), false)?;
+    atomic_write(&config_path, &doc.to_string(), true)?;
     log::info!("Codex config.toml updated at: {}", config_path.display());
 
     // auth.json: upsert OPENAI_API_KEY, keep any other fields.
@@ -185,6 +185,9 @@ fn build_documents(
     model: Option<&str>,
     context_1m: bool,
 ) -> Result<(toml_edit::DocumentMut, Value)> {
+    if let Some(model) = model.or_else(|| doc.get("model").and_then(toml_edit::Item::as_str)) {
+        super::helpers::validate_codex_model(model)?;
+    }
     apply_provider_config(
         &mut doc,
         provider_slug,
@@ -193,6 +196,7 @@ fn build_documents(
         model,
         context_1m,
     );
+    super::helpers::apply_bearer_token(&mut doc, api_key);
     let auth_obj = auth
         .as_object_mut()
         .context("auth.json must be a JSON object")?;

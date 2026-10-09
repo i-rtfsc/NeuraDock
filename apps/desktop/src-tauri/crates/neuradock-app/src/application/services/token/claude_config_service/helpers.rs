@@ -22,10 +22,21 @@ pub(super) fn get_claude_config_path() -> Result<PathBuf> {
 pub(super) fn get_claude_isolated_config_path(slug_hint: &str) -> Result<PathBuf> {
     let home = dirs::home_dir().context("Cannot find home directory")?;
     let slug = sanitize_config_slug(slug_hint);
-    Ok(home.join(".claude").join("profiles.d").join(format!(
-        "settings-{}.json",
-        if slug.is_empty() { "profile" } else { &slug }
-    )))
+    let dir = home.join(".claude").join("profiles.d");
+    Ok(resolve_isolated_path(
+        &dir,
+        if slug.is_empty() { "profile" } else { &slug },
+    ))
+}
+
+pub(super) fn resolve_isolated_path(dir: &std::path::Path, slug: &str) -> PathBuf {
+    let canonical = dir.join(format!("{slug}.json"));
+    let legacy = dir.join(format!("settings-{slug}.json"));
+    if !canonical.exists() && legacy.exists() {
+        legacy
+    } else {
+        canonical
+    }
 }
 
 fn sanitize_config_slug(value: &str) -> String {
@@ -70,7 +81,22 @@ mod tests {
         let path = get_claude_isolated_config_path("中转站 A/B").unwrap();
         assert_eq!(
             path.file_name().and_then(|name| name.to_str()),
-            Some("settings-中转站-A-B.json")
+            Some("中转站-A-B.json")
         );
+    }
+
+    #[test]
+    fn new_names_and_existing_legacy_files_resolve_without_renaming() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            resolve_isolated_path(dir.path(), "any-qq"),
+            dir.path().join("any-qq.json")
+        );
+        let legacy = dir.path().join("settings-AnyRouter.json");
+        std::fs::write(&legacy, "{}").unwrap();
+        assert_eq!(resolve_isolated_path(dir.path(), "AnyRouter"), legacy);
+        let canonical = dir.path().join("AnyRouter.json");
+        std::fs::write(&canonical, "{}").unwrap();
+        assert_eq!(resolve_isolated_path(dir.path(), "AnyRouter"), canonical);
     }
 }

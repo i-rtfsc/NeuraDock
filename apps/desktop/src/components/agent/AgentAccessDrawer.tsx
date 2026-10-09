@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Accordion,
@@ -44,6 +45,8 @@ import { cn } from '@/lib/utils';
 import type { ProviderNode } from '@/types/token';
 import type { AgentAccess, AgentAccessSource, AgentDef } from './AgentConfigGateway';
 import { commands, type GatewaySourceDto } from '@/lib/tauri';
+import { availableProfileSlug, emailDomainPrefix, relayShortName } from '@/lib/codexProfiles';
+import { compatibleModels } from '@/lib/agentModels';
 
 function unwrap<T>(result: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
   if (result.status === 'error') throw new Error(result.error.message);
@@ -100,6 +103,9 @@ interface AgentConfigPreviewRequest {
   model: string | null;
   context1m: boolean;
   isolated: boolean;
+  profileSlug: string | null;
+  models: string[];
+  overwrite: boolean;
 }
 
 interface Props {
@@ -109,6 +115,7 @@ interface Props {
   keyOptions: KeyOption[];
   loading?: boolean;
   existing?: AgentAccess;
+  editingProfile?: { slug: string | null; model: string | null; models: string[]; path?: string };
   /** When opened from a specific token (account detail), keep the same fields but make them read-only. */
   presetOptionId?: string;
   onDone: () => void;
@@ -171,10 +178,12 @@ export function AgentAccessDrawer({
   keyOptions,
   loading = false,
   existing,
+  editingProfile,
   presetOptionId,
   onDone,
 }: Props) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const initializedRef = useRef<string | null>(null);
   const [sourceId, setSourceId] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -185,6 +194,10 @@ export function AgentAccessDrawer({
   const [impersonate, setImpersonate] = useState(true);
   const [node, setNode] = useState('');
   const [model, setModel] = useState('');
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [accountPrefix, setAccountPrefix] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+  const [refreshingModels, setRefreshingModels] = useState(false);
   const [context1m, setContext1m] = useState(true);
   const [busy, setBusy] = useState(false);
   const [configView, setConfigView] = useState<ConfigView>('form');
@@ -194,6 +207,13 @@ export function AgentAccessDrawer({
   const [previewRequest, setPreviewRequest] = useState<AgentConfigPreviewRequest | null>(null);
 
   const locked = !!presetOptionId;
+  const catalogMode = agent.id === 'codex' && writeMode === 'isolated';
+  const namedMode = writeMode === 'isolated';
+  const configurationQuery = useQuery({
+    queryKey: ['agent-configuration-states'],
+    queryFn: () => commands.getAgentConfigurationStates().then(unwrap),
+    enabled: open,
+  });
 
   const sources = useMemo<KeySource[]>(() => {
     const relay = new Map<string, KeyOption[]>();
@@ -227,7 +247,7 @@ export function AgentAccessDrawer({
   }, [keyOptions, t]);
 
   const existingOptionId = existing?.source ? sourceOptionId(existing.source) : '';
-  const initializationKey = `${agent.id}:${presetOptionId ?? ''}:${existingOptionId}:${keyOptions.length}`;
+  const initializationKey = `${agent.id}:${presetOptionId ?? ''}:${existingOptionId}:${existing?.isolated_slug ?? editingProfile?.slug ?? ''}:${keyOptions.length}`;
 
   useEffect(() => {
     if (!open) {
@@ -243,8 +263,8 @@ export function AgentAccessDrawer({
 
     setMethod(canRestoreExisting ? existing?.method ?? 'direct' : 'direct');
     setWriteMode(
-      canRestoreExisting && existing
-        ? existing.isolated_slug
+      canRestoreExisting && (existing || editingProfile)
+        ? (existing?.isolated_slug ?? editingProfile?.slug)
           ? 'isolated'
           : 'official'
         : 'isolated'
@@ -255,7 +275,12 @@ export function AgentAccessDrawer({
         : agent.nativeKind
     );
     setImpersonate(canRestoreExisting ? existing?.impersonate ?? true : true);
-    setModel(canRestoreExisting ? existing?.model ?? '' : '');
+    const savedModel = canRestoreExisting ? existing?.model ?? editingProfile?.model ?? '' : '';
+    setModel(savedModel);
+    const savedModels = canRestoreExisting ? existing?.models ?? editingProfile?.models ?? [] : [];
+    setSelectedModels(savedModels.length ? savedModels : savedModel ? [savedModel] : []);
+    setAccountPrefix(emailDomainPrefix(target?.accountName));
+    setModelSearch('');
     setContext1m(canRestoreExisting ? existing?.context1m ?? true : true);
     setNode(
       canRestoreExisting && existing?.source?.type === 'account_token'
@@ -275,6 +300,7 @@ export function AgentAccessDrawer({
   }, [
     agent.nativeKind,
     existing,
+    editingProfile,
     existingOptionId,
     initializationKey,
     keyOptions,
@@ -321,18 +347,49 @@ export function AgentAccessDrawer({
     enabled: !!selected?.providerId,
     queryFn: () => commands.getProviderNodes(selected!.providerId!).then(unwrap) as Promise<ProviderNode[]>,
   });
-  const { data: providerModels = [], isLoading: modelsLoading } = useQuery<string[]>({
-    queryKey: ['provider-models', selected?.providerId],
-    enabled: !!selected?.providerId,
-    queryFn: () => commands.getCachedProviderModels(selected!.providerId!).then(unwrap),
+  const modelsQuery = useQuery<string[]>({
+    queryKey: ['agent-model-options', selectedId],
+    enabled: open && !!selected,
+    queryFn: async () => {
+      if (selected!.source.type === 'independent_key') return commands.fetchIndependentKeyModels(selected!.source.key_id).then(unwrap);
+      const cached = await commands.getCachedProviderModels(selected!.providerId!).then(unwrap);
+      return cached.length ? cached : commands.fetchProviderModels(selected!.providerId!, selected!.accountId!, false).then(unwrap);
+    },
     staleTime: 5 * 60 * 1000,
   });
+  const providerModels = modelsQuery.data ?? [];
+  const modelsLoading = modelsQuery.isFetching;
+  const refreshModels = async () => {
+    if (!selected) return;
+    setRefreshingModels(true);
+    try {
+      if (selected.source.type === 'account_token') {
+        const data = await commands.fetchProviderModels(selected.providerId!, selected.accountId!, true).then(unwrap);
+        queryClient.setQueryData(['agent-model-options', selectedId], data);
+      } else await modelsQuery.refetch({ throwOnError: true });
+    } catch (error) { toast.error(String(error)); }
+    finally { setRefreshingModels(false); }
+  };
 
   useEffect(() => {
     if (isAccountToken && nodes.length > 0 && !node) setNode(nodes[0].base_url);
   }, [isAccountToken, nodes, node]);
 
   const baseUrl = isAccountToken ? node : selected?.baseUrl ?? '';
+  const nodeAvailable = !isAccountToken || nodes.some((candidate) => candidate.base_url.replace(/\/+$/, '') === node.replace(/\/+$/, ''));
+  const editingSlug = existing?.isolated_slug ?? editingProfile?.slug;
+  const usedSlugs = (configurationQuery.data ?? []).find((state) => state.agent === agent.id)?.profiles
+    .map((profile) => profile.slug).filter((slug): slug is string => !!slug) ?? [];
+  const suggestedSlug = selected
+    ? selected.source.type === 'account_token'
+      ? availableProfileSlug(`${relayShortName(selected.providerName)}-${accountPrefix || emailDomainPrefix(selected.accountName) || 'account'}`, usedSlugs)
+      : availableProfileSlug(`${relayShortName(selected.providerName)}-key-${selected.source.key_id}`, usedSlugs)
+    : '';
+  const profileSlug = editingSlug ?? suggestedSlug;
+  const profilePath = editingProfile?.path ?? (configurationQuery.data ?? []).find((state) => state.agent === agent.id)
+    ?.profiles.find((profile) => profile.slug === editingSlug)?.path ?? `~/.claude/profiles.d/${profileSlug}.json`;
+  const profileCommand = agent.id === 'codex' ? `codex -p ${profileSlug}` : `claude --settings ${profilePath}`;
+  const effectiveContext1m = catalogMode ? false : context1m;
   const accessSource = useMemo<AgentAccessSource | null>(() => {
     if (!selected) return null;
     return selected.source.type === 'account_token'
@@ -340,7 +397,7 @@ export function AgentAccessDrawer({
       : selected.source;
   }, [baseUrl, selected]);
   const modelOptions = useMemo(() => {
-    if (!isAccountToken || !selected) return [];
+    if (!selected) return [];
     if (!selected.modelLimitsEnabled) return providerModels;
     const allowed = new Set(selected.allowedModels);
     const denied = new Set(selected.deniedModels);
@@ -349,32 +406,45 @@ export function AgentAccessDrawer({
     );
   }, [isAccountToken, providerModels, selected]);
 
-  const compatibleModelOptions = useMemo(() => {
-    if (method === 'gateway' && kind === 'openai_chat') return modelOptions;
-    return modelOptions.filter((candidate) => {
-      const normalized = candidate.trim().toLowerCase();
-      if (agent.id === 'claude_code') {
-        return !(
-          normalized.startsWith('gpt-') ||
-          /^o[134](?:-|$)/.test(normalized) ||
-          normalized.includes('codex')
-        );
-      }
-      return !normalized.startsWith('claude-');
-    });
-  }, [agent.id, kind, method, modelOptions]);
+  const compatibleModelOptions = useMemo(() => compatibleModels(modelOptions, agent.id, method === 'gateway' && kind === 'openai_chat'), [modelOptions, agent.id, method, kind]);
 
   useEffect(() => {
-    if (model && modelOptions.includes(model) && !compatibleModelOptions.includes(model)) {
+    if (modelsQuery.isSuccess && model && !compatibleModelOptions.includes(model)) {
       setModel('');
     }
-  }, [compatibleModelOptions, model, modelOptions]);
+    if (modelsQuery.isSuccess && catalogMode) {
+      setSelectedModels((models) => {
+        const valid = models.filter((name) => compatibleModelOptions.includes(name));
+        return valid.length === models.length ? models : valid;
+      });
+    }
+  }, [catalogMode, compatibleModelOptions, model, modelsQuery.isSuccess]);
 
   useEffect(() => {
-    if (context1m && !model && compatibleModelOptions.length > 0) {
+    if (!catalogMode && context1m && !model && compatibleModelOptions.length > 0) {
       setModel(compatibleModelOptions[0]);
     }
-  }, [compatibleModelOptions, context1m, model]);
+  }, [catalogMode, compatibleModelOptions, context1m, model]);
+
+  const addModel = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !compatibleModelOptions.includes(trimmed)) return;
+    if (selected?.modelLimitsEnabled && (
+      selected.deniedModels.includes(trimmed) ||
+      (selected.allowedModels.length > 0 && !selected.allowedModels.includes(trimmed))
+    )) {
+      toast.error(t('agentConfig.modelNotAllowed', '此 Key 不允许使用该模型'));
+      return;
+    }
+    setSelectedModels((models) => models.includes(trimmed) ? models : [...models, trimmed]);
+    if (!model) setModel(trimmed);
+  };
+  const removeModel = (name: string) => {
+    const remaining = selectedModels.filter((candidate) => candidate !== name);
+    setSelectedModels(remaining);
+    if (model === name) setModel(remaining[0] ?? '');
+  };
+  const selectableModels = compatibleModelOptions;
 
   useEffect(() => {
     if (
@@ -392,12 +462,15 @@ export function AgentAccessDrawer({
         method,
         source: accessSource,
         model: model || null,
-        context1m,
+        context1m: effectiveContext1m,
         isolated: writeMode === 'isolated',
+        profileSlug: namedMode ? profileSlug : null,
+        models: catalogMode ? selectedModels : [],
+        overwrite: !!editingSlug,
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [accessSource, agent.id, baseUrl, configView, context1m, isAccountToken, method, model, open, writeMode]);
+  }, [accessSource, agent.id, baseUrl, catalogMode, namedMode, configView, effectiveContext1m, editingSlug, isAccountToken, method, model, open, profileSlug, selectedModels, writeMode]);
 
   const previewQuery = useQuery<AgentConfigPreview>({
     queryKey: ['agent-config-preview', previewRequest],
@@ -418,6 +491,8 @@ export function AgentAccessDrawer({
       model,
       context1m,
       writeMode,
+      profileSlug,
+      profileCommand,
     ],
     enabled:
       open &&
@@ -425,13 +500,13 @@ export function AgentAccessDrawer({
       !!selected &&
       (!isAccountToken || !!baseUrl),
     queryFn: () =>
-      generateTemporaryCommands(
+      namedMode ? Promise.resolve(profileCommand) : generateTemporaryCommands(
         agent.id,
         selected!,
         baseUrl,
         model || null,
         context1m,
-        writeMode === 'isolated'
+        false
       ),
     staleTime: 0,
   });
@@ -447,6 +522,8 @@ export function AgentAccessDrawer({
     setSelectedId('');
     setNode('');
     setModel('');
+    setSelectedModels([]);
+    setAccountPrefix('');
     setContext1m(true);
   };
 
@@ -455,6 +532,8 @@ export function AgentAccessDrawer({
     setSelectedId('');
     setNode('');
     setModel('');
+    setSelectedModels([]);
+    setAccountPrefix(emailDomainPrefix(accounts.find((account) => account.id === value)?.label));
     setContext1m(true);
   };
 
@@ -462,6 +541,7 @@ export function AgentAccessDrawer({
     setSelectedId(value);
     setNode('');
     setModel('');
+    setSelectedModels([]);
     setContext1m(true);
   };
 
@@ -471,7 +551,7 @@ export function AgentAccessDrawer({
       toast.error(t('agentConfig.needNode', '请先选择一个节点'));
       return;
     }
-    if (context1m && !model) {
+    if (effectiveContext1m && !model) {
       toast.error(t('agentConfig.context1mNeedModel', '启用 1M 上下文时必须选择模型'));
       return;
     }
@@ -484,27 +564,35 @@ export function AgentAccessDrawer({
         unwrap(await commands.setGatewayBinding(agent.id, typedSource(accessSource), {
             upstreamKind: kind,
             model: model || null,
-            context1m,
+            context1m: effectiveContext1m,
             impersonate,
             isolated: writeMode === 'isolated',
+            profileSlug: namedMode ? profileSlug : null,
+            models: catalogMode ? selectedModels : [],
+            overwrite: !!editingSlug,
         }));
         toast.success(t('agentConfig.bound', '已接入（经网关）'));
+      } else if (namedMode) {
+        const request = { client: agent.id, method: 'direct' as const, source: typedSource(accessSource),
+          model: model || null, context1m: effectiveContext1m, isolated: true,
+          profileSlug, models: catalogMode ? selectedModels : [], overwrite: !!editingSlug };
+        unwrap(await (agent.id === 'codex' ? commands.configureCodexProfile(request) : commands.configureClaudeProfile(request)));
+        toast.success(t('agentConfig.directWritten', '已直接写入配置'));
       } else {
-        await directConfigure(agent.id, selected, baseUrl, model || null, context1m, writeMode === 'isolated');
+        await directConfigure(agent.id, selected, baseUrl, model || null, context1m, false);
         unwrap(await commands.recordAgentAccess({
             agent: agent.id,
             method: 'direct',
             label: `${selected.providerName} · ${selected.label}`,
             account_label: selected.accountName,
+            provider_label: selected.providerName,
+            models: [],
             model: model || null,
             upstream_kind: null,
             impersonate: null,
             source: typedSource(accessSource),
             context1m,
-            isolated_slug:
-              writeMode === 'isolated'
-                ? isolatedSlugForOption(selected, agent.id)
-                : null,
+            isolated_slug: null,
         }));
         toast.success(t('agentConfig.directWritten', '已直接写入配置'));
       }
@@ -522,11 +610,16 @@ export function AgentAccessDrawer({
     loading ||
     !selected ||
     (!!isAccountToken && !baseUrl) ||
-    (context1m && !model);
+    !nodeAvailable ||
+    (effectiveContext1m && !model) ||
+    (!!model && !compatibleModelOptions.includes(model)) ||
+    (namedMode && (!profileSlug || configurationQuery.isLoading ||
+      (!editingSlug && selected?.source.type === 'account_token' && !(accountPrefix || emailDomainPrefix(selected.accountName))))) ||
+    (catalogMode && (!model || !selectedModels.includes(model)));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg" className="flex flex-col gap-0 overflow-hidden p-0">
+      <DialogContent size="lg" aria-describedby={undefined} className="flex flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="app-dialog-header">
           <div className="flex flex-wrap items-center gap-2">
             <DialogTitle>
@@ -705,12 +798,13 @@ export function AgentAccessDrawer({
                     <FormSection
                       number={agent.id === 'codex' ? '4' : '3'}
                       title={t('agentConfig.runtimeTitle', '运行参数')}
-                      description={t('agentConfig.runtimeDesc', '设置节点和默认模型；留空模型时沿用 Agent 自身选择。')}
+                      description={catalogMode ? t('agentConfig.catalogRuntimeDesc', '勾选可用模型，并指定启动时的默认模型。') : t('agentConfig.runtimeDesc', '设置节点和默认模型；留空模型时沿用 Agent 自身选择。')}
                       icon={<SlidersHorizontal className="h-4 w-4" />}
                     >
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Field label={t('agentConfig.fieldNode', '节点')}>
                           {isAccountToken ? (
+                            <>
                             <Select value={node} onValueChange={setNode} disabled={nodesLoading}>
                               <SelectTrigger>
                                 <SelectValue placeholder={t('agentConfig.pickNode', '选择节点')} />
@@ -728,13 +822,22 @@ export function AgentAccessDrawer({
                                 ))}
                               </SelectContent>
                             </Select>
+                            {node && !nodesLoading && !nodeAvailable && <p className="mt-1 text-xs text-destructive">{t('agentConfig.nodeUnavailable', '原节点已不可用，请重新选择。')}</p>}
+                            </>
                           ) : (
                             <Input value={selected?.baseUrl ?? ''} disabled placeholder={t('agentConfig.notApplicable', '不适用')} />
                           )}
                         </Field>
 
-                        <Field label={t('agentConfig.fieldModel', '模型（可选）')}>
-                          {isAccountToken && modelOptions.length > 0 ? (
+                        <Field label={catalogMode ? t('agentConfig.defaultModel', '默认模型') : t('agentConfig.fieldModel', '模型（可选）')}>
+                          {catalogMode ? (
+                            <Select value={model} onValueChange={setModel} disabled={!selected || selectedModels.length === 0}>
+                              <SelectTrigger><SelectValue placeholder={t('agentConfig.pickDefaultModel', '从已勾选模型中选择')} /></SelectTrigger>
+                              <SelectContent>
+                                {selectedModels.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
                             <Select value={model} onValueChange={setModel} disabled={modelsLoading}>
                               <SelectTrigger>
                                 <SelectValue placeholder={t('agentConfig.pickModel', '默认（不指定）')} />
@@ -747,18 +850,54 @@ export function AgentAccessDrawer({
                                 ))}
                               </SelectContent>
                             </Select>
-                          ) : (
-                            <Input
-                              value={model}
-                              onChange={(event) => setModel(event.target.value)}
-                              placeholder={t('agentConfig.modelPlaceholder', '默认（留空自动）')}
-                              disabled={!selected || modelsLoading}
-                            />
                           )}
                         </Field>
                       </div>
 
-                      <SettingRow
+                      {namedMode && (
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {!editingSlug && selected?.source.type === 'account_token' && (
+                              <Field label={t('agentConfig.accountDomainPrefix', '账号域名前缀')}>
+                                <Input value={accountPrefix || emailDomainPrefix(selected.accountName)}
+                                  readOnly={!!emailDomainPrefix(selected.accountName)}
+                                  onChange={(event) => setAccountPrefix(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                  placeholder="qq / gmail" />
+                              </Field>
+                            )}
+                            <Field label={t('agentConfig.profileName', '配置名')}>
+                              <Input value={profileSlug} readOnly className="font-mono" />
+                              {profileSlug && <p className="mt-1 break-all text-xs text-muted-foreground">{profileCommand}</p>}
+                            </Field>
+                          </div>
+                      )}
+                      {catalogMode && (
+                          <Field label={t('agentConfig.availableModels', '可选模型（多选）')}>
+                            <Input value={modelSearch} onChange={(event) => setModelSearch(event.target.value)}
+                              placeholder={t('agentConfig.searchModels', '搜索模型')} disabled={!selected} />
+                            <div className="mt-2 max-h-44 overflow-y-auto rounded-md border p-2">
+                              {selectableModels.filter((name) => name.toLowerCase().includes(modelSearch.toLowerCase())).map((name) => (
+                                <label key={name} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/50">
+                                  <Checkbox checked={selectedModels.includes(name)} disabled={!selected}
+                                    aria-label={name}
+                                    onCheckedChange={(checked) => checked ? addModel(name) : removeModel(name)} />
+                                  <span className="min-w-0 truncate font-mono text-xs">{name}</span>
+                                </label>
+                              ))}
+                              {modelsLoading && <p className="p-2 text-xs text-muted-foreground">{t('common.loading', '加载中…')}</p>}
+                              {!modelsLoading && selectableModels.length === 0 && <p className="p-2 text-xs text-muted-foreground">{t('agentConfig.noModelOptions', '中转站未返回可选模型，请刷新列表。')}</p>}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">{t('agentConfig.catalogHint', '勾选的模型会保存到此配置的模型目录；启动后可在 Codex 中切换。')}</p>
+                          </Field>
+                      )}
+                      {selected && (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="min-w-0 text-xs text-muted-foreground">{modelsQuery.error ? String(modelsQuery.error) : !modelsLoading && compatibleModelOptions.length === 0 ? t('agentConfig.noModelOptions', '中转站未返回可选模型，请刷新列表。') : ''}</p>
+                          <Button type="button" size="sm" variant="outline" disabled={modelsLoading || refreshingModels}
+                            onClick={() => void refreshModels()}>{t('agentConfig.refreshModels', '刷新模型列表')}</Button>
+                        </div>
+                      )}
+
+                      {!catalogMode && <SettingRow
                         title={t('agentConfig.context1m', '1M 上下文')}
                         description={
                           method === 'gateway'
@@ -767,7 +906,7 @@ export function AgentAccessDrawer({
                         }
                       >
                         <Switch checked={context1m} onCheckedChange={setContext1m} />
-                      </SettingRow>
+                      </SettingRow>}
 
                       {method === 'gateway' && (
                         <Accordion type="single" collapsible className="rounded-lg bg-muted/20 px-3">
@@ -837,6 +976,7 @@ export function AgentAccessDrawer({
                     />
                   ) : (
                     <TemporaryCommandsPanel
+                      namedProfileCommand={namedMode}
                       commands={temporaryQuery.data}
                       loading={temporaryQuery.isLoading || temporaryQuery.isFetching}
                       error={temporaryQuery.error}
@@ -875,6 +1015,7 @@ export function AgentAccessDrawer({
 }
 
 function TemporaryCommandsPanel({
+  namedProfileCommand = false,
   commands,
   loading,
   error,
@@ -882,6 +1023,7 @@ function TemporaryCommandsPanel({
   copied,
   onCopy,
 }: {
+  namedProfileCommand?: boolean;
   commands?: string;
   loading: boolean;
   error: Error | null;
@@ -923,10 +1065,10 @@ function TemporaryCommandsPanel({
     <div className="space-y-3">
       <div className="rounded-xl bg-muted/20 px-4 py-3">
         <p className="text-sm font-medium">
-          {t('agentConfig.temporaryTitle', '仅用于当前终端')}
+          {namedProfileCommand ? t('agentConfig.namedCommandTitle', '使用命名配置') : t('agentConfig.temporaryTitle', '仅用于当前终端')}
         </p>
         <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-          {t(
+          {namedProfileCommand ? t('agentConfig.namedCommandHint', '先保存此配置，再复制命令启动。修改配置后需要重新启动对应 Agent。') : t(
             'agentConfig.temporaryHint',
             '复制到终端执行，不修改现有全局配置；关闭终端后临时配置失效。'
           )}
@@ -1270,7 +1412,7 @@ async function generateTemporaryCommands(
   if (isolated) {
     const slug = isolatedSlugForOption(option, agent);
     return agent === 'claude_code'
-      ? `claude --settings ~/.claude/profiles.d/settings-${slug}.json`
+      ? `claude --settings ~/.claude/profiles.d/${slug}.json`
       : `codex -p ${slug}`;
   }
   if (option.source.type === 'independent_key') {

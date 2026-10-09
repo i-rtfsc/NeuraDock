@@ -64,7 +64,7 @@ make dev-warn     # Warning only
 make package-all-macos
 \`\`\`
 
-Generates separate Intel and Apple Silicon installers for the current `1.2.0` release.
+Generates separate Intel and Apple Silicon installers for the current `1.3.1` release.
 
 **Why Universal Binary?**
 - ✅ One installer for all Macs
@@ -160,10 +160,10 @@ make verify-version
 
 # 2. Create and push tag
 git add .
-git commit -m "chore(release): bump version to 1.2.0"
-git tag v1.2.0
+git commit -m "chore(release): bump version to 1.3.1"
+git tag v1.3.1
 git push origin main
-git push origin v1.2.0
+git push origin v1.3.1
 
 # 3. Wait ~20 minutes for GitHub Actions
 

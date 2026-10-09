@@ -65,8 +65,8 @@ make package
 ```
 
 生成：
-- Apple Silicon Mac: `NeuraDock_1.2.0_aarch64.dmg`
-- Intel Mac: `NeuraDock_1.2.0_x64.dmg`
+- Apple Silicon Mac: `NeuraDock_1.3.1_aarch64.dmg`
+- Intel Mac: `NeuraDock_1.3.1_x64.dmg`
 
 #### 2. 构建指定架构
 
@@ -84,8 +84,8 @@ make package-all-macos
 ```
 
 生成：
-- `NeuraDock_1.2.0_aarch64.dmg` - Apple Silicon
-- `NeuraDock_1.2.0_x64.dmg` - Intel
+- `NeuraDock_1.3.1_aarch64.dmg` - Apple Silicon
+- `NeuraDock_1.3.1_x64.dmg` - Intel
 
 #### 4. 指定架构
 
@@ -180,15 +180,15 @@ make verify-version
 
 # 2. 提交版本更新
 git add .
-git commit -m "chore(release): bump version to 1.2.0"
+git commit -m "chore(release): bump version to 1.3.1"
 ```
 
 #### 2. 创建并推送 Tag
 
 ```bash
-git tag v1.2.0
+git tag v1.3.1
 git push origin main
-git push origin v1.2.0
+git push origin v1.3.1
 ```
 
 #### 3. 自动构建
@@ -212,7 +212,7 @@ GitHub Actions 会自动：
 1. 打开 **Actions** 标签
 2. 选择 **Release** workflow
 3. 点击 **Run workflow**
-4. 输入版本号（如 `v1.2.0`）
+4. 输入版本号（如 `v1.3.1`）
 5. 选择是否创建 Release
 6. 点击 **Run workflow**
 
@@ -227,15 +227,15 @@ GitHub Actions 会自动：
 ### Windows
 
 ```
-NeuraDock_1.2.0_x64_en-US.msi
+NeuraDock_1.3.1_x64_en-US.msi
 └─ 64 位安装程序
 ```
 
 ### Linux
 
 ```
-neuradock_1.2.0_amd64.deb              - Debian/Ubuntu
-neuradock_1.2.0_amd64.AppImage         - 通用格式
+neuradock_1.3.1_amd64.deb              - Debian/Ubuntu
+neuradock_1.3.1_amd64.AppImage         - 通用格式
 ```
 
 **推荐 AppImage**：

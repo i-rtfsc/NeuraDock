@@ -1,6 +1,8 @@
 mod claude_config;
 mod codex_config;
 mod crud;
+mod models;
+pub use models::fetch_independent_key_models;
 
 // Re-export all commands for backward compatibility
 pub use claude_config::{

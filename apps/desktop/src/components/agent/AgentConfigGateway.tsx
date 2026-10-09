@@ -10,6 +10,7 @@ import {
   Plus,
   Pencil,
   MoreVertical,
+  Trash2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { AgentAccessDrawer, type KeyOption } from './AgentAccessDrawer';
 import type { IndependentKeyDto } from '@/types/independentKey';
 import type { AccountDto } from '@/types/token';
@@ -68,6 +70,8 @@ export interface AgentAccess {
   method: AccessMethod;
   label: string;
   account_label?: string | null;
+  provider_label?: string | null;
+  models?: string[];
   model: string | null;
   upstream_kind: string | null;
   impersonate: boolean | null;
@@ -137,6 +141,8 @@ interface AgentProfile {
   credential_present: boolean;
   managed: boolean;
   account_label: string | null;
+  provider_label: string | null;
+  models: string[];
   gateway_enabled: boolean;
   method: AccessMethod | null;
 }
@@ -690,7 +696,7 @@ function CodexConfigFilesSection({ configuration }: { configuration: AgentConfig
   );
 }
 
-function AgentProfilesSection({
+export function AgentProfilesSection({
   agent,
   configuration,
   onAdd,
@@ -704,6 +710,18 @@ function AgentProfilesSection({
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
+  const [deletingProfile, setDeletingProfile] = useState<AgentProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const removeProfile = async () => {
+    if (!deletingProfile) return;
+    setDeleting(true);
+    try {
+      await commands.deleteAgentProfile(agent.id, deletingProfile.slug).then(unwrap);
+      toast.success(deletingProfile.kind === 'official' ? t('agentConfig.defaultProfileCleared', '接入配置已清除') : t('agentConfig.profileDeleted', '配置已删除'));
+      setDeletingProfile(null);
+    } catch (error) { toast.error(String(error)); }
+    finally { setDeleting(false); onChanged(); }
+  };
   const profiles = [...(configuration?.profiles ?? [])].sort((a, b) => {
     if (a.kind === b.kind) return a.path.localeCompare(b.path);
     return a.kind === 'official' ? -1 : 1;
@@ -728,7 +746,7 @@ function AgentProfilesSection({
           <table className="w-full border-collapse text-sm">
             <thead className="bg-muted/50 shadow-sm backdrop-blur-md">
               <tr className="h-10 border-b text-left text-muted-foreground">
-                <th className="bg-muted/50 py-2 pl-6 pr-4 font-semibold">{t('agentConfig.profileName', '配置')}</th>
+                <th className="bg-muted/50 py-2 pl-6 pr-4 font-semibold">{t('agentConfig.profileRelay', '中转站 / 配置')}</th>
                 <th className="bg-muted/50 px-4 py-2 font-semibold">{t('agentConfig.account', '账号')}</th>
                 <th className="bg-muted/50 px-4 py-2 font-semibold">{t('agentConfig.rowModel', '模型')}</th>
                 <th className="bg-muted/50 px-4 py-2 text-center font-semibold">{t('agentConfig.rowMethod', '接入方式')}</th>
@@ -744,21 +762,37 @@ function AgentProfilesSection({
             return <tr key={profile.path} className="group relative cursor-default border-b transition-all duration-base ease-smooth hover:z-10 hover:-translate-y-[2px] hover:bg-primary/[0.03] hover:shadow-md">
               <td className="py-3 pl-6 pr-4 align-middle">
                 <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">{profileDisplayName(profile)}</span>
+                  <span className="text-sm font-semibold">{profile.provider_label ?? profileDisplayName(profile)}</span>
+                  {profile.slug && <code className="text-xs text-muted-foreground">{profile.slug}</code>}
                   <div className="flex items-center gap-1.5"><Badge variant="outline" className="w-fit text-xs font-normal">{profile.kind === 'official' ? t('agentConfig.defaultProfile', '默认配置') : t('agentConfig.namedProfile', '命名配置')}</Badge>{!profile.parse_ok && profile.exists && <Badge variant="soft-warning" className="text-[10px]">{t('agentConfig.configParseFailed', '无法解析')}</Badge>}</div>
                 </div>
               </td>
               <td className="px-4 py-3 align-middle"><span className="text-sm font-medium">{profile.account_label ?? '—'}</span></td>
-              <td className="px-4 py-3 align-middle"><span className="font-mono text-xs">{profile.model ?? '—'}</span>{profile.context1m && <Badge variant="outline" className="ml-2 text-[10px]">1M</Badge>}</td>
+              <td className="px-4 py-3 align-middle"><span className="font-mono text-xs">{profile.model ?? '—'}</span>{profile.context1m && <Badge variant="outline" className="ml-2 text-[10px]">1M</Badge>}{profile.models.length > 0 && <p className="mt-1 text-xs text-muted-foreground" title={profile.models.join('\n')}>{t('agentConfig.modelCount', '{{count}} 个可选模型', { count: profile.models.length })}</p>}</td>
               <td className="px-4 py-3 text-center align-middle"><Badge variant={profile.method === 'gateway' ? 'soft-primary' : 'outline'} className="text-[10px]">{profile.method === 'gateway' ? t('agentConfig.methodGatewayShort', '经本地网关') : t('agentConfig.directBadge', '直连')}</Badge></td>
               <td className="px-4 py-3 text-center align-middle">{profile.method === 'gateway' ? <Switch checked={profile.gateway_enabled} onCheckedChange={(enabled) => commands.setGatewayProfileEnabled(agent.id, profile.slug ?? 'default', enabled).then(onChanged).catch((error) => toast.error(String(error)))} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
-              <td className="py-3 pl-4 pr-6 align-middle"><div className="flex items-center justify-center gap-2"><Button variant="outline" size="icon-sm" title={t('agentConfig.copyProfileCommand', '复制命令')} onClick={() => navigator.clipboard.writeText(command)}><Copy className="h-3.5 w-3.5" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="h-8 w-8 hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEdit(profile)}>{t('agentConfig.edit', '修改')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></td>
+              <td className="py-3 pl-4 pr-6 align-middle"><div className="flex items-center justify-center gap-2"><Button variant="outline" size="icon-sm" title={t('agentConfig.copyProfileCommand', '复制命令')} onClick={() => navigator.clipboard.writeText(command)}><Copy className="h-3.5 w-3.5" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={t('agentConfig.moreActions', '更多操作')} className="h-8 w-8 hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEdit(profile)}>{t('agentConfig.edit', '修改')}</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeletingProfile(profile)}><Trash2 className="mr-2 h-3.5 w-3.5" />{profile.kind === 'official' ? t('agentConfig.clearDefaultProfile', '清除接入配置') : t('agentConfig.deleteProfile', '删除配置')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></td>
             </tr>;
           })}
             </tbody>
           </table>
         </motion.div>
       )}
+      <AlertDialog open={!!deletingProfile} onOpenChange={(open) => { if (!open && !deleting) setDeletingProfile(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{deletingProfile?.kind === 'official' ? t('agentConfig.clearDefaultProfileTitle', '清除此接入配置？') : t('agentConfig.deleteProfileTitle', '删除此配置？')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingProfile?.kind === 'official' ? t('agentConfig.clearDefaultProfileHint', '清除默认配置的模型和接入信息，保留其他设置。') : t('agentConfig.deleteProfileHint', '删除此配置文件、模型目录和接入记录。')}
+              <span className="mt-2 block break-all font-mono text-xs">{deletingProfile?.path}</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel', '取消')}</AlertDialogCancel>
+            <AlertDialogAction disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(event) => { event.preventDefault(); void removeProfile(); }}>{t('common.delete', '删除')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -853,6 +887,7 @@ export function AgentConfigGateway({
         keyOptions={keyOptions}
         loading={keyOptionsLoading}
         existing={access}
+        editingProfile={editingSlug === undefined ? undefined : configuration?.profiles.find((profile) => profile.slug === editingSlug)}
         onDone={refresh}
       />
     </div>

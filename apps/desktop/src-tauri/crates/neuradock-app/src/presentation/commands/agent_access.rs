@@ -61,6 +61,10 @@ pub struct AgentAccessDto {
     pub label: String,
     #[serde(default)]
     pub account_label: Option<String>,
+    #[serde(default)]
+    pub provider_label: Option<String>,
+    #[serde(default)]
+    pub models: Vec<String>,
     pub model: Option<String>,
     pub upstream_kind: Option<String>,
     pub impersonate: Option<bool>,
@@ -379,6 +383,8 @@ mod tests {
             method: AccessMethodDto::Gateway,
             label: slug.unwrap_or("default").into(),
             account_label: None,
+            provider_label: None,
+            models: Vec::new(),
             model: None,
             upstream_kind: Some("openai_responses".into()),
             impersonate: Some(true),

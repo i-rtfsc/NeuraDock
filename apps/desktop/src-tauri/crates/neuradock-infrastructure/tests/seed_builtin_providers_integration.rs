@@ -16,6 +16,94 @@ use neuradock_infrastructure::persistence::repositories::{
 mod test_helpers;
 
 #[tokio::test]
+async fn seed_updates_relay_nodes_for_existing_installs_without_duplicates() {
+    let (pool, encryption) = test_helpers::setup_in_memory_db().await;
+    let pool = Arc::new(pool);
+    let accounts: Arc<dyn AccountRepository> =
+        Arc::new(SqliteAccountRepository::new(pool.clone(), encryption));
+    let providers: Arc<dyn ProviderRepository> =
+        Arc::new(SqliteProviderRepository::new(pool.clone()));
+    let nodes: Arc<dyn CustomProviderNodeRepository> =
+        Arc::new(SqliteCustomProviderNodeRepository::new(pool.clone()));
+    let models: Arc<dyn ProviderModelsRepository> =
+        Arc::new(SqliteProviderModelsRepository::new(pool.clone()));
+    let waf: Arc<dyn WafCookiesRepository> =
+        Arc::new(SqliteWafCookiesRepository::new(pool.clone()));
+    let any = ProviderId::from_string("anyrouter");
+    let agent = ProviderId::from_string("agentrouter");
+    for (provider, name, url) in [
+        (
+            any.clone(),
+            "Shanghai",
+            "https://a-ocnfniawgw.cn-shanghai.fcapp.run/",
+        ),
+        (
+            any.clone(),
+            "Retired rainapp",
+            "https://pmpjfbhq.cn-nb1.rainapp.top/",
+        ),
+        (any.clone(), "My custom relay", "https://custom.example"),
+        (
+            agent.clone(),
+            "Existing alternate",
+            "https://ps.air-outer.com/",
+        ),
+    ] {
+        nodes
+            .create(&CustomProviderNode::create(
+                provider,
+                name.into(),
+                url.into(),
+            ))
+            .await
+            .unwrap();
+    }
+    for _ in 0..2 {
+        seed_builtin_providers(
+            providers.clone(),
+            nodes.clone(),
+            accounts.clone(),
+            models.clone(),
+            waf.clone(),
+        )
+        .await
+        .unwrap();
+    }
+    let any_nodes = nodes.find_by_provider(&any).await.unwrap();
+    assert!(!any_nodes
+        .iter()
+        .any(|node| node.base_url().contains("rainapp")));
+    assert!(any_nodes
+        .iter()
+        .any(|node| node.base_url() == "https://custom.example"));
+    assert_eq!(
+        any_nodes
+            .iter()
+            .filter(|node| node.base_url().trim_end_matches('/')
+                == "https://a-ocnfniawgw.cn-shanghai.fcapp.run")
+            .count(),
+        1
+    );
+    let agent_nodes = nodes.find_by_provider(&agent).await.unwrap();
+    assert_eq!(
+        agent_nodes
+            .iter()
+            .filter(|node| node.base_url().trim_end_matches('/') == "https://ps.air-outer.com")
+            .count(),
+        1
+    );
+    assert_eq!(
+        providers
+            .find_by_id(&agent)
+            .await
+            .unwrap()
+            .unwrap()
+            .domain(),
+        "https://agentrouter.org"
+    );
+}
+
+#[tokio::test]
 async fn seed_builtin_providers_migrates_stale_provider_references() {
     let (pool, encryption) = test_helpers::setup_in_memory_db().await;
     let pool = Arc::new(pool);

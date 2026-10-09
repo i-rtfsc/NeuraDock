@@ -636,6 +636,36 @@ async configureCodexIsolated(tokenId: number, accountId: string, providerId: str
     else return { status: "error", error: __coerceCommandError(e) };
 }
 },
+/**
+ * Save a named Codex profile and its account association together.
+ */
+async configureCodexProfile(request: AgentConfigPreviewRequestDto) : Promise<Result<string, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("configure_codex_profile", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
+async configureClaudeProfile(request: AgentConfigPreviewRequestDto) : Promise<Result<string, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("configure_claude_profile", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
+/**
+ * Delete one profile's files and records, without clearing the other profiles.
+ */
+async deleteAgentProfile(client: GatewayClientDto, profile: string | null) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_agent_profile", { client, profile }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
 async clearCodexIsolated(slug: string) : Promise<Result<string, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("clear_codex_isolated", { slug }) };
@@ -744,6 +774,14 @@ async getCachedProviderModels(providerId: string) : Promise<Result<string[], Com
 async getAllIndependentKeys() : Promise<Result<IndependentKeyDto[], CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_all_independent_keys") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: __coerceCommandError(e) };
+}
+},
+async fetchIndependentKeyModels(keyId: number) : Promise<Result<string[], CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("fetch_independent_key_models", { keyId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: __coerceCommandError(e) };
@@ -1386,7 +1424,7 @@ export type AgentAccessDto = { agent: AgentIdDto; method: AccessMethodDto;
 /**
  * Human-readable key description (name, never the key material).
  */
-label: string; account_label?: string | null; model: string | null; upstream_kind: string | null; impersonate: boolean | null; 
+label: string; account_label?: string | null; provider_label?: string | null; models?: string[]; model: string | null; upstream_kind: string | null; impersonate: boolean | null;
 /**
  * Added after the first access-record format shipped. Old records remain
  * readable and simply require the user to select the key once more.
@@ -1405,14 +1443,14 @@ isolated_slug?: string | null }
 export type AgentAccessSourceDto = { type: "account_token"; account_id: string; provider_id: string; token_id: number; base_url: string | null } | { type: "independent_key"; key_id: number }
 export type AgentConfigPreviewDto = { files: AgentConfigPreviewFileDto[]; takeover_active: boolean; gateway_running: boolean }
 export type AgentConfigPreviewFileDto = { path: string; format: string; current_content: string; next_content: string }
-export type AgentConfigPreviewRequestDto = { client: GatewayClientDto; method: AccessMethodDto; source: GatewaySourceDto; model: string | null; context1m?: boolean; isolated?: boolean }
+export type AgentConfigPreviewRequestDto = { client: GatewayClientDto; method: AccessMethodDto; source: GatewaySourceDto; model: string | null; context1m?: boolean; isolated?: boolean; profileSlug?: string | null; models?: string[]; overwrite?: boolean }
 export type AgentConfigurationKindDto = "managed" | "manual" | "changed" | "missing" | "unconfigured"
 export type AgentConfigurationStateDto = { agent: GatewayClientDto; state: AgentConfigurationKindDto; endpoint: string | null; model: string | null; context1m: boolean; credential_present: boolean; config_paths: string[]; codex_configs: CodexConfigFileDto[]; profiles: AgentProfileDto[] }
 /**
  * Which agent a record applies to.
  */
 export type AgentIdDto = "codex" | "claude_code"
-export type AgentProfileDto = { kind: string; slug: string | null; path: string; exists: boolean; parse_ok: boolean; configured: boolean; endpoint: string | null; model: string | null; context1m: boolean; credential_present: boolean; managed: boolean; account_label: string | null; gateway_enabled: boolean; method: AccessMethodDto | null }
+export type AgentProfileDto = { kind: string; slug: string | null; path: string; exists: boolean; parse_ok: boolean; configured: boolean; endpoint: string | null; model: string | null; context1m: boolean; credential_present: boolean; managed: boolean; account_label: string | null; provider_label: string | null; models: string[]; gateway_enabled: boolean; method: AccessMethodDto | null }
 /**
  * DTO for AI Chat Service
  */
@@ -1571,7 +1609,7 @@ outcome: string;
  */
 error_code: string | null }
 export type ExportAccountsInput = { account_ids: string[]; include_credentials: boolean }
-export type GatewayBindingConfigDto = { upstreamKind: UpstreamKindDto; model: string | null; context1m?: boolean; impersonate: boolean | null; isolated?: boolean }
+export type GatewayBindingConfigDto = { upstreamKind: UpstreamKindDto; model: string | null; context1m?: boolean; impersonate: boolean | null; isolated?: boolean; profileSlug?: string | null; models?: string[]; overwrite?: boolean }
 export type GatewayBindingDto = { client: GatewayClientDto; profile: string; 
 /**
  * Human-readable description of the bound key (name, never the key).

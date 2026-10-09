@@ -1,6 +1,7 @@
 mod global_config;
 mod helpers;
 mod isolated_config;
+mod model_catalog;
 mod temp_commands;
 
 use anyhow::Result;
@@ -10,8 +11,89 @@ use neuradock_domain::token::ApiToken;
 pub struct CodexConfigService;
 
 impl CodexConfigService {
+    pub fn validate_profile_slug(slug: &str) -> Result<()> {
+        anyhow::ensure!(
+            !slug.is_empty() && slug != "default" && slug.len() <= 120
+                && slug.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+                && slug.chars().next().is_some_and(|c| c.is_ascii_alphanumeric()),
+            "Profile names must start with a letter or number and contain only letters, numbers, '-', '_' or '.'"
+        );
+        Ok(())
+    }
+
+    pub fn validate_profile_models(models: &[String], default_model: &str) -> Result<Vec<String>> {
+        model_catalog::validate_models(models, default_model)
+    }
+
+    pub fn validate_model(model: &str) -> Result<()> {
+        helpers::validate_codex_model(model)
+    }
+
+    pub fn profile_models(slug: &str) -> Result<Vec<String>> {
+        let dir = helpers::get_codex_dir()?;
+        let path = isolated_config::isolated_config_path_for(slug)?;
+        let content = std::fs::read_to_string(&path)
+            .or_else(|_| std::fs::read_to_string(dir.join(format!("{slug}.config.toml"))))
+            .unwrap_or_default();
+        let configured_path = content
+            .parse::<toml_edit::DocumentMut>()
+            .ok()
+            .and_then(|doc| doc.get("model_catalog_json")?.as_str().map(str::to_string))
+            .map(|path| {
+                if let Some(relative) = path.strip_prefix("~/") {
+                    dirs::home_dir().unwrap_or_default().join(relative)
+                } else {
+                    std::path::PathBuf::from(path)
+                }
+            });
+        Ok(model_catalog::catalog_model_names(
+            &configured_path.unwrap_or(isolated_config::model_catalog_path(slug)?),
+        ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn configure_named_profile(
+        &self,
+        slug: &str,
+        display: &str,
+        api_key: &str,
+        base_url: &str,
+        model: &str,
+        models: &[String],
+        snapshot_direct: bool,
+    ) -> Result<String> {
+        Self::validate_profile_slug(slug)?;
+        isolated_config::configure_named_profile(
+            slug,
+            display,
+            api_key,
+            base_url,
+            model,
+            models,
+            snapshot_direct,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn preview_named_profile(
+        &self,
+        slug: &str,
+        display: &str,
+        api_key: &str,
+        base_url: &str,
+        model: &str,
+        models: &[String],
+    ) -> Result<Vec<(std::path::PathBuf, &'static str, String, String)>> {
+        Self::validate_profile_slug(slug)?;
+        isolated_config::preview_named_profile(slug, display, api_key, base_url, model, models)
+    }
+
     pub fn new() -> Self {
         Self
+    }
+
+    pub fn discard_named_gateway_snapshot(&self, slug: &str) -> Result<()> {
+        isolated_config::discard_named_gateway_snapshot(slug)
     }
 
     /// Configure Codex globally by writing to ~/.codex/config.toml and ~/.codex/auth.json

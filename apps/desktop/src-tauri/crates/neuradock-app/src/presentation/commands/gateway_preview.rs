@@ -1,7 +1,10 @@
 use super::gateway::AgentConfigPreviewFileDto;
 use super::gateway::GatewayClientDto;
 use super::gateway::RawPreviewFile;
-use super::gateway_fingerprint::{claude_fingerprint, codex_fingerprint, AgentConfigFingerprint};
+use super::gateway_fingerprint::{
+    attach_catalog_fingerprint, catalog_path, claude_fingerprint, codex_fingerprint,
+    AgentConfigFingerprint,
+};
 use super::gateway_redaction::redact_content;
 use crate::presentation::error::CommandError;
 
@@ -21,10 +24,22 @@ pub(super) fn fingerprint_from_preview(
                 .iter()
                 .find(|(_, format, _, _)| *format == "toml")
                 .ok_or_else(|| CommandError::infrastructure("Codex config preview is missing"))?;
-            let auth = files.iter().find(|(_, format, _, _)| *format == "json");
+            let auth = files.iter().find(|(path, format, _, _)| {
+                *format == "json" && path.file_name().is_some_and(|name| name == "auth.json")
+            });
             let auth_content = auth.map(|file| file.3.as_str()).unwrap_or("");
             let paths = files.iter().map(|file| file.0.clone()).collect();
-            codex_fingerprint(&config.3, auth_content, paths).map_err(CommandError::from)
+            let mut fingerprint =
+                codex_fingerprint(&config.3, auth_content, paths).map_err(CommandError::from)?;
+            if let Some(path) = catalog_path(&config.3) {
+                let rendered = files
+                    .iter()
+                    .find(|file| file.0 == path)
+                    .map(|file| file.3.clone())
+                    .or_else(|| std::fs::read_to_string(&path).ok());
+                attach_catalog_fingerprint(&mut fingerprint, path, rendered.as_deref());
+            }
+            Ok(fingerprint)
         }
     }
 }

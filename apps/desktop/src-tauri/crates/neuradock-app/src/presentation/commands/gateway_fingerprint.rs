@@ -1,4 +1,5 @@
 use super::gateway_helpers::{canonical_url, display_endpoint, model_without_context_marker};
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -97,6 +98,8 @@ pub(super) fn codex_fingerprint(
         "model_provider",
         "preferred_auth_method",
         "model_context_window",
+        "model_catalog_json",
+        "model_reasoning_effort",
     ] {
         if let Some(item) = doc.get(key) {
             if let Some(v) = item.as_str() {
@@ -161,4 +164,87 @@ pub(super) fn codex_fingerprint(
         || out.model.is_some()
         || out.managed_values.contains_key("config.model_provider");
     Ok(out)
+}
+
+pub(super) fn catalog_path(config: &str) -> Option<PathBuf> {
+    let doc = config.parse::<toml_edit::DocumentMut>().ok()?;
+    let raw = doc.get("model_catalog_json")?.as_str()?;
+    Some(if let Some(relative) = raw.strip_prefix("~/") {
+        dirs::home_dir()?.join(relative)
+    } else {
+        PathBuf::from(raw)
+    })
+}
+
+pub(super) fn attach_catalog_fingerprint(
+    fingerprint: &mut AgentConfigFingerprint,
+    path: PathBuf,
+    content: Option<&str>,
+) {
+    if !fingerprint.paths.contains(&path) {
+        fingerprint.paths.push(path);
+    }
+    let catalog = content.and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok());
+    let valid = catalog
+        .as_ref()
+        .and_then(|catalog| catalog.get("models"))
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|models| {
+            !models.is_empty()
+                && models.iter().all(|model| {
+                    model
+                        .get("slug")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some()
+                })
+                && fingerprint.model.as_ref().is_none_or(|default| {
+                    models
+                        .iter()
+                        .any(|model| model["slug"].as_str() == Some(default))
+                })
+        });
+    if !valid {
+        fingerprint.parse_ok = false;
+        fingerprint
+            .managed_values
+            .insert("catalog.status".into(), "missing_or_invalid".into());
+    } else if let Some(catalog) = catalog {
+        let normalized = serde_json::to_string(&catalog).unwrap_or_default();
+        fingerprint.managed_values.insert(
+            "catalog.sha256".into(),
+            format!("{:x}", Sha256::digest(normalized.as_bytes())),
+        );
+    }
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+
+    #[test]
+    fn model_catalog_fingerprint_tracks_metadata_and_missing_files() {
+        let mut valid = AgentConfigFingerprint {
+            parse_ok: true,
+            model: Some("model-a".into()),
+            ..Default::default()
+        };
+        attach_catalog_fingerprint(
+            &mut valid,
+            "models.json".into(),
+            Some(r#"{"models":[{"slug":"model-a"}]}"#),
+        );
+        let mut changed = valid.clone();
+        attach_catalog_fingerprint(
+            &mut changed,
+            "models.json".into(),
+            Some(r#"{"models":[{"slug":"model-a","context_window":1000}]}"#),
+        );
+        assert_ne!(valid.managed_values, changed.managed_values);
+        let mut missing = AgentConfigFingerprint {
+            parse_ok: true,
+            ..Default::default()
+        };
+        attach_catalog_fingerprint(&mut missing, "models.json".into(), None);
+        assert!(!missing.parse_ok);
+    }
 }

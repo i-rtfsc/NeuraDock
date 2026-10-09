@@ -55,7 +55,7 @@ export function TokenAgentAccessDialog({ open, onOpenChange, token, account, age
     queryKey: ['agent-access'],
     queryFn: () => invoke<AgentAccess[]>('get_agent_access'),
   });
-  const existing = accessList?.find((a) => a.agent === agentId);
+  const existing = accessList?.find((a) => a.agent === agentId && a.source?.type === 'account_token' && a.source.account_id === account.id && a.source.token_id === token.id);
 
   return (
     <AgentAccessDrawer
@@ -68,6 +68,7 @@ export function TokenAgentAccessDialog({ open, onOpenChange, token, account, age
       onDone={() => {
         queryClient.invalidateQueries({ queryKey: ['agent-access'] });
         queryClient.invalidateQueries({ queryKey: ['gateway-status'] });
+        queryClient.invalidateQueries({ queryKey: ['agent-configuration-states'] });
       }}
     />
   );
