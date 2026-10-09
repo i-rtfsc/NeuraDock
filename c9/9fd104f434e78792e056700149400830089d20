@@ -1,0 +1,176 @@
+apps/desktop/src/i18n/locales/en-US.json
+  h_8b376749578497 97-113
+  s_c76c55f01e8f89::t_8f0418d4352f72 114-121
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/temp_commands.rs
+  s_c76c55f01e8f89::t_9f142ef5dae6d7 59-60
+  h_8b376749578497 58,70
+apps/desktop/src/lib/agentModels.ts
+  h_8b376749578497 1-10
+  s_c76c55f01e8f89::t_b27b0423c0508f 11-16
+apps/desktop/src/lib/agentModels.test.ts
+  h_8b376749578497 1-2
+  s_c76c55f01e8f89::t_d2f3da10f6d2df 3-13
+docs/configuration.md
+  h_8b376749578497 110,120-133
+  s_c76c55f01e8f89::t_725d570c35ae6c 134-137
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/model_catalog.rs
+  h_8b376749578497 5-15,35-38
+  s_c76c55f01e8f89::t_9f481ad89593ab 1-4,16-34,39-134
+apps/desktop/src/lib/codexProfiles.ts
+  s_c76c55f01e8f89::t_2c9d4601cf1664 16-19
+  h_8b376749578497 1-15
+docs/en/development.md
+  h_8b376749578497 67,163-164
+  s_c76c55f01e8f89::t_3aaf0726987921 166
+apps/desktop/src-tauri/Cargo.toml
+  h_8b376749578497 29,126
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/profile_deletion.rs
+  h_8b376749578497 23-26,33-46,60-64,88-98,108-117
+  s_c76c55f01e8f89::t_65730c4c681d18 1-22,27-32,47-59,65-87,99-107,118-122
+docs/zh/development.md
+  h_8b376749578497 87-88,183,189,191,215,230,237-238
+  s_c76c55f01e8f89::t_3aaf0726987921 68-69
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_persistence.rs
+  h_8b376749578497 31
+  s_c76c55f01e8f89::t_76059480ec98c4 32-34
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/isolated_config.rs
+  s_c76c55f01e8f89::t_3255df17206f4d 6,8,28-31,50-56,69-83,133-135,344,603-608
+  h_8b376749578497 21-27,32-49,57-68,84-132,249-254,293-303,322-324,580,585,609-663
+README.md
+  h_8b376749578497 17
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/ipc.rs
+  h_8b376749578497 97
+  s_c76c55f01e8f89::t_63908317fa0080 81-83
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_preview.rs
+  s_c76c55f01e8f89::t_fe4c7958bde069 29
+  h_8b376749578497 4-7,27-28,32-42
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/claude_config_service/global_config.rs
+  h_8b376749578497 158
+apps/desktop/src-tauri/config/providers/builtin_providers.json
+  s_c76c55f01e8f89::t_3aaf0726987921 12,29
+  h_8b376749578497 27-28
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/independent_key/mod.rs
+  s_c76c55f01e8f89::t_76b4af64b57446 4-5
+apps/desktop/src/components/token/TokenAgentAccessDialog.tsx
+  h_8b376749578497 58,71
+apps/desktop/src-tauri/tauri.conf.json
+  h_8b376749578497 4
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/agent_access.rs
+  s_c76c55f01e8f89::t_b6c75215b258ca 65-67,386-387
+  h_8b376749578497 64
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_fingerprint.rs
+  h_8b376749578497 2,168-172,176-177,188-210,223-243
+  s_c76c55f01e8f89::t_e65a72acd3f4b3 101-102,173-175,178-187,211-222,244-250
+docs/en/configuration.md
+  s_c76c55f01e8f89::t_65f0d9771ad93f 110,124-127
+  h_8b376749578497 120-123,128-137
+apps/desktop/src-tauri/Cargo.lock
+  h_8b376749578497 3440,3456
+  s_c76c55f01e8f89::t_3aaf0726987921 3342,3391
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/assets/deepseek-models.json
+  h_8b376749578497 1-12,51-54,58-66,73-78
+  s_c76c55f01e8f89::t_0f24b5a78ee405 13-50,55-57,67-72,79-138
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_lifecycle.rs
+  s_c76c55f01e8f89::t_e5ce35d409ac3a 35-37
+  h_8b376749578497 24-34
+apps/desktop/src/lib/tauri.ts
+  h_8b376749578497 639-643,650-660,1427,1446,1612
+  s_c76c55f01e8f89::t_2247713ceca363 644-649,661-668,782-789,1453
+apps/desktop/src/components/agent/AgentAccessDrawer.test.tsx
+  h_8b376749578497 1-7,26-65,71-78,84-91,115-122
+  s_c76c55f01e8f89::t_2e4e3b222b7170 8-25,66-70,79-83,92-114,123
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/helpers.rs
+  h_8b376749578497 21-30,65,181
+  s_c76c55f01e8f89::t_827a8a4c54c459 31-37,83-88,114-116,137
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/global_config.rs
+  s_c76c55f01e8f89::t_13e351376260cc 87,199
+  h_8b376749578497 188-190
+apps/desktop/src-tauri/crates/neuradock-infrastructure/src/bootstrap/builtin_providers.rs
+  s_c76c55f01e8f89::t_4fefa211da1faf 292-297
+  h_8b376749578497 27,283-291,301,351,354
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway_profiles.rs
+  h_8b376749578497 159
+  s_c76c55f01e8f89::t_50560120de32dc 156-157,160-165,193-194
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/codex_config_service/mod.rs
+  h_8b376749578497 4,14-19,30-69,80-85,95-98
+  s_c76c55f01e8f89::t_ded5603c1a1ea2 20-29,70-79,86-90
+.github/workflows/release.yml
+  s_c76c55f01e8f89::t_3aaf0726987921 10
+  h_8b376749578497 12
+apps/desktop/src/components/agent/AgentAccessDrawer.tsx
+  s_c76c55f01e8f89::t_eba0657e603dc8 278-283,428-436,467-469,825-826
+  h_8b376749578497 2,36,48-49,106-108,118,181,186,197-200,210-216,250,266-267,303,350-357,360-372,379-392,400,409,412,415-421,424,427,437-447,465,473,494-495,503,509,525-526,535-536,544,554,567,570-572,575-580,582,588-589,595,613-618,622,801,807,832-840,857-900,909,979,1018,1026,1068,1071,1415
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands.rs
+  s_c76c55f01e8f89::t_0c9155abaa7d4a 25
+apps/desktop/src-tauri/crates/neuradock-app/src/application/services/token/claude_config_service/helpers.rs
+  s_c76c55f01e8f89::t_699f8ef3d06afa 25-31,35-39
+  h_8b376749578497 32-34,84-93,95-100
+README_EN.md
+  h_8b376749578497 17
+package.json
+  h_8b376749578497 3
+apps/desktop/src/components/agent/AgentConfigGateway.tsx
+  s_c76c55f01e8f89::t_5beda6b9f404dc 13,73-74,144-145,718-724,749,765-766,781-790
+  h_8b376749578497 22,699,713-717,771,774,791-795,890
+apps/desktop/src/components/agent/AgentProfilesSection.test.tsx
+  h_8b376749578497 7-9,14-17
+  s_c76c55f01e8f89::t_f595c1226c4a67 1-6,10-13,18-30
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/independent_key/models.rs
+  s_c76c55f01e8f89::t_261afefc6fa35d 37-38,52-54
+  h_8b376749578497 1-36,39-51,55-72
+apps/desktop/src-tauri/crates/neuradock-app/src/presentation/commands/gateway.rs
+  s_e9dd769d815b63::t_709d05445eb08f 2205
+  h_8b376749578497 521-522,547-556,589-597,716-723,731-733,752-754,771-780,1433-1441,1463-1473,2008,2115-2118
+  s_e9dd769d815b63::t_c8b7672e8fb91e 2011
+  s_e9dd769d815b63::t_7030eee9f6b494 2113-2114
+  s_c76c55f01e8f89::t_85d8f0292beb9a 5-8,200-205,260-261,291-296,341-349,540-541,557-588,598-715,724-730,734-751,755-770,781-837,873,883-892,917-927,966-1021,1224-1229,1297-1320,1375-1392,1394-1413,1417-1432,1442-1462,1474-1483,1695-1712,1714,1725-1732,1742-1751,1758-1765,1809,1893-1982,1984-1985,1989,2000-2004,2006-2007,2110-2111,2202-2203,2209-2210,2263-2264
+  s_e9dd769d815b63::t_82408de7bd74be 1784-1785
+  s_e9dd769d815b63::t_1e318c188b26f3 2112
+  s_e9dd769d815b63::t_736418c0988660 1988,2009-2010
+  s_e9dd769d815b63::t_b862940431bf62 1786-1788
+  s_c76c55f01e8f89::t_27ca8cc61ee9ba 1808
+  s_c76c55f01e8f89::t_11e7fadd658821 1983
+  s_c76c55f01e8f89::t_eedf0143182887 2005
+  s_c76c55f01e8f89::t_1d74d4bd6d7cdf 2265-2267
+  s_c76c55f01e8f89::t_f9100740a05828 1789-1792,1986-1987,2204,2206-2208,2268-2271
+apps/desktop/package.json
+  h_8b376749578497 3
+apps/desktop/src-tauri/crates/neuradock-infrastructure/tests/seed_builtin_providers_integration.rs
+  s_c76c55f01e8f89::t_060d875175e9ce 25-42,54-63,73-92
+  h_8b376749578497 18-24,43-53,64-72,93-105
+apps/desktop/src/i18n/locales/zh-CN.json
+  h_8b376749578497 103-121
+  s_c76c55f01e8f89::t_12fa238851b93c 97-102
+apps/desktop/src/lib/codexProfiles.test.ts
+  h_8b376749578497 1-3
+  s_c76c55f01e8f89::t_33abd14d373f64 4-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c99fd104f434e78792e056700149400830089d20",
+  "prompts": {},
+  "humans": {
+    "h_8b376749578497": {
+      "author": "Solo <anqi.huang@outlook.com>"
+    }
+  },
+  "sessions": {
+    "s_c76c55f01e8f89": {
+      "agent_id": {
+        "tool": "copilot",
+        "id": "01a11e57-7e7c-7a22-87ed-56b88c8a46bb",
+        "model": "auto"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    },
+    "s_e9dd769d815b63": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03183-9fdd-7f72-b2c6-acb6e5382f11",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Solo <anqi.huang@outlook.com>"
+    }
+  }
+}
